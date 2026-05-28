@@ -36,8 +36,7 @@ function AuthProvider({ children }) {
       setRole('unregistered');
       setLoading(false);
     } catch {
-      // Tables may not exist yet (fresh project) — fall back to advisor for dev
-      setRole('advisor');
+      setRole('unregistered');
       setLoading(false);
     }
   }
