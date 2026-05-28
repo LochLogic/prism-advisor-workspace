@@ -83,7 +83,8 @@ end $$;
 -- ────────────────────────────────────────────────────────────────────
 -- 3. Resolved view — mirrors the JS phasesData shape
 -- ────────────────────────────────────────────────────────────────────
-create or replace view phase_library_resolved as
+drop view if exists phase_library_resolved;
+create view phase_library_resolved as
 select
   pl.id,
   pl.num,
