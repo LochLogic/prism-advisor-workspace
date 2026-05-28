@@ -28,10 +28,26 @@ function ProfileProvider({ children }) {
     try { return JSON.parse(localStorage.getItem('px_profile')) || defaultProfile; }
     catch { return defaultProfile; }
   });
+  const { activeClientId } = useView();
+  const dbSaveTimer = React.useRef(null);
 
+  // Load from DB when the active client changes to a real UUID
+  useEffect(() => {
+    if (!window.db?.isUUID(activeClientId)) return;
+    window.db.getProfile(activeClientId).then(data => {
+      if (data) setProfile(data);
+    });
+  }, [activeClientId]);
+
+  // Persist to localStorage; debounce-sync to DB for real clients
   useEffect(() => {
     try { localStorage.setItem('px_profile', JSON.stringify(profile)); } catch {}
-  }, [profile]);
+    if (!window.db?.isUUID(activeClientId)) return;
+    clearTimeout(dbSaveTimer.current);
+    dbSaveTimer.current = setTimeout(() => {
+      window.db.saveProfile(activeClientId, profile);
+    }, 1500);
+  }, [profile, activeClientId]);
 
   const update = useCallback((path, value) => {
     setProfile(prev => {
@@ -83,12 +99,14 @@ const useProfile = () => useContext(ProfileContext);
 const TaskContext = createContext(null);
 
 function TaskProvider({ children }) {
-  const [taskStates, setTaskStates] = useState(() => {
+  const { activeClientId } = useView();
+  const { role, authUser } = (window.useAuth?.() || {});
+
+  const seedTasks = () => {
     try {
       const saved = JSON.parse(localStorage.getItem('px_tasks'));
       if (saved) return saved;
     } catch {}
-    // Pre-populate: phases 0-3 done, phase 4 partial, 5-6 untouched
     const seed = {};
     phasesData.forEach((p, i) => {
       seed[p.id] = {};
@@ -98,7 +116,9 @@ function TaskProvider({ children }) {
       });
     });
     return seed;
-  });
+  };
+
+  const [taskStates, setTaskStates] = useState(seedTasks);
   const [openPhases, setOpenPhases] = useState(() => {
     try { return JSON.parse(localStorage.getItem('px_open')) || { 4: true }; }
     catch { return { 4: true }; }
@@ -112,16 +132,37 @@ function TaskProvider({ children }) {
   useEffect(() => { try { localStorage.setItem('px_open', JSON.stringify(openPhases)); } catch {} }, [openPhases]);
   useEffect(() => { try { localStorage.setItem('px_flagged', JSON.stringify(flaggedQs)); } catch {} }, [flaggedQs]);
 
-  const toggleTask = (phaseId, taskId) => setTaskStates(prev => {
-    const cur = prev[phaseId] || {};
-    return { ...prev, [phaseId]: { ...cur, [taskId]: !cur[taskId] } };
-  });
+  // Load real task states from DB when client changes
+  useEffect(() => {
+    if (!window.db?.isUUID(activeClientId)) return;
+    window.db.getTaskStates(activeClientId).then(dbStates => {
+      if (dbStates && Object.keys(dbStates).length > 0) {
+        setTaskStates(dbStates);
+      }
+    });
+  }, [activeClientId]);
+
+  const toggleTask = (phaseId, taskId) => {
+    let nextDone;
+    setTaskStates(prev => {
+      const cur = prev[phaseId] || {};
+      nextDone = !cur[taskId];
+      return { ...prev, [phaseId]: { ...cur, [taskId]: nextDone } };
+    });
+    if (window.db?.isUUID(activeClientId)) {
+      window.db.upsertTask(activeClientId, phaseId, taskId, !((taskStates[phaseId] || {})[taskId]));
+    }
+  };
   const togglePhase = (phaseId) => setOpenPhases(prev => ({ ...prev, [phaseId]: !prev[phaseId] }));
 
-  const flagForAdvisor = (phaseId, taskId) => setFlaggedQs(prev => {
+  const flagForAdvisor = (phaseId, taskId) => {
     const k = `${phaseId}:${taskId}`;
-    return { ...prev, [k]: !prev[k] };
-  });
+    const next = !flaggedQs[k];
+    setFlaggedQs(prev => ({ ...prev, [k]: next }));
+    if (window.db?.isUUID(activeClientId) && window.db?.isUUID(authUser?.advisor_id)) {
+      window.db.flagQuestion(activeClientId, authUser.advisor_id, phaseId, taskId, next);
+    }
+  };
   const isFlagged = (phaseId, taskId) => !!flaggedQs[`${phaseId}:${taskId}`];
 
   const completedByPhase = useMemo(() => {

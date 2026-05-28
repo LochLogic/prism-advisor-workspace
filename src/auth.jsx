@@ -18,7 +18,7 @@ function AuthProvider({ children }) {
     try {
       const { data: adv } = await window.__sb
         .from('advisors')
-        .select('id, name, full_name, firm_id, email')
+        .select('id, full_name, firm_id, email, role')
         .eq('auth_user_id', sess.user.id)
         .maybeSingle();
 
@@ -26,7 +26,7 @@ function AuthProvider({ children }) {
 
       const { data: cli } = await window.__sb
         .from('clients')
-        .select('id, name, advisor_id')
+        .select('id, household_name, short_name, advisor_id, current_phase')
         .eq('auth_user_id', sess.user.id)
         .maybeSingle();
 
