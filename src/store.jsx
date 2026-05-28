@@ -315,13 +315,7 @@ function NotificationProvider({ children }) {
 
     setRealtimeStatus('connecting');
 
-    // Category → icon map (mirrors db.jsx ALERT_ICON)
-    const ALERT_ICON = {
-      cash_drag: 'Dollar', roth_window: 'Calendar', tlh: 'TrendDown',
-      drift: 'AlertCircle', schedule_call: 'Phone', fx_exposure: 'Building',
-    };
-
-    const channel = window.__sb
+      const channel = window.__sb
       .channel(`advisor-rt:${authUser.id}`)
       .on('postgres_changes', {
         event: 'INSERT', schema: 'public', table: 'alerts',
@@ -445,13 +439,6 @@ function _openPrint(title, bodyHtml) {
   setTimeout(() => win.print(), 450);
 }
 
-function _fmtShort(n) {
-  if (!n || !isFinite(n)) return '—';
-  if (Math.abs(n) >= 1e6) return '$' + (n / 1e6).toFixed(2) + 'M';
-  if (Math.abs(n) >= 1e3) return '$' + (n / 1e3).toFixed(0) + 'k';
-  return '$' + Math.round(n).toLocaleString();
-}
-
 // Client overview report — called from ClientPreviewModal "Print report" button
 function printClientReport(client, phase, meetings) {
   const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
@@ -476,9 +463,9 @@ function printClientReport(client, phase, meetings) {
       <div style="font-size:10px;color:#8da3b6;text-align:right">Prism Advisor Workspace<br/>Confidential</div>
     </div>
     <div class="grid">
-      <div class="stat"><div class="stat-lbl">AUM</div><div class="stat-val">${_fmtShort(client.aum)}</div></div>
+      <div class="stat"><div class="stat-lbl">AUM</div><div class="stat-val">${fmt$(client.aum, { short: true })}</div></div>
       <div class="stat"><div class="stat-lbl">Current Horizon</div><div class="stat-val" style="font-size:13px;margin-top:6px">Phase ${escapeHtml(phase.num)} &middot; ${escapeHtml(phase.title)}</div></div>
-      <div class="stat"><div class="stat-lbl">Uninvested cash</div><div class="stat-val" style="color:${client.uninvestedCash > 80000 ? '#8c3d3d' : 'inherit'}">${_fmtShort(client.uninvestedCash)}</div></div>
+      <div class="stat"><div class="stat-lbl">Uninvested cash</div><div class="stat-val" style="color:${client.uninvestedCash > 80000 ? '#8c3d3d' : 'inherit'}">${fmt$(client.uninvestedCash, { short: true })}</div></div>
     </div>
     ${meetingsHtml}
     ${notesHtml}
