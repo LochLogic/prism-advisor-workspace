@@ -32,7 +32,7 @@ const AccountChip = ({ view, activeClient }) => {
     return () => window.removeEventListener('click', close);
   }, [open]);
 
-  const displayName     = view === 'client' ? (activeClient?.shortName || 'Client') : (authUser?.name || advisor.name);
+  const displayName     = view === 'client' ? (activeClient?.shortName || 'Client') : (authUser?.full_name || advisor.name);
   const displayFirm     = view === 'client' ? 'Client view' : advisor.firm;
   const displayInitials = view === 'client' ? (activeClient?.initials || 'C') : advisor.initials;
 
@@ -75,7 +75,7 @@ const AccountChip = ({ view, activeClient }) => {
               borderBottom: '1px solid var(--border)', lineHeight: 1.45,
             }}>
               <div style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 1 }}>
-                {authUser.full_name || authUser.name || '—'}
+                {authUser.full_name || '—'}
               </div>
               <div style={{ fontSize: 11 }}>{authUser.email || ''}</div>
             </div>

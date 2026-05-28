@@ -75,9 +75,9 @@ const RosterRow = ({ client, onOpen }) => {
 };
 
 /* ─── Alert card ─────────────────────────────────────────────────── */
-const AlertCard = ({ alert, onSnooze }) => {
+const AlertCard = ({ alert, onSnooze, clients }) => {
   const { setView, setActiveClientId, showToast } = useView();
-  const client = clientsData.find(c => c.id === alert.clientId);
+  const client = clients.find(c => c.id === alert.clientId);
   const I = Icons[alert.icon] || Icons.Bell;
 
   const handleCta = () => {
@@ -123,9 +123,9 @@ const AlertCard = ({ alert, onSnooze }) => {
 };
 
 /* ─── Flagged Question card ──────────────────────────────────────── */
-const FlaggedQuestion = ({ q, onDismiss }) => {
+const FlaggedQuestion = ({ q, onDismiss, clients }) => {
   const { showToast } = useView();
-  const client = clientsData.find(c => c.id === q.clientId);
+  const client = clients.find(c => c.id === q.clientId);
   return (
     <div className="px-question">
       <div className="px-question-head">
@@ -152,12 +152,12 @@ const FlaggedQuestion = ({ q, onDismiss }) => {
 };
 
 /* ─── Roster section ─────────────────────────────────────────────── */
-const RosterTable = ({ onOpenClient }) => {
+const RosterTable = ({ onOpenClient, clients }) => {
   const [q, setQ] = useStateAdv('');
   const [sort, setSort] = useStateAdv('aum');
   const filtered = useMemoAdv(() => {
     const term = q.toLowerCase().trim();
-    let list = clientsData;
+    let list = clients;
     if (term) list = list.filter(c => c.name.toLowerCase().includes(term) || c.tag.toLowerCase().includes(term));
     if (sort === 'aum') list = [...list].sort((a, b) => b.aum - a.aum);
     if (sort === 'phase') list = [...list].sort((a, b) => b.phase - a.phase);
@@ -256,14 +256,47 @@ const ClientPreviewModal = ({ client, onClose }) => {
 
 /* ─── Main Advisor Dashboard ─────────────────────────────────────── */
 const AdvisorDashboard = () => {
+  const { authUser } = useAuth();
   const [previewClient, setPreviewClient] = useStateAdv(null);
   const [snoozed, setSnoozed] = useStateAdv(new Set());
   const [dismissedQs, setDismissedQs] = useStateAdv(new Set());
 
-  const snooze = (id) => setSnoozed(prev => new Set([...prev, id]));
-  const dismissQ = (id) => setDismissedQs(prev => new Set([...prev, id]));
-  const visibleAlerts = useMemoAdv(() => alertsData.filter(a => !snoozed.has(a.id)), [snoozed]);
-  const visibleQs = useMemoAdv(() => questionsData.filter(q => !dismissedQs.has(q.id)), [dismissedQs]);
+  // Real data (null = not yet loaded / no auth)
+  const [dbClients,   setDbClients]   = useStateAdv(null);
+  const [dbAlerts,    setDbAlerts]    = useStateAdv(null);
+  const [dbQuestions, setDbQuestions] = useStateAdv(null);
+
+  // Fetch from Supabase whenever the advisor auth record is available
+  React.useEffect(() => {
+    if (!authUser?.id || !window.db) return;
+    const id = authUser.id;
+    window.db.getClients(id).then(rows => {
+      if (rows?.length) setDbClients(rows.map(window.db.mapClient));
+    });
+    window.db.getAlerts(id).then(rows => {
+      if (rows?.length) setDbAlerts(rows.map(window.db.mapAlert));
+    });
+    window.db.getFlaggedQuestions(id).then(rows => {
+      if (rows?.length) setDbQuestions(rows.map(window.db.mapFlaggedQuestion));
+    });
+  }, [authUser?.id]);
+
+  // Fall back to mock data until real data loads
+  const activeClients   = dbClients   || clientsData;
+  const activeAlerts    = dbAlerts    || alertsData;
+  const activeQuestions = dbQuestions || questionsData;
+
+  const snooze = (id) => {
+    setSnoozed(prev => new Set([...prev, id]));
+    window.db?.snoozeAlert(id);
+  };
+  const dismissQ = (id) => {
+    setDismissedQs(prev => new Set([...prev, id]));
+    window.db?.resolveQuestion(id);
+  };
+
+  const visibleAlerts = useMemoAdv(() => activeAlerts.filter(a => !snoozed.has(a.id)), [activeAlerts, snoozed]);
+  const visibleQs = useMemoAdv(() => activeQuestions.filter(q => !dismissedQs.has(q.id)), [activeQuestions, dismissedQs]);
 
   const greetDate = (() => {
     const d = new Date();
@@ -272,14 +305,15 @@ const AdvisorDashboard = () => {
     return `${day} · ${mon} ${d.getDate()}`;
   })();
   const greetTime = (() => { const h = new Date().getHours(); return h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening'; })();
+  const greetName = authUser?.full_name?.split(' ')[0] || advisor.name;
 
   const kpis = useMemoAdv(() => {
-    const totalAUM = clientsData.reduce((a, c) => a + c.aum, 0);
-    const totalCashDrag = clientsData.reduce((a, c) => a + c.uninvestedCash, 0);
-    const activeCount = clientsData.length;
-    const inLateHorizon = clientsData.filter(c => c.phase >= 5).length;
+    const totalAUM = activeClients.reduce((a, c) => a + c.aum, 0);
+    const totalCashDrag = activeClients.reduce((a, c) => a + c.uninvestedCash, 0);
+    const activeCount = activeClients.length;
+    const inLateHorizon = activeClients.filter(c => c.phase >= 5).length;
     return { totalAUM, totalCashDrag, activeCount, inLateHorizon };
-  }, []);
+  }, [activeClients]);
 
   return (
     <div className="px-adv">
@@ -291,9 +325,9 @@ const AdvisorDashboard = () => {
           <div className="px-eyebrow px-greet-eyebrow">
             <span>{greetDate}</span>
           </div>
-          <h1>Good {greetTime}, <em>Madeline</em>.</h1>
+          <h1>Good {greetTime}, <em>{greetName}</em>.</h1>
           <p className="px-greet-sub">
-            {visibleAlerts.filter(a => a.priority === 'high').length} action items this {greetTime} and {visibleQs.length} client questions awaiting reply. The Patel Trust distribution has settled and is sitting in cash — that's the first call.
+            {visibleAlerts.filter(a => a.priority === 'high').length} action items this {greetTime} and {visibleQs.length} client questions awaiting reply.
           </p>
         </div>
 
@@ -314,7 +348,7 @@ const AdvisorDashboard = () => {
         </div>
 
         {/* Roster */}
-        <RosterTable onOpenClient={setPreviewClient} />
+        <RosterTable onOpenClient={setPreviewClient} clients={activeClients} />
 
         {/* Footer note */}
         <div style={{ marginTop: 28, padding: 14, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12, color: 'var(--ink-mute)', display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -331,7 +365,7 @@ const AdvisorDashboard = () => {
             <h3><Icons.Bell size={13} style={{ verticalAlign: 'middle', marginRight: 4, color: 'var(--gold)' }} /> Alerts & nudges</h3>
             <span className="px-side-count">{visibleAlerts.length} open</span>
           </div>
-          {visibleAlerts.map(a => <AlertCard key={a.id} alert={a} onSnooze={snooze} />)}
+          {visibleAlerts.map(a => <AlertCard key={a.id} alert={a} onSnooze={snooze} clients={activeClients} />)}
           {visibleAlerts.length === 0 && (
             <div style={{ padding: '18px 0', textAlign: 'center', color: 'var(--ink-faint)', fontStyle: 'italic', fontSize: 13 }}>
               All clear — no open alerts.
@@ -344,7 +378,7 @@ const AdvisorDashboard = () => {
             <h3><Icons.Inbox size={13} style={{ verticalAlign: 'middle', marginRight: 4, color: 'var(--gold)' }} /> Flagged questions</h3>
             <span className="px-side-count">{visibleQs.length} unread</span>
           </div>
-          {visibleQs.map(q => <FlaggedQuestion key={q.id} q={q} onDismiss={dismissQ} />)}
+          {visibleQs.map(q => <FlaggedQuestion key={q.id} q={q} onDismiss={dismissQ} clients={activeClients} />)}
           {visibleQs.length === 0 && (
             <div style={{ padding: '18px 0', textAlign: 'center', color: 'var(--ink-faint)', fontStyle: 'italic', fontSize: 13 }}>
               Inbox empty — no pending questions.
