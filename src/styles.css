@@ -1089,6 +1089,56 @@ input, select, textarea { font-family: inherit; color: inherit; }
   .px-portstrip { grid-template-columns: repeat(2, 1fr); }
   .px-portstrip .px-portstat:nth-child(2) { border-right: 0; }
 }
+/* ── Notification bell ───────────────────────────────────────────────── */
+.px-notif-badge {
+  position: absolute; top: 2px; right: 1px;
+  min-width: 14px; height: 14px; padding: 0 3px;
+  background: var(--brick); color: #fff;
+  font-size: 9px; font-weight: 700; line-height: 14px;
+  border-radius: 7px; text-align: center;
+  pointer-events: none;
+}
+
+.px-notif-panel {
+  position: absolute; top: calc(100% + 8px); right: 0;
+  width: 288px; max-height: 400px; overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--sh-4);
+  z-index: 200;
+}
+.px-notif-panel-head {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; background: var(--surface); z-index: 1;
+}
+.px-notif-item {
+  display: flex; gap: 9px; align-items: flex-start;
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+}
+.px-notif-item:last-child { border-bottom: 0; }
+.px-notif-item-icon {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--bg-elev); display: grid; place-items: center;
+  flex-shrink: 0; color: var(--gold); margin-top: 1px;
+}
+
+/* Realtime status indicator */
+.px-rt-dot {
+  width: 7px; height: 7px; border-radius: 50%; display: inline-block;
+  flex-shrink: 0;
+}
+.px-rt-dot.is-live       { background: var(--forest); box-shadow: 0 0 0 2px var(--forest-soft); }
+.px-rt-dot.is-connecting { background: var(--warn); }
+.px-rt-dot.is-error      { background: var(--brick); }
+.px-rt-dot.is-off        { background: var(--ink-faint); }
+
+/* Meeting log rows inside client modal */
+.px-meeting-row {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 8px 0; border-bottom: 1px solid var(--border);
+}
+.px-meeting-row:last-child { border-bottom: 0; }
+
 @media (max-width: 860px) {
   .px-hide-mobile { display: none; }
   .px-section-tools { flex-wrap: wrap; gap: 6px; }

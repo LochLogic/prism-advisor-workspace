@@ -281,9 +281,117 @@ const fmt$ = (n, opts = {}) => {
 const fmtPct = (n, d = 1) => isFinite(n) ? `${n.toFixed(d)}%` : '—';
 const fmtN = (n) => isFinite(n) ? n.toLocaleString('en-US') : '—';
 
+/* ─── Notifications + Realtime subscriptions ──────────────────────── */
+const NotificationContext = createContext(null);
+
+function NotificationProvider({ children }) {
+  const { authUser } = window.useAuth?.() || {};
+  const [notifications, setNotifications] = useState([]);
+  const [unread,         setUnread]        = useState(0);
+  // 'off' | 'connecting' | 'live' | 'error'
+  const [realtimeStatus, setRealtimeStatus] = useState('off');
+  const channelRef = React.useRef(null);
+
+  const addNotification = useCallback((n) => {
+    setNotifications(prev => [n, ...prev].slice(0, 20));
+    setUnread(prev => prev + 1);
+  }, []);
+
+  const markAllRead = useCallback(() => setUnread(0), []);
+
+  const dismiss = useCallback((id) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  }, []);
+
+  // Open / reopen channel whenever the advisor logs in (or changes)
+  useEffect(() => {
+    if (!authUser?.id || !window.__sb) {
+      setRealtimeStatus('off');
+      return;
+    }
+
+    setRealtimeStatus('connecting');
+
+    // Category → icon map (mirrors db.jsx ALERT_ICON)
+    const ALERT_ICON = {
+      cash_drag: 'Dollar', roth_window: 'Calendar', tlh: 'TrendDown',
+      drift: 'AlertCircle', schedule_call: 'Phone', fx_exposure: 'Building',
+    };
+
+    const channel = window.__sb
+      .channel(`advisor-rt:${authUser.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'alerts',
+        filter: `advisor_id=eq.${authUser.id}`,
+      }, ({ new: a }) => {
+        addNotification({
+          id:       a.id,
+          type:     'alert',
+          priority: a.priority,
+          icon:     ALERT_ICON[a.category] || 'Bell',
+          headline: a.headline,
+          body:     a.body || '',
+          timeAgo:  'just now',
+          clientId: a.client_id,
+        });
+      })
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'flagged_questions',
+        filter: `advisor_id=eq.${authUser.id}`,
+      }, ({ new: q }) => {
+        addNotification({
+          id:       q.id,
+          type:     'question',
+          icon:     'Message',
+          headline: 'New question flagged',
+          body:     q.question_text || 'A client flagged a discussion item',
+          timeAgo:  'just now',
+          clientId: q.client_id,
+        });
+      })
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'meetings',
+        filter: `advisor_id=eq.${authUser.id}`,
+      }, ({ new: m }) => {
+        addNotification({
+          id:       `m:${m.id}`,
+          type:     'meeting',
+          icon:     'Calendar',
+          headline: 'Meeting logged',
+          body:     m.notes ? m.notes.slice(0, 80) : 'New meeting recorded',
+          timeAgo:  'just now',
+          clientId: m.client_id,
+        });
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED')         setRealtimeStatus('live');
+        else if (status === 'CHANNEL_ERROR') setRealtimeStatus('error');
+        else if (status === 'TIMED_OUT')     setRealtimeStatus('error');
+      });
+
+    channelRef.current = channel;
+
+    return () => {
+      if (channelRef.current && window.__sb) {
+        window.__sb.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+      setRealtimeStatus('off');
+    };
+  }, [authUser?.id]);
+
+  return (
+    <NotificationContext.Provider value={{ notifications, unread, markAllRead, dismiss, realtimeStatus }}>
+      {children}
+    </NotificationContext.Provider>
+  );
+}
+const useNotifications = () => useContext(NotificationContext);
+
 Object.assign(window, {
   ProfileProvider, useProfile,
   TaskProvider, useTasks,
   ViewProvider, useView,
+  NotificationProvider, useNotifications,
   fmt$, fmtPct, fmtN,
 });
