@@ -210,7 +210,7 @@ const RosterTable = ({ onOpenClient, clients, onAddClient, isLiveMode }) => {
 /* ─── New Client modal ───────────────────────────────────────────── */
 const PHASES = phasesData.map(p => ({ value: p.id, label: `Phase ${p.num} — ${p.title}` }));
 
-const NewClientModal = ({ isOpen, onClose, advisorId, onCreated }) => {
+const NewClientModal = ({ isOpen, onClose, advisorId, firmId, onCreated }) => {
   const { showToast } = useView();
   const [saving, setSaving] = useStateAdv(false);
   const [form, setForm] = useStateAdv({ household_name: '', short_name: '', household_tag: '', current_phase: 0 });
@@ -220,7 +220,7 @@ const NewClientModal = ({ isOpen, onClose, advisorId, onCreated }) => {
     e.preventDefault();
     if (!form.household_name.trim()) return;
     setSaving(true);
-    const row = await window.db.createClient(advisorId, form);
+    const row = await window.db.createClient(advisorId, firmId, form);
     setSaving(false);
     if (row) {
       showToast(`${form.short_name || form.household_name} added to your roster`);
@@ -275,21 +275,69 @@ const NewClientModal = ({ isOpen, onClose, advisorId, onCreated }) => {
   );
 };
 
-/* ─── Client preview modal (when an advisor clicks a row) ─────────── */
-const ClientPreviewModal = ({ client, onClose, onNotesChange }) => {
+/* ─── Client preview modal ───────────────────────────────────────── */
+const TAB_STYLE = (active) => ({
+  padding: '8px 16px', fontSize: 12,
+  fontWeight: active ? 600 : 400,
+  color: active ? 'var(--ink)' : 'var(--ink-mute)',
+  background: 'none', border: 'none',
+  borderBottom: active ? '2px solid var(--gold)' : '2px solid transparent',
+  cursor: 'pointer', textTransform: 'capitalize',
+  letterSpacing: '.03em', marginBottom: -1,
+});
+
+const LABEL_STYLE = {
+  fontSize: 11, fontWeight: 600, color: 'var(--ink-mute)',
+  textTransform: 'uppercase', letterSpacing: '.05em',
+};
+
+const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchived }) => {
   const { openClientPortal, showToast } = useView();
+  const [tab, setTab] = useStateAdv('overview');
+
+  // Notes state
   const [editingNotes, setEditingNotes] = useStateAdv(false);
   const [notes, setNotes] = useStateAdv('');
 
+  // Accounts state
+  const [accounts, setAccounts] = useStateAdv(undefined);
+  const [accForm, setAccForm] = useStateAdv(null);
+  const [savingAcc, setSavingAcc] = useStateAdv(false);
+
+  // Edit client state
+  const [editForm, setEditForm] = useStateAdv({});
+  const [savingEdit, setSavingEdit] = useStateAdv(false);
+  const [archiving, setArchiving] = useStateAdv(false);
+
   React.useEffect(() => {
-    if (client) setNotes(client.notes || '');
+    if (client) {
+      setNotes(client.notes || '');
+      setTab('overview');
+      setAccounts(undefined);
+      setAccForm(null);
+      setEditForm({
+        household_name: client.name,
+        short_name:     client.shortName,
+        household_tag:  client.tag === '—' ? '' : client.tag,
+        current_phase:  client.phase,
+      });
+    }
   }, [client?.id]);
 
-  if (!client) return null;
-  const phase = phaseLabel(client.phase);
-  const openRoadmap = () => { openClientPortal(client); onClose(); };
-  const isLiveClient = window.db?.isUUID(client.id);
+  // Load accounts when tab becomes active
+  React.useEffect(() => {
+    if (tab === 'accounts' && client && window.db?.isUUID(client.id) && accounts === undefined) {
+      window.db.getAccounts(client.id).then(rows => setAccounts(rows || []));
+    }
+  }, [tab]);
 
+  if (!client) return null;
+
+  const phase = phaseLabel(client.phase);
+  const isLiveClient = window.db?.isUUID(client.id);
+  const openRoadmap = () => { openClientPortal(client); onClose(); };
+
+  /* notes */
   const saveNotes = () => {
     setEditingNotes(false);
     if (!isLiveClient) return;
@@ -298,74 +346,274 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange }) => {
     showToast('Notes saved');
   };
 
+  /* accounts */
+  const setAcc = (k, v) => setAccForm(f => ({ ...f, [k]: v }));
+
+  const saveAccount = async () => {
+    setSavingAcc(true);
+    const row = await window.db.upsertAccount({
+      ...accForm,
+      client_id: client.id,
+      balance: Number(accForm.balance) || 0,
+      cash:    Number(accForm.cash)    || 0,
+    });
+    setSavingAcc(false);
+    if (row) {
+      window.db.syncClientTotals(client.id);
+      setAccounts(prev => {
+        const idx = (prev || []).findIndex(a => a.id === row.id);
+        if (idx >= 0) { const next = [...prev]; next[idx] = row; return next; }
+        return [...(prev || []), row];
+      });
+      setAccForm(null);
+      showToast('Account saved');
+    } else {
+      showToast('Could not save account — check console');
+    }
+  };
+
+  const deleteAccount = async (id) => {
+    await window.db.deleteAccount(id);
+    window.db.syncClientTotals(client.id);
+    setAccounts(prev => (prev || []).filter(a => a.id !== id));
+    showToast('Account removed');
+  };
+
+  /* edit client */
+  const setEdit = (k, v) => setEditForm(f => ({ ...f, [k]: v }));
+
+  const saveEdit = async () => {
+    setSavingEdit(true);
+    const row = await window.db.updateClient(client.id, editForm);
+    setSavingEdit(false);
+    if (row) {
+      const updated = window.db.mapClient(row);
+      onUpdated && onUpdated(updated);
+      showToast('Client updated');
+    } else {
+      showToast('Could not save — check console');
+    }
+  };
+
+  const archiveClient = async () => {
+    if (!window.confirm(`Archive ${client.name}? They will be removed from your active roster.`)) return;
+    setArchiving(true);
+    await window.db.archiveClient(client.id);
+    setArchiving(false);
+    onArchived && onArchived(client.id);
+    onClose();
+    showToast(`${client.shortName} archived`);
+  };
+
   return (
     <Modal isOpen={!!client} onClose={onClose}>
-      <div style={{ padding: 28 }}>
-        <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginBottom: 20 }}>
-          <ClientAvatar client={client} size={48} />
-          <div>
-            <h2 style={{ fontFamily: 'var(--serif)', fontSize: 22, fontWeight: 500, margin: 0, color: 'var(--ink)' }}>{client.name}</h2>
-            <div style={{ fontSize: 12, color: 'var(--ink-mute)', marginTop: 4 }}>{client.tag} · last activity {client.lastActivity}</div>
+      {/* ── Header ── */}
+      <div style={{ padding: '28px 28px 0' }}>
+        <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginBottom: 18 }}>
+          <ClientAvatar client={client} size={44} />
+          <div style={{ flex: 1 }}>
+            <h2 style={{ fontFamily: 'var(--serif)', fontSize: 20, fontWeight: 500, margin: 0, color: 'var(--ink)' }}>{client.name}</h2>
+            <div style={{ fontSize: 12, color: 'var(--ink-mute)', marginTop: 3 }}>{client.tag} · last activity {client.lastActivity}</div>
           </div>
+          <button className="px-btn px-btn-primary" onClick={openRoadmap}>
+            <Icons.Eye size={12} /> View roadmap
+          </button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 18 }}>
-          <div style={{ padding: 12, background: 'var(--bg-elev)', borderRadius: 6 }}>
-            <div className="px-portstat-label">AUM</div>
-            <div className="px-portstat-value" style={{ fontSize: 19 }}>{client.aum ? fmt$(client.aum, { short: true }) : '—'}</div>
+        {/* Tabs — only for live (real UUID) clients */}
+        {isLiveClient && (
+          <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)' }}>
+            {['overview', 'accounts', 'edit'].map(t => (
+              <button key={t} style={TAB_STYLE(tab === t)} onClick={() => setTab(t)}>{t}</button>
+            ))}
           </div>
-          <div style={{ padding: 12, background: 'var(--bg-elev)', borderRadius: 6 }}>
-            <div className="px-portstat-label">Current Horizon</div>
-            <div style={{ marginTop: 5 }}>
-              <div className="px-phase-pill-num">P{phase.num}</div>
-              <div style={{ fontFamily: 'var(--serif)', fontSize: 15, color: 'var(--ink)', marginTop: 2 }}>{phase.title}</div>
-            </div>
-          </div>
-          <div style={{ padding: 12, background: 'var(--bg-elev)', borderRadius: 6 }}>
-            <div className="px-portstat-label">Uninvested cash</div>
-            <div className="px-portstat-value" style={{ fontSize: 19, color: client.uninvestedCash > 80_000 ? 'var(--brick)' : 'var(--ink)' }}>
-              {client.uninvestedCash ? fmt$(client.uninvestedCash, { short: true }) : '—'}
-            </div>
-          </div>
-        </div>
+        )}
+      </div>
 
-        {/* Notes — editable for real clients */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.05em' }}>Notes</span>
-            {isLiveClient && !editingNotes && (
-              <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => setEditingNotes(true)}>
-                <Icons.Edit size={10} /> Edit
+      {/* ── Body ── */}
+      <div style={{ padding: '20px 28px 28px', maxHeight: '62vh', overflowY: 'auto', minWidth: 440 }}>
+
+        {/* ── Overview ── */}
+        {tab === 'overview' && (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
+              {[
+                { label: 'AUM', value: client.aum ? fmt$(client.aum, { short: true }) : '—', color: 'var(--ink)' },
+                { label: 'Current Horizon', value: `P${phase.num} · ${phase.title}`, color: 'var(--ink)', small: true },
+                { label: 'Uninvested cash', value: client.uninvestedCash ? fmt$(client.uninvestedCash, { short: true }) : '—', color: client.uninvestedCash > 80_000 ? 'var(--brick)' : 'var(--ink)' },
+              ].map(({ label, value, color, small }) => (
+                <div key={label} style={{ padding: 12, background: 'var(--bg-elev)', borderRadius: 6 }}>
+                  <div className="px-portstat-label">{label}</div>
+                  <div style={{ fontFamily: 'var(--serif)', fontSize: small ? 14 : 19, fontWeight: 500, color, marginTop: 5, lineHeight: 1.3 }}>{value}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Notes */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <span style={LABEL_STYLE}>Notes</span>
+                {isLiveClient && !editingNotes && (
+                  <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => setEditingNotes(true)}>
+                    <Icons.Edit size={10} /> Edit
+                  </button>
+                )}
+              </div>
+              {editingNotes ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <textarea className="px-input" rows={3}
+                    style={{ resize: 'vertical', fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 13 }}
+                    value={notes} onChange={e => setNotes(e.target.value)} autoFocus />
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button className="px-btn px-btn-sm px-btn-primary" onClick={saveNotes}>Save</button>
+                    <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => { setEditingNotes(false); setNotes(client.notes || ''); }}>Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ padding: 12, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 6, fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 14, color: 'var(--ink-2)', lineHeight: 1.5, minHeight: 42 }}>
+                  {notes ? `"${notes}"` : <span style={{ color: 'var(--ink-faint)' }}>No notes yet.</span>}
+                </div>
+              )}
+            </div>
+
+            {!isLiveClient && (
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+                <button className="px-btn px-btn-ghost"><Icons.Phone size={12} /> Call</button>
+                <button className="px-btn px-btn-ghost"><Icons.Message size={12} /> Message</button>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── Accounts ── */}
+        {tab === 'accounts' && (
+          <>
+            {accounts === undefined && (
+              <div style={{ padding: '28px 0', textAlign: 'center', color: 'var(--ink-mute)', fontSize: 13 }}>Loading accounts…</div>
+            )}
+
+            {accounts !== undefined && accounts.length > 0 && (
+              <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 14, fontSize: 13 }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                    {['Type', 'Custodian', 'Balance', 'Cash', ''].map(h => (
+                      <th key={h} style={{ textAlign: h === 'Balance' || h === 'Cash' ? 'right' : 'left', padding: '4px 8px 8px', color: 'var(--ink-mute)', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: '.04em', whiteSpace: 'nowrap' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {accounts.map(a => (
+                    <tr key={a.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '9px 8px 9px 8px', color: 'var(--ink)', fontFamily: 'var(--serif)' }}>
+                        {window.db.ACCOUNT_TYPE_LABELS[a.type] || a.type}
+                        {a.name && <div style={{ fontSize: 11, color: 'var(--ink-mute)', fontFamily: 'var(--sans)', fontStyle: 'normal' }}>{a.name}</div>}
+                      </td>
+                      <td style={{ padding: '9px 8px', color: 'var(--ink-mute)' }}>{a.custodian || '—'}</td>
+                      <td style={{ padding: '9px 8px', textAlign: 'right', fontFamily: 'var(--mono, monospace)', color: 'var(--ink)' }}>{fmt$(a.balance, { short: true })}</td>
+                      <td style={{ padding: '9px 8px', textAlign: 'right', fontFamily: 'var(--mono, monospace)', color: a.cash > 0 ? 'var(--brick)' : 'var(--ink-mute)' }}>{a.cash ? fmt$(a.cash, { short: true }) : '—'}</td>
+                      <td style={{ padding: '9px 0 9px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <button className="px-btn px-btn-sm px-btn-ghost" style={{ marginRight: 4 }}
+                          onClick={() => setAccForm({ id: a.id, type: a.type, custodian: a.custodian || '', name: a.name || '', balance: a.balance, cash: a.cash })}>
+                          <Icons.Edit size={10} />
+                        </button>
+                        <button className="px-btn px-btn-sm px-btn-ghost" style={{ color: 'var(--brick)' }}
+                          onClick={() => deleteAccount(a.id)}>
+                          <Icons.X size={10} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            {accounts !== undefined && accounts.length === 0 && !accForm && (
+              <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--ink-mute)', fontSize: 13, marginBottom: 10 }}>
+                No accounts linked — add the first one below.
+              </div>
+            )}
+
+            {/* Account form */}
+            {accForm && (
+              <div style={{ padding: 14, background: 'var(--bg-elev)', borderRadius: 6, marginBottom: 12 }}>
+                <div style={{ ...LABEL_STYLE, marginBottom: 10 }}>{accForm.id ? 'Edit account' : 'New account'}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span style={{ fontSize: 11, color: 'var(--ink-mute)' }}>Type</span>
+                    <select className="px-select" value={accForm.type || 'other'} onChange={e => setAcc('type', e.target.value)}>
+                      {Object.entries(window.db.ACCOUNT_TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                    </select>
+                  </label>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span style={{ fontSize: 11, color: 'var(--ink-mute)' }}>Custodian</span>
+                    <input className="px-input" placeholder="e.g. Fidelity" value={accForm.custodian || ''} onChange={e => setAcc('custodian', e.target.value)} />
+                  </label>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span style={{ fontSize: 11, color: 'var(--ink-mute)' }}>Balance ($)</span>
+                    <input className="px-input" type="number" step="1000" placeholder="0" value={accForm.balance || ''} onChange={e => setAcc('balance', e.target.value)} />
+                  </label>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span style={{ fontSize: 11, color: 'var(--ink-mute)' }}>Uninvested cash ($)</span>
+                    <input className="px-input" type="number" step="100" placeholder="0" value={accForm.cash || ''} onChange={e => setAcc('cash', e.target.value)} />
+                  </label>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 4, gridColumn: '1 / -1' }}>
+                    <span style={{ fontSize: 11, color: 'var(--ink-mute)' }}>Account label (optional)</span>
+                    <input className="px-input" placeholder="e.g. Joint brokerage" value={accForm.name || ''} onChange={e => setAcc('name', e.target.value)} />
+                  </label>
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button className="px-btn px-btn-sm px-btn-primary" onClick={saveAccount} disabled={savingAcc}>
+                    {savingAcc ? 'Saving…' : 'Save account'}
+                  </button>
+                  <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => setAccForm(null)}>Cancel</button>
+                </div>
+              </div>
+            )}
+
+            {accounts !== undefined && !accForm && (
+              <button className="px-btn px-btn-sm px-btn-ghost"
+                onClick={() => setAccForm({ type: 'taxable', custodian: '', name: '', balance: '', cash: '' })}>
+                <Icons.Plus size={11} /> Add account
               </button>
             )}
-          </div>
-          {editingNotes ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <textarea
-                className="px-input"
-                rows={3}
-                style={{ resize: 'vertical', fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 13 }}
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-                autoFocus
-              />
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button className="px-btn px-btn-sm px-btn-primary" onClick={saveNotes}>Save</button>
-                <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => { setEditingNotes(false); setNotes(client.notes || ''); }}>Cancel</button>
-              </div>
-            </div>
-          ) : (
-            <div style={{ padding: 12, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 6, fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 14, color: 'var(--ink-2)', lineHeight: 1.5, minHeight: 42 }}>
-              {notes ? `"${notes}"` : <span style={{ color: 'var(--ink-faint)' }}>No notes yet.</span>}
-            </div>
-          )}
-        </div>
+          </>
+        )}
 
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button className="px-btn px-btn-ghost"><Icons.Phone size={12} /> Call</button>
-          <button className="px-btn px-btn-ghost"><Icons.Message size={12} /> Message</button>
-          <button className="px-btn px-btn-primary" onClick={openRoadmap}><Icons.Eye size={12} /> Open client roadmap</button>
-        </div>
+        {/* ── Edit client ── */}
+        {tab === 'edit' && (
+          <>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
+              {[
+                { label: 'Household name', key: 'household_name' },
+                { label: 'Short name', key: 'short_name' },
+                { label: 'Tag / description', key: 'household_tag' },
+              ].map(({ label, key }) => (
+                <label key={key} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <span style={LABEL_STYLE}>{label}</span>
+                  <input className="px-input" value={editForm[key] || ''}
+                    onChange={e => setEdit(key, e.target.value)} />
+                </label>
+              ))}
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={LABEL_STYLE}>Horizon</span>
+                <select className="px-select" value={editForm.current_phase ?? client.phase}
+                  onChange={e => setEdit('current_phase', Number(e.target.value))}>
+                  {PHASES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+                </select>
+              </label>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', alignItems: 'center' }}>
+              <button className="px-btn px-btn-sm px-btn-ghost" style={{ color: 'var(--brick)' }}
+                onClick={archiveClient} disabled={archiving}>
+                {archiving ? 'Archiving…' : 'Archive client'}
+              </button>
+              <button className="px-btn px-btn-primary" onClick={saveEdit} disabled={savingEdit}>
+                {savingEdit ? 'Saving…' : 'Save changes'}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </Modal>
   );
@@ -413,15 +661,24 @@ const AdvisorDashboard = () => {
     });
   }, [authUser?.id]);
 
-  const isLiveMode = dbClients !== undefined;  // true once fetch completes
+  const isLiveMode = dbClients !== undefined;
 
-  // Use real data when fetched; fall back to mock in demo / no-auth mode
   const activeClients   = isLiveMode ? dbClients   : clientsData;
   const activeAlerts    = isLiveMode ? (dbAlerts    || []) : alertsData;
   const activeQuestions = isLiveMode ? (dbQuestions || []) : questionsData;
 
   const handleClientCreated = (newClient) => {
     setDbClients(prev => [...(prev || []), newClient]);
+  };
+
+  const handleClientUpdated = (updatedClient) => {
+    setDbClients(prev => (prev || []).map(c => c.id === updatedClient.id ? updatedClient : c));
+    setPreviewClient(updatedClient);
+  };
+
+  const handleClientArchived = (clientId) => {
+    setDbClients(prev => (prev || []).filter(c => c.id !== clientId));
+    setPreviewClient(null);
   };
 
   const handleNotesChange = (clientId, notes) => {
@@ -462,11 +719,18 @@ const AdvisorDashboard = () => {
 
   return (
     <div className="px-adv">
-      <ClientPreviewModal client={previewClient} onClose={() => setPreviewClient(null)} onNotesChange={handleNotesChange} />
+      <ClientPreviewModal
+        client={previewClient}
+        onClose={() => setPreviewClient(null)}
+        onNotesChange={handleNotesChange}
+        onUpdated={handleClientUpdated}
+        onArchived={handleClientArchived}
+      />
       <NewClientModal
         isOpen={addingClient}
         onClose={() => setAddingClient(false)}
         advisorId={authUser?.id}
+        firmId={authUser?.firm_id}
         onCreated={handleClientCreated}
       />
 
