@@ -1,7 +1,8 @@
 // Prism — App shell. Brand, view switch (Advisor ↔ Client), account chip, drawer.
 
 const Topbar = ({ onOpenNumbers }) => {
-  const { view, setView } = useView();
+  const { view, setView, activeClientId } = useView();
+  const activeClient = clientsData.find(c => c.id === activeClientId);
   return (
     <header className="px-topbar">
       <div className="px-brand">
@@ -39,7 +40,7 @@ const Topbar = ({ onOpenNumbers }) => {
         <div className="px-account-chip" title={advisor.email}>
           <div className="px-account-avatar">{advisor.initials}</div>
           <div className="px-account-meta">
-            <div className="px-account-name">{view === 'client' ? 'Robert Marsh' : advisor.name}</div>
+            <div className="px-account-name">{view === 'client' ? (activeClient?.shortName || 'Client') : advisor.name}</div>
             <div className="px-account-firm">{view === 'client' ? 'Client view' : advisor.firm}</div>
           </div>
         </div>

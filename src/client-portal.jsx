@@ -15,6 +15,7 @@ const PhaseCard = ({ phase, onOpenMilestone }) => {
 
   const PhaseIcon = Icons[phase.icon] || Icons.Briefcase;
   const ToolComp = calculators[phase.calc];
+  const ToolComp2 = phase.calc2 ? calculators[phase.calc2] : null;
 
   // Compute the metric value from the profile
   const metricValue = (() => {
@@ -110,6 +111,7 @@ const PhaseCard = ({ phase, onOpenMilestone }) => {
             </div>
 
             {ToolComp && <ToolComp />}
+            {ToolComp2 && <ToolComp2 />}
 
             {isComplete && (
               <div className="px-phase-complete-cta">
@@ -132,8 +134,10 @@ const PhaseCard = ({ phase, onOpenMilestone }) => {
 const ClientPortal = ({ onOpenNumbers }) => {
   const ctx = useProfile();
   const { overallPct, completedCount, totalTasks, activePhase, taskStates } = useTasks();
+  const { activeClientId, showToast } = useView();
   const [milestoneModal, setMilestoneModal] = React.useState(null);
   const activePhaseObj = phasesData.find(p => p.id === activePhase) || phasesData[0];
+  const viewingClient = clientsData.find(c => c.id === activeClientId) || clientsData[0];
 
   const completedPhases = phasesData.filter(p => p.tasks.every(t => taskStates[p.id]?.[t.id])).length;
 
@@ -162,7 +166,8 @@ const ClientPortal = ({ onOpenNumbers }) => {
             <div className="px-advisor-name">{advisor.fullName}</div>
             <div className="px-advisor-role">{advisor.firm}</div>
           </div>
-          <button className="px-advisor-chip-btn">
+          <button className="px-advisor-chip-btn"
+            onClick={() => showToast('Opening scheduling — Calendly integration coming in Sprint 4')}>
             <Icons.Calendar size={11} style={{ verticalAlign: 'middle', marginRight: 4 }} />
             Schedule
           </button>
@@ -173,8 +178,8 @@ const ClientPortal = ({ onOpenNumbers }) => {
         <div className="px-portstrip">
           <div className="px-portstat">
             <div className="px-portstat-label">Managed assets</div>
-            <div className="px-portstat-value">{fmt$(ctx.totalInvested, { short: true })}</div>
-            <div className="px-portstat-foot">+ 11.4% YTD</div>
+            <div className="px-portstat-value">{fmt$(viewingClient.aum, { short: true })}</div>
+            <div className="px-portstat-foot">YTD · pending portfolio sync</div>
           </div>
           <div className="px-portstat">
             <div className="px-portstat-label">Net worth</div>
@@ -188,7 +193,7 @@ const ClientPortal = ({ onOpenNumbers }) => {
           </div>
           <div className="px-portstat">
             <div className="px-portstat-label">Last review</div>
-            <div className="px-portstat-value" style={{ fontSize: 17, marginTop: 8 }}>Oct 14</div>
+            <div className="px-portstat-value" style={{ fontSize: 17, marginTop: 8 }}>—</div>
             <div className="px-portstat-foot">
               <button className="px-btn px-btn-sm px-btn-ghost" style={{ padding: '3px 8px', marginTop: 4 }} onClick={onOpenNumbers}>
                 <Icons.Edit size={10} /> Update numbers
