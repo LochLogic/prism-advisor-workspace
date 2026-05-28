@@ -3,7 +3,17 @@
 
 const NumbersDrawer = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
-  const { profile, update, totalExpenses, surplus, netWorth } = useProfile();
+  const { profile, update, setProfile, totalExpenses, surplus, netWorth } = useProfile();
+
+  const addDebt = () => setProfile(p => ({
+    ...p,
+    debts: [...p.debts, { id: `d${Date.now()}`, name: 'New debt', balance: 0, apr: 0, min: 0 }],
+  }));
+  const removeDebt = (id) => setProfile(p => ({ ...p, debts: p.debts.filter(d => d.id !== id) }));
+  const updateDebt = (id, field, value) => setProfile(p => ({
+    ...p,
+    debts: p.debts.map(d => d.id === id ? { ...d, [field]: value } : d),
+  }));
 
   React.useEffect(() => {
     const handler = (e) => { if (e.key === 'Escape') onClose(); };
@@ -90,6 +100,65 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
           <section style={{ marginBottom: 22 }}>
             <div className="px-eyebrow" style={{ marginBottom: 10 }}>Cash reserve</div>
             <NumField label="Liquidity reserve" path="savings.emergency" value={profile.savings.emergency} />
+          </section>
+
+          {/* Liabilities */}
+          <section style={{ marginBottom: 22 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div className="px-eyebrow">Liabilities</div>
+              <button className="px-btn px-btn-sm px-btn-ghost" style={{ padding: '3px 8px' }} onClick={addDebt}>
+                <Icons.Plus size={10} /> Add debt
+              </button>
+            </div>
+            {profile.debts.length === 0 && (
+              <div style={{ padding: '12px 0', textAlign: 'center', color: 'var(--ink-faint)', fontStyle: 'italic', fontSize: 12 }}>
+                No liabilities recorded.
+              </div>
+            )}
+            {profile.debts.map(d => (
+              <div key={d.id} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 10, marginBottom: 8, background: 'var(--surface)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <input
+                    type="text"
+                    value={d.name}
+                    onChange={(e) => updateDebt(d.id, 'name', e.target.value)}
+                    style={{ fontFamily: 'var(--serif)', fontSize: 13, fontWeight: 500, background: 'none', border: 'none', color: 'var(--ink)', outline: 'none', flex: 1 }}
+                    placeholder="Debt name"
+                  />
+                  <button onClick={() => removeDebt(d.id)}
+                    style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', padding: '2px 6px', lineHeight: 1 }}
+                    title="Remove">
+                    <Icons.X size={12} />
+                  </button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                  <label className="px-field">
+                    <span className="px-field-label">Balance</span>
+                    <div className="px-input-affix">
+                      <span className="px-affix">$</span>
+                      <input type="number" value={d.balance} step="100"
+                        onChange={(e) => updateDebt(d.id, 'balance', parseFloat(e.target.value) || 0)} />
+                    </div>
+                  </label>
+                  <label className="px-field">
+                    <span className="px-field-label">APR</span>
+                    <div className="px-input-affix">
+                      <input type="number" value={d.apr} step="0.1"
+                        onChange={(e) => updateDebt(d.id, 'apr', parseFloat(e.target.value) || 0)} />
+                      <span className="px-affix px-affix-r">%</span>
+                    </div>
+                  </label>
+                  <label className="px-field">
+                    <span className="px-field-label">Min / mo</span>
+                    <div className="px-input-affix">
+                      <span className="px-affix">$</span>
+                      <input type="number" value={d.min} step="10"
+                        onChange={(e) => updateDebt(d.id, 'min', parseFloat(e.target.value) || 0)} />
+                    </div>
+                  </label>
+                </div>
+              </div>
+            ))}
           </section>
 
           {/* Retirement */}

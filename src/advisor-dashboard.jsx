@@ -75,9 +75,24 @@ const RosterRow = ({ client, onOpen }) => {
 };
 
 /* ─── Alert card ─────────────────────────────────────────────────── */
-const AlertCard = ({ alert }) => {
+const AlertCard = ({ alert, onSnooze }) => {
+  const { setView, setActiveClientId, showToast } = useView();
   const client = clientsData.find(c => c.id === alert.clientId);
   const I = Icons[alert.icon] || Icons.Bell;
+
+  const handleCta = () => {
+    if ((alert.cta === 'Open modeler' || alert.cta === 'Review plan') && alert.clientId) {
+      setActiveClientId(alert.clientId);
+      setView('client');
+    } else if (alert.cta === 'Schedule call') {
+      showToast(`Scheduling call with ${client?.shortName || 'client'} — calendar integration coming soon`);
+    } else if (alert.cta === 'Draft note') {
+      showToast(`Note drafted for ${client?.shortName || 'client'} — save to client file in Sprint 3`);
+    } else {
+      showToast(`${alert.cta} · ${client?.shortName || ''} — connected in a future sprint`);
+    }
+  };
+
   return (
     <div className="px-alert">
       <div className="px-alert-head">
@@ -98,17 +113,18 @@ const AlertCard = ({ alert }) => {
       )}
       <div className="px-alert-msg" dangerouslySetInnerHTML={{ __html: alert.body }} />
       <div className="px-alert-actions">
-        <button className="px-btn px-btn-sm px-btn-primary">
+        <button className="px-btn px-btn-sm px-btn-primary" onClick={handleCta}>
           <Icons.ArrowRight size={11} /> {alert.cta}
         </button>
-        <button className="px-btn px-btn-sm px-btn-ghost">Snooze</button>
+        <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => onSnooze(alert.id)}>Snooze</button>
       </div>
     </div>
   );
 };
 
 /* ─── Flagged Question card ──────────────────────────────────────── */
-const FlaggedQuestion = ({ q }) => {
+const FlaggedQuestion = ({ q, onDismiss }) => {
+  const { showToast } = useView();
   const client = clientsData.find(c => c.id === q.clientId);
   return (
     <div className="px-question">
@@ -122,10 +138,12 @@ const FlaggedQuestion = ({ q }) => {
       <div className="px-question-quote">{q.quote}</div>
       <div className="px-question-ctx">{q.context}</div>
       <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
-        <button className="px-btn px-btn-sm px-btn-primary">
+        <button className="px-btn px-btn-sm px-btn-primary"
+          onClick={() => showToast(`Reply to ${client?.shortName || 'client'} — messaging coming in Sprint 3`)}>
           <Icons.Message size={10} /> Reply
         </button>
-        <button className="px-btn px-btn-sm px-btn-ghost">
+        <button className="px-btn px-btn-sm px-btn-ghost"
+          onClick={() => { showToast('Added to next meeting agenda'); onDismiss && onDismiss(q.id); }}>
           <Icons.Calendar size={10} /> Add to agenda
         </button>
       </div>
@@ -187,8 +205,10 @@ const RosterTable = ({ onOpenClient }) => {
 
 /* ─── Client preview modal (when an advisor clicks a row) ─────────── */
 const ClientPreviewModal = ({ client, onClose }) => {
+  const { setView, setActiveClientId } = useView();
   if (!client) return null;
   const phase = phaseLabel(client.phase);
+  const openRoadmap = () => { setActiveClientId(client.id); setView('client'); onClose(); };
   return (
     <Modal isOpen={!!client} onClose={onClose}>
       <div style={{ padding: 28 }}>
@@ -227,7 +247,7 @@ const ClientPreviewModal = ({ client, onClose }) => {
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button className="px-btn px-btn-ghost"><Icons.Phone size={12} /> Call</button>
           <button className="px-btn px-btn-ghost"><Icons.Message size={12} /> Message</button>
-          <button className="px-btn px-btn-primary"><Icons.Eye size={12} /> Open client roadmap</button>
+          <button className="px-btn px-btn-primary" onClick={openRoadmap}><Icons.Eye size={12} /> Open client roadmap</button>
         </div>
       </div>
     </Modal>
@@ -237,6 +257,21 @@ const ClientPreviewModal = ({ client, onClose }) => {
 /* ─── Main Advisor Dashboard ─────────────────────────────────────── */
 const AdvisorDashboard = () => {
   const [previewClient, setPreviewClient] = useStateAdv(null);
+  const [snoozed, setSnoozed] = useStateAdv(new Set());
+  const [dismissedQs, setDismissedQs] = useStateAdv(new Set());
+
+  const snooze = (id) => setSnoozed(prev => new Set([...prev, id]));
+  const dismissQ = (id) => setDismissedQs(prev => new Set([...prev, id]));
+  const visibleAlerts = useMemoAdv(() => alertsData.filter(a => !snoozed.has(a.id)), [snoozed]);
+  const visibleQs = useMemoAdv(() => questionsData.filter(q => !dismissedQs.has(q.id)), [dismissedQs]);
+
+  const greetDate = (() => {
+    const d = new Date();
+    const day = d.toLocaleDateString('en-US', { weekday: 'long' });
+    const mon = d.toLocaleDateString('en-US', { month: 'short' });
+    return `${day} · ${mon} ${d.getDate()}`;
+  })();
+  const greetTime = (() => { const h = new Date().getHours(); return h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening'; })();
 
   const kpis = useMemoAdv(() => {
     const totalAUM = clientsData.reduce((a, c) => a + c.aum, 0);
@@ -254,11 +289,11 @@ const AdvisorDashboard = () => {
         {/* Greeting */}
         <div className="px-greet">
           <div className="px-eyebrow px-greet-eyebrow">
-            <span>Thursday · Oct 23</span>
+            <span>{greetDate}</span>
           </div>
-          <h1>Good morning, <em>Madeline</em>.</h1>
+          <h1>Good {greetTime}, <em>Madeline</em>.</h1>
           <p className="px-greet-sub">
-            {alertsData.filter(a => a.priority === 'high').length} action items this morning and {questionsData.length} client questions awaiting reply. The Patel Trust distribution has settled and is sitting in cash — that's the first call.
+            {visibleAlerts.filter(a => a.priority === 'high').length} action items this {greetTime} and {visibleQs.length} client questions awaiting reply. The Patel Trust distribution has settled and is sitting in cash — that's the first call.
           </p>
         </div>
 
@@ -294,17 +329,27 @@ const AdvisorDashboard = () => {
         <div className="px-side-section">
           <div className="px-side-head">
             <h3><Icons.Bell size={13} style={{ verticalAlign: 'middle', marginRight: 4, color: 'var(--gold)' }} /> Alerts & nudges</h3>
-            <span className="px-side-count">{alertsData.length} open</span>
+            <span className="px-side-count">{visibleAlerts.length} open</span>
           </div>
-          {alertsData.map(a => <AlertCard key={a.id} alert={a} />)}
+          {visibleAlerts.map(a => <AlertCard key={a.id} alert={a} onSnooze={snooze} />)}
+          {visibleAlerts.length === 0 && (
+            <div style={{ padding: '18px 0', textAlign: 'center', color: 'var(--ink-faint)', fontStyle: 'italic', fontSize: 13 }}>
+              All clear — no open alerts.
+            </div>
+          )}
         </div>
 
         <div className="px-side-section">
           <div className="px-side-head">
             <h3><Icons.Inbox size={13} style={{ verticalAlign: 'middle', marginRight: 4, color: 'var(--gold)' }} /> Flagged questions</h3>
-            <span className="px-side-count">{questionsData.length} unread</span>
+            <span className="px-side-count">{visibleQs.length} unread</span>
           </div>
-          {questionsData.map(q => <FlaggedQuestion key={q.id} q={q} />)}
+          {visibleQs.map(q => <FlaggedQuestion key={q.id} q={q} onDismiss={dismissQ} />)}
+          {visibleQs.length === 0 && (
+            <div style={{ padding: '18px 0', textAlign: 'center', color: 'var(--ink-faint)', fontStyle: 'italic', fontSize: 13 }}>
+              Inbox empty — no pending questions.
+            </div>
+          )}
         </div>
       </aside>
     </div>
