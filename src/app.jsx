@@ -226,8 +226,8 @@ const Topbar = ({ onOpenNumbers, dark, toggleTheme }) => {
         </div>
       </div>
 
-      {/* View switcher — advisors only */}
-      {role === 'advisor' && (
+      {/* View switcher — advisors and firm admins */}
+      {(role === 'advisor' || role === 'admin') && (
         <div className="px-viewswitch" role="tablist" aria-label="View">
           <button
             className={view === 'advisor' ? 'is-on' : ''}
@@ -241,6 +241,14 @@ const Topbar = ({ onOpenNumbers, dark, toggleTheme }) => {
             role="tab" aria-selected={view === 'client'}>
             <Icons.Layers size={13} /> Client
           </button>
+          {role === 'admin' && (
+            <button
+              className={view === 'admin' ? 'is-on' : ''}
+              onClick={() => setView('admin')}
+              role="tab" aria-selected={view === 'admin'}>
+              <Icons.Building size={13} /> Admin
+            </button>
+          )}
         </div>
       )}
 
@@ -270,9 +278,10 @@ function AppInner() {
   const { dark, toggleTheme } = useTheme();
   const [isNumbersOpen, setIsNumbersOpen] = React.useState(false);
 
-  // Client-role users always land in client view
+  // Route users to their natural home view on first load
   React.useEffect(() => {
     if (role === 'client') setView('client');
+    if (role === 'admin')  setView('admin');
   }, [role]);
 
   if (loading) return <LoadingScreen />;
@@ -309,9 +318,9 @@ function AppInner() {
   return (
     <div className="px-app">
       <Topbar onOpenNumbers={() => setIsNumbersOpen(true)} dark={dark} toggleTheme={toggleTheme} />
-      {view === 'advisor'
-        ? <AdvisorDashboard />
-        : <ClientPortal onOpenNumbers={() => setIsNumbersOpen(true)} />}
+      {view === 'admin'   ? <FirmAdminDashboard />
+       : view === 'advisor' ? <AdvisorDashboard />
+       : <ClientPortal onOpenNumbers={() => setIsNumbersOpen(true)} />}
       <NumbersDrawer isOpen={isNumbersOpen} onClose={() => setIsNumbersOpen(false)} />
       <Toast />
     </div>

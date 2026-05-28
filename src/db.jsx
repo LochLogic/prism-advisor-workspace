@@ -18,18 +18,48 @@ const timeAgo = (iso) => {
 /* ─── Client roster ──────────────────────────────────────────────── */
 const CLIENT_COLS = 'id, household_name, short_name, household_tag, current_phase, notes, active, updated_at, last_meeting_at, aum, uninvested_cash';
 
-async function dbGetClients(advisorId) {
+async function dbGetClients(advisorId, { page = 0, pageSize = 50 } = {}) {
   if (!_sb() || !isUUID(advisorId)) return null;
+  try {
+    const from = page * pageSize;
+    const to   = from + pageSize - 1;
+    const { data, error, count } = await _sb()
+      .from('clients')
+      .select(CLIENT_COLS, { count: 'exact' })
+      .eq('advisor_id', advisorId)
+      .eq('active', true)
+      .order('household_name')
+      .range(from, to);
+    if (error) throw error;
+    return { rows: data, total: count ?? 0 };
+  } catch (e) { console.warn('[db] getClients:', e.message); return null; }
+}
+
+// For firm admins: all advisors in the caller's firm (RLS filters automatically)
+async function dbGetAdvisors() {
+  if (!_sb()) return null;
+  try {
+    const { data, error } = await _sb()
+      .from('advisors')
+      .select('id, full_name, email, role, credentials, active, created_at, auth_user_id')
+      .eq('active', true)
+      .order('full_name');
+    if (error) throw error;
+    return data;
+  } catch (e) { console.warn('[db] getAdvisors:', e.message); return null; }
+}
+
+// For firm admins: all active clients in the firm (RLS policy clients_select_firm_admin)
+async function dbGetFirmClients() {
+  if (!_sb()) return null;
   try {
     const { data, error } = await _sb()
       .from('clients')
-      .select(CLIENT_COLS)
-      .eq('advisor_id', advisorId)
-      .eq('active', true)
-      .order('household_name');
+      .select('id, advisor_id, aum, current_phase')
+      .eq('active', true);
     if (error) throw error;
     return data;
-  } catch (e) { console.warn('[db] getClients:', e.message); return null; }
+  } catch (e) { console.warn('[db] getFirmClients:', e.message); return null; }
 }
 
 // Map a DB clients row to the shape the UI components expect
@@ -494,6 +524,8 @@ window.db = {
   getMeetings:         dbGetMeetings,
   logMeeting:          dbLogMeeting,
   deleteMeeting:       dbDeleteMeeting,
+  getAdvisors:         dbGetAdvisors,
+  getFirmClients:      dbGetFirmClients,
   getPhases:           dbGetPhases,
   isUUID,
   timeAgo,
