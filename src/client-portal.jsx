@@ -5,6 +5,8 @@ const PhaseCard = ({ phase, onOpenMilestone }) => {
   const { taskStates, toggleTask, openPhases, togglePhase, flagForAdvisor, isFlagged, activePhase } = useTasks();
   const { showToast } = useView();
   const ctx = useProfile();
+  const [flagModal, setFlagModal] = React.useState(null); // { phaseId, taskId, label }
+  const [flagText,  setFlagText]  = React.useState('');
 
   const isOpen = !!openPhases[phase.id];
   const completed = phase.tasks.filter(t => taskStates[phase.id]?.[t.id]).length;
@@ -35,7 +37,8 @@ const PhaseCard = ({ phase, onOpenMilestone }) => {
   };
 
   return (
-    <div className={`px-phase ${isOpen ? 'is-open' : ''} ${isComplete ? 'is-done' : ''} ${isActive ? 'is-active' : ''} ${isLocked ? 'is-locked' : ''}`}>
+    <div className={`px-phase ${isOpen ? 'is-open' : ''} ${isComplete ? 'is-done' : ''} ${isActive ? 'is-active' : ''} ${isLocked ? 'is-locked' : ''}`}
+         data-phase-id={phase.id}>
       <div className="px-phase-spine" />
       <div className="px-phase-node">
         {isComplete ? <Icons.Check size={10} strokeWidth={2.5} /> : phase.num}
@@ -96,10 +99,15 @@ const PhaseCard = ({ phase, onOpenMilestone }) => {
                         className={`px-task-act ${flagged ? 'is-flagged' : 'is-discuss'}`}
                         onClick={(e) => {
                           e.stopPropagation();
-                          flagForAdvisor(phase.id, task.id);
-                          showToast(flagged ? 'Question unflagged' : 'Flagged for your advisor — visible in their inbox');
+                          if (flagged) {
+                            flagForAdvisor(phase.id, task.id);
+                            showToast('Question unflagged');
+                          } else {
+                            setFlagText('');
+                            setFlagModal({ phaseId: phase.id, taskId: task.id, label: task.label });
+                          }
                         }}
-                        title={flagged ? 'Flagged' : 'Discuss with your advisor'}
+                        title={flagged ? 'Remove flag' : 'Discuss with your advisor'}
                       >
                         <Icons.Message size={11} />
                         {flagged ? 'Flagged' : 'Discuss with advisor'}
@@ -127,15 +135,79 @@ const PhaseCard = ({ phase, onOpenMilestone }) => {
           </div>
         )}
       </div>
+
+      {/* Flag-for-advisor text capture modal */}
+      {flagModal && (
+        <div className="px-modal-backdrop" onClick={() => setFlagModal(null)}>
+          <div className="px-modal" style={{ maxWidth: 420 }}
+               onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
+            <button className="px-modal-close" onClick={() => setFlagModal(null)} aria-label="Close">×</button>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontFamily: 'var(--serif)', fontSize: 17, fontWeight: 600,
+                            color: 'var(--ink)', marginBottom: 4 }}>
+                Discuss with your advisor
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--ink-mute)', lineHeight: 1.5 }}>
+                About: <em>{flagModal.label}</em>
+              </div>
+            </div>
+            <textarea
+              autoFocus
+              placeholder="What would you like to discuss? (optional)"
+              value={flagText}
+              onChange={e => setFlagText(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault();
+                  flagForAdvisor(flagModal.phaseId, flagModal.taskId, flagText.trim());
+                  showToast('Flagged for your advisor — visible in their inbox');
+                  setFlagModal(null);
+                }
+              }}
+              style={{
+                width: '100%', minHeight: 84, padding: '8px 10px',
+                border: '1px solid var(--border)', borderRadius: 6,
+                fontFamily: 'var(--sans)', fontSize: 13, color: 'var(--ink)',
+                background: 'var(--bg)', resize: 'vertical', marginBottom: 14,
+                boxSizing: 'border-box',
+              }}
+            />
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button className="px-btn px-btn-ghost" onClick={() => setFlagModal(null)}>
+                Cancel
+              </button>
+              <button className="px-btn px-btn-primary" onClick={() => {
+                flagForAdvisor(flagModal.phaseId, flagModal.taskId, flagText.trim());
+                showToast('Flagged for your advisor — visible in their inbox');
+                setFlagModal(null);
+              }}>
+                <Icons.Message size={11} /> Send to advisor
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 const ClientPortal = ({ onOpenNumbers }) => {
   const ctx = useProfile();
-  const { overallPct, completedCount, totalTasks, activePhase, taskStates } = useTasks();
-  const { activeClientId, activeClient, showToast } = useView();
+  const { overallPct, completedCount, totalTasks, activePhase, taskStates, setOpenPhases } = useTasks();
+  const { activeClientId, activeClient, showToast, pendingPhaseId, setPendingPhaseId } = useView();
   const { authUser } = useAuth();
+
+  // Deep-link: when a notification sends us here with a target phase, auto-open it
+  React.useEffect(() => {
+    if (pendingPhaseId == null) return;
+    setOpenPhases(prev => ({ ...prev, [pendingPhaseId]: true }));
+    setPendingPhaseId(null);
+    // Scroll to the phase after a short render delay
+    setTimeout(() => {
+      const el = document.querySelector(`[data-phase-id="${pendingPhaseId}"]`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 150);
+  }, [pendingPhaseId, setPendingPhaseId, setOpenPhases]);
   const [milestoneModal, setMilestoneModal] = React.useState(null);
   const activePhaseObj = phasesData.find(p => p.id === activePhase) || phasesData[0];
   // Use the real client object from ViewContext; fall back to mock only in demo mode

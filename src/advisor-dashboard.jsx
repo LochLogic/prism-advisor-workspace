@@ -122,9 +122,43 @@ const AlertCard = ({ alert, onSnooze, clients }) => {
 };
 
 /* ─── Flagged Question card ──────────────────────────────────────── */
-const FlaggedQuestion = ({ q, onDismiss, clients }) => {
+const FlaggedQuestion = ({ q, onDismiss, clients, authUser, onOpenClient }) => {
   const { showToast } = useView();
   const client = clients.find(c => c.id === q.clientId);
+  const [expanded,  setExpanded]  = React.useState(false);
+  const [messages,  setMessages]  = React.useState(null); // null = not yet loaded
+  const [replyText, setReplyText] = React.useState('');
+  const [sending,   setSending]   = React.useState(false);
+  const replyRef = React.useRef(null);
+
+  const loadMessages = React.useCallback(async () => {
+    if (!q._dbId || !window.db) return;
+    const msgs = await window.db.getFlagMessages(q._dbId);
+    setMessages(msgs || []);
+  }, [q._dbId]);
+
+  React.useEffect(() => {
+    if (expanded) {
+      loadMessages();
+      // Focus the reply input when thread opens
+      setTimeout(() => replyRef.current?.focus(), 80);
+    }
+  }, [expanded, loadMessages]);
+
+  const sendReply = async () => {
+    if (!replyText.trim() || !authUser?.id || !q._dbId) return;
+    setSending(true);
+    const msg = await window.db.addFlagMessage(q._dbId, authUser.id, 'advisor', replyText);
+    setSending(false);
+    if (msg) {
+      setMessages(prev => [...(prev || []), msg]);
+      setReplyText('');
+      showToast(`Reply sent to ${client?.shortName || 'client'}`);
+    } else {
+      showToast('Could not send reply — check console');
+    }
+  };
+
   return (
     <div className="px-question">
       <div className="px-question-head">
@@ -136,14 +170,74 @@ const FlaggedQuestion = ({ q, onDismiss, clients }) => {
       </div>
       <div className="px-question-quote">{q.quote}</div>
       <div className="px-question-ctx">{q.context}</div>
-      <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+
+      {/* Reply thread */}
+      {expanded && (
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+          {messages === null && (
+            <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 8 }}>Loading…</div>
+          )}
+          {messages?.length === 0 && (
+            <div style={{ fontSize: 12, color: 'var(--ink-faint)', fontStyle: 'italic', marginBottom: 8 }}>
+              No replies yet — start the conversation below.
+            </div>
+          )}
+          {messages?.map(m => (
+            <div key={m.id} style={{
+              display: 'flex',
+              justifyContent: m.author_role === 'advisor' ? 'flex-end' : 'flex-start',
+              marginBottom: 6,
+            }}>
+              <div style={{
+                fontSize: 12, lineHeight: 1.45,
+                background: m.author_role === 'advisor' ? 'var(--ink)' : 'var(--surface-raised)',
+                color: m.author_role === 'advisor' ? 'white' : 'var(--ink)',
+                padding: '7px 11px', borderRadius: 8, maxWidth: '82%',
+              }}>
+                {m.body}
+                <div style={{ fontSize: 10, opacity: 0.55, marginTop: 3 }}>
+                  {m.author_role === 'advisor' ? 'You' : (client?.shortName || 'Client')}
+                  {' · '}{window.db?.timeAgo(m.created_at) || ''}
+                </div>
+              </div>
+            </div>
+          ))}
+          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+            <input
+              ref={replyRef}
+              type="text"
+              value={replyText}
+              onChange={e => setReplyText(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); sendReply(); } }}
+              placeholder="Write a reply…"
+              style={{
+                flex: 1, padding: '6px 9px', fontSize: 12,
+                border: '1px solid var(--border)', borderRadius: 6,
+                fontFamily: 'var(--sans)', background: 'var(--bg)', color: 'var(--ink)',
+              }}
+            />
+            <button className="px-btn px-btn-sm px-btn-primary"
+              onClick={sendReply} disabled={sending || !replyText.trim()}>
+              {sending ? '…' : 'Send'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
         <button className="px-btn px-btn-sm px-btn-primary"
-          onClick={() => showToast(`Reply to ${client?.shortName || 'client'} — messaging coming soon`)}>
-          <Icons.Message size={10} /> Reply
+          onClick={() => setExpanded(v => !v)}>
+          <Icons.Message size={10} /> {expanded ? 'Hide thread' : 'Reply'}
         </button>
+        {onOpenClient && client && (
+          <button className="px-btn px-btn-sm px-btn-ghost"
+            onClick={() => onOpenClient(client)}>
+            <Icons.ArrowRight size={10} /> Open client
+          </button>
+        )}
         <button className="px-btn px-btn-sm px-btn-ghost"
           onClick={() => { showToast('Added to next meeting agenda'); onDismiss && onDismiss(q.id); }}>
-          <Icons.Calendar size={10} /> Add to agenda
+          <Icons.Calendar size={10} /> Agenda
         </button>
       </div>
     </div>
@@ -807,6 +901,7 @@ const EmptyRoster = ({ onAddClient }) => (
 /* ─── Main Advisor Dashboard ─────────────────────────────────────── */
 const AdvisorDashboard = () => {
   const { authUser } = useAuth();
+  const { openClientPortal } = useView();
   const [previewClient, setPreviewClient] = useStateAdv(null);
   const [addingClient, setAddingClient] = useStateAdv(false);
   const [snoozed, setSnoozed] = useStateAdv(new Set());
@@ -990,7 +1085,11 @@ const AdvisorDashboard = () => {
             <h3><Icons.Inbox size={13} style={{ verticalAlign: 'middle', marginRight: 4, color: 'var(--gold)' }} /> Flagged questions</h3>
             <span className="px-side-count">{visibleQs.length} unread</span>
           </div>
-          {visibleQs.map(q => <FlaggedQuestion key={q.id} q={q} onDismiss={dismissQ} clients={activeClients} />)}
+          {visibleQs.map(q => (
+            <FlaggedQuestion key={q.id} q={q} onDismiss={dismissQ}
+              clients={activeClients} authUser={authUser}
+              onOpenClient={openClientPortal} />
+          ))}
           {visibleQs.length === 0 && (
             <div style={{ padding: '18px 0', textAlign: 'center', color: 'var(--ink-faint)', fontStyle: 'italic', fontSize: 13 }}>
               Inbox empty — no pending questions.

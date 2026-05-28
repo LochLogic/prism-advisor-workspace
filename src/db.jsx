@@ -273,7 +273,7 @@ function mapFlaggedQuestion(q) {
   };
 }
 
-async function dbFlagQuestion(clientId, advisorId, phaseId, taskId, flag) {
+async function dbFlagQuestion(clientId, advisorId, phaseId, taskId, flag, questionText = '') {
   if (!_sb() || !isUUID(clientId) || !isUUID(advisorId)) return;
   try {
     if (flag) {
@@ -291,14 +291,16 @@ async function dbFlagQuestion(clientId, advisorId, phaseId, taskId, flag) {
       if (existing) {
         const { error } = await _sb()
           .from('flagged_questions')
-          .update({ status: 'open', resolved_at: null })
+          .update({ status: 'open', resolved_at: null,
+                    ...(questionText ? { question_text: questionText } : {}) })
           .eq('id', existing.id);
         if (error) throw error;
       } else {
         const { error } = await _sb()
           .from('flagged_questions')
           .insert({ client_id: clientId, advisor_id: advisorId,
-                    phase_id: Number(phaseId), task_id: taskId, status: 'open' });
+                    phase_id: Number(phaseId), task_id: taskId, status: 'open',
+                    question_text: questionText || null });
         if (error) throw error;
       }
     } else {
@@ -323,6 +325,34 @@ async function dbResolveQuestion(id) {
       .eq('id', id);
     if (error) throw error;
   } catch (e) { console.warn('[db] resolveQuestion:', e.message); }
+}
+
+/* ─── Flag message threads ───────────────────────────────────────── */
+async function dbGetFlagMessages(questionId) {
+  if (!_sb() || !isUUID(questionId)) return null;
+  try {
+    const { data, error } = await _sb()
+      .from('flag_messages')
+      .select('id, author_role, body, created_at')
+      .eq('question_id', questionId)
+      .order('created_at');
+    if (error) throw error;
+    return data;
+  } catch (e) { console.warn('[db] getFlagMessages:', e.message); return null; }
+}
+
+async function dbAddFlagMessage(questionId, authorId, authorRole, body) {
+  if (!_sb() || !isUUID(questionId) || !isUUID(authorId) || !body?.trim()) return null;
+  try {
+    const { data, error } = await _sb()
+      .from('flag_messages')
+      .insert({ question_id: questionId, author_id: authorId,
+                author_role: authorRole, body: body.trim() })
+      .select('id, author_role, body, created_at')
+      .single();
+    if (error) throw error;
+    return data;
+  } catch (e) { console.warn('[db] addFlagMessage:', e.message); return null; }
 }
 
 /* ─── Alerts ─────────────────────────────────────────────────────── */
@@ -441,6 +471,8 @@ window.db = {
   mapFlaggedQuestion,
   flagQuestion:        dbFlagQuestion,
   resolveQuestion:     dbResolveQuestion,
+  getFlagMessages:     dbGetFlagMessages,
+  addFlagMessage:      dbAddFlagMessage,
   getAlerts:           dbGetAlerts,
   mapAlert,
   snoozeAlert:         dbSnoozeAlert,
