@@ -453,9 +453,16 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
             <h2 style={{ fontFamily: 'var(--serif)', fontSize: 20, fontWeight: 500, margin: 0, color: 'var(--ink)' }}>{client.name}</h2>
             <div style={{ fontSize: 12, color: 'var(--ink-mute)', marginTop: 3 }}>{client.tag} · last activity {client.lastActivity}</div>
           </div>
-          <button className="px-btn px-btn-primary" onClick={openRoadmap}>
-            <Icons.Eye size={12} /> View roadmap
-          </button>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button className="px-btn px-btn-sm px-btn-ghost"
+              aria-label="Print client report"
+              onClick={() => window.printClientReport?.(client, phase, meetings || [])}>
+              <Icons.Download size={12} /> Print
+            </button>
+            <button className="px-btn px-btn-primary" onClick={openRoadmap}>
+              <Icons.Eye size={12} /> View roadmap
+            </button>
+          </div>
         </div>
 
         {/* Tabs — only for live (real UUID) clients */}
@@ -516,8 +523,8 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
 
             {!isLiveClient && (
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
-                <button className="px-btn px-btn-ghost"><Icons.Phone size={12} /> Call</button>
-                <button className="px-btn px-btn-ghost"><Icons.Message size={12} /> Message</button>
+                <button className="px-btn px-btn-ghost" aria-label="Call client"><Icons.Phone size={12} /> Call</button>
+                <button className="px-btn px-btn-ghost" aria-label="Message client"><Icons.Message size={12} /> Message</button>
               </div>
             )}
 
@@ -738,6 +745,44 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
   );
 };
 
+/* ─── Roster skeleton (while DB fetch is in-flight) ─────────────── */
+const RosterSkeleton = () => (
+  <div className="px-roster">
+    <table className="px-table">
+      <thead>
+        <tr>
+          <th style={{ width: '32%' }}>Client</th>
+          <th style={{ width: '28%' }}>Current Horizon</th>
+          <th className="is-num">AUM</th>
+          <th className="is-num px-hide-mobile">Uninvested cash</th>
+          <th style={{ width: 90 }}>Activity</th>
+          <th className="is-num px-hide-mobile" style={{ width: 64 }}>YTD</th>
+        </tr>
+      </thead>
+      <tbody>
+        {[1, 2, 3, 4].map(i => (
+          <tr key={i} style={{ pointerEvents: 'none' }}>
+            <td>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <span className="px-skeleton" style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0 }} />
+                <div>
+                  <span className="px-skeleton" style={{ width: 110 + i * 8, height: 13, marginBottom: 5 }} />
+                  <span className="px-skeleton" style={{ width: 70, height: 10 }} />
+                </div>
+              </div>
+            </td>
+            <td><span className="px-skeleton" style={{ width: 130, height: 13 }} /></td>
+            <td className="is-num"><span className="px-skeleton" style={{ width: 56, height: 13, marginLeft: 'auto' }} /></td>
+            <td className="is-num px-hide-mobile"><span className="px-skeleton" style={{ width: 40, height: 12, marginLeft: 'auto' }} /></td>
+            <td><span className="px-skeleton" style={{ width: 28, height: 10 }} /></td>
+            <td className="is-num px-hide-mobile"><span className="px-skeleton" style={{ width: 48, height: 16, marginLeft: 'auto' }} /></td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+);
+
 /* ─── Empty roster state ─────────────────────────────────────────── */
 const EmptyRoster = ({ onAddClient }) => (
   <div style={{ padding: '52px 0', textAlign: 'center', borderRadius: 8, border: '1px dashed var(--border-2)', marginTop: 8 }}>
@@ -885,19 +930,27 @@ const AdvisorDashboard = () => {
                    sparkSeed={19} sparkTrend="up" />
         </div>
 
-        {/* Roster */}
-        {activeClients.length === 0
-          ? <>
-              <div className="px-section-head"><h2>Client roster</h2></div>
-              <EmptyRoster onAddClient={() => setAddingClient(true)} />
-            </>
-          : <RosterTable
-              onOpenClient={setPreviewClient}
-              clients={activeClients}
-              onAddClient={() => setAddingClient(true)}
-              isLiveMode={isLiveMode}
-            />
-        }
+        {/* Roster — skeleton while fetching, empty state, or data */}
+        {!isLiveMode ? (
+          <>
+            <div className="px-section-head">
+              <h2>Client roster <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--ink-faint)', marginLeft: 6 }}>loading…</span></h2>
+            </div>
+            <RosterSkeleton />
+          </>
+        ) : activeClients.length === 0 ? (
+          <>
+            <div className="px-section-head"><h2>Client roster</h2></div>
+            <EmptyRoster onAddClient={() => setAddingClient(true)} />
+          </>
+        ) : (
+          <RosterTable
+            onOpenClient={setPreviewClient}
+            clients={activeClients}
+            onAddClient={() => setAddingClient(true)}
+            isLiveMode={isLiveMode}
+          />
+        )}
 
         {/* Footer note */}
         <div style={{ marginTop: 28, padding: 14, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12, color: 'var(--ink-mute)', display: 'flex', gap: 10, alignItems: 'center' }}>

@@ -179,7 +179,7 @@ const AccountChip = ({ view, activeClient }) => {
 };
 
 /* ─── Topbar ──────────────────────────────────────────────────────── */
-const Topbar = ({ onOpenNumbers }) => {
+const Topbar = ({ onOpenNumbers, dark, toggleTheme }) => {
   const { view, setView, activeClient } = useView();
   const { role } = useAuth();
 
@@ -213,10 +213,16 @@ const Topbar = ({ onOpenNumbers }) => {
 
       <div className="px-topright">
         {view === 'client' && (
-          <button className="px-btn px-btn-sm px-btn-ghost" onClick={onOpenNumbers}>
+          <button className="px-btn px-btn-sm px-btn-ghost" onClick={onOpenNumbers}
+            aria-label="Update your numbers">
             <Icons.Calculator size={12} /> Your numbers
           </button>
         )}
+        <button className="px-icon-btn" onClick={toggleTheme}
+          aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+          title={dark ? 'Light mode' : 'Dark mode'}>
+          {dark ? <Icons.Sun size={14} /> : <Icons.Moon size={14} />}
+        </button>
         <NotificationBell />
         <AccountChip view={view} activeClient={activeClient} />
       </div>
@@ -228,6 +234,7 @@ const Topbar = ({ onOpenNumbers }) => {
 function AppInner() {
   const { view, setView } = useView();
   const { loading, session, role, isDemo, signOut } = useAuth();
+  const { dark, toggleTheme } = useTheme();
   const [isNumbersOpen, setIsNumbersOpen] = React.useState(false);
 
   // Client-role users always land in client view
@@ -268,7 +275,7 @@ function AppInner() {
 
   return (
     <div className="px-app">
-      <Topbar onOpenNumbers={() => setIsNumbersOpen(true)} />
+      <Topbar onOpenNumbers={() => setIsNumbersOpen(true)} dark={dark} toggleTheme={toggleTheme} />
       {view === 'advisor'
         ? <AdvisorDashboard />
         : <ClientPortal onOpenNumbers={() => setIsNumbersOpen(true)} />}
