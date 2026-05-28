@@ -58,16 +58,16 @@ const RosterRow = ({ client, onOpen }) => {
           {fmt$(client.aum, { short: true })}
         </span>
       </td>
-      <td className="is-num">
-        <span className={`px-num ${client.uninvestedCash > 80_000 ? '' : ''}`} style={{ color: client.uninvestedCash > 80_000 ? 'var(--brick)' : 'var(--ink-mute)' }}>
-          {fmt$(client.uninvestedCash, { short: true })}
+      <td className="is-num px-hide-mobile">
+        <span style={{ color: client.uninvestedCash > 80_000 ? 'var(--brick)' : 'var(--ink-mute)' }}>
+          {client.uninvestedCash ? fmt$(client.uninvestedCash, { short: true }) : '—'}
         </span>
       </td>
       <td>
         <span className={`px-activity-dot ${client.recent ? 'is-recent' : client.lastActivity.includes('d') && parseInt(client.lastActivity) >= 7 ? 'is-warn' : ''}`}></span>
         <span style={{ fontSize: 12, color: 'var(--ink-mute)' }}>{client.lastActivity}</span>
       </td>
-      <td className="is-num">
+      <td className="is-num px-hide-mobile">
         <Sparkline seed={client.id.charCodeAt(2) + client.id.charCodeAt(3)} trend={client.recent ? 'up' : 'flat'} color="var(--ink-faint)" width={48} height={16} />
       </td>
     </tr>
@@ -152,7 +152,7 @@ const FlaggedQuestion = ({ q, onDismiss, clients }) => {
 };
 
 /* ─── Roster section ─────────────────────────────────────────────── */
-const RosterTable = ({ onOpenClient, clients }) => {
+const RosterTable = ({ onOpenClient, clients, onAddClient, isLiveMode }) => {
   const [q, setQ] = useStateAdv('');
   const [sort, setSort] = useStateAdv('aum');
   const filtered = useMemoAdv(() => {
@@ -163,12 +163,12 @@ const RosterTable = ({ onOpenClient, clients }) => {
     if (sort === 'phase') list = [...list].sort((a, b) => b.phase - a.phase);
     if (sort === 'activity') list = [...list].sort((a, b) => Number(b.recent) - Number(a.recent));
     return list;
-  }, [q, sort]);
+  }, [q, sort, clients]);
 
   return (
     <>
       <div className="px-section-head">
-        <h2>Client roster</h2>
+        <h2>Client roster {isLiveMode && <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--ink-mute)', marginLeft: 6 }}>live</span>}</h2>
         <div className="px-section-tools">
           <div className="px-search">
             <Icons.Search size={12} />
@@ -180,6 +180,11 @@ const RosterTable = ({ onOpenClient, clients }) => {
             <option value="phase">Sort · Horizon</option>
             <option value="activity">Sort · Activity</option>
           </select>
+          {isLiveMode && onAddClient && (
+            <button className="px-btn px-btn-sm px-btn-primary" onClick={onAddClient}>
+              <Icons.Plus size={11} /> Add client
+            </button>
+          )}
         </div>
       </div>
       <div className="px-roster">
@@ -189,9 +194,9 @@ const RosterTable = ({ onOpenClient, clients }) => {
               <th style={{ width: '32%' }}>Client</th>
               <th style={{ width: '28%' }}>Current Horizon</th>
               <th className="is-num">AUM</th>
-              <th className="is-num">Uninvested cash</th>
+              <th className="is-num px-hide-mobile">Uninvested cash</th>
               <th style={{ width: 90 }}>Activity</th>
-              <th className="is-num" style={{ width: 64 }}>YTD</th>
+              <th className="is-num px-hide-mobile" style={{ width: 64 }}>YTD</th>
             </tr>
           </thead>
           <tbody>
@@ -203,12 +208,97 @@ const RosterTable = ({ onOpenClient, clients }) => {
   );
 };
 
+/* ─── New Client modal ───────────────────────────────────────────── */
+const PHASES = phasesData.map(p => ({ value: p.id, label: `Phase ${p.num} — ${p.title}` }));
+
+const NewClientModal = ({ isOpen, onClose, advisorId, onCreated }) => {
+  const { showToast } = useView();
+  const [saving, setSaving] = useStateAdv(false);
+  const [form, setForm] = useStateAdv({ household_name: '', short_name: '', household_tag: '', current_phase: 0 });
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.household_name.trim()) return;
+    setSaving(true);
+    const row = await window.db.createClient(advisorId, form);
+    setSaving(false);
+    if (row) {
+      showToast(`${form.short_name || form.household_name} added to your roster`);
+      onCreated(window.db.mapClient(row));
+      setForm({ household_name: '', short_name: '', household_tag: '', current_phase: 0 });
+      onClose();
+    } else {
+      showToast('Could not save — check console for details');
+    }
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose}>
+      <div style={{ padding: 28, minWidth: 360 }}>
+        <h2 style={{ fontFamily: 'var(--serif)', fontSize: 20, fontWeight: 500, margin: '0 0 20px', color: 'var(--ink)' }}>
+          Add new client
+        </h2>
+        <form onSubmit={handleSubmit}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.05em' }}>Household name *</span>
+              <input className="px-input" placeholder="e.g. Johnson Household" required
+                value={form.household_name} onChange={e => set('household_name', e.target.value)} />
+            </label>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.05em' }}>Short name</span>
+              <input className="px-input" placeholder="e.g. Johnsons (shown in compact views)"
+                value={form.short_name} onChange={e => set('short_name', e.target.value)} />
+            </label>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.05em' }}>Tag / description</span>
+              <input className="px-input" placeholder="e.g. Accumulation · 2 members"
+                value={form.household_tag} onChange={e => set('household_tag', e.target.value)} />
+            </label>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.05em' }}>Starting horizon</span>
+              <select className="px-select" value={form.current_phase}
+                onChange={e => set('current_phase', Number(e.target.value))}>
+                {PHASES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+              </select>
+            </label>
+          </div>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 22 }}>
+            <button type="button" className="px-btn px-btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="submit" className="px-btn px-btn-primary" disabled={saving}>
+              {saving ? 'Saving…' : 'Add client'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </Modal>
+  );
+};
+
 /* ─── Client preview modal (when an advisor clicks a row) ─────────── */
-const ClientPreviewModal = ({ client, onClose }) => {
-  const { setView, setActiveClientId } = useView();
+const ClientPreviewModal = ({ client, onClose, onNotesChange }) => {
+  const { setView, setActiveClientId, showToast } = useView();
+  const [editingNotes, setEditingNotes] = useStateAdv(false);
+  const [notes, setNotes] = useStateAdv('');
+
+  React.useEffect(() => {
+    if (client) setNotes(client.notes || '');
+  }, [client?.id]);
+
   if (!client) return null;
   const phase = phaseLabel(client.phase);
   const openRoadmap = () => { setActiveClientId(client.id); setView('client'); onClose(); };
+  const isLiveClient = window.db?.isUUID(client.id);
+
+  const saveNotes = () => {
+    setEditingNotes(false);
+    if (!isLiveClient) return;
+    window.db.updateClientNotes(client.id, notes);
+    onNotesChange && onNotesChange(client.id, notes);
+    showToast('Notes saved');
+  };
+
   return (
     <Modal isOpen={!!client} onClose={onClose}>
       <div style={{ padding: 28 }}>
@@ -223,7 +313,7 @@ const ClientPreviewModal = ({ client, onClose }) => {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 18 }}>
           <div style={{ padding: 12, background: 'var(--bg-elev)', borderRadius: 6 }}>
             <div className="px-portstat-label">AUM</div>
-            <div className="px-portstat-value" style={{ fontSize: 19 }}>{fmt$(client.aum, { short: true })}</div>
+            <div className="px-portstat-value" style={{ fontSize: 19 }}>{client.aum ? fmt$(client.aum, { short: true }) : '—'}</div>
           </div>
           <div style={{ padding: 12, background: 'var(--bg-elev)', borderRadius: 6 }}>
             <div className="px-portstat-label">Current Horizon</div>
@@ -235,13 +325,41 @@ const ClientPreviewModal = ({ client, onClose }) => {
           <div style={{ padding: 12, background: 'var(--bg-elev)', borderRadius: 6 }}>
             <div className="px-portstat-label">Uninvested cash</div>
             <div className="px-portstat-value" style={{ fontSize: 19, color: client.uninvestedCash > 80_000 ? 'var(--brick)' : 'var(--ink)' }}>
-              {fmt$(client.uninvestedCash, { short: true })}
+              {client.uninvestedCash ? fmt$(client.uninvestedCash, { short: true }) : '—'}
             </div>
           </div>
         </div>
 
-        <div style={{ padding: 12, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 6, fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 14, color: 'var(--ink-2)', lineHeight: 1.5, marginBottom: 16 }}>
-          "{client.notes}"
+        {/* Notes — editable for real clients */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.05em' }}>Notes</span>
+            {isLiveClient && !editingNotes && (
+              <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => setEditingNotes(true)}>
+                <Icons.Edit size={10} /> Edit
+              </button>
+            )}
+          </div>
+          {editingNotes ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <textarea
+                className="px-input"
+                rows={3}
+                style={{ resize: 'vertical', fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 13 }}
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                autoFocus
+              />
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button className="px-btn px-btn-sm px-btn-primary" onClick={saveNotes}>Save</button>
+                <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => { setEditingNotes(false); setNotes(client.notes || ''); }}>Cancel</button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ padding: 12, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 6, fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 14, color: 'var(--ink-2)', lineHeight: 1.5, minHeight: 42 }}>
+              {notes ? `"${notes}"` : <span style={{ color: 'var(--ink-faint)' }}>No notes yet.</span>}
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
@@ -254,37 +372,63 @@ const ClientPreviewModal = ({ client, onClose }) => {
   );
 };
 
+/* ─── Empty roster state ─────────────────────────────────────────── */
+const EmptyRoster = ({ onAddClient }) => (
+  <div style={{ padding: '52px 0', textAlign: 'center', borderRadius: 8, border: '1px dashed var(--border-2)', marginTop: 8 }}>
+    <div style={{ width: 44, height: 44, background: 'var(--bg-elev)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+      <Icons.Users size={18} style={{ color: 'var(--ink-mute)' }} />
+    </div>
+    <div style={{ fontFamily: 'var(--serif)', fontSize: 16, fontWeight: 500, color: 'var(--ink)', marginBottom: 6 }}>No clients yet</div>
+    <div style={{ fontSize: 13, color: 'var(--ink-mute)', marginBottom: 18 }}>Add your first client to start building your book.</div>
+    <button className="px-btn px-btn-primary" onClick={onAddClient}>
+      <Icons.Plus size={12} /> Add first client
+    </button>
+  </div>
+);
+
 /* ─── Main Advisor Dashboard ─────────────────────────────────────── */
 const AdvisorDashboard = () => {
   const { authUser } = useAuth();
   const [previewClient, setPreviewClient] = useStateAdv(null);
+  const [addingClient, setAddingClient] = useStateAdv(false);
   const [snoozed, setSnoozed] = useStateAdv(new Set());
   const [dismissedQs, setDismissedQs] = useStateAdv(new Set());
 
-  // Real data (null = not yet loaded / no auth)
-  const [dbClients,   setDbClients]   = useStateAdv(null);
-  const [dbAlerts,    setDbAlerts]    = useStateAdv(null);
-  const [dbQuestions, setDbQuestions] = useStateAdv(null);
+  // undefined = not yet fetched; [] = fetched, empty; [...] = has rows
+  const [dbClients,   setDbClients]   = useStateAdv(undefined);
+  const [dbAlerts,    setDbAlerts]    = useStateAdv(undefined);
+  const [dbQuestions, setDbQuestions] = useStateAdv(undefined);
 
-  // Fetch from Supabase whenever the advisor auth record is available
+  // Fetch from Supabase when advisor auth record is available
   React.useEffect(() => {
     if (!authUser?.id || !window.db) return;
     const id = authUser.id;
     window.db.getClients(id).then(rows => {
-      if (rows?.length) setDbClients(rows.map(window.db.mapClient));
+      setDbClients(rows ? rows.map(window.db.mapClient) : []);
     });
     window.db.getAlerts(id).then(rows => {
-      if (rows?.length) setDbAlerts(rows.map(window.db.mapAlert));
+      setDbAlerts(rows ? rows.map(window.db.mapAlert) : []);
     });
     window.db.getFlaggedQuestions(id).then(rows => {
-      if (rows?.length) setDbQuestions(rows.map(window.db.mapFlaggedQuestion));
+      setDbQuestions(rows ? rows.map(window.db.mapFlaggedQuestion) : []);
     });
   }, [authUser?.id]);
 
-  // Fall back to mock data until real data loads
-  const activeClients   = dbClients   || clientsData;
-  const activeAlerts    = dbAlerts    || alertsData;
-  const activeQuestions = dbQuestions || questionsData;
+  const isLiveMode = dbClients !== undefined;  // true once fetch completes
+
+  // Use real data when fetched; fall back to mock in demo / no-auth mode
+  const activeClients   = isLiveMode ? dbClients   : clientsData;
+  const activeAlerts    = isLiveMode ? (dbAlerts    || []) : alertsData;
+  const activeQuestions = isLiveMode ? (dbQuestions || []) : questionsData;
+
+  const handleClientCreated = (newClient) => {
+    setDbClients(prev => [...(prev || []), newClient]);
+  };
+
+  const handleNotesChange = (clientId, notes) => {
+    setDbClients(prev => (prev || []).map(c => c.id === clientId ? { ...c, notes } : c));
+    if (previewClient?.id === clientId) setPreviewClient(p => ({ ...p, notes }));
+  };
 
   const snooze = (id) => {
     setSnoozed(prev => new Set([...prev, id]));
@@ -296,7 +440,7 @@ const AdvisorDashboard = () => {
   };
 
   const visibleAlerts = useMemoAdv(() => activeAlerts.filter(a => !snoozed.has(a.id)), [activeAlerts, snoozed]);
-  const visibleQs = useMemoAdv(() => activeQuestions.filter(q => !dismissedQs.has(q.id)), [activeQuestions, dismissedQs]);
+  const visibleQs     = useMemoAdv(() => activeQuestions.filter(q => !dismissedQs.has(q.id)), [activeQuestions, dismissedQs]);
 
   const greetDate = (() => {
     const d = new Date();
@@ -308,16 +452,24 @@ const AdvisorDashboard = () => {
   const greetName = authUser?.full_name?.split(' ')[0] || advisor.name;
 
   const kpis = useMemoAdv(() => {
-    const totalAUM = activeClients.reduce((a, c) => a + c.aum, 0);
-    const totalCashDrag = activeClients.reduce((a, c) => a + c.uninvestedCash, 0);
-    const activeCount = activeClients.length;
-    const inLateHorizon = activeClients.filter(c => c.phase >= 5).length;
-    return { totalAUM, totalCashDrag, activeCount, inLateHorizon };
+    const list = activeClients;
+    return {
+      totalAUM:      list.reduce((a, c) => a + c.aum, 0),
+      totalCashDrag: list.reduce((a, c) => a + c.uninvestedCash, 0),
+      activeCount:   list.length,
+      inLateHorizon: list.filter(c => c.phase >= 5).length,
+    };
   }, [activeClients]);
 
   return (
     <div className="px-adv">
-      <ClientPreviewModal client={previewClient} onClose={() => setPreviewClient(null)} />
+      <ClientPreviewModal client={previewClient} onClose={() => setPreviewClient(null)} onNotesChange={handleNotesChange} />
+      <NewClientModal
+        isOpen={addingClient}
+        onClose={() => setAddingClient(false)}
+        advisorId={authUser?.id}
+        onCreated={handleClientCreated}
+      />
 
       <div className="px-adv-main">
         {/* Greeting */}
@@ -327,34 +479,51 @@ const AdvisorDashboard = () => {
           </div>
           <h1>Good {greetTime}, <em>{greetName}</em>.</h1>
           <p className="px-greet-sub">
-            {visibleAlerts.filter(a => a.priority === 'high').length} action items this {greetTime} and {visibleQs.length} client questions awaiting reply.
+            {isLiveMode
+              ? `${activeClients.length} client${activeClients.length !== 1 ? 's' : ''} in your book · ${visibleAlerts.filter(a => a.priority === 'high').length} action item${visibleAlerts.filter(a => a.priority === 'high').length !== 1 ? 's' : ''} · ${visibleQs.length} question${visibleQs.length !== 1 ? 's' : ''} pending`
+              : `${visibleAlerts.filter(a => a.priority === 'high').length} action items this ${greetTime} and ${visibleQs.length} client questions awaiting reply.`
+            }
           </p>
         </div>
 
         {/* KPIs */}
         <div className="px-kpis">
-          <KpiTile label="Book AUM" value={fmt$(kpis.totalAUM, { short: true, decimals: 1 })}
-                   delta="+ $1.8M MTD" deltaDir="up"
+          <KpiTile label="Book AUM" value={kpis.totalAUM ? fmt$(kpis.totalAUM, { short: true, decimals: 1 }) : '—'}
+                   delta={isLiveMode ? null : '+ $1.8M MTD'} deltaDir="up"
                    sparkSeed={7} sparkTrend="up" />
           <KpiTile label="Active clients" value={kpis.activeCount}
-                   sub="2 onboarding"
+                   sub={isLiveMode ? null : '2 onboarding'}
                    sparkSeed={3} sparkTrend="up" />
           <KpiTile label="Late-horizon" value={kpis.inLateHorizon}
                    sub="Phase 06 +"
                    sparkSeed={11} sparkTrend="up" />
-          <KpiTile label="Cash drag" value={fmt$(kpis.totalCashDrag, { short: true })}
-                   delta="3 clients over target" deltaDir="down"
+          <KpiTile label="Cash drag" value={kpis.totalCashDrag ? fmt$(kpis.totalCashDrag, { short: true }) : '—'}
+                   delta={isLiveMode ? null : '3 clients over target'} deltaDir="down"
                    sparkSeed={19} sparkTrend="up" />
         </div>
 
         {/* Roster */}
-        <RosterTable onOpenClient={setPreviewClient} clients={activeClients} />
+        {activeClients.length === 0
+          ? <>
+              <div className="px-section-head"><h2>Client roster</h2></div>
+              <EmptyRoster onAddClient={() => setAddingClient(true)} />
+            </>
+          : <RosterTable
+              onOpenClient={setPreviewClient}
+              clients={activeClients}
+              onAddClient={() => setAddingClient(true)}
+              isLiveMode={isLiveMode}
+            />
+        }
 
         {/* Footer note */}
         <div style={{ marginTop: 28, padding: 14, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12, color: 'var(--ink-mute)', display: 'flex', gap: 10, alignItems: 'center' }}>
           <Icons.Info size={13} />
           <span>
-            Roster is filtered by your advisor seat. <b>Row-level security</b> ensures advisors see only their book. White-label content is editable in <a href="#" style={{ color: 'var(--gold)' }}>Firm settings → Phase library</a>.
+            {isLiveMode
+              ? <>Roster shows your live book. <b>Row-level security</b> ensures each advisor sees only their clients.</>
+              : <>Running in <b>demo mode</b> — sign in to see your live roster. <b>RLS</b> ensures advisors see only their own book.</>
+            }
           </span>
         </div>
       </div>
