@@ -70,9 +70,10 @@ const MilestoneAchievedModal = ({ isOpen, onClose, phase }) => {
   const { taskStates } = useTasks() || {};
   const { authUser } = window.useAuth?.() || {};
   if (!isOpen || !phase) return null;
-  const completed = phase.tasks.filter(t => taskStates?.[phase.id]?.[t.id]);
-  const advisorName     = authUser?.full_name || advisor.fullName;
-  const advisorFirm     = authUser?.firms?.name || advisor.firm;
+  const completed   = phase.tasks.filter(t => taskStates?.[phase.id]?.[t.id]);
+  const advisorName = authUser?.full_name || advisor.fullName;
+  const advisorFirm = authUser?.firms?.name || advisor.firm;
+  const handlePrint = () => window.printMilestoneReport?.(phase, taskStates, advisorName, advisorFirm);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} className="px-milestone-modal">
@@ -133,7 +134,7 @@ const MilestoneAchievedModal = ({ isOpen, onClose, phase }) => {
 
       <div className="px-milestone-foot">
         <span className="px-milestone-foot-note">A printable PDF copy is retained in your client vault.</span>
-        <button className="px-btn px-btn-ghost" onClick={onClose}>
+        <button className="px-btn px-btn-ghost" onClick={handlePrint}>
           <Icons.Download size={13} /> Download PDF
         </button>
         <button className="px-btn px-btn-primary" onClick={onClose}>

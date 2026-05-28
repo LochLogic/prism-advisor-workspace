@@ -57,6 +57,55 @@
   --radius-lg: 10px;
 }
 
+/* ── Dark theme ──────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --bg:           #111a26;
+  --bg-elev:      #1a2638;
+  --bg-deep:      #0e1720;
+  --surface:      #162030;
+  --surface-2:    #1a2638;
+
+  --ink:          #dce7f3;
+  --ink-2:        #b8ccde;
+  --ink-mute:     #7a9ab5;
+  --ink-faint:    #4a6a85;
+  --ink-ghost:    #2a4a65;
+
+  --border:       #243650;
+  --border-2:     #2e4a68;
+  --border-ink:   #dce7f3;
+
+  --gold:         #c4a55c;
+  --gold-2:       #d4b570;
+  --gold-soft:    #251e0e;
+
+  --forest:       #5a8a6a;
+  --forest-2:     #6a9a7a;
+  --forest-soft:  #122018;
+
+  --brick:        #a05050;
+  --brick-soft:   #200e0e;
+
+  --good:   #5a8a6a;
+  --warn:   #c08030;
+  --bad:    #a05050;
+
+  --accent-soft: #1a2638;
+  --accent-line: #2e4a68;
+
+  --sh-1:  0 1px 0 rgba(0,0,0,.3), 0 0 0 1px var(--border);
+  --sh-2:  0 1px 0 rgba(0,0,0,.3), 0 2px 8px rgba(0,0,0,.25), 0 0 0 1px var(--border);
+  --sh-3:  0 10px 30px rgba(0,0,0,.4), 0 0 0 1px var(--border);
+  --sh-4:  0 24px 60px rgba(0,0,0,.6), 0 0 0 1px var(--border-2);
+}
+
+/* ── Color transition (smooth theme switch) ──────────────────────── */
+*, *::before, *::after {
+  transition: background-color .18s ease, border-color .18s ease, color .08s ease;
+}
+/* Exclude interactive elements from color transitions to keep them snappy */
+button, input, select, textarea, a { transition: none; }
+
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
 body {
@@ -1089,6 +1138,27 @@ input, select, textarea { font-family: inherit; color: inherit; }
   .px-portstrip { grid-template-columns: repeat(2, 1fr); }
   .px-portstrip .px-portstat:nth-child(2) { border-right: 0; }
 }
+/* ── Animations ──────────────────────────────────────────────────────── */
+@keyframes px-fade-in  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes px-slide-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes px-shimmer  {
+  from { background-position: 200% center; }
+  to   { background-position: -200% center; }
+}
+
+.px-modal-backdrop { animation: px-fade-in .15s ease; }
+.px-modal          { animation: px-slide-up .18s cubic-bezier(.25,.46,.45,.94); }
+
+/* ── Skeleton loader ─────────────────────────────────────────────────── */
+.px-skeleton {
+  background: linear-gradient(90deg,
+    var(--bg-elev) 25%, var(--bg-deep) 50%, var(--bg-elev) 75%);
+  background-size: 200% 100%;
+  animation: px-shimmer 1.5s infinite linear;
+  border-radius: 4px;
+  display: block;
+}
+
 /* ── Notification bell ───────────────────────────────────────────────── */
 .px-notif-badge {
   position: absolute; top: 2px; right: 1px;
@@ -1161,4 +1231,15 @@ input, select, textarea { font-family: inherit; color: inherit; }
   .px-greet h1 { font-size: 26px; }
   .px-modal-backdrop { padding: 12px; align-items: flex-start; padding-top: 40px; }
   .px-modal { max-height: calc(100dvh - 64px); }
+  /* Full-width notification panel on mobile */
+  .px-notif-panel { width: calc(100vw - 28px); right: -8px; }
+}
+
+/* ── Print styles ────────────────────────────────────────────────────── */
+@media print {
+  .px-topbar, .px-adv-side, .px-viewswitch,
+  .px-kpis, .px-section-tools, .px-phase-head button,
+  .px-toast, .px-modal-backdrop { display: none !important; }
+  body { background: #fff !important; color: #1c2e4a !important; }
+  .px-app { min-height: unset; }
 }

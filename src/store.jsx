@@ -388,10 +388,127 @@ function NotificationProvider({ children }) {
 }
 const useNotifications = () => useContext(NotificationContext);
 
+/* ─── Theme (light / dark) ────────────────────────────────────────── */
+function useTheme() {
+  const [dark, setDark] = React.useState(() => {
+    try { return localStorage.getItem('px_theme') === 'dark'; }
+    catch { return window.matchMedia?.('(prefers-color-scheme: dark)').matches || false; }
+  });
+
+  React.useEffect(() => {
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    try { localStorage.setItem('px_theme', dark ? 'dark' : 'light'); } catch {}
+  }, [dark]);
+
+  const toggleTheme = () => setDark(d => !d);
+  return { dark, toggleTheme };
+}
+
+/* ─── Print helpers ───────────────────────────────────────────────── */
+const _printStyles = `
+  body{font-family:Georgia,serif;color:#1c2e4a;padding:44px;max-width:720px;margin:0 auto;font-size:13px;}
+  h1{font-size:22px;font-weight:500;margin:0 0 3px;}
+  .sub{color:#5d7a8e;font-size:12px;margin-bottom:22px;}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:22px;}
+  .stat{border:1px solid #e4dfd0;border-radius:6px;padding:11px;}
+  .stat-lbl{font-size:10px;color:#5d7a8e;text-transform:uppercase;letter-spacing:.06em;}
+  .stat-val{font-size:17px;font-weight:500;margin-top:4px;}
+  .section-lbl{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5d7a8e;margin:20px 0 8px;}
+  .task{padding:5px 0;border-bottom:1px solid #e4dfd0;display:flex;gap:8px;font-size:12px;}
+  .check{color:#3d5a4a;font-weight:700;}
+  .mtg{padding:7px 0;border-bottom:1px solid #e4dfd0;}
+  .mtg-date{font-weight:600;font-size:12px;}
+  .mtg-notes{color:#5d7a8e;font-size:12px;margin-top:2px;}
+  .note-block{border-left:2px solid #a98c4b;padding-left:12px;font-style:italic;color:#5d7a8e;font-size:13px;}
+  .footer{margin-top:36px;padding-top:14px;border-top:1px solid #e4dfd0;font-size:10px;color:#8da3b6;}
+  @media print{body{padding:20px;}}
+`;
+
+function _openPrint(title, bodyHtml) {
+  const win = window.open('', '_blank');
+  if (!win) { console.warn('[print] popup blocked — allow popups for this site'); return; }
+  win.document.write(`<!DOCTYPE html><html><head><title>${title}</title><style>${_printStyles}</style></head><body>${bodyHtml}</body></html>`);
+  win.document.close();
+  setTimeout(() => win.print(), 450);
+}
+
+function _fmtShort(n) {
+  if (!n || !isFinite(n)) return '—';
+  if (Math.abs(n) >= 1e6) return '$' + (n / 1e6).toFixed(2) + 'M';
+  if (Math.abs(n) >= 1e3) return '$' + (n / 1e3).toFixed(0) + 'k';
+  return '$' + Math.round(n).toLocaleString();
+}
+
+// Client overview report — called from ClientPreviewModal "Print report" button
+function printClientReport(client, phase, meetings) {
+  const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const meetingsHtml = (meetings || []).length > 0
+    ? `<div class="section-lbl">Meeting history</div>
+       ${meetings.slice(0, 6).map(m => `
+         <div class="mtg">
+           <div class="mtg-date">
+             ${new Date(m.met_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+             ${m.duration_min ? ` &middot; ${m.duration_min} min` : ''}
+           </div>
+           ${m.notes ? `<div class="mtg-notes">${m.notes}</div>` : ''}
+         </div>`).join('')}`
+    : '';
+  const notesHtml = client.notes
+    ? `<div class="section-lbl">Advisor notes</div><div class="note-block">"${client.notes}"</div>`
+    : '';
+
+  _openPrint(`Client Report — ${client.name}`, `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
+      <div><h1>${client.name}</h1><div class="sub">${client.tag} &middot; Generated ${date}</div></div>
+      <div style="font-size:10px;color:#8da3b6;text-align:right">Prism Advisor Workspace<br/>Confidential</div>
+    </div>
+    <div class="grid">
+      <div class="stat"><div class="stat-lbl">AUM</div><div class="stat-val">${_fmtShort(client.aum)}</div></div>
+      <div class="stat"><div class="stat-lbl">Current Horizon</div><div class="stat-val" style="font-size:13px;margin-top:6px">Phase ${phase.num} &middot; ${phase.title}</div></div>
+      <div class="stat"><div class="stat-lbl">Uninvested cash</div><div class="stat-val" style="color:${client.uninvestedCash > 80000 ? '#8c3d3d' : 'inherit'}">${_fmtShort(client.uninvestedCash)}</div></div>
+    </div>
+    ${meetingsHtml}
+    ${notesHtml}
+    <div class="footer">This report is confidential and intended solely for the named client and their advisor. Prism Advisor Workspace.</div>
+  `);
+}
+
+// Milestone phase report — called from MilestoneAchievedModal "Download PDF" button
+function printMilestoneReport(phase, taskStates, advisorName, advisorFirm) {
+  const completed = (phase?.tasks || []).filter(t => taskStates?.[phase.id]?.[t.id]);
+  const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+  _openPrint(`Milestone Report — Phase ${phase.num}`, `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
+      <div>
+        <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5d7a8e;margin-bottom:4px">Milestone Achieved &middot; Phase ${phase.num}</div>
+        <h1>${phase.title}</h1>
+        <div class="sub">Reviewed ${date} &middot; ${advisorName}${advisorFirm ? ', ' + advisorFirm : ''}</div>
+      </div>
+      <div style="font-size:10px;color:#8da3b6;text-align:right">Prism Advisor Workspace<br/>Confidential</div>
+    </div>
+    <div class="grid">
+      <div class="stat"><div class="stat-lbl">Tasks completed</div><div class="stat-val">${completed.length} / ${phase.tasks.length}</div></div>
+      <div class="stat"><div class="stat-lbl">Phase</div><div class="stat-val">${phase.num}</div></div>
+      <div class="stat"><div class="stat-lbl">Status</div><div class="stat-val" style="font-size:14px;color:#3d5a4a;margin-top:5px">&#10003; Complete</div></div>
+    </div>
+    <div class="section-lbl">Milestones completed in this phase</div>
+    ${phase.tasks.map(t => `
+      <div class="task">
+        <span class="check">${taskStates?.[phase.id]?.[t.id] ? '✓' : '○'}</span>
+        <span>${t.label}</span>
+      </div>`).join('')}
+    <div class="footer">This summary report is retained in the client vault. Prism Advisor Workspace &middot; ${advisorFirm || ''}</div>
+  `);
+}
+
 Object.assign(window, {
   ProfileProvider, useProfile,
   TaskProvider, useTasks,
   ViewProvider, useView,
   NotificationProvider, useNotifications,
+  useTheme,
+  printClientReport,
+  printMilestoneReport,
   fmt$, fmtPct, fmtN,
 });
