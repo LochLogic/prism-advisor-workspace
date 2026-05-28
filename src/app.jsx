@@ -152,7 +152,7 @@ const Topbar = ({ onOpenNumbers }) => {
 /* ─── App inner (all providers are already mounted above) ─────────── */
 function AppInner() {
   const { view, setView } = useView();
-  const { loading, session, role, isDemo } = useAuth();
+  const { loading, session, role, isDemo, signOut } = useAuth();
   const [isNumbersOpen, setIsNumbersOpen] = React.useState(false);
 
   // Client-role users always land in client view
@@ -162,9 +162,37 @@ function AppInner() {
 
   // Auth gate
   if (loading) return <LoadingScreen />;
-  if (!session && !isDemo) {
-    // onAuthStateChange in auth.jsx handles the redirect; render nothing while it fires
-    return <LoadingScreen />;
+  if (!session && !isDemo) return <LoadingScreen />;
+
+  if (role === 'unregistered') {
+    return (
+      <div style={{
+        minHeight: '100vh', display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        background: 'var(--bg)', gap: 18, padding: 32,
+      }}>
+        <div style={{
+          width: 42, height: 42, background: 'var(--ink)', borderRadius: 11,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Icons.Prism size={19} style={{ color: 'white' }} />
+        </div>
+        <div style={{ textAlign: 'center', maxWidth: 400 }}>
+          <div style={{ fontFamily: 'var(--serif)', fontSize: 20, fontWeight: 500, color: 'var(--ink)', marginBottom: 8 }}>
+            Account not yet linked
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--ink-mute)', lineHeight: 1.6, marginBottom: 20 }}>
+            Your login was verified, but no advisor or client record was found for this email. Ask your administrator to add you to the system, then sign in again.
+          </div>
+          <button
+            className="px-btn px-btn-ghost"
+            onClick={signOut}
+          >
+            <Icons.ArrowRight size={12} style={{ transform: 'rotate(180deg)' }} /> Sign out
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (

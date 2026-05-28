@@ -97,7 +97,7 @@ const PhaseCard = ({ phase, onOpenMilestone }) => {
                         onClick={(e) => {
                           e.stopPropagation();
                           flagForAdvisor(phase.id, task.id);
-                          showToast(flagged ? 'Question unflagged' : `Flagged for ${advisor.name} — visible in their inbox`);
+                          showToast(flagged ? 'Question unflagged' : 'Flagged for your advisor — visible in their inbox');
                         }}
                         title={flagged ? 'Flagged' : 'Discuss with your advisor'}
                       >
@@ -117,7 +117,7 @@ const PhaseCard = ({ phase, onOpenMilestone }) => {
               <div className="px-phase-complete-cta">
                 <span>
                   <Icons.CheckCircle size={13} style={{ verticalAlign: 'middle', marginRight: 6 }} />
-                  Phase complete · reviewed with {advisor.name}
+                  Phase complete · reviewed with your advisor
                 </span>
                 <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => onOpenMilestone(phase)}>
                   View summary report
@@ -134,10 +134,22 @@ const PhaseCard = ({ phase, onOpenMilestone }) => {
 const ClientPortal = ({ onOpenNumbers }) => {
   const ctx = useProfile();
   const { overallPct, completedCount, totalTasks, activePhase, taskStates } = useTasks();
-  const { activeClientId, showToast } = useView();
+  const { activeClientId, activeClient, showToast } = useView();
+  const { authUser } = useAuth();
   const [milestoneModal, setMilestoneModal] = React.useState(null);
   const activePhaseObj = phasesData.find(p => p.id === activePhase) || phasesData[0];
-  const viewingClient = clientsData.find(c => c.id === activeClientId) || clientsData[0];
+  // Use the real client object from ViewContext; fall back to mock only in demo mode
+  const viewingClient = activeClient || clientsData.find(c => c.id === activeClientId) || clientsData[0];
+
+  // Build advisor display info from auth (real) or mock fallback (demo)
+  const advisorDisplay = {
+    initials: authUser?.full_name
+      ? authUser.full_name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase()
+      : advisor.initials,
+    fullName: authUser?.full_name || advisor.fullName,
+    firm:     authUser?.firms?.name || advisor.firm,
+    name:     authUser?.full_name?.split(' ')[0] || advisor.name,
+  };
 
   const completedPhases = phasesData.filter(p => p.tasks.every(t => taskStates[p.id]?.[t.id])).length;
 
@@ -154,20 +166,20 @@ const ClientPortal = ({ onOpenNumbers }) => {
             Your wealth, refracted into <em>seven horizons</em>.
           </h1>
           <p>
-            A coordinated lifecycle plan, built and reviewed with {advisor.fullName}.
+            A coordinated lifecycle plan, built and reviewed with {advisorDisplay.fullName}.
             Each Horizon phase advances when its milestones are met — together.
           </p>
         </section>
 
         {/* Advisor chip */}
         <div className="px-advisor-chip">
-          <div className="px-advisor-avatar">{advisor.initials}</div>
+          <div className="px-advisor-avatar">{advisorDisplay.initials}</div>
           <div className="px-advisor-meta">
-            <div className="px-advisor-name">{advisor.fullName}</div>
-            <div className="px-advisor-role">{advisor.firm}</div>
+            <div className="px-advisor-name">{advisorDisplay.fullName}</div>
+            <div className="px-advisor-role">{advisorDisplay.firm}</div>
           </div>
           <button className="px-advisor-chip-btn"
-            onClick={() => showToast('Opening scheduling — Calendly integration coming in Sprint 4')}>
+            onClick={() => showToast('Scheduling integration coming soon — ask your advisor for a link.')}>
             <Icons.Calendar size={11} style={{ verticalAlign: 'middle', marginRight: 4 }} />
             Schedule
           </button>

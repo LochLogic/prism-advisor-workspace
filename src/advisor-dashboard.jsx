@@ -76,20 +76,19 @@ const RosterRow = ({ client, onOpen }) => {
 
 /* ─── Alert card ─────────────────────────────────────────────────── */
 const AlertCard = ({ alert, onSnooze, clients }) => {
-  const { setView, setActiveClientId, showToast } = useView();
+  const { openClientPortal, showToast } = useView();
   const client = clients.find(c => c.id === alert.clientId);
   const I = Icons[alert.icon] || Icons.Bell;
 
   const handleCta = () => {
-    if ((alert.cta === 'Open modeler' || alert.cta === 'Review plan') && alert.clientId) {
-      setActiveClientId(alert.clientId);
-      setView('client');
+    if ((alert.cta === 'Open modeler' || alert.cta === 'Review plan') && client) {
+      openClientPortal(client);
     } else if (alert.cta === 'Schedule call') {
       showToast(`Scheduling call with ${client?.shortName || 'client'} — calendar integration coming soon`);
     } else if (alert.cta === 'Draft note') {
-      showToast(`Note drafted for ${client?.shortName || 'client'} — save to client file in Sprint 3`);
+      showToast(`Note drafted for ${client?.shortName || 'client'} — visible in the client record`);
     } else {
-      showToast(`${alert.cta} · ${client?.shortName || ''} — connected in a future sprint`);
+      showToast(`${alert.cta} · ${client?.shortName || ''}`);
     }
   };
 
@@ -139,7 +138,7 @@ const FlaggedQuestion = ({ q, onDismiss, clients }) => {
       <div className="px-question-ctx">{q.context}</div>
       <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
         <button className="px-btn px-btn-sm px-btn-primary"
-          onClick={() => showToast(`Reply to ${client?.shortName || 'client'} — messaging coming in Sprint 3`)}>
+          onClick={() => showToast(`Reply to ${client?.shortName || 'client'} — messaging coming soon`)}>
           <Icons.Message size={10} /> Reply
         </button>
         <button className="px-btn px-btn-sm px-btn-ghost"
@@ -278,7 +277,7 @@ const NewClientModal = ({ isOpen, onClose, advisorId, onCreated }) => {
 
 /* ─── Client preview modal (when an advisor clicks a row) ─────────── */
 const ClientPreviewModal = ({ client, onClose, onNotesChange }) => {
-  const { setView, setActiveClientId, showToast } = useView();
+  const { openClientPortal, showToast } = useView();
   const [editingNotes, setEditingNotes] = useStateAdv(false);
   const [notes, setNotes] = useStateAdv('');
 
@@ -288,7 +287,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange }) => {
 
   if (!client) return null;
   const phase = phaseLabel(client.phase);
-  const openRoadmap = () => { setActiveClientId(client.id); setView('client'); onClose(); };
+  const openRoadmap = () => { openClientPortal(client); onClose(); };
   const isLiveClient = window.db?.isUUID(client.id);
 
   const saveNotes = () => {

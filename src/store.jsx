@@ -24,30 +24,43 @@ const defaultProfile = {
 const ProfileContext = createContext(null);
 
 function ProfileProvider({ children }) {
-  const [profile, setProfile] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('px_profile')) || defaultProfile; }
-    catch { return defaultProfile; }
-  });
+  const [profile, setProfile] = useState(defaultProfile);
   const { activeClientId } = useView();
   const dbSaveTimer = React.useRef(null);
+  const isLoading   = React.useRef(false);
 
-  // Load from DB when the active client changes to a real UUID
+  // On client switch: clear state then load from the right source
   useEffect(() => {
-    if (!window.db?.isUUID(activeClientId)) return;
-    window.db.getProfile(activeClientId).then(data => {
-      if (data) setProfile(data);
-    });
+    clearTimeout(dbSaveTimer.current);
+    if (window.db?.isUUID(activeClientId)) {
+      // Real client — reset to defaults, then load from DB
+      isLoading.current = true;
+      setProfile(defaultProfile);
+      window.db.getProfile(activeClientId).then(data => {
+        if (data) setProfile(data);
+        isLoading.current = false;
+      }).catch(() => { isLoading.current = false; });
+    } else {
+      // Mock/demo — load from per-client localStorage key
+      try {
+        const saved = JSON.parse(localStorage.getItem(`px_profile:${activeClientId}`));
+        setProfile(saved || defaultProfile);
+      } catch { setProfile(defaultProfile); }
+    }
   }, [activeClientId]);
 
-  // Persist to localStorage; debounce-sync to DB for real clients
+  // Persist (skip during loading to avoid writing stale data)
   useEffect(() => {
-    try { localStorage.setItem('px_profile', JSON.stringify(profile)); } catch {}
-    if (!window.db?.isUUID(activeClientId)) return;
-    clearTimeout(dbSaveTimer.current);
-    dbSaveTimer.current = setTimeout(() => {
-      window.db.saveProfile(activeClientId, profile);
-    }, 1500);
-  }, [profile, activeClientId]);
+    if (isLoading.current) return;
+    if (window.db?.isUUID(activeClientId)) {
+      clearTimeout(dbSaveTimer.current);
+      dbSaveTimer.current = setTimeout(() => {
+        window.db.saveProfile(activeClientId, profile);
+      }, 1500);
+    } else {
+      try { localStorage.setItem(`px_profile:${activeClientId}`, JSON.stringify(profile)); } catch {}
+    }
+  }, [profile]); // intentionally omit activeClientId — load effect handles switches
 
   const update = useCallback((path, value) => {
     setProfile(prev => {
@@ -102,11 +115,7 @@ function TaskProvider({ children }) {
   const { activeClientId } = useView();
   const { role, authUser } = (window.useAuth?.() || {});
 
-  const seedTasks = () => {
-    try {
-      const saved = JSON.parse(localStorage.getItem('px_tasks'));
-      if (saved) return saved;
-    } catch {}
+  const mockSeed = () => {
     const seed = {};
     phasesData.forEach((p, i) => {
       seed[p.id] = {};
@@ -118,39 +127,59 @@ function TaskProvider({ children }) {
     return seed;
   };
 
-  const [taskStates, setTaskStates] = useState(seedTasks);
-  const [openPhases, setOpenPhases] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('px_open')) || { 4: true }; }
-    catch { return { 4: true }; }
-  });
-  const [flaggedQs, setFlaggedQs] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('px_flagged')) || {}; }
-    catch { return {}; }
-  });
+  const [taskStates, setTaskStates] = useState({});
+  const [openPhases, setOpenPhases] = useState({ 4: true });
+  const [flaggedQs,  setFlaggedQs]  = useState({});
 
-  useEffect(() => { try { localStorage.setItem('px_tasks', JSON.stringify(taskStates)); } catch {} }, [taskStates]);
-  useEffect(() => { try { localStorage.setItem('px_open', JSON.stringify(openPhases)); } catch {} }, [openPhases]);
-  useEffect(() => { try { localStorage.setItem('px_flagged', JSON.stringify(flaggedQs)); } catch {} }, [flaggedQs]);
-
-  // Load real task states from DB when client changes
+  // On client switch: load from correct source (DB for real UUIDs, localStorage for mock)
   useEffect(() => {
-    if (!window.db?.isUUID(activeClientId)) return;
-    window.db.getTaskStates(activeClientId).then(dbStates => {
-      if (dbStates && Object.keys(dbStates).length > 0) {
-        setTaskStates(dbStates);
-      }
-    });
+    if (window.db?.isUUID(activeClientId)) {
+      // Real client — clear first, then load from DB (even if DB returns empty)
+      setTaskStates({});
+      setFlaggedQs({});
+      window.db.getTaskStates(activeClientId).then(dbStates => {
+        setTaskStates(dbStates || {});
+      });
+    } else {
+      // Mock/demo — load from namespaced localStorage
+      try {
+        const saved = JSON.parse(localStorage.getItem(`px_tasks:${activeClientId}`));
+        setTaskStates(saved || mockSeed());
+      } catch { setTaskStates(mockSeed()); }
+      try {
+        const saved = JSON.parse(localStorage.getItem(`px_flagged:${activeClientId}`));
+        setFlaggedQs(saved || {});
+      } catch { setFlaggedQs({}); }
+      try {
+        const saved = JSON.parse(localStorage.getItem(`px_open:${activeClientId}`));
+        setOpenPhases(saved || { 4: true });
+      } catch { setOpenPhases({ 4: true }); }
+    }
   }, [activeClientId]);
 
+  // Persist mock/demo state to namespaced localStorage keys
+  useEffect(() => {
+    if (window.db?.isUUID(activeClientId)) return;
+    try { localStorage.setItem(`px_tasks:${activeClientId}`, JSON.stringify(taskStates)); } catch {}
+  }, [taskStates, activeClientId]);
+  useEffect(() => {
+    if (window.db?.isUUID(activeClientId)) return;
+    try { localStorage.setItem(`px_open:${activeClientId}`, JSON.stringify(openPhases)); } catch {}
+  }, [openPhases, activeClientId]);
+  useEffect(() => {
+    if (window.db?.isUUID(activeClientId)) return;
+    try { localStorage.setItem(`px_flagged:${activeClientId}`, JSON.stringify(flaggedQs)); } catch {}
+  }, [flaggedQs, activeClientId]);
+
   const toggleTask = (phaseId, taskId) => {
-    let nextDone;
-    setTaskStates(prev => {
-      const cur = prev[phaseId] || {};
-      nextDone = !cur[taskId];
-      return { ...prev, [phaseId]: { ...cur, [taskId]: nextDone } };
-    });
+    // Compute nextDone before setTaskStates to avoid stale-closure DB write
+    const nextDone = !(taskStates[phaseId]?.[taskId]);
+    setTaskStates(prev => ({
+      ...prev,
+      [phaseId]: { ...(prev[phaseId] || {}), [taskId]: nextDone },
+    }));
     if (window.db?.isUUID(activeClientId)) {
-      window.db.upsertTask(activeClientId, phaseId, taskId, !((taskStates[phaseId] || {})[taskId]));
+      window.db.upsertTask(activeClientId, phaseId, taskId, nextDone);
     }
   };
   const togglePhase = (phaseId) => setOpenPhases(prev => ({ ...prev, [phaseId]: !prev[phaseId] }));
@@ -206,6 +235,7 @@ function ViewProvider({ children }) {
     catch { return 'advisor'; }
   });
   const [activeClientId, setActiveClientId] = useState(currentClientId);
+  const [activeClient,   setActiveClient]   = useState(null);
   const [toast, setToast] = useState(null);
 
   useEffect(() => { try { localStorage.setItem('px_view', view); } catch {} }, [view]);
@@ -215,8 +245,21 @@ function ViewProvider({ children }) {
     setTimeout(() => setToast(t => t === text ? null : t), 3200);
   };
 
+  // Convenience: open a client in the client portal
+  const openClientPortal = useCallback((client) => {
+    setActiveClientId(client.id);
+    setActiveClient(client);
+    setView('client');
+  }, []);
+
   return (
-    <ViewContext.Provider value={{ view, setView, activeClientId, setActiveClientId, toast, showToast }}>
+    <ViewContext.Provider value={{
+      view, setView,
+      activeClientId, setActiveClientId,
+      activeClient,   setActiveClient,
+      openClientPortal,
+      toast, showToast,
+    }}>
       {children}
     </ViewContext.Provider>
   );

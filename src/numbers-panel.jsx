@@ -1,6 +1,23 @@
 // Prism — Numbers Panel drawer. Lets the client (or advisor on their behalf)
 // edit the household ledger. Restyled for the institutional palette.
 
+// NumField must be at module scope — defining it inside a component
+// causes React to remount the input on every render, losing focus mid-edit.
+const NumField = ({ label, path, value, prefix = '$', step = 100, onUpdate }) => (
+  <label className="px-field">
+    <span className="px-field-label">{label}</span>
+    <div className="px-input-affix">
+      {prefix && <span className="px-affix">{prefix}</span>}
+      <input
+        type="number"
+        value={value}
+        step={step}
+        onChange={(e) => onUpdate(path, parseFloat(e.target.value) || 0)}
+      />
+    </div>
+  </label>
+);
+
 const NumbersDrawer = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
   const { profile, update, setProfile, totalExpenses, surplus, netWorth } = useProfile();
@@ -20,21 +37,6 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
-
-  const NumField = ({ label, path, value, prefix = '$', step = 100 }) => (
-    <label className="px-field">
-      <span className="px-field-label">{label}</span>
-      <div className="px-input-affix">
-        {prefix && <span className="px-affix">{prefix}</span>}
-        <input
-          type="number"
-          value={value}
-          step={step}
-          onChange={(e) => update(path, parseFloat(e.target.value) || 0)}
-        />
-      </div>
-    </label>
-  );
 
   return (
     <>
@@ -80,26 +82,26 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
           {/* Income */}
           <section style={{ marginBottom: 22 }}>
             <div className="px-eyebrow" style={{ marginBottom: 10 }}>Income</div>
-            <NumField label="Monthly take-home" path="income.monthlyTakehome" value={profile.income.monthlyTakehome} />
+            <NumField label="Monthly take-home" path="income.monthlyTakehome" value={profile.income.monthlyTakehome}  onUpdate={update}/>
           </section>
 
           {/* Expenses */}
           <section style={{ marginBottom: 22 }}>
             <div className="px-eyebrow" style={{ marginBottom: 10 }}>Essential outflow</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <NumField label="Housing" path="expenses.housing" value={profile.expenses.housing} />
-              <NumField label="Food" path="expenses.food" value={profile.expenses.food} />
-              <NumField label="Transport" path="expenses.transport" value={profile.expenses.transport} />
-              <NumField label="Utilities" path="expenses.utilities" value={profile.expenses.utilities} />
-              <NumField label="Healthcare" path="expenses.healthcare" value={profile.expenses.healthcare} />
-              <NumField label="Other" path="expenses.other" value={profile.expenses.other} />
+              <NumField label="Housing" path="expenses.housing" value={profile.expenses.housing}  onUpdate={update}/>
+              <NumField label="Food" path="expenses.food" value={profile.expenses.food}  onUpdate={update}/>
+              <NumField label="Transport" path="expenses.transport" value={profile.expenses.transport}  onUpdate={update}/>
+              <NumField label="Utilities" path="expenses.utilities" value={profile.expenses.utilities}  onUpdate={update}/>
+              <NumField label="Healthcare" path="expenses.healthcare" value={profile.expenses.healthcare}  onUpdate={update}/>
+              <NumField label="Other" path="expenses.other" value={profile.expenses.other}  onUpdate={update}/>
             </div>
           </section>
 
           {/* Savings + reserve */}
           <section style={{ marginBottom: 22 }}>
             <div className="px-eyebrow" style={{ marginBottom: 10 }}>Cash reserve</div>
-            <NumField label="Liquidity reserve" path="savings.emergency" value={profile.savings.emergency} />
+            <NumField label="Liquidity reserve" path="savings.emergency" value={profile.savings.emergency}  onUpdate={update}/>
           </section>
 
           {/* Liabilities */}
@@ -165,10 +167,10 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
           <section style={{ marginBottom: 22 }}>
             <div className="px-eyebrow" style={{ marginBottom: 10 }}>Retirement assets</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <NumField label="HSA balance" path="retirement.hsaBalance" value={profile.retirement.hsaBalance} step="500" />
-              <NumField label="IRA balance" path="retirement.iraBalance" value={profile.retirement.iraBalance} step="500" />
-              <NumField label="401(k) balance" path="retirement.fourohonekBalance" value={profile.retirement.fourohonekBalance} step="500" />
-              <NumField label="HSA contrib / yr" path="retirement.hsaContrib" value={profile.retirement.hsaContrib} step="100" />
+              <NumField label="HSA balance" path="retirement.hsaBalance" value={profile.retirement.hsaBalance} step="500"  onUpdate={update}/>
+              <NumField label="IRA balance" path="retirement.iraBalance" value={profile.retirement.iraBalance} step="500"  onUpdate={update}/>
+              <NumField label="401(k) balance" path="retirement.fourohonekBalance" value={profile.retirement.fourohonekBalance} step="500"  onUpdate={update}/>
+              <NumField label="HSA contrib / yr" path="retirement.hsaContrib" value={profile.retirement.hsaContrib} step="100"  onUpdate={update}/>
             </div>
           </section>
 
@@ -176,15 +178,15 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
           <section style={{ marginBottom: 22 }}>
             <div className="px-eyebrow" style={{ marginBottom: 10 }}>Taxable brokerage</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <NumField label="Balance" path="taxable.balance" value={profile.taxable.balance} step="1000" />
-              <NumField label="Monthly contribution" path="taxable.monthlyContrib" value={profile.taxable.monthlyContrib} />
+              <NumField label="Balance" path="taxable.balance" value={profile.taxable.balance} step="1000"  onUpdate={update}/>
+              <NumField label="Monthly contribution" path="taxable.monthlyContrib" value={profile.taxable.monthlyContrib}  onUpdate={update}/>
             </div>
           </section>
 
           {/* Tax */}
           <section style={{ marginBottom: 22 }}>
             <div className="px-eyebrow" style={{ marginBottom: 10 }}>Tax profile</div>
-            <NumField label="Marginal rate (%)" path="taxes.marginalRate" value={profile.taxes.marginalRate} prefix={null} step="1" />
+            <NumField label="Marginal rate (%)" path="taxes.marginalRate" value={profile.taxes.marginalRate} prefix={null} step="1"  onUpdate={update}/>
           </section>
 
           <div style={{ padding: 12, background: 'var(--bg-elev)', borderRadius: 6, fontSize: 11, color: 'var(--ink-mute)', lineHeight: 1.5, fontStyle: 'italic', fontFamily: 'var(--serif)' }}>

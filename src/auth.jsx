@@ -18,7 +18,7 @@ function AuthProvider({ children }) {
     try {
       const { data: adv } = await window.__sb
         .from('advisors')
-        .select('id, full_name, firm_id, email, role')
+        .select('id, full_name, firm_id, email, role, firms(name)')
         .eq('auth_user_id', sess.user.id)
         .maybeSingle();
 
@@ -32,11 +32,11 @@ function AuthProvider({ children }) {
 
       if (cli) { setRole('client'); setAuthUser(cli); setLoading(false); return; }
 
-      // Authenticated but no DB record yet — grant advisor access (dev convenience)
-      setRole('advisor');
+      // Authenticated but no DB record — require registration before granting access
+      setRole('unregistered');
       setLoading(false);
     } catch {
-      // Tables may not exist yet — fall back to advisor (demo data stays visible)
+      // Tables may not exist yet (fresh project) — fall back to advisor for dev
       setRole('advisor');
       setLoading(false);
     }
