@@ -1,4 +1,4 @@
-// Prism — App shell. Auth gate, topbar, view switch, account chip with sign-out.
+// Prism — App shell. Auth gate, topbar, view switch, account chip, notification bell.
 
 /* ─── Loading screen ──────────────────────────────────────────────── */
 const LoadingScreen = () => (
@@ -19,12 +19,11 @@ const LoadingScreen = () => (
   </div>
 );
 
-/* ─── Account chip + sign-out dropdown ───────────────────────────── */
-const AccountChip = ({ view, activeClient }) => {
-  const { role, signOut, isDemo, authUser } = useAuth();
+/* ─── Notification bell + dropdown ───────────────────────────────── */
+const NotificationBell = () => {
+  const { notifications, unread, markAllRead, dismiss, realtimeStatus } = useNotifications();
   const [open, setOpen] = React.useState(false);
 
-  // Close on any outside click
   React.useEffect(() => {
     if (!open) return;
     const close = () => setOpen(false);
@@ -32,9 +31,89 @@ const AccountChip = ({ view, activeClient }) => {
     return () => window.removeEventListener('click', close);
   }, [open]);
 
-  const displayName     = view === 'client' ? (activeClient?.shortName || 'Client') : (authUser?.full_name || advisor.name);
-  const displayFirm     = view === 'client' ? 'Client view' : advisor.firm;
-  const displayInitials = view === 'client' ? (activeClient?.initials || 'C') : advisor.initials;
+  const toggle = (e) => {
+    e.stopPropagation();
+    if (!open) markAllRead();
+    setOpen(v => !v);
+  };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button className="px-icon-btn" onClick={toggle} title="Notifications"
+        style={{ position: 'relative' }}>
+        <Icons.Bell size={14} />
+        {unread > 0 && (
+          <span className="px-notif-badge">{unread > 9 ? '9+' : unread}</span>
+        )}
+      </button>
+
+      {open && (
+        <div className="px-notif-panel" onClick={e => e.stopPropagation()}>
+          <div className="px-notif-panel-head">
+            <span style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 12 }}>Notifications</span>
+            <span className={`px-rt-dot is-${realtimeStatus}`}
+              title={`Realtime: ${realtimeStatus}`} />
+          </div>
+
+          {notifications.length === 0 ? (
+            <div style={{ padding: '20px 14px', textAlign: 'center', color: 'var(--ink-faint)', fontSize: 12, fontStyle: 'italic' }}>
+              No notifications yet
+              {realtimeStatus === 'live' && (
+                <div style={{ marginTop: 4, fontSize: 11, color: 'var(--forest)' }}>● Realtime connected</div>
+              )}
+            </div>
+          ) : (
+            notifications.map(n => {
+              const I = Icons[n.icon] || Icons.Bell;
+              return (
+                <div key={n.id} className="px-notif-item">
+                  <span className="px-notif-item-icon"><I size={11} /></span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink)', lineHeight: 1.3 }}>
+                      {n.headline}
+                    </div>
+                    {n.body && (
+                      <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {n.body}
+                      </div>
+                    )}
+                    <div style={{ fontSize: 10, color: 'var(--ink-faint)', marginTop: 3 }}>{n.timeAgo}</div>
+                  </div>
+                  <button
+                    style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', padding: '0 2px', lineHeight: 1 }}
+                    onClick={() => dismiss(n.id)}>
+                    <Icons.X size={10} />
+                  </button>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ─── Account chip + sign-out dropdown ───────────────────────────── */
+const AccountChip = ({ view, activeClient }) => {
+  const { role, signOut, isDemo, authUser } = useAuth();
+  const [open, setOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    window.addEventListener('click', close);
+    return () => window.removeEventListener('click', close);
+  }, [open]);
+
+  const advisorInitials = authUser?.full_name
+    ? authUser.full_name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase()
+    : advisor.initials;
+  const advisorFirm = authUser?.firms?.name || advisor.firm;
+
+  const displayName     = view === 'client' ? (activeClient?.shortName || 'Client')   : (authUser?.full_name || advisor.name);
+  const displayFirm     = view === 'client' ? 'Client view'                           : advisorFirm;
+  const displayInitials = view === 'client' ? (activeClient?.initials  || 'C')        : advisorInitials;
 
   return (
     <div style={{ position: 'relative' }}>
@@ -61,7 +140,6 @@ const AccountChip = ({ view, activeClient }) => {
             overflow: 'hidden', minWidth: 186, zIndex: 200,
           }}
         >
-          {/* Session info */}
           {isDemo ? (
             <div style={{
               padding: '9px 14px', fontSize: 11, color: 'var(--ink-faint)',
@@ -78,10 +156,10 @@ const AccountChip = ({ view, activeClient }) => {
                 {authUser.full_name || '—'}
               </div>
               <div style={{ fontSize: 11 }}>{authUser.email || ''}</div>
+              {advisorFirm && <div style={{ fontSize: 11, marginTop: 1, color: 'var(--ink-faint)' }}>{advisorFirm}</div>}
             </div>
           )}
 
-          {/* Sign out */}
           <button
             onClick={signOut}
             style={{
@@ -102,9 +180,8 @@ const AccountChip = ({ view, activeClient }) => {
 
 /* ─── Topbar ──────────────────────────────────────────────────────── */
 const Topbar = ({ onOpenNumbers }) => {
-  const { view, setView, activeClientId } = useView();
+  const { view, setView, activeClient } = useView();
   const { role } = useAuth();
-  const activeClient = clientsData.find(c => c.id === activeClientId);
 
   return (
     <header className="px-topbar">
@@ -140,9 +217,7 @@ const Topbar = ({ onOpenNumbers }) => {
             <Icons.Calculator size={12} /> Your numbers
           </button>
         )}
-        <button className="px-icon-btn" title="Notifications">
-          <Icons.Bell size={14} />
-        </button>
+        <NotificationBell />
         <AccountChip view={view} activeClient={activeClient} />
       </div>
     </header>
@@ -160,7 +235,6 @@ function AppInner() {
     if (role === 'client') setView('client');
   }, [role]);
 
-  // Auth gate
   if (loading) return <LoadingScreen />;
   if (!session && !isDemo) return <LoadingScreen />;
 
@@ -184,10 +258,7 @@ function AppInner() {
           <div style={{ fontSize: 13, color: 'var(--ink-mute)', lineHeight: 1.6, marginBottom: 20 }}>
             Your login was verified, but no advisor or client record was found for this email. Ask your administrator to add you to the system, then sign in again.
           </div>
-          <button
-            className="px-btn px-btn-ghost"
-            onClick={signOut}
-          >
+          <button className="px-btn px-btn-ghost" onClick={signOut}>
             <Icons.ArrowRight size={12} style={{ transform: 'rotate(180deg)' }} /> Sign out
           </button>
         </div>
@@ -211,11 +282,13 @@ function App() {
   return (
     <AuthProvider>
       <ViewProvider>
-        <ProfileProvider>
-          <TaskProvider>
-            <AppInner />
-          </TaskProvider>
-        </ProfileProvider>
+        <NotificationProvider>
+          <ProfileProvider>
+            <TaskProvider>
+              <AppInner />
+            </TaskProvider>
+          </ProfileProvider>
+        </NotificationProvider>
       </ViewProvider>
     </AuthProvider>
   );

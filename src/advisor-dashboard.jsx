@@ -291,7 +291,7 @@ const LABEL_STYLE = {
   textTransform: 'uppercase', letterSpacing: '.05em',
 };
 
-const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchived }) => {
+const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchived, advisorId }) => {
   const { openClientPortal, showToast } = useView();
   const [tab, setTab] = useStateAdv('overview');
 
@@ -304,6 +304,11 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
   const [accForm, setAccForm] = useStateAdv(null);
   const [savingAcc, setSavingAcc] = useStateAdv(false);
 
+  // Meetings state
+  const [meetings,      setMeetings]      = useStateAdv(undefined);
+  const [meetingForm,   setMeetingForm]   = useStateAdv(null);
+  const [savingMeeting, setSavingMeeting] = useStateAdv(false);
+
   // Edit client state
   const [editForm, setEditForm] = useStateAdv({});
   const [savingEdit, setSavingEdit] = useStateAdv(false);
@@ -315,6 +320,8 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
       setTab('overview');
       setAccounts(undefined);
       setAccForm(null);
+      setMeetings(undefined);
+      setMeetingForm(null);
       setEditForm({
         household_name: client.name,
         short_name:     client.shortName,
@@ -330,6 +337,13 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
       window.db.getAccounts(client.id).then(rows => setAccounts(rows || []));
     }
   }, [tab]);
+
+  // Load meetings whenever a live client opens
+  React.useEffect(() => {
+    if (client && window.db?.isUUID(client.id)) {
+      window.db.getMeetings(client.id).then(rows => setMeetings(rows || []));
+    }
+  }, [client?.id]);
 
   if (!client) return null;
 
@@ -377,6 +391,30 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     window.db.syncClientTotals(client.id);
     setAccounts(prev => (prev || []).filter(a => a.id !== id));
     showToast('Account removed');
+  };
+
+  /* meetings */
+  const saveMeeting = async () => {
+    if (!advisorId) { showToast('No advisor ID — cannot log meeting'); return; }
+    setSavingMeeting(true);
+    const met_at = meetingForm.met_at
+      ? new Date(meetingForm.met_at).toISOString()
+      : new Date().toISOString();
+    const row = await window.db.logMeeting(client.id, advisorId, { ...meetingForm, met_at });
+    setSavingMeeting(false);
+    if (row) {
+      setMeetings(prev => [row, ...(prev || [])]);
+      setMeetingForm(null);
+      showToast('Meeting logged');
+    } else {
+      showToast('Could not log meeting — check console');
+    }
+  };
+
+  const deleteMeeting = async (id) => {
+    await window.db.deleteMeeting(id);
+    setMeetings(prev => (prev || []).filter(m => m.id !== id));
+    showToast('Meeting removed');
   };
 
   /* edit client */
@@ -480,6 +518,87 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
                 <button className="px-btn px-btn-ghost"><Icons.Phone size={12} /> Call</button>
                 <button className="px-btn px-btn-ghost"><Icons.Message size={12} /> Message</button>
+              </div>
+            )}
+
+            {/* ── Meeting log (live clients only) ── */}
+            {isLiveClient && (
+              <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <span style={LABEL_STYLE}>Meeting log</span>
+                  {!meetingForm && (
+                    <button className="px-btn px-btn-sm px-btn-ghost"
+                      onClick={() => setMeetingForm({
+                        notes: '', duration_min: '',
+                        met_at: new Date().toISOString().slice(0, 16),
+                      })}>
+                      <Icons.Plus size={10} /> Log meeting
+                    </button>
+                  )}
+                </div>
+
+                {/* Inline log form */}
+                {meetingForm && (
+                  <div style={{ padding: 12, background: 'var(--bg-elev)', borderRadius: 6, marginBottom: 10 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px', gap: 8, marginBottom: 8 }}>
+                      <label style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        <span style={{ fontSize: 11, color: 'var(--ink-mute)' }}>Date & time</span>
+                        <input className="px-input" type="datetime-local"
+                          value={meetingForm.met_at}
+                          onChange={e => setMeetingForm(f => ({ ...f, met_at: e.target.value }))} />
+                      </label>
+                      <label style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        <span style={{ fontSize: 11, color: 'var(--ink-mute)' }}>Min</span>
+                        <input className="px-input" type="number" placeholder="60"
+                          value={meetingForm.duration_min}
+                          onChange={e => setMeetingForm(f => ({ ...f, duration_min: e.target.value }))} />
+                      </label>
+                    </div>
+                    <label style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 8 }}>
+                      <span style={{ fontSize: 11, color: 'var(--ink-mute)' }}>Notes</span>
+                      <textarea className="px-input" rows={2}
+                        placeholder="Topics covered, decisions made…"
+                        style={{ resize: 'vertical', fontFamily: 'var(--serif)', fontSize: 13 }}
+                        value={meetingForm.notes}
+                        onChange={e => setMeetingForm(f => ({ ...f, notes: e.target.value }))} />
+                    </label>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button className="px-btn px-btn-sm px-btn-primary" onClick={saveMeeting} disabled={savingMeeting}>
+                        {savingMeeting ? 'Saving…' : 'Log meeting'}
+                      </button>
+                      <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => setMeetingForm(null)}>Cancel</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Meeting list */}
+                {meetings === undefined && (
+                  <div style={{ fontSize: 12, color: 'var(--ink-faint)', fontStyle: 'italic' }}>Loading…</div>
+                )}
+                {meetings !== undefined && meetings.length === 0 && !meetingForm && (
+                  <div style={{ fontSize: 12, color: 'var(--ink-faint)', fontStyle: 'italic', padding: '4px 0' }}>
+                    No meetings logged yet.
+                  </div>
+                )}
+                {(meetings || []).map(m => (
+                  <div key={m.id} className="px-meeting-row">
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.4 }}>
+                        {new Date(m.met_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        {m.duration_min && (
+                          <span style={{ fontWeight: 400, color: 'var(--ink-mute)', marginLeft: 6 }}>{m.duration_min} min</span>
+                        )}
+                      </div>
+                      {m.notes && (
+                        <div style={{ fontSize: 12, color: 'var(--ink-mute)', marginTop: 2, lineHeight: 1.4 }}>{m.notes}</div>
+                      )}
+                    </div>
+                    <button style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', padding: '2px 0', lineHeight: 1, flexShrink: 0 }}
+                      onClick={() => deleteMeeting(m.id)}>
+                      <Icons.X size={10} />
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
           </>
@@ -725,6 +844,7 @@ const AdvisorDashboard = () => {
         onNotesChange={handleNotesChange}
         onUpdated={handleClientUpdated}
         onArchived={handleClientArchived}
+        advisorId={authUser?.id}
       />
       <NewClientModal
         isOpen={addingClient}

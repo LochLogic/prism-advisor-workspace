@@ -355,6 +355,53 @@ async function dbSnoozeAlert(id) {
   } catch (e) { console.warn('[db] snoozeAlert:', e.message); }
 }
 
+/* ─── Meetings ────────────────────────────────────────────────────── */
+async function dbGetMeetings(clientId) {
+  if (!_sb() || !isUUID(clientId)) return null;
+  try {
+    const { data, error } = await _sb()
+      .from('meetings')
+      .select('id, client_id, advisor_id, met_at, duration_min, notes')
+      .eq('client_id', clientId)
+      .order('met_at', { ascending: false })
+      .limit(10);
+    if (error) throw error;
+    return data;
+  } catch (e) { console.warn('[db] getMeetings:', e.message); return null; }
+}
+
+async function dbLogMeeting(clientId, advisorId, fields) {
+  if (!_sb() || !isUUID(clientId) || !isUUID(advisorId)) return null;
+  try {
+    const { data, error } = await _sb()
+      .from('meetings')
+      .insert({
+        client_id:    clientId,
+        advisor_id:   advisorId,
+        met_at:       fields.met_at || new Date().toISOString(),
+        duration_min: Number(fields.duration_min) || null,
+        notes:        fields.notes || null,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    // Bump client updated_at to keep activity indicator current
+    await _sb()
+      .from('clients')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', clientId);
+    return data;
+  } catch (e) { console.warn('[db] logMeeting:', e.message); return null; }
+}
+
+async function dbDeleteMeeting(id) {
+  if (!_sb() || !isUUID(id)) return;
+  try {
+    const { error } = await _sb().from('meetings').delete().eq('id', id);
+    if (error) throw error;
+  } catch (e) { console.warn('[db] deleteMeeting:', e.message); }
+}
+
 window.db = {
   getClients:          dbGetClients,
   mapClient,
@@ -378,6 +425,9 @@ window.db = {
   getAlerts:           dbGetAlerts,
   mapAlert,
   snoozeAlert:         dbSnoozeAlert,
+  getMeetings:         dbGetMeetings,
+  logMeeting:          dbLogMeeting,
+  deleteMeeting:       dbDeleteMeeting,
   isUUID,
   timeAgo,
 };
