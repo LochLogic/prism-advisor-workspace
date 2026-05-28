@@ -41,7 +41,9 @@ function AuthProvider({ children }) {
 
       if (adv) {
         await mergePhasesWithDB();
-        setRole('advisor'); setAuthUser(adv); setLoading(false); return;
+        // DB role column: 'advisor' | 'admin' | 'analyst'
+        setRole(adv.role === 'admin' ? 'admin' : 'advisor');
+        setAuthUser(adv); setLoading(false); return;
       }
 
       const { data: cli } = await window.__sb

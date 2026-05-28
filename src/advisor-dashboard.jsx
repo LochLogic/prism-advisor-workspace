@@ -250,7 +250,7 @@ const FlaggedQuestion = ({ q, onDismiss, clients, authUser, onOpenClient }) => {
 };
 
 /* ─── Roster section ─────────────────────────────────────────────── */
-const RosterTable = ({ onOpenClient, clients, onAddClient, isLiveMode }) => {
+const RosterTable = ({ onOpenClient, clients, onAddClient, isLiveMode, onExportCSV }) => {
   const [q, setQ] = useStateAdv('');
   const [sort, setSort] = useStateAdv('aum');
   const filtered = useMemoAdv(() => {
@@ -278,6 +278,12 @@ const RosterTable = ({ onOpenClient, clients, onAddClient, isLiveMode }) => {
             <option value="phase">Sort · Horizon</option>
             <option value="activity">Sort · Activity</option>
           </select>
+          {isLiveMode && onExportCSV && (
+            <button className="px-btn px-btn-sm px-btn-ghost" onClick={onExportCSV}
+              title="Download roster as CSV">
+              <Icons.Download size={11} /> CSV
+            </button>
+          )}
           {isLiveMode && onAddClient && (
             <button className="px-btn px-btn-sm px-btn-primary" onClick={onAddClient}>
               <Icons.Plus size={11} /> Add client
@@ -413,6 +419,11 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
   const [savingEdit, setSavingEdit] = useStateAdv(false);
   const [archiving, setArchiving] = useStateAdv(false);
 
+  // Inline confirmation guards (replace window.confirm / immediate deletes)
+  const [confirmArchive,      setConfirmArchive]      = useStateAdv(false);
+  const [confirmDeleteAccId,  setConfirmDeleteAccId]  = useStateAdv(null);
+  const [confirmDeleteMtgId,  setConfirmDeleteMtgId]  = useStateAdv(null);
+
   React.useEffect(() => {
     if (client) {
       setNotes(client.notes || '');
@@ -427,6 +438,9 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
         household_tag:  client.tag === '—' ? '' : client.tag,
         current_phase:  client.phase,
       });
+      setConfirmArchive(false);
+      setConfirmDeleteAccId(null);
+      setConfirmDeleteMtgId(null);
     }
   }, [client?.id]);
 
@@ -540,10 +554,10 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
   };
 
   const archiveClient = async () => {
-    if (!window.confirm(`Archive ${client.name}? They will be removed from your active roster.`)) return;
     setArchiving(true);
     await window.db.archiveClient(client.id);
     setArchiving(false);
+    setConfirmArchive(false);
     onArchived && onArchived(client.id);
     onClose();
     showToast(`${client.shortName} archived`);
@@ -709,10 +723,19 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                         <div style={{ fontSize: 12, color: 'var(--ink-mute)', marginTop: 2, lineHeight: 1.4 }}>{m.notes}</div>
                       )}
                     </div>
-                    <button style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', padding: '2px 0', lineHeight: 1, flexShrink: 0 }}
-                      onClick={() => deleteMeeting(m.id)}>
-                      <Icons.X size={10} />
-                    </button>
+                    {confirmDeleteMtgId === m.id ? (
+                      <div style={{ display: 'flex', gap: 4, flexShrink: 0, alignItems: 'center' }}>
+                        <button style={{ background: 'none', border: 'none', color: 'var(--brick)', cursor: 'pointer', fontSize: 11, padding: '2px 4px', fontFamily: 'var(--sans)' }}
+                          onClick={() => { deleteMeeting(m.id); setConfirmDeleteMtgId(null); }}>Remove</button>
+                        <button style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', fontSize: 11, padding: '2px 4px', fontFamily: 'var(--sans)' }}
+                          onClick={() => setConfirmDeleteMtgId(null)}>Cancel</button>
+                      </div>
+                    ) : (
+                      <button style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', padding: '2px 0', lineHeight: 1, flexShrink: 0 }}
+                        onClick={() => setConfirmDeleteMtgId(m.id)}>
+                        <Icons.X size={10} />
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -751,10 +774,19 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                           onClick={() => setAccForm({ id: a.id, type: a.type, custodian: a.custodian || '', name: a.name || '', balance: a.balance, cash: a.cash })}>
                           <Icons.Edit size={10} />
                         </button>
-                        <button className="px-btn px-btn-sm px-btn-ghost" style={{ color: 'var(--brick)' }}
-                          onClick={() => deleteAccount(a.id)}>
-                          <Icons.X size={10} />
-                        </button>
+                        {confirmDeleteAccId === a.id ? (
+                          <>
+                            <button className="px-btn px-btn-sm px-btn-ghost" style={{ color: 'var(--brick)' }}
+                              onClick={() => { deleteAccount(a.id); setConfirmDeleteAccId(null); }}>Remove</button>
+                            <button className="px-btn px-btn-sm px-btn-ghost"
+                              onClick={() => setConfirmDeleteAccId(null)}>Cancel</button>
+                          </>
+                        ) : (
+                          <button className="px-btn px-btn-sm px-btn-ghost" style={{ color: 'var(--brick)' }}
+                            onClick={() => setConfirmDeleteAccId(a.id)}>
+                            <Icons.X size={10} />
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -839,10 +871,21 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
             </div>
 
             <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', alignItems: 'center' }}>
-              <button className="px-btn px-btn-sm px-btn-ghost" style={{ color: 'var(--brick)' }}
-                onClick={archiveClient} disabled={archiving}>
-                {archiving ? 'Archiving…' : 'Archive client'}
-              </button>
+              {confirmArchive ? (
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <span style={{ fontSize: 12, color: 'var(--brick)', fontStyle: 'italic' }}>Archive {client.shortName}?</span>
+                  <button className="px-btn px-btn-sm px-btn-ghost" style={{ color: 'var(--brick)' }}
+                    onClick={archiveClient} disabled={archiving}>
+                    {archiving ? 'Archiving…' : 'Confirm'}
+                  </button>
+                  <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => setConfirmArchive(false)}>Cancel</button>
+                </div>
+              ) : (
+                <button className="px-btn px-btn-sm px-btn-ghost" style={{ color: 'var(--brick)' }}
+                  onClick={() => setConfirmArchive(true)}>
+                  Archive client
+                </button>
+              )}
               <button className="px-btn px-btn-primary" onClick={saveEdit} disabled={savingEdit}>
                 {savingEdit ? 'Saving…' : 'Save changes'}
               </button>
@@ -906,6 +949,135 @@ const EmptyRoster = ({ onAddClient }) => (
   </div>
 );
 
+/* ─── Firm Admin Dashboard ───────────────────────────────────────── */
+const FirmAdminDashboard = () => {
+  const { authUser } = useAuth();
+  const [advisors,    setAdvisors]    = useStateAdv(undefined);
+  const [firmClients, setFirmClients] = useStateAdv(undefined);
+
+  React.useEffect(() => {
+    if (!authUser?.id || !window.db) return;
+    window.db.getAdvisors().then(rows => setAdvisors(rows || []));
+    window.db.getFirmClients().then(rows => setFirmClients(rows || []));
+  }, [authUser?.id]);
+
+  const firmName = authUser?.firms?.name || 'Your Firm';
+
+  // Per-advisor client count + AUM derived from firm-wide client list
+  const advisorStats = useMemoAdv(() => {
+    const stats = {};
+    (advisors || []).forEach(a => { stats[a.id] = { clientCount: 0, aum: 0 }; });
+    (firmClients || []).forEach(c => {
+      if (stats[c.advisor_id]) {
+        stats[c.advisor_id].clientCount++;
+        stats[c.advisor_id].aum += Number(c.aum) || 0;
+      }
+    });
+    return stats;
+  }, [advisors, firmClients]);
+
+  const totalAUM = useMemoAdv(() =>
+    (firmClients || []).reduce((s, c) => s + (Number(c.aum) || 0), 0),
+    [firmClients]
+  );
+
+  return (
+    <div className="px-adv">
+      <div className="px-adv-main">
+        <div className="px-greet">
+          <div className="px-eyebrow px-greet-eyebrow">Firm Administration</div>
+          <h1><em>{firmName}</em></h1>
+          <p className="px-greet-sub">
+            {advisors?.length ?? '…'} advisor{advisors?.length !== 1 ? 's' : ''} ·{' '}
+            {firmClients?.length ?? '…'} active client{firmClients?.length !== 1 ? 's' : ''} ·{' '}
+            {fmt$(totalAUM, { short: true, decimals: 1 })} book AUM
+          </p>
+        </div>
+
+        <div className="px-section-head">
+          <h2>Advisor roster {advisors !== undefined && (
+            <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--ink-mute)', marginLeft: 6 }}>live</span>
+          )}</h2>
+        </div>
+
+        {advisors === undefined ? <RosterSkeleton /> : advisors.length === 0 ? (
+          <div style={{ padding: '32px 0', textAlign: 'center', color: 'var(--ink-faint)', fontSize: 13, fontStyle: 'italic' }}>
+            No advisors found.
+          </div>
+        ) : (
+          <div className="px-roster">
+            <table className="px-table">
+              <thead>
+                <tr>
+                  <th style={{ width: '36%' }}>Advisor</th>
+                  <th style={{ width: '16%' }}>Role</th>
+                  <th className="is-num">Clients</th>
+                  <th className="is-num">Book AUM</th>
+                  <th>Joined</th>
+                </tr>
+              </thead>
+              <tbody>
+                {advisors.map(a => {
+                  const stats = advisorStats[a.id] || { clientCount: 0, aum: 0 };
+                  const isMe  = a.id === authUser?.id;
+                  return (
+                    <tr key={a.id}>
+                      <td>
+                        <div className="px-client-cell">
+                          <div style={{
+                            width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+                            background: 'var(--ink)', color: 'white', fontSize: 11,
+                            fontWeight: 600, display: 'flex', alignItems: 'center',
+                            justifyContent: 'center', letterSpacing: '.02em',
+                          }}>
+                            {a.full_name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                          </div>
+                          <div className="px-client-meta">
+                            <div className="px-client-name">
+                              {a.full_name}
+                              {isMe && <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--ink-faint)' }}>you</span>}
+                            </div>
+                            <div className="px-client-tag">{a.email}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span style={{ fontSize: 12, color: 'var(--ink-mute)', textTransform: 'capitalize' }}>
+                          {a.role}{a.credentials ? ` · ${a.credentials}` : ''}
+                        </span>
+                      </td>
+                      <td className="is-num">
+                        <span className="px-num-serif">{stats.clientCount}</span>
+                      </td>
+                      <td className="is-num">
+                        <span className="px-num-serif">
+                          {stats.aum ? fmt$(stats.aum, { short: true }) : '—'}
+                        </span>
+                      </td>
+                      <td>
+                        <span style={{ fontSize: 12, color: 'var(--ink-mute)' }}>
+                          {new Date(a.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div style={{ marginTop: 28, padding: 14, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12, color: 'var(--ink-mute)', display: 'flex', gap: 10, alignItems: 'center' }}>
+          <Icons.Lock size={13} />
+          <span>
+            Firm admin view — exclusive to the <b>admin</b> role. <b>Row-level security</b> still restricts each advisor to their own book when they switch to the Advisor view.
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /* ─── Main Advisor Dashboard ─────────────────────────────────────── */
 const AdvisorDashboard = () => {
   const { authUser } = useAuth();
@@ -916,16 +1088,20 @@ const AdvisorDashboard = () => {
   const [dismissedQs, setDismissedQs] = useStateAdv(new Set());
 
   // undefined = not yet fetched; [] = fetched, empty; [...] = has rows
-  const [dbClients,   setDbClients]   = useStateAdv(undefined);
-  const [dbAlerts,    setDbAlerts]    = useStateAdv(undefined);
-  const [dbQuestions, setDbQuestions] = useStateAdv(undefined);
+  const [dbClients,     setDbClients]     = useStateAdv(undefined);
+  const [dbClientPage,  setDbClientPage]  = useStateAdv(0);
+  const [dbClientTotal, setDbClientTotal] = useStateAdv(0);
+  const [dbAlerts,      setDbAlerts]      = useStateAdv(undefined);
+  const [dbQuestions,   setDbQuestions]   = useStateAdv(undefined);
 
   // Fetch from Supabase when advisor auth record is available
   React.useEffect(() => {
     if (!authUser?.id || !window.db) return;
     const id = authUser.id;
-    window.db.getClients(id).then(rows => {
-      setDbClients(rows ? rows.map(window.db.mapClient) : []);
+    window.db.getClients(id, { page: 0 }).then(result => {
+      setDbClients(result?.rows ? result.rows.map(window.db.mapClient) : []);
+      setDbClientTotal(result?.total ?? 0);
+      setDbClientPage(0);
     });
     window.db.getAlerts(id).then(rows => {
       setDbAlerts(rows ? rows.map(window.db.mapAlert) : []);
@@ -1022,6 +1198,36 @@ const AdvisorDashboard = () => {
   const greetTime = (() => { const h = new Date().getHours(); return h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening'; })();
   const greetName = authUser?.full_name?.split(' ')[0] || advisor.name;
 
+  const loadMoreClients = () => {
+    if (!authUser?.id || !window.db) return;
+    const nextPage = dbClientPage + 1;
+    window.db.getClients(authUser.id, { page: nextPage }).then(result => {
+      if (result?.rows?.length) {
+        setDbClients(prev => [...(prev || []), ...result.rows.map(window.db.mapClient)]);
+        setDbClientPage(nextPage);
+      }
+    });
+  };
+
+  const exportCSV = () => {
+    const headers = ['Client', 'Tag', 'Horizon', 'AUM', 'Uninvested Cash', 'Last Activity', 'Last Review', 'Notes'];
+    const rows = activeClients.map(c => [
+      c.name, c.tag, c.phase, c.aum, c.uninvestedCash,
+      c.lastActivity, c.lastReview || '', c.notes || '',
+    ]);
+    const csv = [headers, ...rows]
+      .map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\r\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = Object.assign(document.createElement('a'), {
+      href: url,
+      download: `roster-${new Date().toISOString().slice(0, 10)}.csv`,
+    });
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+  };
+
   const kpis = useMemoAdv(() => {
     const list = activeClients;
     return {
@@ -1100,7 +1306,20 @@ const AdvisorDashboard = () => {
             clients={activeClients}
             onAddClient={() => setAddingClient(true)}
             isLiveMode={isLiveMode}
+            onExportCSV={isLiveMode ? exportCSV : null}
           />
+        )}
+
+        {/* Load more — shown when the roster has more pages */}
+        {isLiveMode && dbClients && dbClients.length < dbClientTotal && (
+          <div style={{ textAlign: 'center', marginTop: 12 }}>
+            <button className="px-btn px-btn-ghost" onClick={loadMoreClients}>
+              <Icons.ChevronDown size={12} /> Load more
+              <span style={{ color: 'var(--ink-faint)', fontSize: 12, marginLeft: 4 }}>
+                ({dbClientTotal - dbClients.length} remaining)
+              </span>
+            </button>
+          </div>
         )}
 
         {/* Footer note */}
@@ -1150,4 +1369,5 @@ const AdvisorDashboard = () => {
   );
 };
 
-window.AdvisorDashboard = AdvisorDashboard;
+window.AdvisorDashboard    = AdvisorDashboard;
+window.FirmAdminDashboard  = FirmAdminDashboard;
