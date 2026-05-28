@@ -178,6 +178,7 @@ const AssetLocationTool = () => {
 /* Monte Carlo — 1,000 deterministic-feeling scenarios using seeded RNG */
 const MonteCarloTool = () => {
   const { profile, totalInvested, annualExpenses } = useProfile();
+  const { activeClientId } = useView();
   const [yearsHorizon, setYears] = useStateC(Math.max(20, profile.goals.retireAt - profile.goals.age + 25));
   const [withdrawal, setWithdrawal] = useStateC(Math.round(annualExpenses / 1000) * 1000);
 
@@ -188,8 +189,11 @@ const MonteCarloTool = () => {
     let success = 0;
     let medianFinal = 0;
     const finals = [];
-    // Box-Muller seeded
-    let seed = 42;
+    // Box-Muller seeded — per-client seed so each client sees consistent but distinct results
+    const baseSeed = activeClientId
+      ? activeClientId.split('').reduce((s, c) => s + c.charCodeAt(0), 0)
+      : 42;
+    let seed = baseSeed;
     const rand = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
     const gauss = () => { let u = 0, v = 0; while (!u) u = rand(); while (!v) v = rand(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
     for (let r = 0; r < RUNS; r++) {

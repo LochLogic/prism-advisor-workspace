@@ -13,6 +13,23 @@ function AuthProvider({ children }) {
   const [authUser, setAuthUser] = React.useState(null);
   const [loading,  setLoading]  = React.useState(!DEMO_MODE);
 
+  // Replace in-scope phasesData (defined as `let` in data.jsx) with DB content.
+  // Called before setLoading(false) so the app renders with up-to-date phases.
+  async function mergePhasesWithDB() {
+    try {
+      const { data } = await window.__sb
+        .from('phase_library_resolved')
+        .select('*');
+      if (data && data.length) {
+        // phasesData is a `let` in the same bundle scope (data.jsx)
+        phasesData = data; // eslint-disable-line no-undef
+      }
+    } catch (e) {
+      console.warn('[auth] mergePhasesWithDB:', e.message);
+      // Fall through — phasesData stays as the JS default
+    }
+  }
+
   // Query advisors → clients tables to determine role
   async function detectRole(sess) {
     try {
@@ -22,7 +39,10 @@ function AuthProvider({ children }) {
         .eq('auth_user_id', sess.user.id)
         .maybeSingle();
 
-      if (adv) { setRole('advisor'); setAuthUser(adv); setLoading(false); return; }
+      if (adv) {
+        await mergePhasesWithDB();
+        setRole('advisor'); setAuthUser(adv); setLoading(false); return;
+      }
 
       const { data: cli } = await window.__sb
         .from('clients')
@@ -30,7 +50,10 @@ function AuthProvider({ children }) {
         .eq('auth_user_id', sess.user.id)
         .maybeSingle();
 
-      if (cli) { setRole('client'); setAuthUser(cli); setLoading(false); return; }
+      if (cli) {
+        await mergePhasesWithDB();
+        setRole('client'); setAuthUser(cli); setLoading(false); return;
+      }
 
       // Authenticated but no DB record — require registration before granting access
       setRole('unregistered');

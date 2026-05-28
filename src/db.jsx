@@ -16,7 +16,7 @@ const timeAgo = (iso) => {
 };
 
 /* ─── Client roster ──────────────────────────────────────────────── */
-const CLIENT_COLS = 'id, household_name, short_name, household_tag, current_phase, notes, active, updated_at, aum, uninvested_cash';
+const CLIENT_COLS = 'id, household_name, short_name, household_tag, current_phase, notes, active, updated_at, last_meeting_at, aum, uninvested_cash';
 
 async function dbGetClients(advisorId) {
   if (!_sb() || !isUUID(advisorId)) return null;
@@ -46,6 +46,8 @@ function mapClient(c) {
     phase:          c.current_phase || 0,
     phaseProgress:  0,
     lastActivity:   timeAgo(c.updated_at),
+    lastReview:     c.last_meeting_at ? timeAgo(c.last_meeting_at) : null,
+    updatedAt:      c.updated_at || null,
     recent:         (Date.now() - new Date(c.updated_at)) < 86400000,
     uninvestedCash: Number(c.uninvested_cash) || 0,
     monthlyOutflow: 0,
@@ -434,13 +436,26 @@ async function dbLogMeeting(clientId, advisorId, fields) {
       .select()
       .single();
     if (error) throw error;
-    // Bump client updated_at to keep activity indicator current
+    // Bump client updated_at and last_meeting_at (belt-and-suspenders alongside trigger)
+    const metAt = data.met_at;
     await _sb()
       .from('clients')
-      .update({ updated_at: new Date().toISOString() })
+      .update({ updated_at: new Date().toISOString(), last_meeting_at: metAt })
       .eq('id', clientId);
     return data;
   } catch (e) { console.warn('[db] logMeeting:', e.message); return null; }
+}
+
+/* ─── Phase library ──────────────────────────────────────────────── */
+async function dbGetPhases() {
+  if (!_sb()) return null;
+  try {
+    const { data, error } = await _sb()
+      .from('phase_library_resolved')
+      .select('*');
+    if (error) throw error;
+    return data && data.length ? data : null;
+  } catch (e) { console.warn('[db] getPhases:', e.message); return null; }
 }
 
 async function dbDeleteMeeting(id) {
@@ -479,6 +494,7 @@ window.db = {
   getMeetings:         dbGetMeetings,
   logMeeting:          dbLogMeeting,
   deleteMeeting:       dbDeleteMeeting,
+  getPhases:           dbGetPhases,
   isUUID,
   timeAgo,
 };
