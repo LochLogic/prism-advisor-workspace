@@ -68,8 +68,11 @@ const Toast = () => {
 /* ─── Milestone Achieved Modal (replaces CelebrationModal) ───────── */
 const MilestoneAchievedModal = ({ isOpen, onClose, phase }) => {
   const { taskStates } = useTasks() || {};
+  const { authUser } = window.useAuth?.() || {};
   if (!isOpen || !phase) return null;
   const completed = phase.tasks.filter(t => taskStates?.[phase.id]?.[t.id]);
+  const advisorName     = authUser?.full_name || advisor.fullName;
+  const advisorFirm     = authUser?.firms?.name || advisor.firm;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} className="px-milestone-modal">
@@ -77,7 +80,7 @@ const MilestoneAchievedModal = ({ isOpen, onClose, phase }) => {
         <div className="px-milestone-mark"><Icons.CheckCircle size={22} /></div>
         <div className="px-eyebrow px-milestone-eyebrow">Milestone Achieved · Phase {phase.num}</div>
         <h2 className="px-milestone-title">{phase.title} complete.</h2>
-        <p className="px-milestone-sub">A summary of this Horizon phase has been compiled. Review with {advisor.name} at your next session, or share the printable report below.</p>
+        <p className="px-milestone-sub">A summary of this Horizon phase has been compiled. Review with your advisor at your next session, or share the printable report below.</p>
       </div>
 
       <div className="px-milestone-body">
@@ -123,7 +126,7 @@ const MilestoneAchievedModal = ({ isOpen, onClose, phase }) => {
             "{phase.title === 'Liability Optimization'
               ? 'Excellent execution on the avalanche schedule. With high-cost debt cleared, the next phase moves capital into tax-advantaged space — where we get the compounding advantage of three-axis tax benefit.'
               : 'Solid foundation laid. The work in this phase compounds into every decision that follows — particularly around tax location and withdrawal sequencing. We will review the next Horizon together at your scheduled session.'}"
-            <br /><span style={{ fontStyle: 'normal', fontFamily: 'var(--sans)', fontSize: 11, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.08em', marginTop: 10, display: 'block' }}>— {advisor.fullName}, {advisor.firm}</span>
+            <br /><span style={{ fontStyle: 'normal', fontFamily: 'var(--sans)', fontSize: 11, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.08em', marginTop: 10, display: 'block' }}>— {advisorName}, {advisorFirm}</span>
           </p>
         </div>
       </div>
