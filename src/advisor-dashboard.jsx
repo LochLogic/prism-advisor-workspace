@@ -371,9 +371,9 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
       balance: Number(accForm.balance) || 0,
       cash:    Number(accForm.cash)    || 0,
     });
-    setSavingAcc(false);
     if (row) {
-      window.db.syncClientTotals(client.id);
+      const totals = await window.db.syncClientTotals(client.id);
+      setSavingAcc(false);
       setAccounts(prev => {
         const idx = (prev || []).findIndex(a => a.id === row.id);
         if (idx >= 0) { const next = [...prev]; next[idx] = row; return next; }
@@ -381,16 +381,23 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
       });
       setAccForm(null);
       showToast('Account saved');
+      if (totals && onUpdated) {
+        onUpdated({ ...client, aum: totals.aum, uninvestedCash: totals.uninvested_cash });
+      }
     } else {
+      setSavingAcc(false);
       showToast('Could not save account — check console');
     }
   };
 
   const deleteAccount = async (id) => {
     await window.db.deleteAccount(id);
-    window.db.syncClientTotals(client.id);
+    const totals = await window.db.syncClientTotals(client.id);
     setAccounts(prev => (prev || []).filter(a => a.id !== id));
     showToast('Account removed');
+    if (totals && onUpdated) {
+      onUpdated({ ...client, aum: totals.aum, uninvestedCash: totals.uninvested_cash });
+    }
   };
 
   /* meetings */

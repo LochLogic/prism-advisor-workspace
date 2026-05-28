@@ -277,11 +277,30 @@ async function dbFlagQuestion(clientId, advisorId, phaseId, taskId, flag) {
   if (!_sb() || !isUUID(clientId) || !isUUID(advisorId)) return;
   try {
     if (flag) {
-      const { error } = await _sb()
+      // Reopen an existing resolved row rather than inserting a duplicate
+      const { data: existing } = await _sb()
         .from('flagged_questions')
-        .insert({ client_id: clientId, advisor_id: advisorId,
-                  phase_id: Number(phaseId), task_id: taskId, status: 'open' });
-      if (error) throw error;
+        .select('id')
+        .eq('client_id', clientId)
+        .eq('advisor_id', advisorId)
+        .eq('phase_id', Number(phaseId))
+        .eq('task_id', taskId)
+        .eq('status', 'resolved')
+        .maybeSingle();
+
+      if (existing) {
+        const { error } = await _sb()
+          .from('flagged_questions')
+          .update({ status: 'open', resolved_at: null })
+          .eq('id', existing.id);
+        if (error) throw error;
+      } else {
+        const { error } = await _sb()
+          .from('flagged_questions')
+          .insert({ client_id: clientId, advisor_id: advisorId,
+                    phase_id: Number(phaseId), task_id: taskId, status: 'open' });
+        if (error) throw error;
+      }
     } else {
       const { error } = await _sb()
         .from('flagged_questions')

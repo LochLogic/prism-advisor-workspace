@@ -1,16 +1,52 @@
 // Prism — shared components: Modal shell, Avatar, Sparkline, MilestoneAchievedModal, Toast
 
 /* ─── Modal shell ────────────────────────────────────────────────── */
+const FOCUSABLE = 'button:not([disabled]),[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
 const Modal = ({ isOpen, onClose, children, className = '' }) => {
-  if (!isOpen) return null;
+  const modalRef        = React.useRef(null);
+  const previousFocus   = React.useRef(null);
+
+  // Save trigger focus, auto-focus first focusable element, restore on close
   React.useEffect(() => {
-    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    if (!isOpen) return;
+    previousFocus.current = document.activeElement;
+    const raf = requestAnimationFrame(() => {
+      if (!modalRef.current) return;
+      const first = modalRef.current.querySelector(FOCUSABLE);
+      (first || modalRef.current).focus();
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      previousFocus.current?.focus();
+    };
+  }, [isOpen]);
+
+  // Escape to close + Tab focus trap
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e) => {
+      if (e.key === 'Escape') { onClose(); return; }
+      if (e.key !== 'Tab' || !modalRef.current) return;
+      const focusable = Array.from(modalRef.current.querySelectorAll(FOCUSABLE));
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last  = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault(); last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault(); first.focus();
+      }
+    };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [onClose]);
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
   return (
     <div className="px-modal-backdrop" onClick={onClose}>
-      <div className={`px-modal ${className}`} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+      <div ref={modalRef} tabIndex={-1} className={`px-modal ${className}`}
+           onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
         <button className="px-modal-close" onClick={onClose} aria-label="Close">×</button>
         {children}
       </div>

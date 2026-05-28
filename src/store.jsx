@@ -291,8 +291,11 @@ function NotificationProvider({ children }) {
   // 'off' | 'connecting' | 'live' | 'error'
   const [realtimeStatus, setRealtimeStatus] = useState('off');
   const channelRef = React.useRef(null);
+  const seenIds    = React.useRef(new Set());
 
   const addNotification = useCallback((n) => {
+    if (seenIds.current.has(n.id)) return;
+    seenIds.current.add(n.id);
     setNotifications(prev => [n, ...prev].slice(0, 20));
     setUnread(prev => prev + 1);
   }, []);
@@ -405,6 +408,16 @@ function useTheme() {
 }
 
 /* ─── Print helpers ───────────────────────────────────────────────── */
+const escapeHtml = (s) => {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
 const _printStyles = `
   body{font-family:Georgia,serif;color:#1c2e4a;padding:44px;max-width:720px;margin:0 auto;font-size:13px;}
   h1{font-size:22px;font-weight:500;margin:0 0 3px;}
@@ -448,23 +461,23 @@ function printClientReport(client, phase, meetings) {
          <div class="mtg">
            <div class="mtg-date">
              ${new Date(m.met_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-             ${m.duration_min ? ` &middot; ${m.duration_min} min` : ''}
+             ${m.duration_min ? ` &middot; ${Number(m.duration_min)} min` : ''}
            </div>
-           ${m.notes ? `<div class="mtg-notes">${m.notes}</div>` : ''}
+           ${m.notes ? `<div class="mtg-notes">${escapeHtml(m.notes)}</div>` : ''}
          </div>`).join('')}`
     : '';
   const notesHtml = client.notes
-    ? `<div class="section-lbl">Advisor notes</div><div class="note-block">"${client.notes}"</div>`
+    ? `<div class="section-lbl">Advisor notes</div><div class="note-block">&ldquo;${escapeHtml(client.notes)}&rdquo;</div>`
     : '';
 
-  _openPrint(`Client Report — ${client.name}`, `
+  _openPrint(`Client Report — ${escapeHtml(client.name)}`, `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
-      <div><h1>${client.name}</h1><div class="sub">${client.tag} &middot; Generated ${date}</div></div>
+      <div><h1>${escapeHtml(client.name)}</h1><div class="sub">${escapeHtml(client.tag)} &middot; Generated ${date}</div></div>
       <div style="font-size:10px;color:#8da3b6;text-align:right">Prism Advisor Workspace<br/>Confidential</div>
     </div>
     <div class="grid">
       <div class="stat"><div class="stat-lbl">AUM</div><div class="stat-val">${_fmtShort(client.aum)}</div></div>
-      <div class="stat"><div class="stat-lbl">Current Horizon</div><div class="stat-val" style="font-size:13px;margin-top:6px">Phase ${phase.num} &middot; ${phase.title}</div></div>
+      <div class="stat"><div class="stat-lbl">Current Horizon</div><div class="stat-val" style="font-size:13px;margin-top:6px">Phase ${escapeHtml(phase.num)} &middot; ${escapeHtml(phase.title)}</div></div>
       <div class="stat"><div class="stat-lbl">Uninvested cash</div><div class="stat-val" style="color:${client.uninvestedCash > 80000 ? '#8c3d3d' : 'inherit'}">${_fmtShort(client.uninvestedCash)}</div></div>
     </div>
     ${meetingsHtml}
@@ -478,27 +491,27 @@ function printMilestoneReport(phase, taskStates, advisorName, advisorFirm) {
   const completed = (phase?.tasks || []).filter(t => taskStates?.[phase.id]?.[t.id]);
   const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
-  _openPrint(`Milestone Report — Phase ${phase.num}`, `
+  _openPrint(`Milestone Report — Phase ${escapeHtml(phase.num)}`, `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
       <div>
-        <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5d7a8e;margin-bottom:4px">Milestone Achieved &middot; Phase ${phase.num}</div>
-        <h1>${phase.title}</h1>
-        <div class="sub">Reviewed ${date} &middot; ${advisorName}${advisorFirm ? ', ' + advisorFirm : ''}</div>
+        <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5d7a8e;margin-bottom:4px">Milestone Achieved &middot; Phase ${escapeHtml(phase.num)}</div>
+        <h1>${escapeHtml(phase.title)}</h1>
+        <div class="sub">Reviewed ${date} &middot; ${escapeHtml(advisorName)}${advisorFirm ? ', ' + escapeHtml(advisorFirm) : ''}</div>
       </div>
       <div style="font-size:10px;color:#8da3b6;text-align:right">Prism Advisor Workspace<br/>Confidential</div>
     </div>
     <div class="grid">
       <div class="stat"><div class="stat-lbl">Tasks completed</div><div class="stat-val">${completed.length} / ${phase.tasks.length}</div></div>
-      <div class="stat"><div class="stat-lbl">Phase</div><div class="stat-val">${phase.num}</div></div>
+      <div class="stat"><div class="stat-lbl">Phase</div><div class="stat-val">${escapeHtml(phase.num)}</div></div>
       <div class="stat"><div class="stat-lbl">Status</div><div class="stat-val" style="font-size:14px;color:#3d5a4a;margin-top:5px">&#10003; Complete</div></div>
     </div>
     <div class="section-lbl">Milestones completed in this phase</div>
     ${phase.tasks.map(t => `
       <div class="task">
         <span class="check">${taskStates?.[phase.id]?.[t.id] ? '✓' : '○'}</span>
-        <span>${t.label}</span>
+        <span>${escapeHtml(t.label)}</span>
       </div>`).join('')}
-    <div class="footer">This summary report is retained in the client vault. Prism Advisor Workspace &middot; ${advisorFirm || ''}</div>
+    <div class="footer">This summary report is retained in the client vault. Prism Advisor Workspace &middot; ${escapeHtml(advisorFirm || '')}</div>
   `);
 }
 
@@ -510,5 +523,6 @@ Object.assign(window, {
   useTheme,
   printClientReport,
   printMilestoneReport,
+  escapeHtml,
   fmt$, fmtPct, fmtN,
 });

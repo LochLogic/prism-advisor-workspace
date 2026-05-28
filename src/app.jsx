@@ -26,9 +26,14 @@ const NotificationBell = () => {
 
   React.useEffect(() => {
     if (!open) return;
-    const close = () => setOpen(false);
-    window.addEventListener('click', close);
-    return () => window.removeEventListener('click', close);
+    const handleClick = () => setOpen(false);
+    const handleKey   = (e) => { if (e.key === 'Escape') setOpen(false); };
+    window.addEventListener('click', handleClick);
+    window.addEventListener('keydown', handleKey);
+    return () => {
+      window.removeEventListener('click', handleClick);
+      window.removeEventListener('keydown', handleKey);
+    };
   }, [open]);
 
   const toggle = (e) => {
@@ -39,8 +44,9 @@ const NotificationBell = () => {
 
   return (
     <div style={{ position: 'relative' }}>
-      <button className="px-icon-btn" onClick={toggle} title="Notifications"
-        style={{ position: 'relative' }}>
+      <button className="px-icon-btn" onClick={toggle}
+        aria-label="Notifications" aria-haspopup="true" aria-expanded={open}
+        title="Notifications" style={{ position: 'relative' }}>
         <Icons.Bell size={14} />
         {unread > 0 && (
           <span className="px-notif-badge">{unread > 9 ? '9+' : unread}</span>
@@ -48,7 +54,8 @@ const NotificationBell = () => {
       </button>
 
       {open && (
-        <div className="px-notif-panel" onClick={e => e.stopPropagation()}>
+        <div className="px-notif-panel" role="region" aria-label="Notifications"
+             onClick={e => e.stopPropagation()}>
           <div className="px-notif-panel-head">
             <span style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 12 }}>Notifications</span>
             <span className={`px-rt-dot is-${realtimeStatus}`}
@@ -101,9 +108,14 @@ const AccountChip = ({ view, activeClient }) => {
 
   React.useEffect(() => {
     if (!open) return;
-    const close = () => setOpen(false);
-    window.addEventListener('click', close);
-    return () => window.removeEventListener('click', close);
+    const handleClick = () => setOpen(false);
+    const handleKey   = (e) => { if (e.key === 'Escape') setOpen(false); };
+    window.addEventListener('click', handleClick);
+    window.addEventListener('keydown', handleKey);
+    return () => {
+      window.removeEventListener('click', handleClick);
+      window.removeEventListener('keydown', handleKey);
+    };
   }, [open]);
 
   const advisorInitials = authUser?.full_name
@@ -121,6 +133,9 @@ const AccountChip = ({ view, activeClient }) => {
         className="px-account-chip"
         title={isDemo ? 'Demo mode' : (authUser?.email || advisor.email)}
         onClick={(e) => { e.stopPropagation(); setOpen(v => !v); }}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(v => !v); } }}
+        role="button" tabIndex={0}
+        aria-haspopup="true" aria-expanded={open}
         style={{ cursor: 'pointer', userSelect: 'none' }}
       >
         <div className="px-account-avatar">{displayInitials}</div>
