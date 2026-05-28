@@ -16,12 +16,14 @@ const timeAgo = (iso) => {
 };
 
 /* ─── Client roster ──────────────────────────────────────────────── */
+const CLIENT_COLS = 'id, household_name, short_name, household_tag, current_phase, notes, active, updated_at, aum, uninvested_cash';
+
 async function dbGetClients(advisorId) {
   if (!_sb() || !isUUID(advisorId)) return null;
   try {
     const { data, error } = await _sb()
       .from('clients')
-      .select('id, household_name, short_name, household_tag, current_phase, notes, active, updated_at')
+      .select(CLIENT_COLS)
       .eq('advisor_id', advisorId)
       .eq('active', true)
       .order('household_name');
@@ -35,22 +37,155 @@ function mapClient(c) {
   const name = c.household_name || 'Unknown';
   const initials = name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
   return {
-    id:            c.id,
+    id:             c.id,
     name,
-    shortName:     c.short_name || name,
-    tag:           c.household_tag || '—',
+    shortName:      c.short_name || name,
+    tag:            c.household_tag || '—',
     initials,
-    aum:           0,           // populated by portfolio sync (Sprint 4)
-    phase:         c.current_phase || 0,
-    phaseProgress: 0,
-    lastActivity:  timeAgo(c.updated_at),
-    recent:        (Date.now() - new Date(c.updated_at)) < 86400000,
-    surplus:       0,
-    uninvestedCash: 0,
+    aum:            Number(c.aum) || 0,
+    phase:          c.current_phase || 0,
+    phaseProgress:  0,
+    lastActivity:   timeAgo(c.updated_at),
+    recent:         (Date.now() - new Date(c.updated_at)) < 86400000,
+    uninvestedCash: Number(c.uninvested_cash) || 0,
     monthlyOutflow: 0,
-    accentHue:     (name.charCodeAt(0) * 47 + name.charCodeAt(1) * 19) % 360,
-    notes:         c.notes || '',
+    accentHue:      (name.charCodeAt(0) * 47 + (name.charCodeAt(1) || 0) * 19) % 360,
+    notes:          c.notes || '',
   };
+}
+
+async function dbCreateClient(advisorId, firmId, fields) {
+  if (!_sb() || !isUUID(advisorId) || !isUUID(firmId)) return null;
+  try {
+    const { data, error } = await _sb()
+      .from('clients')
+      .insert({
+        advisor_id:     advisorId,
+        firm_id:        firmId,
+        household_name: fields.household_name,
+        short_name:     fields.short_name || fields.household_name,
+        household_tag:  fields.household_tag || '',
+        current_phase:  Number(fields.current_phase) || 0,
+        active:         true,
+      })
+      .select(CLIENT_COLS)
+      .single();
+    if (error) throw error;
+    return data;
+  } catch (e) { console.warn('[db] createClient:', e.message); return null; }
+}
+
+async function dbUpdateClient(clientId, fields) {
+  if (!_sb() || !isUUID(clientId)) return null;
+  try {
+    const allowed = {};
+    if (fields.household_name !== undefined) allowed.household_name = fields.household_name;
+    if (fields.short_name     !== undefined) allowed.short_name     = fields.short_name;
+    if (fields.household_tag  !== undefined) allowed.household_tag  = fields.household_tag;
+    if (fields.current_phase  !== undefined) allowed.current_phase  = Number(fields.current_phase);
+    if (fields.notes          !== undefined) allowed.notes          = fields.notes;
+    allowed.updated_at = new Date().toISOString();
+
+    const { data, error } = await _sb()
+      .from('clients')
+      .update(allowed)
+      .eq('id', clientId)
+      .select(CLIENT_COLS)
+      .single();
+    if (error) throw error;
+    return data;
+  } catch (e) { console.warn('[db] updateClient:', e.message); return null; }
+}
+
+async function dbArchiveClient(clientId) {
+  if (!_sb() || !isUUID(clientId)) return;
+  try {
+    const { error } = await _sb()
+      .from('clients')
+      .update({ active: false, updated_at: new Date().toISOString() })
+      .eq('id', clientId);
+    if (error) throw error;
+  } catch (e) { console.warn('[db] archiveClient:', e.message); }
+}
+
+async function dbUpdateClientNotes(clientId, notes) {
+  if (!_sb() || !isUUID(clientId)) return;
+  try {
+    const { error } = await _sb()
+      .from('clients')
+      .update({ notes, updated_at: new Date().toISOString() })
+      .eq('id', clientId);
+    if (error) throw error;
+  } catch (e) { console.warn('[db] updateClientNotes:', e.message); }
+}
+
+/* ─── Accounts ───────────────────────────────────────────────────── */
+const ACCOUNT_TYPE_LABELS = {
+  taxable:       'Taxable Brokerage',
+  ira_traditional: 'Traditional IRA',
+  ira_roth:      'Roth IRA',
+  hsa:           'HSA',
+  '401k':        '401(k) / 403(b)',
+  other:         'Other',
+};
+
+async function dbGetAccounts(clientId) {
+  if (!_sb() || !isUUID(clientId)) return null;
+  try {
+    const { data, error } = await _sb()
+      .from('accounts')
+      .select('id, client_id, type, custodian, name, balance, cash, as_of, updated_at')
+      .eq('client_id', clientId)
+      .order('type');
+    if (error) throw error;
+    return data;
+  } catch (e) { console.warn('[db] getAccounts:', e.message); return null; }
+}
+
+async function dbUpsertAccount(account) {
+  if (!_sb() || !isUUID(account.client_id)) return null;
+  try {
+    const payload = {
+      client_id:  account.client_id,
+      type:       account.type || 'other',
+      custodian:  account.custodian || null,
+      name:       account.name || null,
+      balance:    Number(account.balance) || 0,
+      cash:       Number(account.cash) || 0,
+      as_of:      account.as_of || new Date().toISOString().slice(0, 10),
+      updated_at: new Date().toISOString(),
+    };
+    if (isUUID(account.id)) payload.id = account.id;
+
+    const { data, error } = await _sb()
+      .from('accounts')
+      .upsert(payload, { onConflict: 'id' })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  } catch (e) { console.warn('[db] upsertAccount:', e.message); return null; }
+}
+
+async function dbDeleteAccount(id) {
+  if (!_sb() || !isUUID(id)) return;
+  try {
+    const { error } = await _sb().from('accounts').delete().eq('id', id);
+    if (error) throw error;
+  } catch (e) { console.warn('[db] deleteAccount:', e.message); }
+}
+
+// Recompute AUM/cash from accounts and write back to the client row
+async function dbSyncClientTotals(clientId) {
+  if (!_sb() || !isUUID(clientId)) return;
+  try {
+    const accts = await dbGetAccounts(clientId);
+    if (!accts) return;
+    const aum            = accts.reduce((s, a) => s + (Number(a.balance) || 0), 0);
+    const uninvested_cash = accts.reduce((s, a) => s + (Number(a.cash)    || 0), 0);
+    await _sb().from('clients').update({ aum, uninvested_cash, updated_at: new Date().toISOString() }).eq('id', clientId);
+    return { aum, uninvested_cash };
+  } catch (e) { console.warn('[db] syncClientTotals:', e.message); }
 }
 
 /* ─── Profile ────────────────────────────────────────────────────── */
@@ -220,40 +355,18 @@ async function dbSnoozeAlert(id) {
   } catch (e) { console.warn('[db] snoozeAlert:', e.message); }
 }
 
-async function dbCreateClient(advisorId, fields) {
-  if (!_sb() || !isUUID(advisorId)) return null;
-  try {
-    const { data, error } = await _sb()
-      .from('clients')
-      .insert({
-        advisor_id:     advisorId,
-        household_name: fields.household_name,
-        short_name:     fields.short_name || fields.household_name,
-        household_tag:  fields.household_tag || '',
-        current_phase:  Number(fields.current_phase) || 0,
-        active:         true,
-      })
-      .select('id, household_name, short_name, household_tag, current_phase, notes, active, updated_at')
-      .single();
-    if (error) throw error;
-    return data;
-  } catch (e) { console.warn('[db] createClient:', e.message); return null; }
-}
-
-async function dbUpdateClientNotes(clientId, notes) {
-  if (!_sb() || !isUUID(clientId)) return;
-  try {
-    const { error } = await _sb()
-      .from('clients')
-      .update({ notes, updated_at: new Date().toISOString() })
-      .eq('id', clientId);
-    if (error) throw error;
-  } catch (e) { console.warn('[db] updateClientNotes:', e.message); }
-}
-
 window.db = {
   getClients:          dbGetClients,
   mapClient,
+  createClient:        dbCreateClient,
+  updateClient:        dbUpdateClient,
+  archiveClient:       dbArchiveClient,
+  updateClientNotes:   dbUpdateClientNotes,
+  getAccounts:         dbGetAccounts,
+  upsertAccount:       dbUpsertAccount,
+  deleteAccount:       dbDeleteAccount,
+  syncClientTotals:    dbSyncClientTotals,
+  ACCOUNT_TYPE_LABELS,
   getProfile:          dbGetProfile,
   saveProfile:         dbSaveProfile,
   getTaskStates:       dbGetTaskStates,
@@ -265,8 +378,6 @@ window.db = {
   getAlerts:           dbGetAlerts,
   mapAlert,
   snoozeAlert:         dbSnoozeAlert,
-  createClient:        dbCreateClient,
-  updateClientNotes:   dbUpdateClientNotes,
   isUUID,
   timeAgo,
 };
