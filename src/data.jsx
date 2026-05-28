@@ -2,7 +2,7 @@
 // (In production these live in Supabase; see supabase/migrations/001_prism_schema.sql)
 
 /* ─── Wealth Horizons · 7 Phases (institutional RIA voice) ─────────── */
-const phasesData = [
+let phasesData = [
   {
     id: 0, num: '01', title: 'Foundation', tag: 'Stabilization',
     description: 'Establish the operational base — predictable cash flow, current obligations, and a disciplined household ledger.',

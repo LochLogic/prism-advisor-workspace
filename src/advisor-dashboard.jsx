@@ -66,6 +66,11 @@ const RosterRow = ({ client, onOpen }) => {
       <td>
         <span className={`px-activity-dot ${client.recent ? 'is-recent' : client.lastActivity.includes('d') && parseInt(client.lastActivity) >= 7 ? 'is-warn' : ''}`}></span>
         <span style={{ fontSize: 12, color: 'var(--ink-mute)' }}>{client.lastActivity}</span>
+        {client.lastReview && (
+          <div style={{ fontSize: 10, color: 'var(--ink-faint)', marginTop: 1 }}>
+            reviewed {client.lastReview}
+          </div>
+        )}
       </td>
       <td className="is-num px-hide-mobile">
         <Sparkline seed={client.id.charCodeAt(2) + client.id.charCodeAt(3)} trend={client.recent ? 'up' : 'flat'} color="var(--ink-faint)" width={48} height={16} />
@@ -552,7 +557,10 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
           <ClientAvatar client={client} size={44} />
           <div style={{ flex: 1 }}>
             <h2 style={{ fontFamily: 'var(--serif)', fontSize: 20, fontWeight: 500, margin: 0, color: 'var(--ink)' }}>{client.name}</h2>
-            <div style={{ fontSize: 12, color: 'var(--ink-mute)', marginTop: 3 }}>{client.tag} · last activity {client.lastActivity}</div>
+            <div style={{ fontSize: 12, color: 'var(--ink-mute)', marginTop: 3 }}>
+              {client.tag} · last activity {client.lastActivity}
+              {meetings?.length > 0 && ` · reviewed ${timeAgo(meetings[0].met_at)} ago`}
+            </div>
           </div>
           <div style={{ display: 'flex', gap: 6 }}>
             <button className="px-btn px-btn-sm px-btn-ghost"
@@ -961,7 +969,48 @@ const AdvisorDashboard = () => {
     window.db?.resolveQuestion(id);
   };
 
-  const visibleAlerts = useMemoAdv(() => activeAlerts.filter(a => !snoozed.has(a.id)), [activeAlerts, snoozed]);
+  // Auto-generate alerts from roster data (cash drag, stale relationships)
+  const generatedAlerts = useMemoAdv(() => {
+    if (!isLiveMode) return [];
+    const alerts = [];
+    activeClients.forEach(c => {
+      // Cash drag: >5% of AUM sitting uninvested
+      if (c.aum > 0 && c.uninvestedCash / c.aum > 0.05) {
+        const pct = ((c.uninvestedCash / c.aum) * 100).toFixed(0);
+        alerts.push({
+          id:       `gen_cash_${c.id}`,
+          priority: c.uninvestedCash > 100_000 ? 'high' : 'medium',
+          clientId: c.id,
+          icon:     'Dollar',
+          headline: `${c.shortName} — ${pct}% cash drag`,
+          body:     `${fmt$(c.uninvestedCash, { short: true })} uninvested of ${fmt$(c.aum, { short: true })} AUM`,
+          timeAgo:  'auto',
+          cta:      'Deploy cash',
+        });
+      }
+      // Stale relationship: no advisor activity in 14+ days, still in early horizons
+      if (c.updatedAt && c.phase < 5) {
+        const daysSince = Math.floor((Date.now() - new Date(c.updatedAt)) / 86_400_000);
+        if (daysSince >= 14) {
+          alerts.push({
+            id:       `gen_stale_${c.id}`,
+            priority: daysSince >= 30 ? 'high' : 'medium',
+            clientId: c.id,
+            icon:     'Phone',
+            headline: `${c.shortName} — no activity ${daysSince}d`,
+            body:     'Consider scheduling a check-in',
+            timeAgo:  'auto',
+            cta:      'Schedule call',
+          });
+        }
+      }
+    });
+    return alerts;
+  }, [activeClients, isLiveMode]);
+
+  const visibleAlerts = useMemoAdv(() =>
+    [...activeAlerts, ...generatedAlerts].filter(a => !snoozed.has(a.id)),
+    [activeAlerts, generatedAlerts, snoozed]);
   const visibleQs     = useMemoAdv(() => activeQuestions.filter(q => !dismissedQs.has(q.id)), [activeQuestions, dismissedQs]);
 
   const greetDate = (() => {
