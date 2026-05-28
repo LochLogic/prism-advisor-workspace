@@ -1089,17 +1089,26 @@ input, select, textarea { font-family: inherit; color: inherit; }
   .px-portstrip { grid-template-columns: repeat(2, 1fr); }
   .px-portstrip .px-portstat:nth-child(2) { border-right: 0; }
 }
+@media (max-width: 860px) {
+  .px-hide-mobile { display: none; }
+  .px-section-tools { flex-wrap: wrap; gap: 6px; }
+  .px-roster { overflow-x: auto; }
+}
 @media (max-width: 680px) {
   .px-topbar { grid-template-columns: 1fr auto; gap: 10px; padding: 10px 14px; }
-  .px-topright { display: none; }
+  .px-viewswitch { display: none; }
+  .px-topright .px-btn { display: none; }
   .px-adv-main { padding: 18px 16px 50px; }
   .px-client-app { padding: 22px 16px 60px; }
-  .px-clienthero h1 { font-size: 30px; }
+  .px-clienthero h1 { font-size: 28px; }
   .px-phase { padding-left: 0; }
   .px-phase-spine, .px-phase-node { display: none; }
   .px-phase-end { margin-left: 0; }
   .px-phase-aside { gap: 8px; }
   .px-phase-metric { display: none; }
-  .px-kpis { grid-template-columns: 1fr; }
+  .px-kpis { grid-template-columns: 1fr 1fr; }
   .px-portstrip { grid-template-columns: 1fr 1fr; }
+  .px-greet h1 { font-size: 26px; }
+  .px-modal-backdrop { padding: 12px; align-items: flex-start; padding-top: 40px; }
+  .px-modal { max-height: calc(100dvh - 64px); }
 }

@@ -220,6 +220,37 @@ async function dbSnoozeAlert(id) {
   } catch (e) { console.warn('[db] snoozeAlert:', e.message); }
 }
 
+async function dbCreateClient(advisorId, fields) {
+  if (!_sb() || !isUUID(advisorId)) return null;
+  try {
+    const { data, error } = await _sb()
+      .from('clients')
+      .insert({
+        advisor_id:     advisorId,
+        household_name: fields.household_name,
+        short_name:     fields.short_name || fields.household_name,
+        household_tag:  fields.household_tag || '',
+        current_phase:  Number(fields.current_phase) || 0,
+        active:         true,
+      })
+      .select('id, household_name, short_name, household_tag, current_phase, notes, active, updated_at')
+      .single();
+    if (error) throw error;
+    return data;
+  } catch (e) { console.warn('[db] createClient:', e.message); return null; }
+}
+
+async function dbUpdateClientNotes(clientId, notes) {
+  if (!_sb() || !isUUID(clientId)) return;
+  try {
+    const { error } = await _sb()
+      .from('clients')
+      .update({ notes, updated_at: new Date().toISOString() })
+      .eq('id', clientId);
+    if (error) throw error;
+  } catch (e) { console.warn('[db] updateClientNotes:', e.message); }
+}
+
 window.db = {
   getClients:          dbGetClients,
   mapClient,
@@ -234,6 +265,8 @@ window.db = {
   getAlerts:           dbGetAlerts,
   mapAlert,
   snoozeAlert:         dbSnoozeAlert,
+  createClient:        dbCreateClient,
+  updateClientNotes:   dbUpdateClientNotes,
   isUUID,
   timeAgo,
 };
