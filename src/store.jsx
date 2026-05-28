@@ -184,12 +184,12 @@ function TaskProvider({ children }) {
   };
   const togglePhase = (phaseId) => setOpenPhases(prev => ({ ...prev, [phaseId]: !prev[phaseId] }));
 
-  const flagForAdvisor = (phaseId, taskId) => {
+  const flagForAdvisor = (phaseId, taskId, questionText = '') => {
     const k = `${phaseId}:${taskId}`;
     const next = !flaggedQs[k];
     setFlaggedQs(prev => ({ ...prev, [k]: next }));
     if (window.db?.isUUID(activeClientId) && window.db?.isUUID(authUser?.advisor_id)) {
-      window.db.flagQuestion(activeClientId, authUser.advisor_id, phaseId, taskId, next);
+      window.db.flagQuestion(activeClientId, authUser.advisor_id, phaseId, taskId, next, questionText);
     }
   };
   const isFlagged = (phaseId, taskId) => !!flaggedQs[`${phaseId}:${taskId}`];
@@ -234,8 +234,9 @@ function ViewProvider({ children }) {
     try { return localStorage.getItem('px_view') || 'advisor'; }
     catch { return 'advisor'; }
   });
-  const [activeClientId, setActiveClientId] = useState(currentClientId);
-  const [activeClient,   setActiveClient]   = useState(null);
+  const [activeClientId,  setActiveClientId]  = useState(currentClientId);
+  const [activeClient,    setActiveClient]    = useState(null);
+  const [pendingPhaseId,  setPendingPhaseId]  = useState(null);
   const [toast, setToast] = useState(null);
 
   useEffect(() => { try { localStorage.setItem('px_view', view); } catch {} }, [view]);
@@ -257,6 +258,7 @@ function ViewProvider({ children }) {
       view, setView,
       activeClientId, setActiveClientId,
       activeClient,   setActiveClient,
+      pendingPhaseId, setPendingPhaseId,
       openClientPortal,
       toast, showToast,
     }}>
@@ -300,6 +302,18 @@ function NotificationProvider({ children }) {
     setUnread(prev => prev + 1);
   }, []);
 
+  // Live-updating relative timestamps — tick every 60 s
+  useEffect(() => {
+    const tick = () => setNotifications(prev =>
+      prev.map(n => n.createdAt
+        ? { ...n, timeAgo: window.db?.timeAgo(n.createdAt) || n.timeAgo }
+        : n
+      )
+    );
+    const id = setInterval(tick, 60_000);
+    return () => clearInterval(id);
+  }, []);
+
   const markAllRead = useCallback(() => setUnread(0), []);
 
   const dismiss = useCallback((id) => {
@@ -322,14 +336,15 @@ function NotificationProvider({ children }) {
         filter: `advisor_id=eq.${authUser.id}`,
       }, ({ new: a }) => {
         addNotification({
-          id:       a.id,
-          type:     'alert',
-          priority: a.priority,
-          icon:     ALERT_ICON[a.category] || 'Bell',
-          headline: a.headline,
-          body:     a.body || '',
-          timeAgo:  'just now',
-          clientId: a.client_id,
+          id:        a.id,
+          type:      'alert',
+          priority:  a.priority,
+          icon:      ALERT_ICON[a.category] || 'Bell',
+          headline:  a.headline,
+          body:      a.body || '',
+          timeAgo:   'just now',
+          createdAt: a.created_at || new Date().toISOString(),
+          clientId:  a.client_id,
         });
       })
       .on('postgres_changes', {
@@ -337,13 +352,15 @@ function NotificationProvider({ children }) {
         filter: `advisor_id=eq.${authUser.id}`,
       }, ({ new: q }) => {
         addNotification({
-          id:       q.id,
-          type:     'question',
-          icon:     'Message',
-          headline: 'New question flagged',
-          body:     q.question_text || 'A client flagged a discussion item',
-          timeAgo:  'just now',
-          clientId: q.client_id,
+          id:        q.id,
+          type:      'question',
+          icon:      'Message',
+          headline:  'New question flagged',
+          body:      q.question_text || 'A client flagged a discussion item',
+          timeAgo:   'just now',
+          createdAt: q.created_at || new Date().toISOString(),
+          clientId:  q.client_id,
+          phaseId:   q.phase_id,
         });
       })
       .on('postgres_changes', {
@@ -351,13 +368,14 @@ function NotificationProvider({ children }) {
         filter: `advisor_id=eq.${authUser.id}`,
       }, ({ new: m }) => {
         addNotification({
-          id:       `m:${m.id}`,
-          type:     'meeting',
-          icon:     'Calendar',
-          headline: 'Meeting logged',
-          body:     m.notes ? m.notes.slice(0, 80) : 'New meeting recorded',
-          timeAgo:  'just now',
-          clientId: m.client_id,
+          id:        `m:${m.id}`,
+          type:      'meeting',
+          icon:      'Calendar',
+          headline:  'Meeting logged',
+          body:      m.notes ? m.notes.slice(0, 80) : 'New meeting recorded',
+          timeAgo:   'just now',
+          createdAt: m.created_at || new Date().toISOString(),
+          clientId:  m.client_id,
         });
       })
       .subscribe((status) => {

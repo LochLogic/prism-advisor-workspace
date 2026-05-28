@@ -22,6 +22,7 @@ const LoadingScreen = () => (
 /* ─── Notification bell + dropdown ───────────────────────────────── */
 const NotificationBell = () => {
   const { notifications, unread, markAllRead, dismiss, realtimeStatus } = useNotifications();
+  const { setActiveClientId, setView, setPendingPhaseId } = useView();
   const [open, setOpen] = React.useState(false);
 
   React.useEffect(() => {
@@ -72,8 +73,25 @@ const NotificationBell = () => {
           ) : (
             notifications.map(n => {
               const I = Icons[n.icon] || Icons.Bell;
+              const isClickable = !!n.clientId;
+              const handleDeepLink = () => {
+                if (!n.clientId) return;
+                setActiveClientId(n.clientId);
+                if (n.phaseId != null) setPendingPhaseId(n.phaseId);
+                setView('client');
+                setOpen(false);
+              };
               return (
-                <div key={n.id} className="px-notif-item">
+                <div key={n.id} className="px-notif-item"
+                  style={{ cursor: isClickable ? 'pointer' : 'default' }}
+                  onClick={isClickable ? handleDeepLink : undefined}
+                  role={isClickable ? 'button' : undefined}
+                  tabIndex={isClickable ? 0 : undefined}
+                  onKeyDown={isClickable
+                    ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleDeepLink(); } }
+                    : undefined}
+                  aria-label={isClickable ? `Go to client · ${n.headline}` : undefined}
+                >
                   <span className="px-notif-item-icon"><I size={11} /></span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink)', lineHeight: 1.3 }}>
