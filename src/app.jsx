@@ -317,3 +317,5 @@ function App() {
 }
 
 window.App = App;
+
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));

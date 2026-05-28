@@ -22,3 +22,8 @@ npm-debug.log*
 # Supabase local dev
 supabase/.temp/
 supabase/functions/.edge-runtime/
+
+# Build
+node_modules/
+dist/
+src/_entry.jsx
