@@ -216,7 +216,7 @@ async function dbGetAccounts(clientId) {
   try {
     const { data, error } = await _sb()
       .from('accounts')
-      .select('id, client_id, type, custodian, name, balance, cash, as_of, updated_at')
+      .select('id, client_id, type, custodian, name, balance, cash, as_of, updated_at, source, external_id')
       .eq('client_id', clientId)
       .is('archived_at', null)
       .order('type');
@@ -586,6 +586,22 @@ async function dbDeleteMeeting(id, clientId) {
   } catch (e) { console.warn('[db] deleteMeeting:', e.message); }
 }
 
+/* ─── Balance history (aggregation time-series, Theme B/D) ────────── */
+async function dbGetBalanceHistory(clientId, { days = 365 } = {}) {
+  if (!_sb() || !isUUID(clientId)) return null;
+  try {
+    const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+    const { data, error } = await _sb()
+      .from('balance_history')
+      .select('account_id, as_of, balance, cash')
+      .eq('client_id', clientId)
+      .gte('as_of', since)
+      .order('as_of');
+    if (error) throw error;
+    return data;
+  } catch (e) { console.warn('[db] getBalanceHistory:', e.message); return null; }
+}
+
 /* ─── Billing (Stripe subscription, per firm) ────────────────────── */
 async function dbGetSubscription() {
   if (!_sb()) return null;
@@ -717,6 +733,7 @@ window.db = {
   audit:               dbAudit,
   getAuditLog:         dbGetAuditLog,
   getProfileVersions:  dbGetProfileVersions,
+  getBalanceHistory:   dbGetBalanceHistory,
   getSubscription:     dbGetSubscription,
   getTasks:            dbGetTasks,
   mapTask,
