@@ -1,0 +1,144 @@
+// Prism Edge Function: generate-invoices
+// Generates draft advisory-fee invoices for a firm for a given quarter.
+// Admin-gated (JWT); does the heavy lifting with the service role so it can
+// read balance_history across the whole firm. Idempotent: re-running skips
+// clients that already have an invoice for the period.
+//
+// Body: { year?: number, quarter?: 1|2|3|4 }  (defaults to last completed quarter)
+// Deploy: supabase functions deploy generate-invoices --project-ref phabxcijbbphfxvjedfj
+// (Later: schedule via pg_cron to run automatically each quarter.)
+
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "../_shared/cors.ts";
+
+function json(o: unknown, s = 200) {
+  return new Response(JSON.stringify(o), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
+// Tiered annual fee in dollars for a given AUM
+function annualFee(tiers: any[], aum: number): number {
+  const list = Array.isArray(tiers) ? tiers : [];
+  if (!list.length) return 0;
+  let fee = 0, prev = 0;
+  for (const t of list) {
+    const cap = (t.up_to == null || t.up_to === "") ? Infinity : Number(t.up_to);
+    const band = Math.max(0, Math.min(aum, cap) - prev);
+    fee += band * (Number(t.annual_bps) || 0) / 10000;
+    prev = cap;
+    if (aum <= cap) break;
+  }
+  return fee;
+}
+
+// Portfolio value per snapshot date (sum of each account's latest balance ≤ date)
+function buildSeries(rows: any[]) {
+  const byAcct: Record<string, { date: string; bal: number }[]> = {};
+  const dates = new Set<string>();
+  for (const r of rows) {
+    (byAcct[r.account_id] = byAcct[r.account_id] || []).push({ date: r.as_of, bal: Number(r.balance) || 0 });
+    dates.add(r.as_of);
+  }
+  Object.values(byAcct).forEach(a => a.sort((x, y) => x.date < y.date ? -1 : 1));
+  return [...dates].sort().map(d => {
+    let t = 0;
+    for (const a of Object.values(byAcct)) {
+      let last: number | null = null;
+      for (const p of a) { if (p.date <= d) last = p.bal; else break; }
+      if (last != null) t += last;
+    }
+    return { date: d, value: t };
+  });
+}
+
+function avgDaily(s: { date: string; value: number }[], start: string, end: string): number {
+  if (!s.length) return 0;
+  let open: number | null = null;
+  for (const p of s) { if (p.date <= start) open = p.value; else break; }
+  const pts = [{ date: start, value: open != null ? open : s[0].value }];
+  for (const p of s) { if (p.date > start && p.date <= end) pts.push(p); }
+  const endT = new Date(end).getTime(), DAY = 86400000;
+  let sum = 0, total = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const t0 = new Date(pts[i].date).getTime();
+    const t1 = i + 1 < pts.length ? new Date(pts[i + 1].date).getTime() : endT;
+    const days = Math.max(0, (t1 - t0) / DAY);
+    sum += pts[i].value * days; total += days;
+  }
+  return total > 0 ? sum / total : pts[pts.length - 1].value;
+}
+
+function periodEnd(s: { date: string; value: number }[], end: string): number {
+  let v = 0;
+  for (const p of s) { if (p.date <= end) v = p.value; else break; }
+  return v;
+}
+
+function quarterRange(year: number, q: number) {
+  const sm = (q - 1) * 3;
+  const start = new Date(Date.UTC(year, sm, 1));
+  const end = new Date(Date.UTC(year, sm + 3, 0));
+  return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10), days: (end.getTime() - start.getTime()) / 86400000 + 1 };
+}
+
+function lastCompletedQuarter() {
+  const now = new Date();
+  const q = Math.floor(now.getUTCMonth() / 3) + 1;
+  let year = now.getUTCFullYear(), pq = q - 1;
+  if (pq < 1) { pq = 4; year--; }
+  return { year, quarter: pq };
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  try {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) return json({ error: "Not authenticated" }, 401);
+
+    const supa = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } });
+    const { data: { user } } = await supa.auth.getUser();
+    if (!user) return json({ error: "Not authenticated" }, 401);
+
+    const { data: adv } = await supa.from("advisors").select("firm_id, role").eq("auth_user_id", user.id).single();
+    if (!adv || adv.role !== "admin") return json({ error: "Firm admin only" }, 403);
+    const firmId = adv.firm_id;
+
+    const body = await req.json().catch(() => ({}));
+    const { year, quarter } = (body.year && body.quarter) ? body : lastCompletedQuarter();
+    const { start, end, days } = quarterRange(year, quarter);
+
+    const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
+    const { data: clients } = await admin.from("clients")
+      .select("id, fee_schedule_id").eq("firm_id", firmId).eq("active", true).not("fee_schedule_id", "is", null);
+    const { data: schedules } = await admin.from("fee_schedules").select("id, tiers, basis").eq("firm_id", firmId);
+    const schedMap: Record<string, any> = Object.fromEntries((schedules || []).map(s => [s.id, s]));
+
+    let created = 0, skipped = 0, total = 0;
+    for (const c of (clients || [])) {
+      const sched = schedMap[c.fee_schedule_id];
+      if (!sched) continue;
+      const { data: bh } = await admin.from("balance_history")
+        .select("account_id, as_of, balance").eq("client_id", c.id).lte("as_of", end);
+      const s = buildSeries(bh || []);
+      const basis = sched.basis === "period_end" ? periodEnd(s, end) : avgDaily(s, start, end);
+      if (basis <= 0) { skipped++; continue; }
+      const fee = annualFee(sched.tiers, basis) * (days / 365);
+      const { error } = await admin.from("invoices").insert({
+        firm_id: firmId, client_id: c.id, period_start: start, period_end: end,
+        basis_amount: Math.round(basis), fee_amount: Math.round(fee * 100) / 100, status: "draft",
+      });
+      if (error) skipped++; else { created++; total += fee; }
+    }
+
+    await admin.from("audit_log").insert({
+      actor_id: user.id, actor_role: "admin", actor_email: user.email, firm_id: firmId,
+      action: "invoices.generate", entity_type: "invoice",
+      summary: `Generated ${created} draft invoice(s) for Q${quarter} ${year}`,
+    });
+
+    return json({ created, skipped, total: Math.round(total * 100) / 100, period: `Q${quarter} ${year}`, start, end });
+  } catch (e) {
+    return json({ error: (e as Error).message }, 400);
+  }
+});

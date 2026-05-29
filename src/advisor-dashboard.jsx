@@ -141,6 +141,22 @@ const PerfChart = ({ series, height = 96 }) => {
   );
 };
 
+// Tiered annual advisory fee ($) for a given AUM — mirrors the generate-invoices function
+function annualFeeForAum(tiers, aum) {
+  const list = Array.isArray(tiers) ? tiers : [];
+  if (!list.length) return 0;
+  let fee = 0, prev = 0;
+  for (const t of list) {
+    const cap = (t.up_to == null || t.up_to === '') ? Infinity : Number(t.up_to);
+    const band = Math.max(0, Math.min(aum, cap) - prev);
+    fee += band * (Number(t.annual_bps) || 0) / 10000;
+    prev = cap;
+    if (aum <= cap) break;
+  }
+  return fee;
+}
+const INVOICE_STATUS_TONE = { draft: 'var(--ink-mute)', approved: 'var(--forest)', paid: 'var(--forest)', void: 'var(--ink-faint)' };
+
 /* ─── Roster row ─────────────────────────────────────────────────── */
 const RosterRow = ({ client, onOpen }) => {
   const phase = phaseLabel(client.phase);
@@ -534,6 +550,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
   const [editForm, setEditForm] = useStateAdv({});
   const [savingEdit, setSavingEdit] = useStateAdv(false);
   const [archiving, setArchiving] = useStateAdv(false);
+  const [feeSchedules, setFeeSchedules] = useStateAdv([]);
 
   // Inline confirmation guards (replace window.confirm / immediate deletes)
   const [confirmArchive,      setConfirmArchive]      = useStateAdv(false);
@@ -568,7 +585,9 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
         household_tag:  client.tag === '—' ? '' : client.tag,
         current_phase:  client.phase,
         pipeline_stage: client.pipelineStage || 'active',
+        fee_schedule_id: client.feeScheduleId || '',
       });
+      if (window.db?.isUUID(client.id)) window.db.getFeeSchedules().then(r => setFeeSchedules(r || []));
       setConfirmArchive(false);
       setConfirmDeleteAccId(null);
       setConfirmDeleteMtgId(null);
@@ -1378,6 +1397,17 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                   </select>
                 </label>
               </div>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={LABEL_STYLE}>Advisory fee schedule</span>
+                <select className="px-select" value={editForm.fee_schedule_id ?? ''}
+                  onChange={e => setEdit('fee_schedule_id', e.target.value)}>
+                  <option value="">— None (not billed) —</option>
+                  {feeSchedules.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+                {feeSchedules.length === 0 && (
+                  <span style={{ fontSize: 11, color: 'var(--ink-faint)' }}>No schedules yet — create one in the Admin → Revenue &amp; billing view.</span>
+                )}
+              </label>
             </div>
 
             <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1480,6 +1510,10 @@ const FirmAdminDashboard = () => {
   const [auditLog,     setAuditLog]     = useStateAdv(undefined);
   const [subscription, setSubscription] = useStateAdv(undefined);
   const [checkoutBusy, setCheckoutBusy] = useStateAdv(false);
+  const [feeSchedules, setFeeSchedules] = useStateAdv([]);
+  const [invoices,     setInvoices]     = useStateAdv([]);
+  const [schedForm,    setSchedForm]    = useStateAdv(null);
+  const [genBusy,      setGenBusy]      = useStateAdv(false);
 
   React.useEffect(() => {
     if (!authUser?.id || !window.db) return;
@@ -1487,7 +1521,47 @@ const FirmAdminDashboard = () => {
     window.db.getFirmClients().then(rows => setFirmClients(rows || []));
     window.db.getAuditLog({ limit: 100 }).then(rows => setAuditLog(rows || []));
     window.db.getSubscription().then(setSubscription);
+    window.db.getFeeSchedules().then(rows => setFeeSchedules(rows || []));
+    window.db.getInvoices({}).then(rows => setInvoices(rows || []));
   }, [authUser?.id]);
+
+  // Advisory-fee billing — projected annual revenue + realized fees YTD
+  const scheduleById = useMemoAdv(() => Object.fromEntries((feeSchedules || []).map(s => [s.id, s])), [feeSchedules]);
+  const projectedRevenue = useMemoAdv(() => (firmClients || []).reduce((sum, c) => {
+    const s = c.fee_schedule_id && scheduleById[c.fee_schedule_id];
+    return sum + (s ? annualFeeForAum(s.tiers, Number(c.aum) || 0) : 0);
+  }, 0), [firmClients, scheduleById]);
+  const realizedYTD = useMemoAdv(() => {
+    const yr = new Date().getFullYear();
+    return (invoices || []).filter(i => ['approved', 'paid'].includes(i.status) && new Date(i.period_start).getFullYear() === yr)
+      .reduce((s, i) => s + Number(i.fee_amount || 0), 0);
+  }, [invoices]);
+
+  const createSchedule = async () => {
+    if (!schedForm?.name?.trim()) { showToast('Name the schedule'); return; }
+    const tiers = (schedForm.tiers || []).filter(t => t.annual_bps !== '' && t.annual_bps != null)
+      .map(t => ({ up_to: t.up_to === '' || t.up_to == null ? null : Number(t.up_to), annual_bps: Number(t.annual_bps) }));
+    if (!tiers.length) { showToast('Add at least one tier with a rate'); return; }
+    const row = await window.db.createFeeSchedule(authUser.firm_id, { ...schedForm, tiers });
+    if (row) { setFeeSchedules(prev => [...prev, row]); setSchedForm(null); showToast('Fee schedule created'); }
+  };
+
+  const generateInvoices = async () => {
+    setGenBusy(true);
+    try {
+      const { data, error } = await window.__sb.functions.invoke('generate-invoices', { body: {} });
+      if (error || data?.error) throw new Error(error?.message || data?.error);
+      const rows = await window.db.getInvoices({});
+      setInvoices(rows || []);
+      showToast(`${data.period}: ${data.created} invoice${data.created !== 1 ? 's' : ''} generated${data.skipped ? `, ${data.skipped} skipped` : ''}`);
+    } catch (e) { showToast('Invoice run failed — check console'); console.warn(e); }
+    finally { setGenBusy(false); }
+  };
+
+  const setInvoiceStatus = async (inv, status) => {
+    const row = await window.db.updateInvoiceStatus(inv.id, status, inv.client_id);
+    if (row) setInvoices(prev => prev.map(i => i.id === inv.id ? { ...i, status: row.status } : i));
+  };
 
   // Surface the Stripe Checkout return state once, then clean the URL
   React.useEffect(() => {
@@ -1642,6 +1716,131 @@ const FirmAdminDashboard = () => {
                     </tr>
                   );
                 })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* ── Revenue & billing (advisory fees) ── */}
+        <div className="px-section-head" style={{ marginTop: 32 }}>
+          <h2>Revenue &amp; billing <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--ink-mute)', marginLeft: 6 }}>advisory fees</span></h2>
+          <div className="px-section-tools">
+            <button className="px-btn px-btn-sm px-btn-primary" onClick={generateInvoices} disabled={genBusy}>
+              <Icons.Refresh size={11} /> {genBusy ? 'Generating…' : 'Generate last quarter'}
+            </button>
+          </div>
+        </div>
+
+        <div className="px-kpis" style={{ marginBottom: 14 }}>
+          <KpiTile label="Projected annual revenue" value={projectedRevenue ? fmt$(projectedRevenue, { short: true, decimals: 1 }) : '—'} sub="from assigned schedules" />
+          <KpiTile label="Realized fees · YTD" value={realizedYTD ? fmt$(realizedYTD, { short: true, decimals: 1 }) : '—'} sub="approved + paid" />
+          <KpiTile label="Open invoices" value={(invoices || []).filter(i => i.status === 'draft').length} sub="awaiting approval" />
+          <KpiTile label="Fee schedules" value={(feeSchedules || []).length} sub="active templates" />
+        </div>
+
+        {/* Fee schedules */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.05em' }}>Fee schedules</span>
+          {!schedForm && (
+            <button className="px-btn px-btn-sm px-btn-ghost"
+              onClick={() => setSchedForm({ name: '', frequency: 'quarterly', basis: 'avg_daily', tiers: [{ up_to: '', annual_bps: '' }] })}>
+              <Icons.Plus size={10} /> New schedule
+            </button>
+          )}
+        </div>
+
+        {schedForm && (
+          <div style={{ padding: 14, background: 'var(--bg-elev)', borderRadius: 8, marginBottom: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 8, marginBottom: 10 }}>
+              <input className="px-input" placeholder="Schedule name (e.g. Standard 1%)" value={schedForm.name}
+                onChange={e => setSchedForm(f => ({ ...f, name: e.target.value }))} />
+              <select className="px-select" value={schedForm.frequency} onChange={e => setSchedForm(f => ({ ...f, frequency: e.target.value }))}>
+                <option value="quarterly">Quarterly</option><option value="monthly">Monthly</option><option value="annually">Annually</option>
+              </select>
+              <select className="px-select" value={schedForm.basis} onChange={e => setSchedForm(f => ({ ...f, basis: e.target.value }))}>
+                <option value="avg_daily">Avg daily balance</option><option value="period_end">Period-end balance</option>
+              </select>
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginBottom: 6 }}>Tiers (leave "up to" blank for the top band):</div>
+            {(schedForm.tiers || []).map((t, i) => (
+              <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'center' }}>
+                <div className="px-input-affix" style={{ flex: 1 }}>
+                  <span className="px-affix">$</span>
+                  <input type="number" placeholder="up to (blank = and above)" value={t.up_to}
+                    onChange={e => setSchedForm(f => { const tiers = [...f.tiers]; tiers[i] = { ...tiers[i], up_to: e.target.value }; return { ...f, tiers }; })} />
+                </div>
+                <div className="px-input-affix" style={{ width: 130 }}>
+                  <input type="number" placeholder="annual" value={t.annual_bps}
+                    onChange={e => setSchedForm(f => { const tiers = [...f.tiers]; tiers[i] = { ...tiers[i], annual_bps: e.target.value }; return { ...f, tiers }; })} />
+                  <span className="px-affix px-affix-r">bps</span>
+                </div>
+                <button className="px-btn px-btn-sm px-btn-ghost" style={{ color: 'var(--brick)' }}
+                  onClick={() => setSchedForm(f => ({ ...f, tiers: f.tiers.filter((_, j) => j !== i) }))}>
+                  <Icons.X size={10} />
+                </button>
+              </div>
+            ))}
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => setSchedForm(f => ({ ...f, tiers: [...f.tiers, { up_to: '', annual_bps: '' }] }))}>
+                <Icons.Plus size={10} /> Add tier
+              </button>
+              <div style={{ flex: 1 }} />
+              <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => setSchedForm(null)}>Cancel</button>
+              <button className="px-btn px-btn-sm px-btn-primary" onClick={createSchedule}>Save schedule</button>
+            </div>
+          </div>
+        )}
+
+        {(feeSchedules || []).length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+            {feeSchedules.map(s => (
+              <div key={s.id} style={{ fontSize: 12, color: 'var(--ink-mute)', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px' }}>
+                <b style={{ color: 'var(--ink)' }}>{s.name}</b> · {s.frequency} · {(s.tiers || []).map(t => `${t.annual_bps}bps${t.up_to ? `≤${fmt$(t.up_to, { short: true })}` : ''}`).join(' / ')}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Invoices */}
+        {(invoices || []).length === 0 ? (
+          <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--ink-faint)', fontSize: 13, fontStyle: 'italic' }}>
+            No invoices yet. Assign a fee schedule to clients (in their profile → Edit), then "Generate last quarter."
+          </div>
+        ) : (
+          <div className="px-roster">
+            <table className="px-table">
+              <thead>
+                <tr>
+                  <th style={{ width: '28%' }}>Client</th>
+                  <th>Period</th>
+                  <th className="is-num">Basis</th>
+                  <th className="is-num">Fee</th>
+                  <th style={{ width: 150 }}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {invoices.map(inv => (
+                  <tr key={inv.id}>
+                    <td>{inv.clients?.short_name || inv.clients?.household_name || 'Client'}</td>
+                    <td><span style={{ fontSize: 12, color: 'var(--ink-mute)' }}>
+                      {new Date(inv.period_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}–{new Date(inv.period_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
+                    </span></td>
+                    <td className="is-num"><span style={{ color: 'var(--ink-mute)' }}>{fmt$(inv.basis_amount, { short: true })}</span></td>
+                    <td className="is-num"><span className="px-num-serif">{fmt$(inv.fee_amount)}</span></td>
+                    <td>
+                      <span style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.04em', color: INVOICE_STATUS_TONE[inv.status], marginRight: 8 }}>{inv.status}</span>
+                      {inv.status === 'draft' && (
+                        <>
+                          <button className="px-btn px-btn-sm px-btn-ghost" style={{ color: 'var(--forest)' }} onClick={() => setInvoiceStatus(inv, 'approved')}>Approve</button>
+                          <button className="px-btn px-btn-sm px-btn-ghost" style={{ color: 'var(--brick)' }} onClick={() => setInvoiceStatus(inv, 'void')}>Void</button>
+                        </>
+                      )}
+                      {inv.status === 'approved' && (
+                        <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => setInvoiceStatus(inv, 'paid')}>Mark paid</button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
