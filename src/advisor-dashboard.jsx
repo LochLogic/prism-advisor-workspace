@@ -61,6 +61,86 @@ const dueMeta = (dueAt) => {
   return { label: `Due ${new Date(dueAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`, tone: 'var(--ink-mute)' };
 };
 
+/* ─── Performance math (Theme D) ─────────────────────────────────── */
+// Portfolio value per snapshot date = sum of each account's latest balance ≤ that date.
+function buildValueSeries(balanceRows) {
+  if (!balanceRows || !balanceRows.length) return [];
+  const byAccount = {};
+  const dateSet = new Set();
+  for (const r of balanceRows) {
+    (byAccount[r.account_id] = byAccount[r.account_id] || []).push({ date: r.as_of, balance: Number(r.balance) || 0 });
+    dateSet.add(r.as_of);
+  }
+  Object.values(byAccount).forEach(arr => arr.sort((a, b) => a.date < b.date ? -1 : 1));
+  const dates = [...dateSet].sort();
+  return dates.map(d => {
+    let total = 0;
+    for (const arr of Object.values(byAccount)) {
+      let last = null;
+      for (const pt of arr) { if (pt.date <= d) last = pt.balance; else break; }
+      if (last != null) total += last;
+    }
+    return { date: d, value: total };
+  });
+}
+
+// Modified Dietz return between startDate and endDate, given dated flows.
+function modifiedDietz(series, flows, startDate, endDate) {
+  if (!series.length) return null;
+  const inRange = series.filter(p => p.date <= endDate);
+  if (!inRange.length) return null;
+  const ev = inRange[inRange.length - 1].value;
+  let bv = null;
+  for (const p of series) { if (p.date < startDate) bv = p.value; else break; }
+  const inception = bv == null;
+  if (bv == null) bv = series[0].value;
+  const fls = (flows || []).filter(f => f.flow_date >= startDate && f.flow_date <= endDate);
+  const start = new Date(startDate), end = new Date(endDate);
+  const span = Math.max(1, (end - start) / 86400000);
+  const net = fls.reduce((s, f) => s + (Number(f.amount) || 0), 0);
+  const weighted = fls.reduce((s, f) => s + (Number(f.amount) || 0) * ((end - new Date(f.flow_date)) / 86400000 / span), 0);
+  const denom = bv + weighted;
+  const gain = ev - bv - net;
+  return { bv, ev, net, gain, pct: denom !== 0 ? (gain / denom) * 100 : null, inception };
+}
+
+function perfPeriods(series, flows) {
+  if (!series.length) return [];
+  const end = new Date().toISOString().slice(0, 10);
+  const ago = (days) => new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+  const yStart = `${new Date().getFullYear()}-01-01`;
+  const defs = [['1M', ago(30)], ['3M', ago(90)], ['YTD', yStart], ['1Y', ago(365)], ['ITD', series[0].date]];
+  return defs.map(([label, start]) => ({ label, ...(modifiedDietz(series, flows, start, end) || {}) }));
+}
+
+// Compact portfolio-value area chart
+const PerfChart = ({ series, height = 96 }) => {
+  if (!series || series.length < 2) {
+    return (
+      <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: 'var(--ink-faint)', fontSize: 12, fontStyle: 'italic',
+        border: '1px dashed var(--border)', borderRadius: 8 }}>
+        Not enough history yet — the curve fills in as balances update.
+      </div>
+    );
+  }
+  const W = 380, H = height;
+  const vals = series.map(p => p.value);
+  const min = Math.min(...vals), max = Math.max(...vals), range = (max - min) || 1, n = series.length;
+  const x = i => (i / (n - 1)) * W;
+  const y = v => H - ((v - min) / range) * (H - 10) - 5;
+  const line = series.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`).join(' ');
+  const area = `${line} L${W},${H} L0,${H} Z`;
+  const up = vals[n - 1] >= vals[0];
+  const color = up ? 'var(--forest)' : 'var(--brick)';
+  return (
+    <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: 'block' }} aria-hidden="true">
+      <path d={area} fill={color} opacity="0.09" />
+      <path d={line} fill="none" stroke={color} strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+};
+
 /* ─── Roster row ─────────────────────────────────────────────────── */
 const RosterRow = ({ client, onOpen }) => {
   const phase = phaseLabel(client.phase);
@@ -466,6 +546,13 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
   const [timeline,  setTimeline]  = useStateAdv(undefined);
   const [versionCount, setVersionCount] = useStateAdv(0);
 
+  // Performance state
+  const [perfBal,   setPerfBal]   = useStateAdv(undefined);
+  const [perfFlows, setPerfFlows] = useStateAdv([]);
+  const [flowForm,  setFlowForm]  = useStateAdv(null);
+  const perfSeries = useMemoAdv(() => buildValueSeries(perfBal || []), [perfBal]);
+  const perfStats  = useMemoAdv(() => perfPeriods(perfSeries, perfFlows), [perfSeries, perfFlows]);
+
   React.useEffect(() => {
     if (client) {
       setNotes(client.notes || '');
@@ -488,8 +575,19 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
       setTaskForm(null);
       setTimeline(undefined);
       setVersionCount(0);
+      setPerfBal(undefined);
+      setPerfFlows([]);
+      setFlowForm(null);
     }
   }, [client?.id]);
+
+  // Load performance data when the Performance tab opens
+  React.useEffect(() => {
+    if (tab === 'performance' && client && window.db?.isUUID(client.id) && perfBal === undefined) {
+      window.db.getBalanceHistory(client.id).then(rows => setPerfBal(rows || []));
+      window.db.getCashFlows(client.id).then(rows => setPerfFlows(rows || []));
+    }
+  }, [tab]);
 
   // Load accounts when tab becomes active
   React.useEffect(() => {
@@ -668,6 +766,19 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     }
   };
 
+  /* cash flows (performance) */
+  const addFlow = async () => {
+    if (!flowForm?.amount) { showToast('Enter an amount'); return; }
+    const signed = flowForm.kind === 'withdrawal' || flowForm.kind === 'fee'
+      ? -Math.abs(Number(flowForm.amount)) : Math.abs(Number(flowForm.amount));
+    const row = await window.db.addCashFlow(client.id, { ...flowForm, amount: signed });
+    if (row) { setPerfFlows(prev => [row, ...(prev || [])]); setFlowForm(null); showToast('Cash flow logged'); }
+  };
+  const removeFlow = async (id) => {
+    await window.db.deleteCashFlow(id, client.id);
+    setPerfFlows(prev => (prev || []).filter(f => f.id !== id));
+  };
+
   /* compliance export */
   const exportCompliance = async () => {
     showToast('Compiling compliance record…');
@@ -739,7 +850,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
         {/* Tabs — only for live (real UUID) clients */}
         {isLiveClient && (
           <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)' }}>
-            {['overview', 'accounts', 'tasks', 'timeline', 'edit'].map(t => (
+            {['overview', 'accounts', 'tasks', 'timeline', 'performance', 'edit'].map(t => (
               <button key={t} style={TAB_STYLE(tab === t)} onClick={() => setTab(t)}>{t}</button>
             ))}
           </div>
@@ -1119,6 +1230,112 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                 </div>
               </div>
             ))}
+          </>
+        )}
+
+        {/* ── Performance (Theme D) ── */}
+        {tab === 'performance' && (
+          <>
+            {perfBal === undefined ? (
+              <div style={{ fontSize: 12, color: 'var(--ink-faint)', fontStyle: 'italic' }}>Loading performance…</div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
+                  <div>
+                    <div style={LABEL_STYLE}>Portfolio value</div>
+                    <div style={{ fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 500, color: 'var(--ink)', marginTop: 2 }}>
+                      {perfSeries.length ? fmt$(perfSeries[perfSeries.length - 1].value, { short: true }) : '—'}
+                    </div>
+                  </div>
+                </div>
+
+                <PerfChart series={perfSeries} />
+
+                {/* Period returns (Modified Dietz; reduces to value change when no flows logged) */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, margin: '14px 0' }}>
+                  {perfStats.map(s => {
+                    const has = s.pct != null && isFinite(s.pct);
+                    const pos = (s.pct || 0) >= 0;
+                    return (
+                      <div key={s.label} style={{ padding: '8px 6px', background: 'var(--bg-elev)', borderRadius: 6, textAlign: 'center' }}>
+                        <div style={{ fontSize: 10, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.04em' }}>{s.label}</div>
+                        <div style={{ fontSize: 14, fontWeight: 600, marginTop: 3, color: !has ? 'var(--ink-faint)' : pos ? 'var(--forest)' : 'var(--brick)' }}>
+                          {has ? `${pos ? '+' : ''}${s.pct.toFixed(1)}%` : '—'}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div style={{ fontSize: 11, color: 'var(--ink-faint)', lineHeight: 1.5, marginBottom: 18 }}>
+                  Time-weighted (Modified Dietz). Log contributions/withdrawals below for accurate returns — otherwise figures reflect raw value change. Live transaction flows arrive with Plaid/custodian feeds.
+                </div>
+
+                {/* Cash flow log */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <span style={LABEL_STYLE}>Cash flows</span>
+                  {!flowForm && (
+                    <button className="px-btn px-btn-sm px-btn-ghost"
+                      onClick={() => setFlowForm({ amount: '', kind: 'contribution', flow_date: new Date().toISOString().slice(0, 10), note: '' })}>
+                      <Icons.Plus size={10} /> Log flow
+                    </button>
+                  )}
+                </div>
+
+                {flowForm && (
+                  <div style={{ padding: 12, background: 'var(--bg-elev)', borderRadius: 6, marginBottom: 10 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                      <label style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        <span style={{ fontSize: 11, color: 'var(--ink-mute)' }}>Date</span>
+                        <input className="px-input" type="date" value={flowForm.flow_date}
+                          onChange={e => setFlowForm(f => ({ ...f, flow_date: e.target.value }))} />
+                      </label>
+                      <label style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        <span style={{ fontSize: 11, color: 'var(--ink-mute)' }}>Type</span>
+                        <select className="px-select" value={flowForm.kind}
+                          onChange={e => setFlowForm(f => ({ ...f, kind: e.target.value }))}>
+                          <option value="contribution">Contribution (+)</option>
+                          <option value="withdrawal">Withdrawal (−)</option>
+                          <option value="dividend">Dividend (+)</option>
+                          <option value="fee">Fee (−)</option>
+                        </select>
+                      </label>
+                      <label style={{ display: 'flex', flexDirection: 'column', gap: 3, gridColumn: '1 / -1' }}>
+                        <span style={{ fontSize: 11, color: 'var(--ink-mute)' }}>Amount ($)</span>
+                        <input className="px-input" type="number" step="100" placeholder="0" value={flowForm.amount}
+                          onChange={e => setFlowForm(f => ({ ...f, amount: e.target.value }))} />
+                      </label>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button className="px-btn px-btn-sm px-btn-primary" onClick={addFlow}>Log flow</button>
+                      <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => setFlowForm(null)}>Cancel</button>
+                    </div>
+                  </div>
+                )}
+
+                {perfFlows.length === 0 && !flowForm && (
+                  <div style={{ fontSize: 12, color: 'var(--ink-faint)', fontStyle: 'italic', padding: '4px 0' }}>No cash flows logged.</div>
+                )}
+                {perfFlows.map(f => {
+                  const pos = Number(f.amount) >= 0;
+                  return (
+                    <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid var(--border)' }}>
+                      <span style={{ fontSize: 11, color: 'var(--ink-faint)', width: 78, flexShrink: 0 }}>
+                        {new Date(f.flow_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </span>
+                      <span style={{ flex: 1, fontSize: 12, color: 'var(--ink-mute)', textTransform: 'capitalize' }}>{f.kind}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: pos ? 'var(--forest)' : 'var(--brick)' }}>
+                        {pos ? '+' : '−'}{fmt$(Math.abs(Number(f.amount)), { short: true })}
+                      </span>
+                      <button onClick={() => removeFlow(f.id)} aria-label="Delete flow"
+                        style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', padding: '0 2px' }}>
+                        <Icons.X size={11} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </>
+            )}
           </>
         )}
 
