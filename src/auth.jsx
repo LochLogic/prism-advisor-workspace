@@ -100,11 +100,12 @@ function AuthProvider({ children }) {
       }
 
       if (event === 'INITIAL_SESSION') {
-        // No session — but check for a PKCE callback code before redirecting
+        // No session — send first-time / logged-out visitors to the public
+        // landing page (marketing + pricing), unless mid PKCE callback.
         const inCallback = new URLSearchParams(window.location.search).has('code');
         if (!inCallback) {
           setLoading(false);
-          window.location.href = 'login.html';
+          window.location.href = 'landing.html';
         }
         // If there IS a code, the SDK will exchange it and fire SIGNED_IN next
       }
