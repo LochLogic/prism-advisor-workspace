@@ -119,10 +119,155 @@ const NotificationBell = () => {
   );
 };
 
+/* ─── Two-factor (TOTP) security settings ────────────────────────── */
+const SecurityModal = ({ isOpen, onClose }) => {
+  // phase: 'loading' | 'none' | 'enrolling' | 'enrolled' | 'error'
+  const [phase,  setPhase]  = React.useState('loading');
+  const [enroll, setEnroll] = React.useState(null); // { factorId, qr, secret }
+  const [code,   setCode]   = React.useState('');
+  const [busy,   setBusy]   = React.useState(false);
+  const [error,  setError]  = React.useState('');
+
+  const sb = window.__sb;
+
+  const refresh = React.useCallback(async () => {
+    if (!sb) { setPhase('error'); return; }
+    setError('');
+    try {
+      const { data } = await sb.auth.mfa.listFactors();
+      const verified = (data?.totp || []).find(f => f.status === 'verified');
+      setPhase(verified ? 'enrolled' : 'none');
+    } catch (e) { setError(e.message); setPhase('error'); }
+  }, [sb]);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    setEnroll(null); setCode(''); setError(''); setPhase('loading');
+    refresh();
+  }, [isOpen, refresh]);
+
+  // Begin enrollment — clears any stale unverified factor first, then enrolls.
+  const beginEnroll = async () => {
+    setBusy(true); setError('');
+    try {
+      const { data: factors } = await sb.auth.mfa.listFactors();
+      for (const f of (factors?.totp || [])) {
+        if (f.status !== 'verified') await sb.auth.mfa.unenroll({ factorId: f.id });
+      }
+      const { data, error } = await sb.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Authenticator' });
+      if (error) throw error;
+      setEnroll({ factorId: data.id, qr: data.totp?.qr_code, secret: data.totp?.secret });
+      setPhase('enrolling');
+    } catch (e) { setError(e.message); }
+    finally { setBusy(false); }
+  };
+
+  const confirmEnroll = async () => {
+    if (!/^\d{6}$/.test(code.trim())) { setError('Enter the 6-digit code from your app.'); return; }
+    setBusy(true); setError('');
+    try {
+      const { error } = await sb.auth.mfa.challengeAndVerify({ factorId: enroll.factorId, code: code.trim() });
+      if (error) throw error;
+      window.db?.audit('mfa.enroll', { entityType: 'auth', summary: 'Enabled two-factor authentication' });
+      setCode(''); setEnroll(null);
+      await refresh();
+    } catch (e) { setError(e.message); }
+    finally { setBusy(false); }
+  };
+
+  const removeFactor = async () => {
+    setBusy(true); setError('');
+    try {
+      const { data } = await sb.auth.mfa.listFactors();
+      for (const f of (data?.totp || [])) await sb.auth.mfa.unenroll({ factorId: f.id });
+      window.db?.audit('mfa.unenroll', { entityType: 'auth', summary: 'Disabled two-factor authentication' });
+      await refresh();
+    } catch (e) { setError(e.message); }
+    finally { setBusy(false); }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} className="px-security-modal">
+      <div style={{ padding: '26px 28px 28px', minWidth: 380, maxWidth: 440 }}>
+        <div className="px-eyebrow" style={{ marginBottom: 6 }}>Account security</div>
+        <h2 style={{ fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 500, margin: '0 0 4px', color: 'var(--ink)' }}>
+          Two-factor authentication
+        </h2>
+        <p style={{ fontSize: 12.5, color: 'var(--ink-mute)', lineHeight: 1.5, marginBottom: 18 }}>
+          Add a time-based one-time code (TOTP) from an authenticator app as a second factor at sign-in.
+        </p>
+
+        {phase === 'loading' && <div style={{ fontSize: 13, color: 'var(--ink-faint)', fontStyle: 'italic' }}>Checking status…</div>}
+
+        {phase === 'error' && (
+          <div style={{ fontSize: 13, color: 'var(--brick)' }}>{error || 'Two-factor is unavailable right now.'}</div>
+        )}
+
+        {phase === 'none' && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: 'var(--bg-elev)', borderRadius: 6, marginBottom: 16, fontSize: 12.5, color: 'var(--ink-mute)' }}>
+              <Icons.Lock size={14} /> Not enabled — your account uses a single factor.
+            </div>
+            <button className="px-btn px-btn-primary" onClick={beginEnroll} disabled={busy}>
+              {busy ? 'Starting…' : 'Enable two-factor'}
+            </button>
+          </>
+        )}
+
+        {phase === 'enrolling' && enroll && (
+          <>
+            <div style={{ fontSize: 12.5, color: 'var(--ink-mute)', marginBottom: 10 }}>
+              1 · Scan this QR code in your authenticator app:
+            </div>
+            {enroll.qr && (
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
+                <img src={enroll.qr} alt="Two-factor QR code" width={168} height={168}
+                     style={{ border: '1px solid var(--border)', borderRadius: 8, background: '#fff', padding: 6 }} />
+              </div>
+            )}
+            {enroll.secret && (
+              <div style={{ fontSize: 11, color: 'var(--ink-faint)', textAlign: 'center', marginBottom: 14, wordBreak: 'break-all' }}>
+                Or enter manually: <code style={{ color: 'var(--ink-mute)' }}>{enroll.secret}</code>
+              </div>
+            )}
+            <div style={{ fontSize: 12.5, color: 'var(--ink-mute)', marginBottom: 6 }}>2 · Enter the 6-digit code:</div>
+            <input className="px-input" inputMode="numeric" maxLength={6} placeholder="123456"
+                   value={code} onChange={e => setCode(e.target.value)}
+                   onKeyDown={e => { if (e.key === 'Enter') confirmEnroll(); }}
+                   style={{ marginBottom: 12, letterSpacing: '.2em', textAlign: 'center', fontSize: 16 }} autoFocus />
+            {error && <div style={{ fontSize: 12, color: 'var(--brick)', marginBottom: 10 }}>{error}</div>}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button className="px-btn px-btn-ghost" onClick={() => { setEnroll(null); setPhase('none'); setError(''); }}>Cancel</button>
+              <button className="px-btn px-btn-primary" onClick={confirmEnroll} disabled={busy}>
+                {busy ? 'Verifying…' : 'Verify & enable'}
+              </button>
+            </div>
+          </>
+        )}
+
+        {phase === 'enrolled' && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: 'var(--forest-soft)', borderRadius: 6, marginBottom: 16, fontSize: 12.5, color: 'var(--forest)' }}>
+              <Icons.CheckCircle size={14} /> Two-factor is <b>enabled</b> on your account.
+            </div>
+            {error && <div style={{ fontSize: 12, color: 'var(--brick)', marginBottom: 10 }}>{error}</div>}
+            <button className="px-btn px-btn-ghost" style={{ color: 'var(--brick)' }} onClick={removeFactor} disabled={busy}>
+              {busy ? 'Removing…' : 'Remove two-factor'}
+            </button>
+          </>
+        )}
+      </div>
+    </Modal>
+  );
+};
+
 /* ─── Account chip + sign-out dropdown ───────────────────────────── */
 const AccountChip = ({ view, activeClient }) => {
   const { role, signOut, isDemo, authUser } = useAuth();
   const [open, setOpen] = React.useState(false);
+  const [securityOpen, setSecurityOpen] = React.useState(false);
 
   React.useEffect(() => {
     if (!open) return;
@@ -193,6 +338,20 @@ const AccountChip = ({ view, activeClient }) => {
             </div>
           )}
 
+          {!isDemo && (
+            <button
+              onClick={() => { setOpen(false); setSecurityOpen(true); }}
+              style={{
+                width: '100%', padding: '10px 14px', textAlign: 'left',
+                background: 'none', border: 'none', borderBottom: '1px solid var(--border)',
+                fontSize: 13, color: 'var(--ink)', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--sans)',
+              }}
+            >
+              <Icons.Lock size={12} /> Security &amp; 2FA
+            </button>
+          )}
+
           <button
             onClick={signOut}
             style={{
@@ -207,6 +366,8 @@ const AccountChip = ({ view, activeClient }) => {
           </button>
         </div>
       )}
+
+      <SecurityModal isOpen={securityOpen} onClose={() => setSecurityOpen(false)} />
     </div>
   );
 };

@@ -144,6 +144,20 @@
     </button>
   </div>
 
+  <!-- Two-factor challenge card -->
+  <div class="card" id="mfa-card" style="display:none">
+    <div class="card-title">Two-factor verification</div>
+    <div class="card-sub">Enter the 6-digit code from your authenticator app to finish signing in.</div>
+    <div class="field">
+      <label for="mfa-code">Authentication code</label>
+      <input type="text" id="mfa-code" inputmode="numeric" autocomplete="one-time-code"
+             maxlength="6" placeholder="123456" />
+    </div>
+    <button class="btn-primary" id="mfa-btn" onclick="verifyMfa()">Verify &amp; continue</button>
+    <div class="msg" id="mfa-msg"></div>
+    <button class="btn-ghost" style="margin-top:12px" onclick="cancelMfa()">Cancel</button>
+  </div>
+
   <div class="footer">
     <span>Secured by Supabase RLS</span>
     &ensp;·&ensp;
@@ -152,12 +166,61 @@
 
 </div>
 <script>
-  // If already signed in, skip straight to the app
+  // If already signed in, finish the journey (may require an MFA challenge)
   (async () => {
     if (!window.__sb) return;
     const { data: { session } } = await window.__sb.auth.getSession();
-    if (session) window.location.href = 'index.html';
+    if (session) proceedAfterAuth();
   })();
+
+  // After a successful primary auth, gate on MFA: if a verified TOTP factor is
+  // enrolled, the session is only aal1 and must be raised to aal2 before entry.
+  async function proceedAfterAuth() {
+    try {
+      const { data: aal } = await window.__sb.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aal && aal.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
+        showMfaCard();
+        return;
+      }
+    } catch (e) { /* MFA check unavailable — fall through to the app */ }
+    window.location.href = 'index.html';
+  }
+
+  function showMfaCard() {
+    document.getElementById('pw-card').style.display    = 'none';
+    document.getElementById('magic-card').style.display = 'none';
+    document.getElementById('mfa-card').style.display   = 'block';
+    document.getElementById('mfa-code').focus();
+  }
+
+  function showMfaMsg(text) {
+    const el = document.getElementById('mfa-msg');
+    el.textContent = text; el.className = 'msg error'; el.style.display = 'block';
+  }
+
+  async function verifyMfa() {
+    const code = document.getElementById('mfa-code').value.trim();
+    if (!/^\d{6}$/.test(code)) { showMfaMsg('Enter the 6-digit code from your app.'); return; }
+    const btn = document.getElementById('mfa-btn');
+    btn.disabled = true; btn.textContent = 'Verifying…';
+    const reset = () => { btn.disabled = false; btn.textContent = 'Verify & continue'; };
+    try {
+      const { data: factors } = await window.__sb.auth.mfa.listFactors();
+      const totp = (factors?.totp || []).find(f => f.status === 'verified') || (factors?.totp || [])[0];
+      if (!totp) { showMfaMsg('No authenticator is enrolled on this account.'); reset(); return; }
+      const { error } = await window.__sb.auth.mfa.challengeAndVerify({ factorId: totp.id, code });
+      if (error) { showMfaMsg(error.message); reset(); return; }
+      window.location.href = 'index.html';
+    } catch (e) { showMfaMsg(e.message || 'Verification failed.'); reset(); }
+  }
+
+  async function cancelMfa() {
+    await window.__sb.auth.signOut();
+    document.getElementById('mfa-card').style.display = 'none';
+    document.getElementById('pw-card').style.display  = 'block';
+    document.getElementById('mfa-code').value = '';
+    document.getElementById('mfa-msg').style.display = 'none';
+  }
 
   function setLoading(on) {
     const sb = document.getElementById('signin-btn');
@@ -192,7 +255,7 @@
     setLoading(true);
     const { error } = await window.__sb.auth.signInWithPassword({ email, password });
     if (error) { showMsg(error.message); setLoading(false); return; }
-    window.location.href = 'index.html';
+    proceedAfterAuth();
   }
 
   async function sendMagicLink() {
@@ -215,6 +278,9 @@
   });
   document.getElementById('password').addEventListener('keydown', e => {
     if (e.key === 'Enter') signIn();
+  });
+  document.getElementById('mfa-code').addEventListener('keydown', e => {
+    if (e.key === 'Enter') verifyMfa();
   });
 </script>
 </body>
