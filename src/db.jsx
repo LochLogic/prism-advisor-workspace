@@ -56,7 +56,7 @@ const timeAgo = (iso) => {
 };
 
 /* ─── Client roster ──────────────────────────────────────────────── */
-const CLIENT_COLS = 'id, household_name, short_name, household_tag, current_phase, notes, active, updated_at, last_meeting_at, aum, uninvested_cash, pipeline_stage';
+const CLIENT_COLS = 'id, household_name, short_name, household_tag, current_phase, notes, active, updated_at, last_meeting_at, aum, uninvested_cash, pipeline_stage, fee_schedule_id';
 
 async function dbGetClients(advisorId, { page = 0, pageSize = 50 } = {}) {
   if (!_sb() || !isUUID(advisorId)) return null;
@@ -95,12 +95,78 @@ async function dbGetFirmClients() {
   try {
     const { data, error } = await _sb()
       .from('clients')
-      .select('id, advisor_id, aum, current_phase')
+      .select('id, advisor_id, aum, current_phase, fee_schedule_id')
       .eq('active', true);
     if (error) throw error;
     return data;
   } catch (e) { console.warn('[db] getFirmClients:', e.message); return null; }
 }
+
+/* ─── Advisory-fee billing (fee schedules + invoices) ────────────── */
+async function dbGetFeeSchedules() {
+  if (!_sb()) return null;
+  try {
+    const { data, error } = await _sb()
+      .from('fee_schedules')
+      .select('id, name, frequency, basis, tiers, active')
+      .eq('active', true)
+      .order('name');
+    if (error) throw error;
+    return data;
+  } catch (e) { console.warn('[db] getFeeSchedules:', e.message); return null; }
+}
+
+async function dbCreateFeeSchedule(firmId, fields) {
+  if (!_sb() || !isUUID(firmId) || !fields.name?.trim()) return null;
+  try {
+    const { data, error } = await _sb()
+      .from('fee_schedules')
+      .insert({
+        firm_id: firmId,
+        name: fields.name.trim(),
+        frequency: fields.frequency || 'quarterly',
+        basis: fields.basis || 'avg_daily',
+        tiers: fields.tiers || [],
+      })
+      .select('id, name, frequency, basis, tiers, active')
+      .single();
+    if (error) throw error;
+    dbAudit('feeschedule.create', { entityType: 'fee_schedule', entityId: data.id, summary: `Created fee schedule: ${data.name}` });
+    return data;
+  } catch (e) { console.warn('[db] createFeeSchedule:', e.message); return null; }
+}
+
+async function dbGetInvoices({ clientId = null, limit = 200 } = {}) {
+  if (!_sb()) return null;
+  try {
+    let q = _sb()
+      .from('invoices')
+      .select('id, client_id, period_start, period_end, basis_amount, fee_amount, status, created_at, clients(short_name, household_name)')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (isUUID(clientId)) q = q.eq('client_id', clientId);
+    const { data, error } = await q;
+    if (error) throw error;
+    return data;
+  } catch (e) { console.warn('[db] getInvoices:', e.message); return null; }
+}
+
+async function dbUpdateInvoiceStatus(id, status, clientId) {
+  if (!_sb() || !isUUID(id)) return null;
+  try {
+    const patch = { status };
+    if (status === 'approved') { patch.approved_at = new Date().toISOString(); patch.approved_by = window.__pxAuthActor?.id || null; }
+    const { data, error } = await _sb()
+      .from('invoices').update(patch).eq('id', id)
+      .select('id, client_id, period_start, period_end, basis_amount, fee_amount, status, created_at')
+      .single();
+    if (error) throw error;
+    dbAudit(`invoice.${status}`, { entityType: 'invoice', entityId: id, clientId,
+      summary: `Invoice ${status} (${fmtMoney(data.fee_amount)})` });
+    return data;
+  } catch (e) { console.warn('[db] updateInvoiceStatus:', e.message); return null; }
+}
+const fmtMoney = (n) => '$' + (Number(n) || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
 
 // Map a DB clients row to the shape the UI components expect
 function mapClient(c) {
@@ -124,6 +190,7 @@ function mapClient(c) {
     accentHue:      (name.charCodeAt(0) * 47 + (name.charCodeAt(1) || 0) * 19) % 360,
     notes:          c.notes || '',
     pipelineStage:  c.pipeline_stage || 'active',
+    feeScheduleId:  c.fee_schedule_id || '',
   };
 }
 
@@ -160,6 +227,7 @@ async function dbUpdateClient(clientId, fields) {
     if (fields.current_phase  !== undefined) allowed.current_phase  = Number(fields.current_phase);
     if (fields.notes          !== undefined) allowed.notes          = fields.notes;
     if (fields.pipeline_stage !== undefined) allowed.pipeline_stage = fields.pipeline_stage;
+    if (fields.fee_schedule_id !== undefined) allowed.fee_schedule_id = fields.fee_schedule_id || null;
     allowed.updated_at = new Date().toISOString();
 
     const { data, error } = await _sb()
@@ -774,6 +842,10 @@ window.db = {
   deleteMeeting:       dbDeleteMeeting,
   getAdvisors:         dbGetAdvisors,
   getFirmClients:      dbGetFirmClients,
+  getFeeSchedules:     dbGetFeeSchedules,
+  createFeeSchedule:   dbCreateFeeSchedule,
+  getInvoices:         dbGetInvoices,
+  updateInvoiceStatus: dbUpdateInvoiceStatus,
   getPhases:           dbGetPhases,
   audit:               dbAudit,
   getAuditLog:         dbGetAuditLog,
