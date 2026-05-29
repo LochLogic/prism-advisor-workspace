@@ -31,7 +31,13 @@ function AuthProvider({ children }) {
   }
 
   // Query advisors → clients tables to determine role
-  async function detectRole(sess) {
+  async function detectRole(sess, event) {
+    const auditSignin = () => {
+      if (event === 'SIGNED_IN' && window.__pxAuthActor?.id) {
+        window.db?.audit('auth.signin', { entityType: 'auth', entityId: sess.user.id,
+          summary: `Signed in (${window.__pxAuthActor.role})` });
+      }
+    };
     try {
       const { data: adv } = await window.__sb
         .from('advisors')
@@ -42,18 +48,23 @@ function AuthProvider({ children }) {
       if (adv) {
         await mergePhasesWithDB();
         // DB role column: 'advisor' | 'admin' | 'analyst'
-        setRole(adv.role === 'admin' ? 'admin' : 'advisor');
-        setAuthUser(adv); setLoading(false); return;
+        const appRole = adv.role === 'admin' ? 'admin' : 'advisor';
+        // Capture actor identity for the audit trail (auth uid, not advisors.id)
+        window.__pxAuthActor = { id: sess.user.id, role: appRole, email: adv.email, firm_id: adv.firm_id };
+        auditSignin();
+        setRole(appRole); setAuthUser(adv); setLoading(false); return;
       }
 
       const { data: cli } = await window.__sb
         .from('clients')
-        .select('id, household_name, short_name, advisor_id, current_phase')
+        .select('id, household_name, short_name, advisor_id, current_phase, firm_id')
         .eq('auth_user_id', sess.user.id)
         .maybeSingle();
 
       if (cli) {
         await mergePhasesWithDB();
+        window.__pxAuthActor = { id: sess.user.id, role: 'client', email: sess.user.email, firm_id: cli.firm_id };
+        auditSignin();
         setRole('client'); setAuthUser(cli); setLoading(false); return;
       }
 
@@ -74,7 +85,7 @@ function AuthProvider({ children }) {
       setSession(sess);
 
       if (sess) {
-        detectRole(sess);
+        detectRole(sess, event);
         return;
       }
 
@@ -100,6 +111,11 @@ function AuthProvider({ children }) {
   }, []);
 
   const signOut = async () => {
+    if (window.__pxAuthActor?.id) {
+      await window.db?.audit('auth.signout', { entityType: 'auth',
+        entityId: window.__pxAuthActor.id, summary: 'Signed out' });
+    }
+    window.__pxAuthActor = null;
     sessionStorage.removeItem('px_demo');
     if (window.__sb) await window.__sb.auth.signOut();
     window.location.href = 'login.html';

@@ -504,7 +504,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
   };
 
   const deleteAccount = async (id) => {
-    await window.db.deleteAccount(id);
+    await window.db.deleteAccount(id, client.id);
     const totals = await window.db.syncClientTotals(client.id);
     setAccounts(prev => (prev || []).filter(a => a.id !== id));
     showToast('Account removed');
@@ -532,7 +532,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
   };
 
   const deleteMeeting = async (id) => {
-    await window.db.deleteMeeting(id);
+    await window.db.deleteMeeting(id, client.id);
     setMeetings(prev => (prev || []).filter(m => m.id !== id));
     showToast('Meeting removed');
   };
@@ -950,15 +950,26 @@ const EmptyRoster = ({ onAddClient }) => (
 );
 
 /* ─── Firm Admin Dashboard ───────────────────────────────────────── */
+const AUDIT_ACTION_LABELS = {
+  'client.create': 'Client created', 'client.update': 'Client updated',
+  'client.archive': 'Client archived', 'client.notes': 'Notes updated',
+  'account.create': 'Account added', 'account.update': 'Account updated',
+  'account.archive': 'Account archived', 'meeting.create': 'Meeting logged',
+  'meeting.archive': 'Meeting archived', 'profile.save': 'Profile saved',
+  'auth.signin': 'Signed in', 'auth.signout': 'Signed out',
+};
+
 const FirmAdminDashboard = () => {
   const { authUser } = useAuth();
   const [advisors,    setAdvisors]    = useStateAdv(undefined);
   const [firmClients, setFirmClients] = useStateAdv(undefined);
+  const [auditLog,    setAuditLog]    = useStateAdv(undefined);
 
   React.useEffect(() => {
     if (!authUser?.id || !window.db) return;
     window.db.getAdvisors().then(rows => setAdvisors(rows || []));
     window.db.getFirmClients().then(rows => setFirmClients(rows || []));
+    window.db.getAuditLog({ limit: 100 }).then(rows => setAuditLog(rows || []));
   }, [authUser?.id]);
 
   const firmName = authUser?.firms?.name || 'Your Firm';
@@ -1067,10 +1078,59 @@ const FirmAdminDashboard = () => {
           </div>
         )}
 
+        {/* ── Compliance audit trail ── */}
+        <div className="px-section-head" style={{ marginTop: 32 }}>
+          <h2>Compliance audit trail <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--ink-mute)', marginLeft: 6 }}>append-only · SEC 17a-3</span></h2>
+        </div>
+
+        {auditLog === undefined ? (
+          <div style={{ fontSize: 13, color: 'var(--ink-faint)', fontStyle: 'italic', padding: '12px 0' }}>Loading audit trail…</div>
+        ) : auditLog.length === 0 ? (
+          <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--ink-faint)', fontSize: 13, fontStyle: 'italic' }}>
+            No audit entries yet — material actions (client edits, meetings, profile saves, sign-ins) will appear here.
+          </div>
+        ) : (
+          <div className="px-roster">
+            <table className="px-table">
+              <thead>
+                <tr>
+                  <th style={{ width: 150 }}>When</th>
+                  <th style={{ width: '24%' }}>Actor</th>
+                  <th style={{ width: '20%' }}>Action</th>
+                  <th>Detail</th>
+                </tr>
+              </thead>
+              <tbody>
+                {auditLog.map(e => (
+                  <tr key={e.id} style={{ cursor: 'default' }}>
+                    <td>
+                      <span style={{ fontSize: 12, color: 'var(--ink-mute)', fontFamily: 'var(--mono, monospace)' }}>
+                        {new Date(e.occurred_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </td>
+                    <td>
+                      <span style={{ fontSize: 12, color: 'var(--ink)' }}>{e.actor_email || '—'}</span>
+                      {e.actor_role && <span style={{ fontSize: 10, color: 'var(--ink-faint)', marginLeft: 6, textTransform: 'uppercase', letterSpacing: '.04em' }}>{e.actor_role}</span>}
+                    </td>
+                    <td>
+                      <span className="px-phase-pill-num" style={{ fontSize: 11 }}>
+                        {AUDIT_ACTION_LABELS[e.action] || e.action}
+                      </span>
+                    </td>
+                    <td>
+                      <span style={{ fontSize: 12, color: 'var(--ink-mute)' }}>{e.summary || '—'}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
         <div style={{ marginTop: 28, padding: 14, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12, color: 'var(--ink-mute)', display: 'flex', gap: 10, alignItems: 'center' }}>
           <Icons.Lock size={13} />
           <span>
-            Firm admin view — exclusive to the <b>admin</b> role. <b>Row-level security</b> still restricts each advisor to their own book when they switch to the Advisor view.
+            Firm admin view — exclusive to the <b>admin</b> role. The audit trail is <b>append-only</b> (no update/delete policy) and records are <b>archived, never erased</b>, per SEC Rule 17a-4. <b>Row-level security</b> still restricts each advisor to their own book.
           </span>
         </div>
       </div>
