@@ -602,6 +602,51 @@ async function dbGetBalanceHistory(clientId, { days = 365 } = {}) {
   } catch (e) { console.warn('[db] getBalanceHistory:', e.message); return null; }
 }
 
+/* ─── Cash flows (for time-weighted return) ──────────────────────── */
+async function dbGetCashFlows(clientId) {
+  if (!_sb() || !isUUID(clientId)) return null;
+  try {
+    const { data, error } = await _sb()
+      .from('cash_flows')
+      .select('id, account_id, flow_date, amount, kind, note')
+      .eq('client_id', clientId)
+      .order('flow_date', { ascending: false });
+    if (error) throw error;
+    return data;
+  } catch (e) { console.warn('[db] getCashFlows:', e.message); return null; }
+}
+
+async function dbAddCashFlow(clientId, fields) {
+  if (!_sb() || !isUUID(clientId) || !fields.amount) return null;
+  try {
+    const { data, error } = await _sb()
+      .from('cash_flows')
+      .insert({
+        client_id: clientId,
+        account_id: isUUID(fields.account_id) ? fields.account_id : null,
+        flow_date: fields.flow_date || new Date().toISOString().slice(0, 10),
+        amount: Number(fields.amount),
+        kind: fields.kind || 'contribution',
+        note: fields.note || null,
+      })
+      .select('id, account_id, flow_date, amount, kind, note')
+      .single();
+    if (error) throw error;
+    dbAudit('cashflow.create', { entityType: 'cash_flow', entityId: data.id, clientId,
+      summary: `Logged ${data.kind} of ${data.amount}` });
+    return data;
+  } catch (e) { console.warn('[db] addCashFlow:', e.message); return null; }
+}
+
+async function dbDeleteCashFlow(id, clientId) {
+  if (!_sb() || !isUUID(id)) return;
+  try {
+    const { error } = await _sb().from('cash_flows').delete().eq('id', id);
+    if (error) throw error;
+    dbAudit('cashflow.delete', { entityType: 'cash_flow', entityId: id, clientId, summary: 'Deleted cash flow' });
+  } catch (e) { console.warn('[db] deleteCashFlow:', e.message); }
+}
+
 /* ─── Billing (Stripe subscription, per firm) ────────────────────── */
 async function dbGetSubscription() {
   if (!_sb()) return null;
@@ -734,6 +779,9 @@ window.db = {
   getAuditLog:         dbGetAuditLog,
   getProfileVersions:  dbGetProfileVersions,
   getBalanceHistory:   dbGetBalanceHistory,
+  getCashFlows:        dbGetCashFlows,
+  addCashFlow:         dbAddCashFlow,
+  deleteCashFlow:      dbDeleteCashFlow,
   getSubscription:     dbGetSubscription,
   getTasks:            dbGetTasks,
   mapTask,
