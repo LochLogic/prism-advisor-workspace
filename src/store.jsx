@@ -520,6 +520,49 @@ function printMilestoneReport(phase, taskStates, advisorName, advisorFirm) {
   `);
 }
 
+// Compliance export — full audit trail + records for one client (SEC 17a-3/17a-4)
+function printComplianceReport(client, auditEntries, meetings, versionCount) {
+  const date = new Date().toLocaleString('en-US', { dateStyle: 'long', timeStyle: 'short' });
+  const ACTION_LABELS = {
+    'client.create': 'Client created', 'client.update': 'Client updated',
+    'client.archive': 'Client archived', 'client.notes': 'Notes updated',
+    'account.create': 'Account added', 'account.update': 'Account updated',
+    'account.archive': 'Account archived', 'meeting.create': 'Meeting logged',
+    'meeting.archive': 'Meeting archived', 'profile.save': 'Profile saved',
+    'message.create': 'Message sent', 'task.create': 'Task created',
+    'task.complete': 'Task completed', 'task.reopen': 'Task reopened', 'task.delete': 'Task deleted',
+  };
+  const auditRows = (auditEntries || []).length
+    ? (auditEntries || []).map(e => `
+        <div class="task">
+          <span style="color:#5d7a8e;font-size:11px;white-space:nowrap">${new Date(e.occurred_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+          <span style="flex:0 0 140px">${escapeHtml(ACTION_LABELS[e.action] || e.action)}</span>
+          <span style="color:#5d7a8e">${escapeHtml(e.actor_email || '')}</span>
+          <span>${escapeHtml(e.summary || '')}</span>
+        </div>`).join('')
+    : '<div class="task" style="color:#8da3b6">No recorded actions for this client.</div>';
+  const meetingsHtml = (meetings || []).length
+    ? `<div class="section-lbl">Meeting record</div>${(meetings || []).map(m => `
+        <div class="mtg"><div class="mtg-date">${new Date(m.met_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}${m.duration_min ? ` &middot; ${Number(m.duration_min)} min` : ''}</div>${m.notes ? `<div class="mtg-notes">${escapeHtml(m.notes)}</div>` : ''}</div>`).join('')}`
+    : '';
+
+  _openPrint(`Compliance Record — ${escapeHtml(client.name)}`, `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
+      <div><h1>${escapeHtml(client.name)}</h1><div class="sub">Compliance & audit record &middot; Generated ${date}</div></div>
+      <div style="font-size:10px;color:#8da3b6;text-align:right">Prism Advisor Workspace<br/>Confidential &middot; SEC 17a-3 / 17a-4</div>
+    </div>
+    <div class="grid">
+      <div class="stat"><div class="stat-lbl">Household tag</div><div class="stat-val" style="font-size:13px;margin-top:6px">${escapeHtml(client.tag || '—')}</div></div>
+      <div class="stat"><div class="stat-lbl">Audited actions</div><div class="stat-val">${(auditEntries || []).length}</div></div>
+      <div class="stat"><div class="stat-lbl">Profile versions</div><div class="stat-val">${Number(versionCount) || 0}</div></div>
+    </div>
+    <div class="section-lbl">Audit trail (append-only)</div>
+    ${auditRows}
+    ${meetingsHtml}
+    <div class="footer">Records are retained and never erased per SEC Rule 17a-4. This export reflects the append-only audit trail as of generation time. Prism Advisor Workspace.</div>
+  `);
+}
+
 Object.assign(window, {
   ProfileProvider, useProfile,
   TaskProvider, useTasks,
@@ -528,6 +571,7 @@ Object.assign(window, {
   useTheme,
   printClientReport,
   printMilestoneReport,
+  printComplianceReport,
   escapeHtml,
   fmt$, fmtPct, fmtN,
 });

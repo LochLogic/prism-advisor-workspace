@@ -56,7 +56,7 @@ const timeAgo = (iso) => {
 };
 
 /* ─── Client roster ──────────────────────────────────────────────── */
-const CLIENT_COLS = 'id, household_name, short_name, household_tag, current_phase, notes, active, updated_at, last_meeting_at, aum, uninvested_cash';
+const CLIENT_COLS = 'id, household_name, short_name, household_tag, current_phase, notes, active, updated_at, last_meeting_at, aum, uninvested_cash, pipeline_stage';
 
 async function dbGetClients(advisorId, { page = 0, pageSize = 50 } = {}) {
   if (!_sb() || !isUUID(advisorId)) return null;
@@ -123,6 +123,7 @@ function mapClient(c) {
     monthlyOutflow: 0,
     accentHue:      (name.charCodeAt(0) * 47 + (name.charCodeAt(1) || 0) * 19) % 360,
     notes:          c.notes || '',
+    pipelineStage:  c.pipeline_stage || 'active',
   };
 }
 
@@ -158,6 +159,7 @@ async function dbUpdateClient(clientId, fields) {
     if (fields.household_tag  !== undefined) allowed.household_tag  = fields.household_tag;
     if (fields.current_phase  !== undefined) allowed.current_phase  = Number(fields.current_phase);
     if (fields.notes          !== undefined) allowed.notes          = fields.notes;
+    if (fields.pipeline_stage !== undefined) allowed.pipeline_stage = fields.pipeline_stage;
     allowed.updated_at = new Date().toISOString();
 
     const { data, error } = await _sb()
@@ -299,9 +301,28 @@ async function dbSaveProfile(clientId, profileData) {
       .upsert({ client_id: clientId, data: profileData, updated_at: new Date().toISOString() },
                { onConflict: 'client_id' });
     if (error) throw error;
+    // Append an immutable version snapshot (15e) — failure must not block the save
+    try {
+      await _sb().from('profile_versions').insert({
+        client_id: clientId, data: profileData, saved_by: window.__pxAuthActor?.id || null });
+    } catch (ve) { console.warn('[db] profileVersion:', ve.message); }
     dbAudit('profile.save', { entityType: 'profile', entityId: clientId, clientId,
       summary: 'Saved household financial profile' });
   } catch (e) { console.warn('[db] saveProfile:', e.message); }
+}
+
+async function dbGetProfileVersions(clientId) {
+  if (!_sb() || !isUUID(clientId)) return null;
+  try {
+    const { data, error } = await _sb()
+      .from('profile_versions')
+      .select('id, version, saved_at, saved_by')
+      .eq('client_id', clientId)
+      .order('version', { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    return data;
+  } catch (e) { console.warn('[db] getProfileVersions:', e.message); return null; }
 }
 
 /* ─── Task states ────────────────────────────────────────────────── */
@@ -442,6 +463,9 @@ async function dbAddFlagMessage(questionId, authorId, authorRole, body) {
       .select('id, author_role, body, created_at')
       .single();
     if (error) throw error;
+    dbAudit('message.create', { entityType: 'message', entityId: data.id,
+      summary: `${authorRole === 'advisor' ? 'Advisor' : 'Client'} replied on a flagged question`,
+      metadata: { question_id: questionId, role: authorRole } });
     return data;
   } catch (e) { console.warn('[db] addFlagMessage:', e.message); return null; }
 }
@@ -562,6 +586,90 @@ async function dbDeleteMeeting(id, clientId) {
   } catch (e) { console.warn('[db] deleteMeeting:', e.message); }
 }
 
+/* ─── CRM tasks (workflow engine) ────────────────────────────────── */
+async function dbGetTasks(advisorId, { clientId = null, includeDone = false } = {}) {
+  if (!_sb() || !isUUID(advisorId)) return null;
+  try {
+    let q = _sb()
+      .from('crm_tasks')
+      .select('id, client_id, title, detail, priority, status, due_at, created_at, completed_at, clients(short_name, household_name)')
+      .eq('advisor_id', advisorId)
+      .order('due_at', { ascending: true, nullsFirst: false });
+    if (isUUID(clientId)) q = q.eq('client_id', clientId);
+    if (!includeDone)     q = q.eq('status', 'open');
+    const { data, error } = await q;
+    if (error) throw error;
+    return data;
+  } catch (e) { console.warn('[db] getTasks:', e.message); return null; }
+}
+
+function mapTask(t) {
+  return {
+    id: t.id, clientId: t.client_id, title: t.title, detail: t.detail || '',
+    priority: t.priority || 'normal', status: t.status || 'open',
+    dueAt: t.due_at, createdAt: t.created_at, completedAt: t.completed_at,
+    clientName: t.clients?.short_name || t.clients?.household_name || null,
+  };
+}
+
+async function dbCreateTask(advisorId, firmId, fields) {
+  if (!_sb() || !isUUID(advisorId) || !fields.title?.trim()) return null;
+  try {
+    const { data, error } = await _sb()
+      .from('crm_tasks')
+      .insert({
+        advisor_id: advisorId,
+        firm_id:    isUUID(firmId) ? firmId : null,
+        client_id:  isUUID(fields.client_id) ? fields.client_id : null,
+        title:      fields.title.trim(),
+        detail:     fields.detail || null,
+        priority:   fields.priority || 'normal',
+        due_at:     fields.due_at || null,
+      })
+      .select('id, client_id, title, detail, priority, status, due_at, created_at, completed_at')
+      .single();
+    if (error) throw error;
+    dbAudit('task.create', { entityType: 'task', entityId: data.id, clientId: data.client_id,
+      summary: `Created task: ${data.title}` });
+    return data;
+  } catch (e) { console.warn('[db] createTask:', e.message); return null; }
+}
+
+async function dbUpdateTask(id, fields, clientId) {
+  if (!_sb() || !isUUID(id)) return null;
+  try {
+    const patch = {};
+    if (fields.status   !== undefined) {
+      patch.status = fields.status;
+      patch.completed_at = fields.status === 'done' ? new Date().toISOString() : null;
+    }
+    if (fields.title    !== undefined) patch.title    = fields.title;
+    if (fields.detail   !== undefined) patch.detail   = fields.detail;
+    if (fields.priority !== undefined) patch.priority = fields.priority;
+    if (fields.due_at   !== undefined) patch.due_at   = fields.due_at;
+    const { data, error } = await _sb()
+      .from('crm_tasks').update(patch).eq('id', id)
+      .select('id, client_id, title, detail, priority, status, due_at, created_at, completed_at')
+      .single();
+    if (error) throw error;
+    if (fields.status) {
+      dbAudit(fields.status === 'done' ? 'task.complete' : 'task.reopen',
+        { entityType: 'task', entityId: id, clientId,
+          summary: `${fields.status === 'done' ? 'Completed' : 'Reopened'} task: ${data.title}` });
+    }
+    return data;
+  } catch (e) { console.warn('[db] updateTask:', e.message); return null; }
+}
+
+async function dbDeleteTask(id, clientId) {
+  if (!_sb() || !isUUID(id)) return;
+  try {
+    const { error } = await _sb().from('crm_tasks').delete().eq('id', id);
+    if (error) throw error;
+    dbAudit('task.delete', { entityType: 'task', entityId: id, clientId, summary: 'Deleted task' });
+  } catch (e) { console.warn('[db] deleteTask:', e.message); }
+}
+
 window.db = {
   getClients:          dbGetClients,
   mapClient,
@@ -595,6 +703,12 @@ window.db = {
   getPhases:           dbGetPhases,
   audit:               dbAudit,
   getAuditLog:         dbGetAuditLog,
+  getProfileVersions:  dbGetProfileVersions,
+  getTasks:            dbGetTasks,
+  mapTask,
+  createTask:          dbCreateTask,
+  updateTask:          dbUpdateTask,
+  deleteTask:          dbDeleteTask,
   isUUID,
   timeAgo,
 };
