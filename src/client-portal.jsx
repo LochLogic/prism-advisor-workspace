@@ -209,6 +209,16 @@ const ClientPortal = ({ onOpenNumbers }) => {
     }, 150);
   }, [pendingPhaseId, setPendingPhaseId, setOpenPhases]);
   const [milestoneModal, setMilestoneModal] = React.useState(null);
+
+  // Performance data for the client-facing report
+  const [perfBal, setPerfBal] = React.useState(null);
+  const [perfFlows, setPerfFlows] = React.useState([]);
+  React.useEffect(() => {
+    if (!window.db?.isUUID(activeClientId)) { setPerfBal(null); setPerfFlows([]); return; }
+    window.db.getBalanceHistory(activeClientId).then(r => setPerfBal(r || []));
+    window.db.getCashFlows(activeClientId).then(r => setPerfFlows(r || []));
+  }, [activeClientId]);
+
   const activePhaseObj = phasesData.find(p => p.id === activePhase) || phasesData[0];
   // Use the real client object from ViewContext; fall back to mock only in demo mode
   const viewingClient = activeClient || clientsData.find(c => c.id === activeClientId) || clientsData[0];
@@ -224,6 +234,16 @@ const ClientPortal = ({ onOpenNumbers }) => {
   };
 
   const completedPhases = phasesData.filter(p => p.tasks.every(t => taskStates[p.id]?.[t.id])).length;
+
+  const downloadPerformance = () => {
+    const series  = buildValueSeries(perfBal || []);
+    const periods = perfPeriods(series, perfFlows);
+    window.printPerformanceReport?.({
+      client:  { name: viewingClient.name || viewingClient.shortName, tag: viewingClient.tag },
+      series, periods, flows: perfFlows,
+      advisorName: advisorDisplay.fullName, advisorFirm: advisorDisplay.firm,
+    });
+  };
 
   return (
     <>
@@ -285,6 +305,15 @@ const ClientPortal = ({ onOpenNumbers }) => {
             </div>
           </div>
         </div>
+
+        {/* Performance report (live clients only) */}
+        {window.db?.isUUID(activeClientId) && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
+            <button className="px-btn px-btn-sm px-btn-ghost" onClick={downloadPerformance}>
+              <Icons.Download size={11} /> Download performance report
+            </button>
+          </div>
+        )}
 
         {/* Phases */}
         <div className="px-horizons">
