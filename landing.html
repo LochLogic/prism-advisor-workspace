@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Prism — The Advisor Workspace</title>
+<meta name="description" content="Prism is a lifecycle-planning workspace for RIAs: client roadmaps, a compliance-grade audit trail, CRM workflow, and realtime collaboration." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#fafaf7; --bg-elev:#f4f1e8; --surface:#ffffff;
+    --ink:#1c2e4a; --ink-2:#2d4258; --ink-mute:#5d7a8e; --ink-faint:#8da3b6;
+    --border:#e4dfd0; --border-2:#d4ccb7;
+    --gold:#a98c4b; --gold-soft:#f3ead4;
+    --forest:#3d5a4a; --forest-soft:#e0e8e1;
+    --brick:#8c3d3d;
+    --serif:'Source Serif 4',Georgia,serif;
+    --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:var(--sans);background:var(--bg);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased;}
+  a{color:inherit;text-decoration:none;}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px;}
+
+  /* Nav */
+  .nav{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;max-width:1080px;margin:0 auto;}
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand-mark{width:34px;height:34px;background:var(--ink);border-radius:9px;display:flex;align-items:center;justify-content:center;}
+  .brand-mark svg{color:#fff;}
+  .brand-name{font-family:var(--serif);font-size:18px;font-weight:600;letter-spacing:-.01em;}
+  .nav-links{display:flex;align-items:center;gap:10px;}
+  .btn{display:inline-flex;align-items:center;gap:7px;height:38px;padding:0 16px;border-radius:7px;font-size:13.5px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:opacity .15s,background .15s;font-family:var(--sans);}
+  .btn-primary{background:var(--ink);color:#fff;}
+  .btn-primary:hover{opacity:.88;}
+  .btn-ghost{background:none;color:var(--ink);border-color:var(--border-2);}
+  .btn-ghost:hover{background:var(--bg-elev);}
+  .btn-text{background:none;color:var(--ink-2);padding:0 6px;}
+  .btn-text:hover{color:var(--ink);}
+
+  /* Hero */
+  .hero{text-align:center;padding:64px 0 52px;}
+  .eyebrow{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:18px;}
+  .hero h1{font-family:var(--serif);font-size:48px;font-weight:500;line-height:1.08;letter-spacing:-.02em;margin-bottom:20px;}
+  .hero h1 em{font-style:italic;color:var(--gold);}
+  .hero p{font-size:17px;color:var(--ink-mute);max-width:600px;margin:0 auto 30px;line-height:1.6;}
+  .hero-cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+  .btn-lg{height:46px;padding:0 24px;font-size:15px;}
+  .hero-note{font-size:12px;color:var(--ink-faint);margin-top:16px;}
+
+  /* Section */
+  section{padding:56px 0;}
+  .section-head{text-align:center;margin-bottom:40px;}
+  .section-head h2{font-family:var(--serif);font-size:30px;font-weight:500;letter-spacing:-.015em;margin-bottom:10px;}
+  .section-head p{font-size:15px;color:var(--ink-mute);max-width:520px;margin:0 auto;}
+
+  /* Feature grid */
+  .features{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;}
+  .feature{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:26px;}
+  .feature-icon{width:40px;height:40px;border-radius:10px;background:var(--gold-soft);color:var(--gold);display:flex;align-items:center;justify-content:center;margin-bottom:14px;}
+  .feature h3{font-family:var(--serif);font-size:18px;font-weight:600;margin-bottom:7px;}
+  .feature p{font-size:13.5px;color:var(--ink-mute);line-height:1.6;}
+
+  /* Pricing */
+  .pricing{background:var(--bg-elev);}
+  .tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;align-items:stretch;}
+  .tier{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px;display:flex;flex-direction:column;}
+  .tier.featured{border-color:var(--gold);box-shadow:0 8px 30px rgba(169,140,75,.13);}
+  .tier-name{font-family:var(--serif);font-size:18px;font-weight:600;margin-bottom:4px;}
+  .tier-tagline{font-size:12px;color:var(--ink-mute);margin-bottom:16px;min-height:32px;}
+  .tier-price{font-family:var(--serif);font-size:34px;font-weight:600;letter-spacing:-.02em;}
+  .tier-price span{font-size:13px;color:var(--ink-mute);font-family:var(--sans);font-weight:400;}
+  .tier-list{list-style:none;margin:18px 0;flex:1;}
+  .tier-list li{font-size:13px;color:var(--ink-2);padding:6px 0;display:flex;gap:8px;align-items:flex-start;}
+  .tier-list li svg{color:var(--forest);flex-shrink:0;margin-top:2px;}
+  .badge{display:inline-block;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gold);border:1px solid var(--gold);border-radius:20px;padding:1px 9px;margin-left:8px;}
+
+  /* CTA band */
+  .cta-band{background:var(--ink);color:#fff;border-radius:16px;padding:52px;text-align:center;margin:0 24px;}
+  .cta-band h2{font-family:var(--serif);font-size:30px;font-weight:500;margin-bottom:12px;}
+  .cta-band p{color:rgba(255,255,255,.75);font-size:15px;max-width:480px;margin:0 auto 26px;}
+  .cta-band .btn-primary{background:var(--gold);color:var(--ink);font-weight:600;}
+  .cta-band .btn-ghost{color:#fff;border-color:rgba(255,255,255,.35);}
+  .cta-band .btn-ghost:hover{background:rgba(255,255,255,.1);}
+
+  /* Footer */
+  footer{padding:36px 0;border-top:1px solid var(--border);margin-top:40px;}
+  .foot-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--ink-faint);flex-wrap:wrap;gap:12px;}
+
+  @media (max-width:760px){
+    .hero h1{font-size:34px;}
+    .features,.tiers{grid-template-columns:1fr;}
+    .nav-links .hide-sm{display:none;}
+  }
+</style>
+</head>
+<body>
+
+  <!-- Nav -->
+  <nav class="nav">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 20h18Z"/><path d="m12 2 4 9-9 4"/></svg>
+      </div>
+      <div class="brand-name">Prism</div>
+    </div>
+    <div class="nav-links">
+      <a class="btn btn-text hide-sm" href="#features">Features</a>
+      <a class="btn btn-text hide-sm" href="#pricing">Pricing</a>
+      <a class="btn btn-ghost" href="login.html">Sign in</a>
+      <a class="btn btn-primary" href="signup.html">Get started</a>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <header class="hero wrap">
+    <div class="eyebrow">For registered investment advisors</div>
+    <h1>Your clients' wealth, <em>refracted</em> into seven horizons.</h1>
+    <p>
+      Prism is the lifecycle-planning workspace where advisors build coordinated plans,
+      track every milestone, and collaborate with clients in real time — on a
+      compliance-grade foundation.
+    </p>
+    <div class="hero-cta">
+      <button class="btn btn-primary btn-lg" onclick="enterDemo()">Explore the live demo</button>
+      <a class="btn btn-ghost btn-lg" href="signup.html">Create your workspace</a>
+    </div>
+    <div class="hero-note">No account needed for the demo · Your data stays isolated by row-level security</div>
+  </header>
+
+  <!-- Features -->
+  <section id="features" class="wrap">
+    <div class="section-head">
+      <h2>Everything an advisor relationship needs</h2>
+      <p>One workspace for planning, communication, workflow, and the records your regulators expect.</p>
+    </div>
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg></div>
+        <h3>Seven-horizon roadmaps</h3>
+        <p>Guide every household from foundation to legacy through a structured, milestone-based lifecycle plan — with built-in calculators for reserves, debt, asset location, Monte Carlo, Roth ladders, and estate.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+        <h3>Compliance-grade by design</h3>
+        <p>An append-only audit trail, records retained and never erased (SEC 17a-3/17a-4), immutable profile versioning, optional two-factor authentication, and a per-client compliance export.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+        <h3>CRM &amp; workflow engine</h3>
+        <p>Tasks with due dates and priorities, a book-wide "next actions" queue, client pipeline stages, one-click review cadences, and a complete interaction timeline for every household.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></div>
+        <h3>Realtime collaboration</h3>
+        <p>Clients flag questions and reply in threaded conversations; advisors get live notifications, deep-linked to the exact phase — so nothing falls through the cracks.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing -->
+  <section id="pricing" class="pricing">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Simple, per-advisor pricing</h2>
+        <p>Start free and explore the full workspace. Upgrade when you're ready to onboard live clients.</p>
+      </div>
+      <div class="tiers">
+        <div class="tier">
+          <div class="tier-name">Solo</div>
+          <div class="tier-tagline">For the independent advisor getting started.</div>
+          <div class="tier-price">$0<span> / preview</span></div>
+          <ul class="tier-list">
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Up to 25 client households</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Roadmaps, calculators &amp; CRM</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Audit trail &amp; 2FA</li>
+          </ul>
+          <a class="btn btn-ghost" href="signup.html">Start free</a>
+        </div>
+        <div class="tier featured">
+          <div class="tier-name">Growth <span class="badge">Popular</span></div>
+          <div class="tier-tagline">For growing practices with a full book.</div>
+          <div class="tier-price">$49<span> / advisor / mo</span></div>
+          <ul class="tier-list">
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Unlimited clients</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Account aggregation &amp; custodian feeds</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Performance reporting</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Priority support</li>
+          </ul>
+          <a class="btn btn-primary" href="signup.html">Start free trial</a>
+        </div>
+        <div class="tier">
+          <div class="tier-name">Enterprise</div>
+          <div class="tier-tagline">For multi-advisor firms with compliance teams.</div>
+          <div class="tier-price">Custom</div>
+          <ul class="tier-list">
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Firm-admin oversight &amp; roles</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Billing automation &amp; revenue dashboards</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> WORM retention &amp; data agreements</li>
+          </ul>
+          <a class="btn btn-ghost" href="signup.html">Talk to us</a>
+        </div>
+      </div>
+      <p class="hero-note" style="text-align:center;margin-top:22px;">
+        Pricing is indicative during preview — accounts are free and you won't be charged yet.
+      </p>
+    </div>
+  </section>
+
+  <!-- CTA band -->
+  <div class="cta-band">
+    <h2>See it before you sign up.</h2>
+    <p>Open a fully populated workspace — roster, roadmaps, alerts, and tools — no account required.</p>
+    <div class="hero-cta">
+      <button class="btn btn-primary btn-lg" onclick="enterDemo()">Explore the live demo</button>
+      <a class="btn btn-ghost btn-lg" href="signup.html">Create your workspace</a>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    <div class="wrap foot-row">
+      <div class="brand">
+        <div class="brand-mark" style="width:28px;height:28px;border-radius:7px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 20h18Z"/><path d="m12 2 4 9-9 4"/></svg>
+        </div>
+        <span>Prism Advisor Workspace</span>
+      </div>
+      <div>Secured by row-level security &middot; Records retained per SEC 17a-4</div>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="src/supabase-client.js"></script>
+  <script>
+    function enterDemo() {
+      try { sessionStorage.setItem('px_demo', '1'); } catch (e) {}
+      window.location.href = 'index.html';
+    }
+    // If already signed in, surface a "Go to workspace" affordance in the nav.
+    (async () => {
+      if (!window.__sb) return;
+      try {
+        const { data: { session } } = await window.__sb.auth.getSession();
+        if (session) {
+          const links = document.querySelector('.nav-links');
+          links.innerHTML = '<a class="btn btn-primary" href="index.html">Go to workspace</a>';
+        }
+      } catch (e) {}
+    })();
+  </script>
+</body>
+</html>

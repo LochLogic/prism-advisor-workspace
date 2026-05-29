@@ -432,6 +432,70 @@ const Topbar = ({ onOpenNumbers, dark, toggleTheme }) => {
   );
 };
 
+/* ─── Self-serve workspace provisioning (Option B signup completion) ─ */
+function ProvisionWorkspace() {
+  const { session, signOut } = useAuth();
+  const meta = session?.user?.user_metadata || {};
+  const [firmName, setFirmName] = React.useState(meta.firm_name || '');
+  const [fullName, setFullName] = React.useState(meta.full_name || '');
+  const [busy, setBusy]   = React.useState(false);
+  const [error, setError] = React.useState('');
+
+  const provision = async () => {
+    if (!firmName.trim() || !fullName.trim()) { setError('Enter your name and firm name.'); return; }
+    setBusy(true); setError('');
+    try {
+      const { error } = await window.__sb.rpc('px_provision_firm',
+        { p_firm_name: firmName.trim(), p_full_name: fullName.trim() });
+      if (error) throw error;
+      window.location.reload(); // re-run role detection — lands as firm admin
+    } catch (e) { setError(e.message || 'Could not create workspace.'); setBusy(false); }
+  };
+
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', gap: 18, padding: 32 }}>
+      <div style={{ width: 42, height: 42, background: 'var(--ink)', borderRadius: 11,
+        display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Icons.Prism size={19} style={{ color: 'white' }} />
+      </div>
+      <div style={{ width: '100%', maxWidth: 380 }}>
+        <div style={{ textAlign: 'center', marginBottom: 20 }}>
+          <div style={{ fontFamily: 'var(--serif)', fontSize: 20, fontWeight: 500, color: 'var(--ink)', marginBottom: 6 }}>
+            Set up your workspace
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--ink-mute)', lineHeight: 1.55 }}>
+            One more step — name your firm to create your advisor workspace. You'll be its first administrator.
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12,
+          background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 22 }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.07em' }}>Your name</span>
+            <input className="px-input" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Jane Advisor" autoFocus />
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.07em' }}>Firm name</span>
+            <input className="px-input" value={firmName} onChange={e => setFirmName(e.target.value)} placeholder="Northbridge Wealth"
+              onKeyDown={e => { if (e.key === 'Enter') provision(); }} />
+          </label>
+          {error && <div style={{ fontSize: 12, color: 'var(--brick)' }}>{error}</div>}
+          <button className="px-btn px-btn-primary" onClick={provision} disabled={busy}>
+            {busy ? 'Creating…' : 'Create workspace'}
+          </button>
+        </div>
+
+        <div style={{ textAlign: 'center', marginTop: 16 }}>
+          <button className="px-btn px-btn-ghost" onClick={signOut}>
+            <Icons.ArrowRight size={12} style={{ transform: 'rotate(180deg)' }} /> Sign out
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── App inner (all providers are already mounted above) ─────────── */
 function AppInner() {
   const { view, setView } = useView();
@@ -448,33 +512,7 @@ function AppInner() {
   if (loading) return <LoadingScreen />;
   if (!session && !isDemo) return <LoadingScreen />;
 
-  if (role === 'unregistered') {
-    return (
-      <div style={{
-        minHeight: '100vh', display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center',
-        background: 'var(--bg)', gap: 18, padding: 32,
-      }}>
-        <div style={{
-          width: 42, height: 42, background: 'var(--ink)', borderRadius: 11,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <Icons.Prism size={19} style={{ color: 'white' }} />
-        </div>
-        <div style={{ textAlign: 'center', maxWidth: 400 }}>
-          <div style={{ fontFamily: 'var(--serif)', fontSize: 20, fontWeight: 500, color: 'var(--ink)', marginBottom: 8 }}>
-            Account not yet linked
-          </div>
-          <div style={{ fontSize: 13, color: 'var(--ink-mute)', lineHeight: 1.6, marginBottom: 20 }}>
-            Your login was verified, but no advisor or client record was found for this email. Ask your administrator to add you to the system, then sign in again.
-          </div>
-          <button className="px-btn px-btn-ghost" onClick={signOut}>
-            <Icons.ArrowRight size={12} style={{ transform: 'rotate(180deg)' }} /> Sign out
-          </button>
-        </div>
-      </div>
-    );
-  }
+  if (role === 'unregistered') return <ProvisionWorkspace />;
 
   return (
     <div className="px-app">

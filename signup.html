@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Prism — Create Account</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500;8..60,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="src/supabase-client.js"></script>
+<style>
+  :root {
+    --bg:#fafaf7; --bg-elev:#f4f1e8; --surface:#ffffff;
+    --ink:#1c2e4a; --ink-2:#2d4258; --ink-mute:#5d7a8e; --ink-faint:#8da3b6;
+    --border:#e4dfd0; --border-2:#d4ccb7;
+    --gold:#a98c4b; --gold-soft:#f3ead4;
+    --forest:#3d5a4a; --forest-soft:#e0e8e1;
+    --brick:#8c3d3d; --brick-soft:#f0dede;
+    --serif:'Source Serif 4',Georgia,serif;
+    --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:var(--sans);background:var(--bg);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
+  .wrap{width:100%;max-width:410px;}
+  .brand{text-align:center;margin-bottom:28px;}
+  .brand-mark{width:44px;height:44px;background:var(--ink);border-radius:11px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;}
+  .brand-mark svg{color:#fff;}
+  .brand-name{font-family:var(--serif);font-size:22px;font-weight:500;color:var(--ink);letter-spacing:-.015em;}
+  .brand-sub{font-size:11px;color:var(--ink-mute);margin-top:2px;letter-spacing:.07em;text-transform:uppercase;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:28px;}
+  .card-title{font-family:var(--serif);font-size:18px;font-weight:500;color:var(--ink);margin-bottom:5px;}
+  .card-sub{font-size:12px;color:var(--ink-mute);margin-bottom:22px;line-height:1.45;}
+  .field{display:flex;flex-direction:column;gap:5px;margin-bottom:14px;}
+  .field label{font-size:11px;font-weight:600;color:var(--ink-mute);text-transform:uppercase;letter-spacing:.07em;}
+  .field input{height:40px;padding:0 12px;border:1px solid var(--border-2);border-radius:6px;font-family:var(--sans);font-size:14px;color:var(--ink);background:var(--bg);outline:none;transition:border-color .15s;}
+  .field input:focus{border-color:var(--ink);}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .btn-primary{width:100%;height:42px;background:var(--ink);color:#fff;border:none;border-radius:6px;font-family:var(--sans);font-size:14px;font-weight:500;cursor:pointer;transition:opacity .15s;margin-top:4px;}
+  .btn-primary:hover{opacity:.88;}
+  .btn-primary:disabled{opacity:.45;cursor:not-allowed;}
+  .msg{margin-top:14px;padding:10px 12px;border-radius:6px;font-size:13px;line-height:1.45;display:none;}
+  .msg.error{background:var(--brick-soft);color:var(--brick);}
+  .msg.success{background:var(--forest-soft);color:var(--forest);}
+  .magic-card{text-align:center;}
+  .magic-icon{font-size:34px;margin-bottom:12px;}
+  .footer{text-align:center;margin-top:18px;font-size:12px;color:var(--ink-faint);line-height:1.6;}
+  .footer a{color:var(--gold);text-decoration:none;cursor:pointer;}
+  .footer a:hover{text-decoration:underline;}
+  .legal{font-size:11px;color:var(--ink-faint);margin-top:14px;line-height:1.5;text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <div class="brand-mark">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2 3 20h18Z"/><path d="m12 2 4 9-9 4"/>
+      </svg>
+    </div>
+    <div class="brand-name">Prism</div>
+    <div class="brand-sub">Advisor Workspace</div>
+  </div>
+
+  <!-- Signup card -->
+  <div class="card" id="signup-card">
+    <div class="card-title">Create your firm workspace</div>
+    <div class="card-sub">Start your advisor workspace in under a minute. You'll be the firm's first administrator.</div>
+
+    <div class="row">
+      <div class="field">
+        <label for="full-name">Your name</label>
+        <input type="text" id="full-name" autocomplete="name" placeholder="Jane Advisor" />
+      </div>
+      <div class="field">
+        <label for="firm-name">Firm name</label>
+        <input type="text" id="firm-name" autocomplete="organization" placeholder="Northbridge Wealth" />
+      </div>
+    </div>
+    <div class="field">
+      <label for="email">Work email</label>
+      <input type="email" id="email" autocomplete="email" placeholder="you@firm.com" />
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input type="password" id="password" autocomplete="new-password" placeholder="At least 8 characters" />
+    </div>
+
+    <button class="btn-primary" id="signup-btn" onclick="signUp()">Create account</button>
+    <div class="msg" id="msg"></div>
+    <div class="legal">By creating an account you agree to operate within your firm's compliance obligations. Records are retained per SEC 17a-4.</div>
+  </div>
+
+  <!-- Confirmation-sent card -->
+  <div class="card magic-card" id="sent-card" style="display:none">
+    <div class="magic-icon">✉️</div>
+    <div class="card-title" style="text-align:center">Confirm your email</div>
+    <p style="font-size:13px;color:var(--ink-mute);margin-top:8px;line-height:1.55;">
+      We sent a confirmation link to <strong id="sent-to"></strong>.
+      Click it to verify your address, then you'll finish setting up your workspace.
+    </p>
+  </div>
+
+  <div class="footer">
+    Already have an account? <a href="login.html">Sign in</a>
+    &ensp;·&ensp;
+    <a href="landing.html">Back to overview</a>
+  </div>
+</div>
+
+<script>
+  function showMsg(text, type = 'error') {
+    const el = document.getElementById('msg');
+    el.textContent = text; el.className = 'msg ' + type; el.style.display = 'block';
+  }
+  function setLoading(on) {
+    const b = document.getElementById('signup-btn');
+    b.disabled = on; b.textContent = on ? 'Creating…' : 'Create account';
+  }
+
+  async function signUp() {
+    if (!window.__sb) { showMsg('Sign-up is unavailable right now.'); return; }
+    const fullName = document.getElementById('full-name').value.trim();
+    const firmName = document.getElementById('firm-name').value.trim();
+    const email    = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    if (!fullName || !firmName) { showMsg('Enter your name and firm name.'); return; }
+    if (!email || password.length < 8) { showMsg('Enter a valid email and an 8+ character password.'); return; }
+
+    setLoading(true);
+    const redirectTo = new URL('index.html', window.location.href).href;
+    const { data, error } = await window.__sb.auth.signUp({
+      email, password,
+      options: { data: { full_name: fullName, firm_name: firmName }, emailRedirectTo: redirectTo },
+    });
+    if (error) { showMsg(error.message); setLoading(false); return; }
+
+    // If email confirmation is disabled, a session exists immediately → go finish setup.
+    if (data.session) { window.location.href = 'index.html'; return; }
+
+    // Otherwise prompt to confirm by email; provisioning completes after they land back in the app.
+    document.getElementById('sent-to').textContent = email;
+    document.getElementById('signup-card').style.display = 'none';
+    document.getElementById('sent-card').style.display   = 'block';
+  }
+
+  document.getElementById('password').addEventListener('keydown', e => { if (e.key === 'Enter') signUp(); });
+</script>
+</body>
+</html>
