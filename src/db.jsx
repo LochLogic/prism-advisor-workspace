@@ -6,6 +6,46 @@ const _sb = () => window.__sb;
 
 const isUUID = (s) => typeof s === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(s);
 
+/* ─── Audit trail (SEC 17a-3 / FINRA) ────────────────────────────────
+   Append-only. dbAudit() is fire-and-forget: callers never await it and
+   a failure never blocks the user action. Actor identity comes from
+   window.__pxAuthActor, set by auth.jsx after role detection. */
+async function dbAudit(action, opts = {}) {
+  const sb = _sb();
+  const actor = window.__pxAuthActor;
+  if (!sb || !actor?.id) return; // demo mode / no session — nothing to record
+  try {
+    await sb.from('audit_log').insert({
+      actor_id:    actor.id,
+      actor_role:  actor.role  || null,
+      actor_email: actor.email || null,
+      firm_id:     actor.firm_id || null,
+      action,
+      entity_type: opts.entityType || null,
+      entity_id:   opts.entityId != null ? String(opts.entityId) : null,
+      client_id:   isUUID(opts.clientId) ? opts.clientId : null,
+      summary:     opts.summary || null,
+      metadata:    opts.metadata || {},
+      user_agent:  typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 400) : null,
+    });
+  } catch (e) { console.warn('[db] audit:', e.message); }
+}
+
+async function dbGetAuditLog({ limit = 100, clientId = null } = {}) {
+  if (!_sb()) return null;
+  try {
+    let q = _sb()
+      .from('audit_log')
+      .select('id, occurred_at, actor_email, actor_role, action, entity_type, entity_id, client_id, summary')
+      .order('occurred_at', { ascending: false })
+      .limit(limit);
+    if (isUUID(clientId)) q = q.eq('client_id', clientId);
+    const { data, error } = await q;
+    if (error) throw error;
+    return data;
+  } catch (e) { console.warn('[db] getAuditLog:', e.message); return null; }
+}
+
 /* ─── Time helper ────────────────────────────────────────────────── */
 const timeAgo = (iso) => {
   if (!iso) return '?';
@@ -103,6 +143,8 @@ async function dbCreateClient(advisorId, firmId, fields) {
       .select(CLIENT_COLS)
       .single();
     if (error) throw error;
+    dbAudit('client.create', { entityType: 'client', entityId: data.id, clientId: data.id,
+      summary: `Created client ${data.household_name}` });
     return data;
   } catch (e) { console.warn('[db] createClient:', e.message); return null; }
 }
@@ -125,6 +167,8 @@ async function dbUpdateClient(clientId, fields) {
       .select(CLIENT_COLS)
       .single();
     if (error) throw error;
+    dbAudit('client.update', { entityType: 'client', entityId: clientId, clientId,
+      summary: `Updated client ${data.household_name}`, metadata: { fields: Object.keys(allowed) } });
     return data;
   } catch (e) { console.warn('[db] updateClient:', e.message); return null; }
 }
@@ -137,6 +181,8 @@ async function dbArchiveClient(clientId) {
       .update({ active: false, updated_at: new Date().toISOString() })
       .eq('id', clientId);
     if (error) throw error;
+    dbAudit('client.archive', { entityType: 'client', entityId: clientId, clientId,
+      summary: 'Archived client (removed from active roster)' });
   } catch (e) { console.warn('[db] archiveClient:', e.message); }
 }
 
@@ -148,6 +194,8 @@ async function dbUpdateClientNotes(clientId, notes) {
       .update({ notes, updated_at: new Date().toISOString() })
       .eq('id', clientId);
     if (error) throw error;
+    dbAudit('client.notes', { entityType: 'client', entityId: clientId, clientId,
+      summary: 'Updated advisor notes' });
   } catch (e) { console.warn('[db] updateClientNotes:', e.message); }
 }
 
@@ -168,6 +216,7 @@ async function dbGetAccounts(clientId) {
       .from('accounts')
       .select('id, client_id, type, custodian, name, balance, cash, as_of, updated_at')
       .eq('client_id', clientId)
+      .is('archived_at', null)
       .order('type');
     if (error) throw error;
     return data;
@@ -195,15 +244,23 @@ async function dbUpsertAccount(account) {
       .select()
       .single();
     if (error) throw error;
+    dbAudit(isUUID(account.id) ? 'account.update' : 'account.create', {
+      entityType: 'account', entityId: data.id, clientId: account.client_id,
+      summary: `${isUUID(account.id) ? 'Updated' : 'Added'} ${payload.type} account`,
+      metadata: { balance: payload.balance, cash: payload.cash, custodian: payload.custodian } });
     return data;
   } catch (e) { console.warn('[db] upsertAccount:', e.message); return null; }
 }
 
-async function dbDeleteAccount(id) {
+// Soft delete (SEC 17a-4): mark archived rather than erase the record.
+async function dbDeleteAccount(id, clientId) {
   if (!_sb() || !isUUID(id)) return;
   try {
-    const { error } = await _sb().from('accounts').delete().eq('id', id);
+    const { error } = await _sb().from('accounts')
+      .update({ archived_at: new Date().toISOString() }).eq('id', id);
     if (error) throw error;
+    dbAudit('account.archive', { entityType: 'account', entityId: id, clientId,
+      summary: 'Archived account (record retained per 17a-4)' });
   } catch (e) { console.warn('[db] deleteAccount:', e.message); }
 }
 
@@ -242,6 +299,8 @@ async function dbSaveProfile(clientId, profileData) {
       .upsert({ client_id: clientId, data: profileData, updated_at: new Date().toISOString() },
                { onConflict: 'client_id' });
     if (error) throw error;
+    dbAudit('profile.save', { entityType: 'profile', entityId: clientId, clientId,
+      summary: 'Saved household financial profile' });
   } catch (e) { console.warn('[db] saveProfile:', e.message); }
 }
 
@@ -444,6 +503,7 @@ async function dbGetMeetings(clientId) {
       .from('meetings')
       .select('id, client_id, advisor_id, met_at, duration_min, notes')
       .eq('client_id', clientId)
+      .is('archived_at', null)
       .order('met_at', { ascending: false })
       .limit(10);
     if (error) throw error;
@@ -472,6 +532,8 @@ async function dbLogMeeting(clientId, advisorId, fields) {
       .from('clients')
       .update({ updated_at: new Date().toISOString(), last_meeting_at: metAt })
       .eq('id', clientId);
+    dbAudit('meeting.create', { entityType: 'meeting', entityId: data.id, clientId,
+      summary: `Logged meeting${data.duration_min ? ` (${data.duration_min} min)` : ''}` });
     return data;
   } catch (e) { console.warn('[db] logMeeting:', e.message); return null; }
 }
@@ -488,11 +550,15 @@ async function dbGetPhases() {
   } catch (e) { console.warn('[db] getPhases:', e.message); return null; }
 }
 
-async function dbDeleteMeeting(id) {
+// Soft delete (SEC 17a-4): mark archived rather than erase the record.
+async function dbDeleteMeeting(id, clientId) {
   if (!_sb() || !isUUID(id)) return;
   try {
-    const { error } = await _sb().from('meetings').delete().eq('id', id);
+    const { error } = await _sb().from('meetings')
+      .update({ archived_at: new Date().toISOString() }).eq('id', id);
     if (error) throw error;
+    dbAudit('meeting.archive', { entityType: 'meeting', entityId: id, clientId,
+      summary: 'Archived meeting (record retained per 17a-4)' });
   } catch (e) { console.warn('[db] deleteMeeting:', e.message); }
 }
 
@@ -527,6 +593,8 @@ window.db = {
   getAdvisors:         dbGetAdvisors,
   getFirmClients:      dbGetFirmClients,
   getPhases:           dbGetPhases,
+  audit:               dbAudit,
+  getAuditLog:         dbGetAuditLog,
   isUUID,
   timeAgo,
 };
