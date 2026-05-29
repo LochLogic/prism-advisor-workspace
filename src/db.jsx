@@ -586,6 +586,19 @@ async function dbDeleteMeeting(id, clientId) {
   } catch (e) { console.warn('[db] deleteMeeting:', e.message); }
 }
 
+/* ─── Billing (Stripe subscription, per firm) ────────────────────── */
+async function dbGetSubscription() {
+  if (!_sb()) return null;
+  try {
+    const { data, error } = await _sb()
+      .from('subscriptions')
+      .select('plan, status, current_period_end, stripe_customer_id')
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  } catch (e) { console.warn('[db] getSubscription:', e.message); return null; }
+}
+
 /* ─── CRM tasks (workflow engine) ────────────────────────────────── */
 async function dbGetTasks(advisorId, { clientId = null, includeDone = false } = {}) {
   if (!_sb() || !isUUID(advisorId)) return null;
@@ -704,6 +717,7 @@ window.db = {
   audit:               dbAudit,
   getAuditLog:         dbGetAuditLog,
   getProfileVersions:  dbGetProfileVersions,
+  getSubscription:     dbGetSubscription,
   getTasks:            dbGetTasks,
   mapTask,
   createTask:          dbCreateTask,

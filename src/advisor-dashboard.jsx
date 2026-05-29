@@ -1206,16 +1206,46 @@ const AUDIT_ACTION_LABELS = {
 
 const FirmAdminDashboard = () => {
   const { authUser } = useAuth();
-  const [advisors,    setAdvisors]    = useStateAdv(undefined);
-  const [firmClients, setFirmClients] = useStateAdv(undefined);
-  const [auditLog,    setAuditLog]    = useStateAdv(undefined);
+  const { showToast } = useView();
+  const [advisors,     setAdvisors]     = useStateAdv(undefined);
+  const [firmClients,  setFirmClients]  = useStateAdv(undefined);
+  const [auditLog,     setAuditLog]     = useStateAdv(undefined);
+  const [subscription, setSubscription] = useStateAdv(undefined);
+  const [checkoutBusy, setCheckoutBusy] = useStateAdv(false);
 
   React.useEffect(() => {
     if (!authUser?.id || !window.db) return;
     window.db.getAdvisors().then(rows => setAdvisors(rows || []));
     window.db.getFirmClients().then(rows => setFirmClients(rows || []));
     window.db.getAuditLog({ limit: 100 }).then(rows => setAuditLog(rows || []));
+    window.db.getSubscription().then(setSubscription);
   }, [authUser?.id]);
+
+  // Surface the Stripe Checkout return state once, then clean the URL
+  React.useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    const b = p.get('billing');
+    if (b === 'success') showToast('Subscription active — thank you!');
+    else if (b === 'cancel') showToast('Checkout canceled.');
+    if (b) {
+      p.delete('billing');
+      const qs = p.toString();
+      window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : ''));
+    }
+  }, []);
+
+  const startCheckout = async () => {
+    if (!window.__sb) return;
+    setCheckoutBusy(true);
+    try {
+      const { data, error } = await window.__sb.functions.invoke('create-checkout-session',
+        { body: { origin: window.location.origin } });
+      if (error || !data?.url) throw new Error(error?.message || 'No checkout URL returned');
+      window.location.href = data.url;
+    } catch (e) { showToast('Could not start checkout — check console'); console.warn(e); setCheckoutBusy(false); }
+  };
+
+  const planActive = subscription && ['active', 'trialing'].includes(subscription.status);
 
   const firmName = authUser?.firms?.name || 'Your Firm';
 
@@ -1248,6 +1278,32 @@ const FirmAdminDashboard = () => {
             {firmClients?.length ?? '…'} active client{firmClients?.length !== 1 ? 's' : ''} ·{' '}
             {fmt$(totalAUM, { short: true, decimals: 1 })} book AUM
           </p>
+        </div>
+
+        {/* Billing & plan */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
+          background: planActive ? 'var(--forest-soft)' : 'var(--surface)', border: `1px solid ${planActive ? 'var(--forest)' : 'var(--border)'}`,
+          borderRadius: 10, padding: '16px 18px', marginBottom: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Icons.Sparkles size={18} style={{ color: planActive ? 'var(--forest)' : 'var(--gold)' }} />
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
+                {subscription === undefined ? 'Checking plan…'
+                  : planActive ? `Growth plan · ${subscription.status}`
+                  : 'Free preview'}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--ink-mute)', marginTop: 1 }}>
+                {planActive && subscription.current_period_end
+                  ? `Renews ${new Date(subscription.current_period_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+                  : 'Upgrade to unlock unlimited clients and priority support.'}
+              </div>
+            </div>
+          </div>
+          {!planActive && (
+            <button className="px-btn px-btn-primary" onClick={startCheckout} disabled={checkoutBusy || subscription === undefined}>
+              {checkoutBusy ? 'Starting…' : 'Upgrade to Growth'}
+            </button>
+          )}
         </div>
 
         <div className="px-section-head">
