@@ -957,6 +957,7 @@ const AUDIT_ACTION_LABELS = {
   'account.archive': 'Account archived', 'meeting.create': 'Meeting logged',
   'meeting.archive': 'Meeting archived', 'profile.save': 'Profile saved',
   'auth.signin': 'Signed in', 'auth.signout': 'Signed out',
+  'mfa.enroll': '2FA enabled', 'mfa.unenroll': '2FA disabled',
 };
 
 const FirmAdminDashboard = () => {

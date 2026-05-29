@@ -32,6 +32,16 @@ function AuthProvider({ children }) {
 
   // Query advisors → clients tables to determine role
   async function detectRole(sess, event) {
+    // MFA enforcement: a session with an enrolled TOTP factor must reach aal2.
+    // If it's only aal1, send the user back to login.html to complete the challenge.
+    try {
+      const { data: aal } = await window.__sb.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aal && aal.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
+        window.location.href = 'login.html';
+        return;
+      }
+    } catch (e) { /* MFA unavailable — continue */ }
+
     const auditSignin = () => {
       if (event === 'SIGNED_IN' && window.__pxAuthActor?.id) {
         window.db?.audit('auth.signin', { entityType: 'auth', entityId: sess.user.id,
