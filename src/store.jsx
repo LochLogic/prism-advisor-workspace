@@ -563,6 +563,56 @@ function printComplianceReport(client, auditEntries, meetings, versionCount) {
   `);
 }
 
+// Client-facing performance report — branded, printable PDF (Theme D, 18b).
+// Takes pre-computed data so it has no dependency on where the math lives.
+//   opts: { client, series:[{date,value}], periods:[{label,pct}], flows:[{flow_date,amount,kind}], advisorName, advisorFirm }
+function printPerformanceReport(opts) {
+  const { client, series = [], periods = [], flows = [], advisorName, advisorFirm } = opts || {};
+  const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const cur = series.length ? series[series.length - 1].value : 0;
+
+  let chartHtml = '<div style="color:#8da3b6;font-style:italic;font-size:12px;padding:8px 0">Not enough history to chart yet.</div>';
+  if (series.length >= 2) {
+    const W = 640, H = 170;
+    const vals = series.map(p => p.value);
+    const min = Math.min(...vals), max = Math.max(...vals), range = (max - min) || 1, n = series.length;
+    const x = i => (i / (n - 1)) * W;
+    const y = v => H - ((v - min) / range) * (H - 20) - 10;
+    const line = series.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`).join(' ');
+    const up = vals[n - 1] >= vals[0], color = up ? '#3d5a4a' : '#8c3d3d';
+    chartHtml = `<svg width="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="border:1px solid #e4dfd0;border-radius:6px;background:#fff">
+      <path d="${line} L${W},${H} L0,${H} Z" fill="${color}" opacity="0.08"/>
+      <path d="${line}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round"/></svg>`;
+  }
+
+  const periodCells = (periods || []).map(s => {
+    const has = s.pct != null && isFinite(s.pct), pos = (s.pct || 0) >= 0;
+    return `<div class="stat"><div class="stat-lbl">${escapeHtml(s.label)}</div><div class="stat-val" style="color:${!has ? '#8da3b6' : pos ? '#3d5a4a' : '#8c3d3d'}">${has ? `${pos ? '+' : ''}${s.pct.toFixed(1)}%` : '—'}</div></div>`;
+  }).join('');
+
+  const contrib = (flows || []).filter(f => Number(f.amount) > 0).reduce((s, f) => s + Number(f.amount), 0);
+  const withdr  = (flows || []).filter(f => Number(f.amount) < 0).reduce((s, f) => s + Math.abs(Number(f.amount)), 0);
+
+  _openPrint(`Performance Report — ${escapeHtml(client.name)}`, `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
+      <div><h1>${escapeHtml(client.name)}</h1><div class="sub">Performance report &middot; ${date}</div></div>
+      <div style="font-size:10px;color:#8da3b6;text-align:right">${escapeHtml(advisorFirm || 'Prism Advisor Workspace')}${advisorName ? `<br/>Prepared by ${escapeHtml(advisorName)}` : ''}</div>
+    </div>
+    <div class="grid">
+      <div class="stat"><div class="stat-lbl">Portfolio value</div><div class="stat-val">${fmt$(cur, { short: true })}</div></div>
+      <div class="stat"><div class="stat-lbl">Net contributions</div><div class="stat-val" style="font-size:15px;margin-top:6px">${fmt$(contrib - withdr, { short: true })}</div></div>
+      <div class="stat"><div class="stat-lbl">As of</div><div class="stat-val" style="font-size:13px;margin-top:7px">${date}</div></div>
+    </div>
+    <div class="section-lbl">Portfolio value over time</div>
+    ${chartHtml}
+    <div class="section-lbl" style="margin-top:22px">Time-weighted return</div>
+    <div class="grid" style="grid-template-columns:repeat(5,1fr)">${periodCells}</div>
+    <div class="section-lbl" style="margin-top:22px">Cash flow summary</div>
+    <div style="font-size:12px;color:#2d4258">Contributions: <b>${fmt$(contrib, { short: true })}</b> &nbsp;&middot;&nbsp; Withdrawals: <b>${fmt$(withdr, { short: true })}</b></div>
+    <div class="footer">Returns are time-weighted (Modified Dietz) and reflect account value change where transaction-level cash flows have not been recorded. Past performance is not indicative of future results; this report is informational and is not investment advice. Prism Advisor Workspace${advisorFirm ? ' &middot; ' + escapeHtml(advisorFirm) : ''}.</div>
+  `);
+}
+
 Object.assign(window, {
   ProfileProvider, useProfile,
   TaskProvider, useTasks,
@@ -572,6 +622,7 @@ Object.assign(window, {
   printClientReport,
   printMilestoneReport,
   printComplianceReport,
+  printPerformanceReport,
   escapeHtml,
   fmt$, fmtPct, fmtN,
 });

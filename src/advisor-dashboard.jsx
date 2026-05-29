@@ -512,6 +512,7 @@ const LABEL_STYLE = {
 
 const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchived, advisorId, firmId }) => {
   const { openClientPortal, showToast } = useView();
+  const { authUser } = useAuth();
   const [tab, setTab] = useStateAdv('overview');
 
   // Notes state
@@ -1247,6 +1248,13 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                       {perfSeries.length ? fmt$(perfSeries[perfSeries.length - 1].value, { short: true }) : '—'}
                     </div>
                   </div>
+                  <button className="px-btn px-btn-sm px-btn-ghost"
+                    onClick={() => window.printPerformanceReport?.({
+                      client, series: perfSeries, periods: perfStats, flows: perfFlows,
+                      advisorName: authUser?.full_name, advisorFirm: authUser?.firms?.name,
+                    })}>
+                    <Icons.Download size={11} /> Report
+                  </button>
                 </div>
 
                 <PerfChart series={perfSeries} />
