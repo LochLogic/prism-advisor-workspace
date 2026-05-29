@@ -442,6 +442,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
   const [accounts, setAccounts] = useStateAdv(undefined);
   const [accForm, setAccForm] = useStateAdv(null);
   const [savingAcc, setSavingAcc] = useStateAdv(false);
+  const [linking, setLinking] = useStateAdv(false);
 
   // Meetings state
   const [meetings,      setMeetings]      = useStateAdv(undefined);
@@ -573,6 +574,36 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     if (totals && onUpdated) {
       onUpdated({ ...client, aum: totals.aum, uninvestedCash: totals.uninvested_cash });
     }
+  };
+
+  // Link held-away accounts via Plaid (requires Plaid keys set as Edge secrets)
+  const linkPlaid = async () => {
+    if (!window.Plaid) { showToast('Plaid Link unavailable — reload the page'); return; }
+    if (!window.__sb) { showToast('Account linking needs a live session'); return; }
+    setLinking(true);
+    try {
+      const { data, error } = await window.__sb.functions.invoke('plaid-create-link-token',
+        { body: { clientId: client.id } });
+      if (error || !data?.link_token) throw new Error(error?.message || 'Plaid not configured');
+      const handler = window.Plaid.create({
+        token: data.link_token,
+        onSuccess: async (publicToken, metadata) => {
+          showToast('Importing accounts…');
+          const { data: res, error: exErr } = await window.__sb.functions.invoke('plaid-exchange-token',
+            { body: { clientId: client.id, publicToken, institutionName: metadata?.institution?.name } });
+          if (exErr || res?.error) { showToast('Import failed — check console'); console.warn(exErr || res); return; }
+          const rows = await window.db.getAccounts(client.id);
+          setAccounts(rows || []);
+          if (onUpdated) onUpdated({ ...client, aum: res.aum, uninvestedCash: res.cash });
+          showToast(`Linked ${res.imported} account${res.imported !== 1 ? 's' : ''}`);
+        },
+        onExit: () => {},
+      });
+      handler.open();
+    } catch (e) {
+      showToast(e.message || 'Could not start Plaid Link');
+      console.warn(e);
+    } finally { setLinking(false); }
   };
 
   /* meetings */
@@ -881,6 +912,13 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                     <tr key={a.id} style={{ borderBottom: '1px solid var(--border)' }}>
                       <td style={{ padding: '9px 8px 9px 8px', color: 'var(--ink)', fontFamily: 'var(--serif)' }}>
                         {window.db.ACCOUNT_TYPE_LABELS[a.type] || a.type}
+                        {a.source && a.source !== 'manual' && (
+                          <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 600, letterSpacing: '.04em',
+                            color: 'var(--forest)', border: '1px solid var(--forest)', borderRadius: 20,
+                            padding: '0 6px', textTransform: 'uppercase', fontFamily: 'var(--sans)', verticalAlign: 'middle' }}>
+                            ⟲ Linked
+                          </span>
+                        )}
                         {a.name && <div style={{ fontSize: 11, color: 'var(--ink-mute)', fontFamily: 'var(--sans)', fontStyle: 'normal' }}>{a.name}</div>}
                       </td>
                       <td style={{ padding: '9px 8px', color: 'var(--ink-mute)' }}>{a.custodian || '—'}</td>
@@ -955,10 +993,15 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
             )}
 
             {accounts !== undefined && !accForm && (
-              <button className="px-btn px-btn-sm px-btn-ghost"
-                onClick={() => setAccForm({ type: 'taxable', custodian: '', name: '', balance: '', cash: '' })}>
-                <Icons.Plus size={11} /> Add account
-              </button>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button className="px-btn px-btn-sm px-btn-ghost"
+                  onClick={() => setAccForm({ type: 'taxable', custodian: '', name: '', balance: '', cash: '' })}>
+                  <Icons.Plus size={11} /> Add account
+                </button>
+                <button className="px-btn px-btn-sm px-btn-ghost" onClick={linkPlaid} disabled={linking}>
+                  <Icons.Refresh size={11} /> {linking ? 'Connecting…' : 'Link via Plaid'}
+                </button>
+              </div>
             )}
           </>
         )}
