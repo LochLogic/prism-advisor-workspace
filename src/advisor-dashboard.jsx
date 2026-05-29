@@ -30,6 +30,37 @@ const phaseLabel = (id) => {
   return p;
 };
 
+/* ─── Pipeline stage helpers (CRM) ───────────────────────────────── */
+const PIPELINE_STAGES = [
+  { value: 'lead',        label: 'Lead',        color: 'var(--gold)' },
+  { value: 'onboarding',  label: 'Onboarding',  color: 'var(--forest)' },
+  { value: 'active',      label: 'Active',      color: 'var(--ink-mute)' },
+  { value: 'review_due',  label: 'Review due',  color: 'var(--brick)' },
+  { value: 'inactive',    label: 'Inactive',    color: 'var(--ink-faint)' },
+];
+const stageMeta = (v) => PIPELINE_STAGES.find(s => s.value === v) || PIPELINE_STAGES[2];
+
+const StagePill = ({ stage }) => {
+  const s = stageMeta(stage);
+  return (
+    <span style={{
+      display: 'inline-block', fontSize: 10, fontWeight: 600, letterSpacing: '.03em',
+      color: s.color, border: `1px solid ${s.color}`, borderRadius: 20,
+      padding: '1px 8px', textTransform: 'uppercase', whiteSpace: 'nowrap',
+    }}>{s.label}</span>
+  );
+};
+
+// Relative due-date label + tone for tasks
+const dueMeta = (dueAt) => {
+  if (!dueAt) return { label: 'No due date', tone: 'var(--ink-faint)' };
+  const days = Math.floor((new Date(dueAt) - Date.now()) / 86_400_000);
+  if (days < 0)  return { label: `Overdue ${Math.abs(days)}d`, tone: 'var(--brick)' };
+  if (days === 0) return { label: 'Due today', tone: 'var(--brick)' };
+  if (days <= 3) return { label: `Due in ${days}d`, tone: 'var(--gold)' };
+  return { label: `Due ${new Date(dueAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`, tone: 'var(--ink-mute)' };
+};
+
 /* ─── Roster row ─────────────────────────────────────────────────── */
 const RosterRow = ({ client, onOpen }) => {
   const phase = phaseLabel(client.phase);
@@ -40,7 +71,10 @@ const RosterRow = ({ client, onOpen }) => {
           <ClientAvatar client={client} size={32} />
           <div className="px-client-meta">
             <div className="px-client-name">{client.name}</div>
-            <div className="px-client-tag">{client.tag}</div>
+            <div className="px-client-tag" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {client.tag}
+              {client.pipelineStage && client.pipelineStage !== 'active' && <StagePill stage={client.pipelineStage} />}
+            </div>
           </div>
         </div>
       </td>
@@ -396,7 +430,7 @@ const LABEL_STYLE = {
   textTransform: 'uppercase', letterSpacing: '.05em',
 };
 
-const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchived, advisorId }) => {
+const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchived, advisorId, firmId }) => {
   const { openClientPortal, showToast } = useView();
   const [tab, setTab] = useStateAdv('overview');
 
@@ -424,6 +458,13 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
   const [confirmDeleteAccId,  setConfirmDeleteAccId]  = useStateAdv(null);
   const [confirmDeleteMtgId,  setConfirmDeleteMtgId]  = useStateAdv(null);
 
+  // CRM tasks + timeline (audit) state
+  const [tasks,     setTasks]     = useStateAdv(undefined);
+  const [taskForm,  setTaskForm]  = useStateAdv(null);
+  const [savingTask, setSavingTask] = useStateAdv(false);
+  const [timeline,  setTimeline]  = useStateAdv(undefined);
+  const [versionCount, setVersionCount] = useStateAdv(0);
+
   React.useEffect(() => {
     if (client) {
       setNotes(client.notes || '');
@@ -437,10 +478,15 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
         short_name:     client.shortName,
         household_tag:  client.tag === '—' ? '' : client.tag,
         current_phase:  client.phase,
+        pipeline_stage: client.pipelineStage || 'active',
       });
       setConfirmArchive(false);
       setConfirmDeleteAccId(null);
       setConfirmDeleteMtgId(null);
+      setTasks(undefined);
+      setTaskForm(null);
+      setTimeline(undefined);
+      setVersionCount(0);
     }
   }, [client?.id]);
 
@@ -448,6 +494,22 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
   React.useEffect(() => {
     if (tab === 'accounts' && client && window.db?.isUUID(client.id) && accounts === undefined) {
       window.db.getAccounts(client.id).then(rows => setAccounts(rows || []));
+    }
+  }, [tab]);
+
+  // Load tasks when the Tasks tab opens
+  React.useEffect(() => {
+    if (tab === 'tasks' && client && window.db?.isUUID(client.id) && tasks === undefined && advisorId) {
+      window.db.getTasks(advisorId, { clientId: client.id, includeDone: true })
+        .then(rows => setTasks(rows ? rows.map(window.db.mapTask) : []));
+    }
+  }, [tab]);
+
+  // Load timeline (audit + version count) when the Timeline tab opens
+  React.useEffect(() => {
+    if (tab === 'timeline' && client && window.db?.isUUID(client.id) && timeline === undefined) {
+      window.db.getAuditLog({ clientId: client.id, limit: 100 }).then(rows => setTimeline(rows || []));
+      window.db.getProfileVersions(client.id).then(rows => setVersionCount((rows || []).length));
     }
   }, [tab]);
 
@@ -537,6 +599,54 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     showToast('Meeting removed');
   };
 
+  /* tasks (CRM) */
+  const saveTask = async () => {
+    if (!advisorId || !taskForm.title?.trim()) { showToast('Task needs a title'); return; }
+    setSavingTask(true);
+    const due_at = taskForm.due_at ? new Date(taskForm.due_at).toISOString() : null;
+    const row = await window.db.createTask(advisorId, firmId, { ...taskForm, due_at, client_id: client.id });
+    setSavingTask(false);
+    if (row) {
+      setTasks(prev => [window.db.mapTask(row), ...(prev || [])]);
+      setTaskForm(null);
+      showToast('Task created');
+    } else { showToast('Could not create task — check console'); }
+  };
+
+  const toggleTask = async (t) => {
+    const next = t.status === 'done' ? 'open' : 'done';
+    const row = await window.db.updateTask(t.id, { status: next }, client.id);
+    if (row) setTasks(prev => (prev || []).map(x => x.id === t.id ? window.db.mapTask(row) : x));
+  };
+
+  const removeTask = async (t) => {
+    await window.db.deleteTask(t.id, client.id);
+    setTasks(prev => (prev || []).filter(x => x.id !== t.id));
+    showToast('Task deleted');
+  };
+
+  // Quick cadence — schedule a review task N months out
+  const scheduleCadence = async (months, label) => {
+    if (!advisorId) { showToast('No advisor ID'); return; }
+    const due = new Date(); due.setMonth(due.getMonth() + months);
+    const row = await window.db.createTask(advisorId, firmId,
+      { title: `${label} — ${client.shortName}`, due_at: due.toISOString(), client_id: client.id, priority: 'normal' });
+    if (row) {
+      setTasks(prev => prev === undefined ? prev : [window.db.mapTask(row), ...(prev || [])]);
+      showToast(`${label} scheduled for ${due.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`);
+    }
+  };
+
+  /* compliance export */
+  const exportCompliance = async () => {
+    showToast('Compiling compliance record…');
+    const [audit, versions] = await Promise.all([
+      window.db.getAuditLog({ clientId: client.id, limit: 500 }),
+      window.db.getProfileVersions(client.id),
+    ]);
+    window.printComplianceReport?.(client, audit || [], meetings || [], (versions || []).length);
+  };
+
   /* edit client */
   const setEdit = (k, v) => setEditForm(f => ({ ...f, [k]: v }));
 
@@ -577,6 +687,13 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
             </div>
           </div>
           <div style={{ display: 'flex', gap: 6 }}>
+            {isLiveClient && (
+              <button className="px-btn px-btn-sm px-btn-ghost"
+                aria-label="Export compliance record"
+                onClick={exportCompliance}>
+                <Icons.Lock size={12} /> Compliance
+              </button>
+            )}
             <button className="px-btn px-btn-sm px-btn-ghost"
               aria-label="Print client report"
               onClick={() => window.printClientReport?.(client, phase, meetings || [])}>
@@ -591,7 +708,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
         {/* Tabs — only for live (real UUID) clients */}
         {isLiveClient && (
           <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)' }}>
-            {['overview', 'accounts', 'edit'].map(t => (
+            {['overview', 'accounts', 'tasks', 'timeline', 'edit'].map(t => (
               <button key={t} style={TAB_STYLE(tab === t)} onClick={() => setTab(t)}>{t}</button>
             ))}
           </div>
@@ -846,6 +963,122 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
           </>
         )}
 
+        {/* ── Tasks (CRM) ── */}
+        {tab === 'tasks' && (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <span style={LABEL_STYLE}>Open & recent tasks</span>
+              {!taskForm && (
+                <button className="px-btn px-btn-sm px-btn-ghost"
+                  onClick={() => setTaskForm({ title: '', detail: '', priority: 'normal', due_at: '' })}>
+                  <Icons.Plus size={10} /> New task
+                </button>
+              )}
+            </div>
+
+            {/* Quick cadences */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+              {[['Annual review', 12], ['Semi-annual check-in', 6], ['Quarterly review', 3]].map(([label, m]) => (
+                <button key={label} className="px-btn px-btn-sm px-btn-ghost" style={{ fontSize: 11 }}
+                  onClick={() => scheduleCadence(m, label)}>
+                  <Icons.Calendar size={10} /> {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Inline new-task form */}
+            {taskForm && (
+              <div style={{ padding: 12, background: 'var(--bg-elev)', borderRadius: 6, marginBottom: 12 }}>
+                <input className="px-input" placeholder="Task title" value={taskForm.title} autoFocus
+                  onChange={e => setTaskForm(f => ({ ...f, title: e.target.value }))}
+                  style={{ marginBottom: 8 }} />
+                <textarea className="px-input" rows={2} placeholder="Detail (optional)"
+                  value={taskForm.detail} onChange={e => setTaskForm(f => ({ ...f, detail: e.target.value }))}
+                  style={{ resize: 'vertical', marginBottom: 8 }} />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <span style={{ fontSize: 11, color: 'var(--ink-mute)' }}>Due date</span>
+                    <input className="px-input" type="date" value={taskForm.due_at}
+                      onChange={e => setTaskForm(f => ({ ...f, due_at: e.target.value }))} />
+                  </label>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <span style={{ fontSize: 11, color: 'var(--ink-mute)' }}>Priority</span>
+                    <select className="px-select" value={taskForm.priority}
+                      onChange={e => setTaskForm(f => ({ ...f, priority: e.target.value }))}>
+                      <option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option>
+                    </select>
+                  </label>
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button className="px-btn px-btn-sm px-btn-primary" onClick={saveTask} disabled={savingTask}>
+                    {savingTask ? 'Saving…' : 'Create task'}
+                  </button>
+                  <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => setTaskForm(null)}>Cancel</button>
+                </div>
+              </div>
+            )}
+
+            {tasks === undefined && <div style={{ fontSize: 12, color: 'var(--ink-faint)', fontStyle: 'italic' }}>Loading tasks…</div>}
+            {tasks !== undefined && tasks.length === 0 && !taskForm && (
+              <div style={{ fontSize: 12, color: 'var(--ink-faint)', fontStyle: 'italic', padding: '4px 0' }}>No tasks yet.</div>
+            )}
+            {(tasks || []).map(t => {
+              const due = dueMeta(t.dueAt);
+              const done = t.status === 'done';
+              return (
+                <div key={t.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '9px 0', borderBottom: '1px solid var(--border)' }}>
+                  <button onClick={() => toggleTask(t)} aria-label="Toggle task"
+                    style={{ marginTop: 1, width: 16, height: 16, flexShrink: 0, borderRadius: 4, cursor: 'pointer',
+                      border: `1.5px solid ${done ? 'var(--forest)' : 'var(--border-2)'}`,
+                      background: done ? 'var(--forest)' : 'transparent', color: '#fff',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                    {done && <Icons.Check size={10} strokeWidth={3} />}
+                  </button>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, color: 'var(--ink)', textDecoration: done ? 'line-through' : 'none', opacity: done ? 0.6 : 1 }}>
+                      {t.priority === 'high' && <span style={{ color: 'var(--brick)', marginRight: 4 }}>●</span>}
+                      {t.title}
+                    </div>
+                    {t.detail && <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 2 }}>{t.detail}</div>}
+                    {!done && <div style={{ fontSize: 11, color: due.tone, marginTop: 2 }}>{due.label}</div>}
+                  </div>
+                  <button onClick={() => removeTask(t)} aria-label="Delete task"
+                    style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', padding: '0 2px', flexShrink: 0 }}>
+                    <Icons.X size={11} />
+                  </button>
+                </div>
+              );
+            })}
+          </>
+        )}
+
+        {/* ── Timeline (interaction history from the audit trail + meetings) ── */}
+        {tab === 'timeline' && (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <span style={LABEL_STYLE}>Interaction timeline</span>
+              {versionCount > 0 && <span style={{ fontSize: 11, color: 'var(--ink-faint)' }}>{versionCount} profile version{versionCount !== 1 ? 's' : ''} on record</span>}
+            </div>
+            {timeline === undefined && <div style={{ fontSize: 12, color: 'var(--ink-faint)', fontStyle: 'italic' }}>Loading timeline…</div>}
+            {timeline !== undefined && timeline.length === 0 && (
+              <div style={{ fontSize: 12, color: 'var(--ink-faint)', fontStyle: 'italic', padding: '4px 0' }}>No recorded activity yet.</div>
+            )}
+            {(timeline || []).map(e => (
+              <div key={e.id} style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ flexShrink: 0, width: 96, fontSize: 11, color: 'var(--ink-faint)', fontFamily: 'var(--mono, monospace)' }}>
+                  {new Date(e.occurred_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  <div>{new Date(e.occurred_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</div>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12.5, color: 'var(--ink)' }}>{AUDIT_ACTION_LABELS[e.action] || e.action}</div>
+                  {e.summary && <div style={{ fontSize: 11.5, color: 'var(--ink-mute)', marginTop: 1 }}>{e.summary}</div>}
+                  {e.actor_email && <div style={{ fontSize: 10.5, color: 'var(--ink-faint)', marginTop: 1 }}>{e.actor_email}</div>}
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+
         {/* ── Edit client ── */}
         {tab === 'edit' && (
           <>
@@ -861,13 +1094,22 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                     onChange={e => setEdit(key, e.target.value)} />
                 </label>
               ))}
-              <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span style={LABEL_STYLE}>Horizon</span>
-                <select className="px-select" value={editForm.current_phase ?? client.phase}
-                  onChange={e => setEdit('current_phase', Number(e.target.value))}>
-                  {PHASES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-                </select>
-              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <span style={LABEL_STYLE}>Horizon</span>
+                  <select className="px-select" value={editForm.current_phase ?? client.phase}
+                    onChange={e => setEdit('current_phase', Number(e.target.value))}>
+                    {PHASES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+                  </select>
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <span style={LABEL_STYLE}>Pipeline stage</span>
+                  <select className="px-select" value={editForm.pipeline_stage ?? 'active'}
+                    onChange={e => setEdit('pipeline_stage', e.target.value)}>
+                    {PIPELINE_STAGES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                  </select>
+                </label>
+              </div>
             </div>
 
             <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', alignItems: 'center' }}>
@@ -958,6 +1200,8 @@ const AUDIT_ACTION_LABELS = {
   'meeting.archive': 'Meeting archived', 'profile.save': 'Profile saved',
   'auth.signin': 'Signed in', 'auth.signout': 'Signed out',
   'mfa.enroll': '2FA enabled', 'mfa.unenroll': '2FA disabled',
+  'message.create': 'Message sent', 'task.create': 'Task created',
+  'task.complete': 'Task completed', 'task.reopen': 'Task reopened', 'task.delete': 'Task deleted',
 };
 
 const FirmAdminDashboard = () => {
@@ -1154,6 +1398,7 @@ const AdvisorDashboard = () => {
   const [dbClientTotal, setDbClientTotal] = useStateAdv(0);
   const [dbAlerts,      setDbAlerts]      = useStateAdv(undefined);
   const [dbQuestions,   setDbQuestions]   = useStateAdv(undefined);
+  const [dbTasks,       setDbTasks]       = useStateAdv(undefined);
 
   // Fetch from Supabase when advisor auth record is available
   React.useEffect(() => {
@@ -1170,7 +1415,15 @@ const AdvisorDashboard = () => {
     window.db.getFlaggedQuestions(id).then(rows => {
       setDbQuestions(rows ? rows.map(window.db.mapFlaggedQuestion) : []);
     });
+    window.db.getTasks(id, { includeDone: false }).then(rows => {
+      setDbTasks(rows ? rows.map(window.db.mapTask) : []);
+    });
   }, [authUser?.id]);
+
+  const completeDashTask = async (t) => {
+    const row = await window.db?.updateTask(t.id, { status: 'done' }, t.clientId);
+    if (row) setDbTasks(prev => (prev || []).filter(x => x.id !== t.id));
+  };
 
   const isLiveMode = dbClients !== undefined;
 
@@ -1308,6 +1561,7 @@ const AdvisorDashboard = () => {
         onUpdated={handleClientUpdated}
         onArchived={handleClientArchived}
         advisorId={authUser?.id}
+        firmId={authUser?.firm_id}
       />
       <NewClientModal
         isOpen={addingClient}
@@ -1396,6 +1650,40 @@ const AdvisorDashboard = () => {
       </div>
 
       <aside className="px-adv-side">
+        {/* Tasks — next actions across the book (CRM) */}
+        {isLiveMode && (
+          <div className="px-side-section">
+            <div className="px-side-head">
+              <h3><Icons.Check size={13} style={{ verticalAlign: 'middle', marginRight: 4, color: 'var(--gold)' }} /> Tasks & next actions</h3>
+              <span className="px-side-count">{(dbTasks || []).length} open</span>
+            </div>
+            {(dbTasks || []).slice(0, 8).map(t => {
+              const due = dueMeta(t.dueAt);
+              return (
+                <div key={t.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+                  <button onClick={() => completeDashTask(t)} aria-label="Complete task"
+                    style={{ marginTop: 1, width: 15, height: 15, flexShrink: 0, borderRadius: 4, cursor: 'pointer',
+                      border: '1.5px solid var(--border-2)', background: 'transparent', padding: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.3 }}>
+                      {t.priority === 'high' && <span style={{ color: 'var(--brick)', marginRight: 4 }}>●</span>}
+                      {t.title}
+                    </div>
+                    <div style={{ fontSize: 11, color: due.tone, marginTop: 2 }}>
+                      {due.label}{t.clientName ? ` · ${t.clientName}` : ''}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            {(dbTasks || []).length === 0 && (
+              <div style={{ padding: '14px 0', textAlign: 'center', color: 'var(--ink-faint)', fontStyle: 'italic', fontSize: 13 }}>
+                No open tasks — you're clear.
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="px-side-section">
           <div className="px-side-head">
             <h3><Icons.Bell size={13} style={{ verticalAlign: 'middle', marginRight: 4, color: 'var(--gold)' }} /> Alerts & nudges</h3>
