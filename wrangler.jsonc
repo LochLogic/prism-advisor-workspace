@@ -1,0 +1,10 @@
+{
+  // Cloudflare Workers Static Assets config.
+  // The key fix: only ./_site is uploaded — NOT node_modules or the repo root.
+  // Cloudflare build command must be:  npm run build   (it produces ./_site)
+  "name": "prism-advisor-workspace",
+  "compatibility_date": "2025-05-01",
+  "assets": {
+    "directory": "./_site"
+  }
+}
