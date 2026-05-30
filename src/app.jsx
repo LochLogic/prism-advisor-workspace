@@ -393,7 +393,7 @@ const Topbar = ({ onOpenNumbers, dark, toggleTheme }) => {
         <div className="px-brand-mark"><Icons.Prism size={15} /></div>
         <div>
           <div className="px-brand-name">Prism</div>
-          <div className="px-brand-sub">Advisor Workspace</div>
+          <div className="px-brand-sub">{view === 'client' ? 'Client Portal' : view === 'admin' ? 'Firm Admin' : 'Advisor Workspace'}</div>
         </div>
       </div>
 

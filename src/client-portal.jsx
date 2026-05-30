@@ -326,7 +326,9 @@ const ClientPortal = ({ onOpenNumbers }) => {
           </div>
           <div className="px-portstat">
             <div className="px-portstat-label">Last review</div>
-            <div className="px-portstat-value" style={{ fontSize: 17, marginTop: 8 }}>—</div>
+            <div className="px-portstat-value" style={{ fontSize: 17, marginTop: 8 }}>
+              {viewingClient.lastReview ? `${viewingClient.lastReview} ago` : '—'}
+            </div>
             <div className="px-portstat-foot">
               <button className="px-btn px-btn-sm px-btn-ghost" style={{ padding: '3px 8px', marginTop: 4 }} onClick={onOpenNumbers}>
                 <Icons.Edit size={10} /> Update numbers
