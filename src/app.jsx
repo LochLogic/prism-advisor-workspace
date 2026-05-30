@@ -374,12 +374,22 @@ const AccountChip = ({ view, activeClient }) => {
 
 /* ─── Topbar ──────────────────────────────────────────────────────── */
 const Topbar = ({ onOpenNumbers, dark, toggleTheme }) => {
-  const { view, setView, activeClient } = useView();
-  const { role } = useAuth();
+  const { view, setView, activeClient, setActiveClient } = useView();
+  const { role, isDemo } = useAuth();
+
+  // Logo = "home": demo → public landing page; logged in → role's default view
+  const goHome = () => {
+    if (isDemo) { window.location.href = 'landing.html'; return; }
+    setActiveClient?.(null);
+    setView(role === 'admin' ? 'admin' : role === 'client' ? 'client' : 'advisor');
+  };
 
   return (
     <header className="px-topbar">
-      <div className="px-brand">
+      <div className="px-brand" onClick={goHome} role="button" tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goHome(); } }}
+        title={isDemo ? 'Back to homepage' : 'Go to dashboard'}
+        style={{ cursor: 'pointer' }} aria-label="Home">
         <div className="px-brand-mark"><Icons.Prism size={15} /></div>
         <div>
           <div className="px-brand-name">Prism</div>
