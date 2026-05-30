@@ -593,11 +593,11 @@ async function dbGetMeetings(clientId) {
   try {
     const { data, error } = await _sb()
       .from('meetings')
-      .select('id, client_id, advisor_id, met_at, duration_min, notes')
+      .select('id, client_id, advisor_id, met_at, duration_min, notes, status')
       .eq('client_id', clientId)
       .is('archived_at', null)
       .order('met_at', { ascending: false })
-      .limit(10);
+      .limit(20);
     if (error) throw error;
     return data;
   } catch (e) { console.warn('[db] getMeetings:', e.message); return null; }
@@ -606,6 +606,7 @@ async function dbGetMeetings(clientId) {
 async function dbLogMeeting(clientId, advisorId, fields) {
   if (!_sb() || !isUUID(clientId) || !isUUID(advisorId)) return null;
   try {
+    const status = fields.status || 'logged';
     const { data, error } = await _sb()
       .from('meetings')
       .insert({
@@ -614,20 +615,56 @@ async function dbLogMeeting(clientId, advisorId, fields) {
         met_at:       fields.met_at || new Date().toISOString(),
         duration_min: Number(fields.duration_min) || null,
         notes:        fields.notes || null,
+        status,
       })
       .select()
       .single();
     if (error) throw error;
-    // Bump client updated_at and last_meeting_at (belt-and-suspenders alongside trigger)
-    const metAt = data.met_at;
-    await _sb()
-      .from('clients')
-      .update({ updated_at: new Date().toISOString(), last_meeting_at: metAt })
-      .eq('id', clientId);
-    dbAudit('meeting.create', { entityType: 'meeting', entityId: data.id, clientId,
-      summary: `Logged meeting${data.duration_min ? ` (${data.duration_min} min)` : ''}` });
+    // Only logged (past) meetings advance the activity / last-review markers
+    if (status === 'logged') {
+      await _sb().from('clients')
+        .update({ updated_at: new Date().toISOString(), last_meeting_at: data.met_at })
+        .eq('id', clientId);
+    }
+    dbAudit(status === 'confirmed' ? 'meeting.schedule' : 'meeting.create',
+      { entityType: 'meeting', entityId: data.id, clientId,
+        summary: status === 'confirmed' ? `Scheduled meeting for ${new Date(data.met_at).toLocaleString()}`
+          : `Logged meeting${data.duration_min ? ` (${data.duration_min} min)` : ''}` });
     return data;
   } catch (e) { console.warn('[db] logMeeting:', e.message); return null; }
+}
+
+// Client-initiated meeting request (RLS: client may insert status='requested')
+async function dbRequestMeeting(clientId, advisorId, fields) {
+  if (!_sb() || !isUUID(clientId) || !isUUID(advisorId)) return null;
+  try {
+    const { data, error } = await _sb()
+      .from('meetings')
+      .insert({
+        client_id: clientId, advisor_id: advisorId,
+        met_at: fields.met_at || new Date().toISOString(),
+        notes: fields.notes || null, status: 'requested',
+      })
+      .select('id, met_at, notes, status')
+      .single();
+    if (error) throw error;
+    dbAudit('meeting.request', { entityType: 'meeting', entityId: data.id, clientId,
+      summary: 'Client requested a meeting' });
+    return data;
+  } catch (e) { console.warn('[db] requestMeeting:', e.message); return null; }
+}
+
+async function dbUpdateMeetingStatus(id, status, clientId) {
+  if (!_sb() || !isUUID(id)) return null;
+  try {
+    const { data, error } = await _sb()
+      .from('meetings').update({ status }).eq('id', id)
+      .select('id, met_at, notes, status, duration_min').single();
+    if (error) throw error;
+    dbAudit(`meeting.${status}`, { entityType: 'meeting', entityId: id, clientId,
+      summary: `Meeting ${status}` });
+    return data;
+  } catch (e) { console.warn('[db] updateMeetingStatus:', e.message); return null; }
 }
 
 /* ─── Phase library ──────────────────────────────────────────────── */
@@ -839,6 +876,8 @@ window.db = {
   snoozeAlert:         dbSnoozeAlert,
   getMeetings:         dbGetMeetings,
   logMeeting:          dbLogMeeting,
+  requestMeeting:      dbRequestMeeting,
+  updateMeetingStatus: dbUpdateMeetingStatus,
   deleteMeeting:       dbDeleteMeeting,
   getAdvisors:         dbGetAdvisors,
   getFirmClients:      dbGetFirmClients,

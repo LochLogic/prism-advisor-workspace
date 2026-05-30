@@ -755,20 +755,28 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
 
   /* meetings */
   const saveMeeting = async () => {
-    if (!advisorId) { showToast('No advisor ID — cannot log meeting'); return; }
+    if (!advisorId) { showToast('No advisor ID — cannot save meeting'); return; }
     setSavingMeeting(true);
     const met_at = meetingForm.met_at
       ? new Date(meetingForm.met_at).toISOString()
       : new Date().toISOString();
-    const row = await window.db.logMeeting(client.id, advisorId, { ...meetingForm, met_at });
+    // Future date → a scheduled (confirmed) meeting; past/now → a logged one
+    const status = new Date(met_at).getTime() > Date.now() ? 'confirmed' : 'logged';
+    const row = await window.db.logMeeting(client.id, advisorId, { ...meetingForm, met_at, status });
     setSavingMeeting(false);
     if (row) {
       setMeetings(prev => [row, ...(prev || [])]);
       setMeetingForm(null);
-      showToast('Meeting logged');
+      showToast(status === 'confirmed' ? 'Meeting scheduled' : 'Meeting logged');
     } else {
-      showToast('Could not log meeting — check console');
+      showToast('Could not save meeting — check console');
     }
+  };
+
+  const setMeetingStatus = async (id, status) => {
+    const row = await window.db.updateMeetingStatus(id, status, client.id);
+    if (row) setMeetings(prev => (prev || []).map(m => m.id === id ? { ...m, status } : m));
+    showToast(status === 'confirmed' ? 'Meeting confirmed' : status === 'canceled' ? 'Meeting canceled' : `Meeting ${status}`);
   };
 
   const deleteMeeting = async (id) => {
@@ -987,14 +995,14 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
             {isLiveClient && (
               <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <span style={LABEL_STYLE}>Meeting log</span>
+                  <span style={LABEL_STYLE}>Meetings</span>
                   {!meetingForm && (
                     <button className="px-btn px-btn-sm px-btn-ghost"
                       onClick={() => setMeetingForm({
                         notes: '', duration_min: '',
                         met_at: new Date().toISOString().slice(0, 16),
                       })}>
-                      <Icons.Plus size={10} /> Log meeting
+                      <Icons.Plus size={10} /> Log / schedule
                     </button>
                   )}
                 </div>
@@ -1024,11 +1032,15 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                         value={meetingForm.notes}
                         onChange={e => setMeetingForm(f => ({ ...f, notes: e.target.value }))} />
                     </label>
-                    <div style={{ display: 'flex', gap: 6 }}>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                       <button className="px-btn px-btn-sm px-btn-primary" onClick={saveMeeting} disabled={savingMeeting}>
-                        {savingMeeting ? 'Saving…' : 'Log meeting'}
+                        {savingMeeting ? 'Saving…'
+                          : (meetingForm.met_at && new Date(meetingForm.met_at).getTime() > Date.now() ? 'Schedule meeting' : 'Log meeting')}
                       </button>
                       <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => setMeetingForm(null)}>Cancel</button>
+                      <span style={{ fontSize: 11, color: 'var(--ink-faint)' }}>
+                        {meetingForm.met_at && new Date(meetingForm.met_at).getTime() > Date.now() ? 'Future date → scheduled' : 'Past date → logged'}
+                      </span>
                     </div>
                   </div>
                 )}
@@ -1039,37 +1051,59 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                 )}
                 {meetings !== undefined && meetings.length === 0 && !meetingForm && (
                   <div style={{ fontSize: 12, color: 'var(--ink-faint)', fontStyle: 'italic', padding: '4px 0' }}>
-                    No meetings logged yet.
+                    No meetings yet.
                   </div>
                 )}
-                {(meetings || []).map(m => (
-                  <div key={m.id} className="px-meeting-row">
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.4 }}>
-                        {new Date(m.met_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                        {m.duration_min && (
-                          <span style={{ fontWeight: 400, color: 'var(--ink-mute)', marginLeft: 6 }}>{m.duration_min} min</span>
-                        )}
+                {(meetings || []).filter(m => m.status !== 'canceled').map(m => {
+                  const st = m.status || 'logged';
+                  const upcoming = new Date(m.met_at).getTime() > Date.now();
+                  const badge = st === 'requested' ? { label: 'Requested', color: 'var(--gold)' }
+                    : (st === 'confirmed' && upcoming) ? { label: 'Upcoming', color: 'var(--forest)' }
+                    : null;
+                  return (
+                    <div key={m.id} className="px-meeting-row">
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.4 }}>
+                          {new Date(m.met_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          {(st === 'requested' || st === 'confirmed') && (
+                            <span style={{ fontWeight: 400, color: 'var(--ink-mute)', marginLeft: 6 }}>
+                              {new Date(m.met_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          )}
+                          {m.duration_min && <span style={{ fontWeight: 400, color: 'var(--ink-mute)', marginLeft: 6 }}>{m.duration_min} min</span>}
+                          {badge && (
+                            <span style={{ marginLeft: 8, fontSize: 9, fontWeight: 600, letterSpacing: '.04em', textTransform: 'uppercase',
+                              color: badge.color, border: `1px solid ${badge.color}`, borderRadius: 20, padding: '0 6px' }}>{badge.label}</span>
+                          )}
+                        </div>
+                        {m.notes && <div style={{ fontSize: 12, color: 'var(--ink-mute)', marginTop: 2, lineHeight: 1.4 }}>{m.notes}</div>}
                       </div>
-                      {m.notes && (
-                        <div style={{ fontSize: 12, color: 'var(--ink-mute)', marginTop: 2, lineHeight: 1.4 }}>{m.notes}</div>
+                      {st === 'requested' ? (
+                        <div style={{ display: 'flex', gap: 4, flexShrink: 0, alignItems: 'center' }}>
+                          <button style={{ background: 'none', border: 'none', color: 'var(--forest)', cursor: 'pointer', fontSize: 11, padding: '2px 4px', fontFamily: 'var(--sans)' }}
+                            onClick={() => setMeetingStatus(m.id, 'confirmed')}>Confirm</button>
+                          <button style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', fontSize: 11, padding: '2px 4px', fontFamily: 'var(--sans)' }}
+                            onClick={() => setMeetingStatus(m.id, 'canceled')}>Decline</button>
+                        </div>
+                      ) : (st === 'confirmed' && upcoming) ? (
+                        <button style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', fontSize: 11, padding: '2px 4px', fontFamily: 'var(--sans)', flexShrink: 0 }}
+                          onClick={() => setMeetingStatus(m.id, 'canceled')}>Cancel</button>
+                      ) : confirmDeleteMtgId === m.id ? (
+                        <div style={{ display: 'flex', gap: 4, flexShrink: 0, alignItems: 'center' }}>
+                          <button style={{ background: 'none', border: 'none', color: 'var(--brick)', cursor: 'pointer', fontSize: 11, padding: '2px 4px', fontFamily: 'var(--sans)' }}
+                            onClick={() => { deleteMeeting(m.id); setConfirmDeleteMtgId(null); }}>Remove</button>
+                          <button style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', fontSize: 11, padding: '2px 4px', fontFamily: 'var(--sans)' }}
+                            onClick={() => setConfirmDeleteMtgId(null)}>Cancel</button>
+                        </div>
+                      ) : (
+                        <button style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', padding: '2px 0', lineHeight: 1, flexShrink: 0 }}
+                          onClick={() => setConfirmDeleteMtgId(m.id)}>
+                          <Icons.X size={10} />
+                        </button>
                       )}
                     </div>
-                    {confirmDeleteMtgId === m.id ? (
-                      <div style={{ display: 'flex', gap: 4, flexShrink: 0, alignItems: 'center' }}>
-                        <button style={{ background: 'none', border: 'none', color: 'var(--brick)', cursor: 'pointer', fontSize: 11, padding: '2px 4px', fontFamily: 'var(--sans)' }}
-                          onClick={() => { deleteMeeting(m.id); setConfirmDeleteMtgId(null); }}>Remove</button>
-                        <button style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', fontSize: 11, padding: '2px 4px', fontFamily: 'var(--sans)' }}
-                          onClick={() => setConfirmDeleteMtgId(null)}>Cancel</button>
-                      </div>
-                    ) : (
-                      <button style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', padding: '2px 0', lineHeight: 1, flexShrink: 0 }}
-                        onClick={() => setConfirmDeleteMtgId(m.id)}>
-                        <Icons.X size={10} />
-                      </button>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </>
