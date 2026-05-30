@@ -292,6 +292,49 @@ const tasksData = [
   { id: 't6', clientId: 'c007', clientName: 'B. Ndlovu',     title: 'Schedule empathetic re-engagement call',       detail: 'Cash bias persists post-bereavement.',              priority: 'low',    status: 'open', dueAt: _dt(14), createdAt: _dt(-4),  completedAt: null },
 ];
 
+/* ─── Demo accounts (per mock client; sums to their AUM) ──────────── */
+const accountsData = {};
+clientsData.forEach(c => {
+  const taxable = Math.round(c.aum * 0.6);
+  const ira = c.aum - taxable;
+  accountsData[c.id] = [
+    { id: c.id + '-a1', client_id: c.id, type: 'taxable',         custodian: 'Schwab',   name: 'Joint brokerage', balance: taxable, cash: c.uninvestedCash || 0, source: 'manual' },
+    { id: c.id + '-a2', client_id: c.id, type: 'ira_traditional', custodian: 'Fidelity', name: 'Rollover IRA',    balance: ira,     cash: 0,                    source: 'manual' },
+  ];
+});
+
+/* ─── Demo generators for the Performance & Timeline tabs ─────────── */
+const demoBalanceHistory = (aum) => {
+  const rows = [], now = new Date();
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const t = (11 - i) / 11;
+    const factor = 0.82 + t * 0.18 + Math.sin(i * 1.7) * 0.012; // upward trend + mild noise
+    rows.push({ account_id: 'demo', as_of: d.toISOString().slice(0, 10), balance: Math.round((aum || 0) * factor), cash: 0 });
+  }
+  return rows;
+};
+const demoCashFlows = () => {
+  const now = new Date();
+  const m = (back) => new Date(now.getFullYear(), now.getMonth() - back, 15).toISOString().slice(0, 10);
+  return [
+    { id: 'cf1', flow_date: m(8), amount:  50000, kind: 'contribution' },
+    { id: 'cf2', flow_date: m(3), amount: -15000, kind: 'withdrawal' },
+  ];
+};
+const demoTimeline = (client) => {
+  const now = Date.now(), ago = (days) => new Date(now - days * 86400000).toISOString();
+  const email = 'advisor@demo.prism';
+  const firstTask = tasksData.find(t => t.clientId === client.id);
+  return [
+    { id: 'tl1', occurred_at: ago(1),  action: 'profile.save',   summary: 'Updated household financial profile', actor_email: email },
+    { id: 'tl2', occurred_at: ago(3),  action: 'meeting.create', summary: 'Logged quarterly review (45 min)',     actor_email: email },
+    { id: 'tl3', occurred_at: ago(9),  action: 'account.update', summary: 'Refreshed brokerage balance',          actor_email: email },
+    { id: 'tl4', occurred_at: ago(14), action: 'task.create',    summary: 'Created task: ' + (firstTask?.title || 'Follow-up'), actor_email: email },
+    { id: 'tl5', occurred_at: ago(30), action: 'client.update',  summary: 'Updated client details',               actor_email: email },
+  ];
+};
+
 /* ─── "Current user" — Robert & Eileen Marsh, viewed in Client Portal ─ */
 const currentClientId = 'c001';
 
@@ -301,4 +344,8 @@ window.clientsData = clientsData;
 window.alertsData = alertsData;
 window.questionsData = questionsData;
 window.tasksData = tasksData;
+window.accountsData = accountsData;
+window.demoBalanceHistory = demoBalanceHistory;
+window.demoCashFlows = demoCashFlows;
+window.demoTimeline = demoTimeline;
 window.currentClientId = currentClientId;

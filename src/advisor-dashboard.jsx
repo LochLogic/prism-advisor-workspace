@@ -601,19 +601,23 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     }
   }, [client?.id]);
 
-  // Load performance data when the Performance tab opens
+  // Load performance data when the Performance tab opens (DB for live, mock for demo)
   React.useEffect(() => {
-    if (tab === 'performance' && client && window.db?.isUUID(client.id) && perfBal === undefined) {
+    if (tab !== 'performance' || !client || perfBal !== undefined) return;
+    if (window.db?.isUUID(client.id)) {
       window.db.getBalanceHistory(client.id).then(rows => setPerfBal(rows || []));
       window.db.getCashFlows(client.id).then(rows => setPerfFlows(rows || []));
+    } else {
+      setPerfBal(demoBalanceHistory(client.aum || 0));
+      setPerfFlows(demoCashFlows());
     }
   }, [tab]);
 
-  // Load accounts when tab becomes active
+  // Load accounts when tab becomes active (DB for live, mock for demo)
   React.useEffect(() => {
-    if (tab === 'accounts' && client && window.db?.isUUID(client.id) && accounts === undefined) {
-      window.db.getAccounts(client.id).then(rows => setAccounts(rows || []));
-    }
+    if (tab !== 'accounts' || !client || accounts !== undefined) return;
+    if (window.db?.isUUID(client.id)) window.db.getAccounts(client.id).then(rows => setAccounts(rows || []));
+    else setAccounts(accountsData[client.id] || []);
   }, [tab]);
 
   // Load tasks when the Tasks tab opens (DB for live clients, mock for demo)
@@ -629,9 +633,13 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
 
   // Load timeline (audit + version count) when the Timeline tab opens
   React.useEffect(() => {
-    if (tab === 'timeline' && client && window.db?.isUUID(client.id) && timeline === undefined) {
+    if (tab !== 'timeline' || !client || timeline !== undefined) return;
+    if (window.db?.isUUID(client.id)) {
       window.db.getAuditLog({ clientId: client.id, limit: 100 }).then(rows => setTimeline(rows || []));
       window.db.getProfileVersions(client.id).then(rows => setVersionCount((rows || []).length));
+    } else {
+      setTimeline(demoTimeline(client));
+      setVersionCount(4);
     }
   }, [tab]);
 
@@ -661,6 +669,17 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
   const setAcc = (k, v) => setAccForm(f => ({ ...f, [k]: v }));
 
   const saveAccount = async () => {
+    if (!isLiveClient) {
+      const a = { id: accForm.id || ('demo-' + Date.now()), client_id: client.id, type: accForm.type || 'other',
+        custodian: accForm.custodian || '', name: accForm.name || '', balance: Number(accForm.balance) || 0,
+        cash: Number(accForm.cash) || 0, source: 'manual' };
+      setAccounts(prev => {
+        const idx = (prev || []).findIndex(x => x.id === a.id);
+        if (idx >= 0) { const n = [...prev]; n[idx] = a; return n; }
+        return [...(prev || []), a];
+      });
+      setAccForm(null); showToast('Account saved'); return;
+    }
     setSavingAcc(true);
     const row = await window.db.upsertAccount({
       ...accForm,
@@ -688,6 +707,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
   };
 
   const deleteAccount = async (id) => {
+    if (!isLiveClient) { setAccounts(prev => (prev || []).filter(a => a.id !== id)); showToast('Account removed'); return; }
     await window.db.deleteAccount(id, client.id);
     const totals = await window.db.syncClientTotals(client.id);
     setAccounts(prev => (prev || []).filter(a => a.id !== id));
@@ -813,10 +833,15 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     if (!flowForm?.amount) { showToast('Enter an amount'); return; }
     const signed = flowForm.kind === 'withdrawal' || flowForm.kind === 'fee'
       ? -Math.abs(Number(flowForm.amount)) : Math.abs(Number(flowForm.amount));
+    if (!isLiveClient) {
+      setPerfFlows(prev => [{ id: 'demo-' + Date.now(), flow_date: flowForm.flow_date, amount: signed, kind: flowForm.kind }, ...(prev || [])]);
+      setFlowForm(null); showToast('Cash flow logged'); return;
+    }
     const row = await window.db.addCashFlow(client.id, { ...flowForm, amount: signed });
     if (row) { setPerfFlows(prev => [row, ...(prev || [])]); setFlowForm(null); showToast('Cash flow logged'); }
   };
   const removeFlow = async (id) => {
+    if (!isLiveClient) { setPerfFlows(prev => (prev || []).filter(f => f.id !== id)); return; }
     await window.db.deleteCashFlow(id, client.id);
     setPerfFlows(prev => (prev || []).filter(f => f.id !== id));
   };
