@@ -492,9 +492,21 @@ function printClientReport(client, phase, meetings) {
 }
 
 // Milestone phase report — called from MilestoneAchievedModal "Download PDF" button
-function printMilestoneReport(phase, taskStates, advisorName, advisorFirm) {
+function printMilestoneReport(phase, taskStates, advisorName, advisorFirm, numbers) {
   const completed = (phase?.tasks || []).filter(t => taskStates?.[phase.id]?.[t.id]);
   const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+  const n = numbers || {};
+  const reviewHtml = numbers ? `
+    <div class="section-lbl">Financial review</div>
+    <div class="grid">
+      <div class="stat"><div class="stat-lbl">Net worth</div><div class="stat-val">${fmt$(n.netWorth, { short: true })}</div></div>
+      <div class="stat"><div class="stat-lbl">Invested assets</div><div class="stat-val">${fmt$(n.invested, { short: true })}</div></div>
+      <div class="stat"><div class="stat-lbl">Liquidity reserve</div><div class="stat-val" style="font-size:15px;margin-top:6px">${fmt$(n.reserve, { short: true })} <span style="font-size:11px;color:#8da3b6">/ ${fmt$(n.reserveTarget, { short: true })}</span></div></div>
+      <div class="stat"><div class="stat-lbl">Retirement assets</div><div class="stat-val">${fmt$(n.retirementAssets, { short: true })}</div></div>
+      <div class="stat"><div class="stat-lbl">Taxable assets</div><div class="stat-val">${fmt$(n.taxableBalance, { short: true })}</div></div>
+      <div class="stat"><div class="stat-lbl">Monthly surplus</div><div class="stat-val" style="color:${(n.surplus || 0) < 0 ? '#8c3d3d' : '#3d5a4a'}">${fmt$(n.surplus)}</div></div>
+    </div>` : '';
 
   _openPrint(`Milestone Report — Phase ${escapeHtml(phase.num)}`, `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
@@ -510,6 +522,7 @@ function printMilestoneReport(phase, taskStates, advisorName, advisorFirm) {
       <div class="stat"><div class="stat-lbl">Phase</div><div class="stat-val">${escapeHtml(phase.num)}</div></div>
       <div class="stat"><div class="stat-lbl">Status</div><div class="stat-val" style="font-size:14px;color:#3d5a4a;margin-top:5px">&#10003; Complete</div></div>
     </div>
+    ${reviewHtml}
     <div class="section-lbl">Milestones completed in this phase</div>
     ${phase.tasks.map(t => `
       <div class="task">

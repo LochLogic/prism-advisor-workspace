@@ -1908,7 +1908,7 @@ const FirmAdminDashboard = () => {
 
 /* ─── Main Advisor Dashboard ─────────────────────────────────────── */
 const AdvisorDashboard = () => {
-  const { authUser } = useAuth();
+  const { authUser, isDemo } = useAuth();
   const { openClientPortal } = useView();
   const [previewClient, setPreviewClient] = useStateAdv(null);
   const [addingClient, setAddingClient] = useStateAdv(false);
@@ -2125,8 +2125,8 @@ const AdvisorDashboard = () => {
                    sparkSeed={19} sparkTrend="up" />
         </div>
 
-        {/* Roster — skeleton while fetching, empty state, or data */}
-        {!isLiveMode ? (
+        {/* Roster — skeleton only while a real fetch is in flight (not demo) */}
+        {(!isLiveMode && !isDemo) ? (
           <>
             <div className="px-section-head">
               <h2>Client roster <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--ink-faint)', marginLeft: 6 }}>loading…</span></h2>

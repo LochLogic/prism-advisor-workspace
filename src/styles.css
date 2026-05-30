@@ -355,7 +355,7 @@ input, select, textarea { font-family: inherit; color: inherit; }
 }
 @keyframes pxSlide { from { transform: translateX(20px); opacity: 0; } to { transform: none; opacity: 1; } }
 .px-drawer-head { padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
-.px-drawer-body { flex: 1; overflow: auto; padding: 18px 22px; }
+.px-drawer-body { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 18px 22px; }
 
 /* ── Inputs ──────────────────────────────────────────────────────── */
 .px-input, .px-select {
@@ -370,7 +370,7 @@ input, select, textarea { font-family: inherit; color: inherit; }
   transition: all .1s;
 }
 .px-input:focus, .px-select:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px var(--accent-soft); }
-.px-field { display: flex; flex-direction: column; gap: 6px; }
+.px-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .px-field-label {
   font-size: 11px;
   text-transform: uppercase;
@@ -384,7 +384,9 @@ input, select, textarea { font-family: inherit; color: inherit; }
   border-radius: 5px;
   background: var(--surface);
   overflow: hidden;
+  min-width: 0;
 }
+.px-input-affix input { width: 100%; box-sizing: border-box; }
 .px-input-affix:focus-within { border-color: var(--ink); box-shadow: 0 0 0 3px var(--accent-soft); }
 .px-input-affix .px-affix {
   padding: 0 10px;
