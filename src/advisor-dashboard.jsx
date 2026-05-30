@@ -262,7 +262,7 @@ const AlertCard = ({ alert, onSnooze, clients, onAgenda }) => {
           <b>{client.shortName}</b> · {client.tag}
         </div>
       )}
-      <div className="px-alert-msg" dangerouslySetInnerHTML={{ __html: alert.body }} />
+      <div className="px-alert-msg" dangerouslySetInnerHTML={{ __html: sanitizeHtml(alert.body) }} />
       <div className="px-alert-actions">
         <button className="px-btn px-btn-sm px-btn-primary" onClick={handleCta}>
           <Icons.ArrowRight size={11} /> {alert.cta}

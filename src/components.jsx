@@ -102,7 +102,7 @@ const Toast = () => {
 };
 
 /* ─── Milestone Achieved Modal (replaces CelebrationModal) ───────── */
-const MilestoneAchievedModal = ({ isOpen, onClose, phase }) => {
+const MilestoneAchievedModal = ({ isOpen, onClose, phase, onSchedule }) => {
   const { taskStates } = useTasks() || {};
   const { authUser } = window.useAuth?.() || {};
   const prof = useProfile() || {};
@@ -180,8 +180,8 @@ const MilestoneAchievedModal = ({ isOpen, onClose, phase }) => {
         <button className="px-btn px-btn-ghost" onClick={handlePrint}>
           <Icons.Download size={13} /> Download PDF
         </button>
-        <button className="px-btn px-btn-primary" onClick={onClose}>
-          <Icons.Check size={13} /> Done
+        <button className="px-btn px-btn-primary" onClick={onSchedule || onClose}>
+          <Icons.Calendar size={13} /> Schedule next review
         </button>
       </div>
     </Modal>

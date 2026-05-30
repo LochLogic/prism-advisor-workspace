@@ -75,7 +75,7 @@ const PhaseCard = ({ phase, onOpenMilestone }) => {
           <div className="px-phase-body">
             <div className="px-phase-rationale">
               <span className="px-phase-rationale-icon"><Icons.Sparkles size={14} /></span>
-              <div className="px-phase-rationale-body" dangerouslySetInnerHTML={{ __html: phase.rationale }} />
+              <div className="px-phase-rationale-body" dangerouslySetInnerHTML={{ __html: sanitizeHtml(phase.rationale) }} />
             </div>
 
             <div className="px-eyebrow" style={{ marginBottom: 8 }}>Milestones</div>
@@ -396,6 +396,7 @@ const ClientPortal = ({ onOpenNumbers }) => {
         isOpen={!!milestoneModal}
         onClose={() => setMilestoneModal(null)}
         phase={milestoneModal}
+        onSchedule={() => { setMilestoneModal(null); openScheduler(); }}
       />
 
       {/* Request-a-meeting modal */}
