@@ -431,6 +431,12 @@ const escapeHtml = (s) => {
     .replace(/'/g, '&#039;');
 };
 
+// Escape everything, then re-allow ONLY a tiny formatting whitelist (no
+// attributes). Safe to feed into dangerouslySetInnerHTML — scripts, event
+// handlers, and styled tags are all neutralised to text.
+const sanitizeHtml = (s) => escapeHtml(s)
+  .replace(/&lt;(\/?)(b|i|em|strong|br)\s*\/?&gt;/gi, '<$1$2>');
+
 const _printStyles = `
   body{font-family:Georgia,serif;color:#1c2e4a;padding:44px;max-width:720px;margin:0 auto;font-size:13px;}
   h1{font-size:22px;font-weight:500;margin:0 0 3px;}
@@ -668,6 +674,6 @@ Object.assign(window, {
   printComplianceReport,
   printPerformanceReport,
   printInvoiceReport,
-  escapeHtml,
+  escapeHtml, sanitizeHtml,
   fmt$, fmtPct, fmtN,
 });
