@@ -91,17 +91,25 @@ function lastCompletedQuarter() {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) return json({ error: "Not authenticated" }, 401);
+    // Two entry modes: (1) pg_cron via x-cron-secret → all firms; (2) admin via JWT → their firm
+    const cronSecret = Deno.env.get("CRON_SECRET");
+    const isCron = !!cronSecret && req.headers.get("x-cron-secret") === cronSecret;
 
-    const supa = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } });
-    const { data: { user } } = await supa.auth.getUser();
-    if (!user) return json({ error: "Not authenticated" }, 401);
+    let firmFilter: string | null = null;
+    let actorId: string | null = null, actorEmail: string | null = null;
 
-    const { data: adv } = await supa.from("advisors").select("firm_id, role").eq("auth_user_id", user.id).single();
-    if (!adv || adv.role !== "admin") return json({ error: "Firm admin only" }, 403);
-    const firmId = adv.firm_id;
+    if (!isCron) {
+      const authHeader = req.headers.get("Authorization");
+      if (!authHeader) return json({ error: "Not authenticated" }, 401);
+      const supa = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!,
+        { global: { headers: { Authorization: authHeader } } });
+      const { data: { user } } = await supa.auth.getUser();
+      if (!user) return json({ error: "Not authenticated" }, 401);
+      const { data: adv } = await supa.from("advisors").select("firm_id, role").eq("auth_user_id", user.id).single();
+      if (!adv || adv.role !== "admin") return json({ error: "Firm admin only" }, 403);
+      firmFilter = adv.firm_id;
+      actorId = user.id; actorEmail = user.email ?? null;
+    }
 
     const body = await req.json().catch(() => ({}));
     const { year, quarter } = (body.year && body.quarter) ? body : lastCompletedQuarter();
@@ -109,9 +117,13 @@ Deno.serve(async (req) => {
 
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    const { data: clients } = await admin.from("clients")
-      .select("id, fee_schedule_id").eq("firm_id", firmId).eq("active", true).not("fee_schedule_id", "is", null);
-    const { data: schedules } = await admin.from("fee_schedules").select("id, tiers, basis").eq("firm_id", firmId);
+    let cq = admin.from("clients").select("id, firm_id, fee_schedule_id").eq("active", true).not("fee_schedule_id", "is", null);
+    if (firmFilter) cq = cq.eq("firm_id", firmFilter);
+    const { data: clients } = await cq;
+
+    let sq = admin.from("fee_schedules").select("id, tiers, basis");
+    if (firmFilter) sq = sq.eq("firm_id", firmFilter);
+    const { data: schedules } = await sq;
     const schedMap: Record<string, any> = Object.fromEntries((schedules || []).map(s => [s.id, s]));
 
     let created = 0, skipped = 0, total = 0;
@@ -125,19 +137,19 @@ Deno.serve(async (req) => {
       if (basis <= 0) { skipped++; continue; }
       const fee = annualFee(sched.tiers, basis) * (days / 365);
       const { error } = await admin.from("invoices").insert({
-        firm_id: firmId, client_id: c.id, period_start: start, period_end: end,
+        firm_id: c.firm_id, client_id: c.id, period_start: start, period_end: end,
         basis_amount: Math.round(basis), fee_amount: Math.round(fee * 100) / 100, status: "draft",
       });
       if (error) skipped++; else { created++; total += fee; }
     }
 
     await admin.from("audit_log").insert({
-      actor_id: user.id, actor_role: "admin", actor_email: user.email, firm_id: firmId,
+      actor_id: actorId, actor_role: isCron ? "system" : "admin", actor_email: actorEmail, firm_id: firmFilter,
       action: "invoices.generate", entity_type: "invoice",
-      summary: `Generated ${created} draft invoice(s) for Q${quarter} ${year}`,
+      summary: `${isCron ? "Scheduled" : "Manual"} run — ${created} draft invoice(s) for Q${quarter} ${year}`,
     });
 
-    return json({ created, skipped, total: Math.round(total * 100) / 100, period: `Q${quarter} ${year}`, start, end });
+    return json({ created, skipped, total: Math.round(total * 100) / 100, period: `Q${quarter} ${year}`, start, end, mode: isCron ? "cron" : "manual" });
   } catch (e) {
     return json({ error: (e as Error).message }, 400);
   }
