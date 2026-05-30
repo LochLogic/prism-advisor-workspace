@@ -181,7 +181,7 @@ const MilestoneAchievedModal = ({ isOpen, onClose, phase }) => {
           <Icons.Download size={13} /> Download PDF
         </button>
         <button className="px-btn px-btn-primary" onClick={onClose}>
-          <Icons.Calendar size={13} /> Schedule next review
+          <Icons.Check size={13} /> Done
         </button>
       </div>
     </Modal>

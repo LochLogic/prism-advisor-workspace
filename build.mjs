@@ -32,7 +32,7 @@ try {
     outfile: 'dist/bundle.js',
     jsxFactory: 'React.createElement',
     jsxFragment: 'React.Fragment',
-    minify: false,
+    minify: true,
   });
   console.log('✓ dist/bundle.js built');
 
