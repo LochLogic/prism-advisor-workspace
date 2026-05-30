@@ -210,20 +210,26 @@ const RosterRow = ({ client, onOpen }) => {
 };
 
 /* ─── Alert card ─────────────────────────────────────────────────── */
-const AlertCard = ({ alert, onSnooze, clients }) => {
-  const { openClientPortal, showToast } = useView();
+// CTAs that open the client roadmap, deep-linked to the relevant phase
+const ALERT_REVIEW_PHASE = { 'Deploy cash': 5, 'Open Roth modeler': 6 }; // others open without a specific phase
+
+const AlertCard = ({ alert, onSnooze, clients, onAgenda }) => {
+  const { openClientPortal, setPendingPhaseId, showToast } = useView();
   const client = clients.find(c => c.id === alert.clientId);
   const I = Icons[alert.icon] || Icons.Bell;
 
   const handleCta = () => {
-    if ((alert.cta === 'Open modeler' || alert.cta === 'Review plan') && client) {
+    if (alert.cta === 'Add to agenda') {        // → create a real follow-up task
+      onAgenda?.(client, alert);
+      return;
+    }
+    // Everything else opens the client, deep-linked to the relevant phase when known
+    if (client) {
       openClientPortal(client);
-    } else if (alert.cta === 'Schedule call') {
-      showToast(`Scheduling call with ${client?.shortName || 'client'} — calendar integration coming soon`);
-    } else if (alert.cta === 'Draft note') {
-      showToast(`Note drafted for ${client?.shortName || 'client'} — visible in the client record`);
+      const ph = ALERT_REVIEW_PHASE[alert.cta];
+      if (ph != null) setPendingPhaseId(ph);
     } else {
-      showToast(`${alert.cta} · ${client?.shortName || ''}`);
+      showToast('Open the client to review');
     }
   };
 
@@ -1956,7 +1962,7 @@ const FirmAdminDashboard = () => {
 /* ─── Main Advisor Dashboard ─────────────────────────────────────── */
 const AdvisorDashboard = () => {
   const { authUser, isDemo } = useAuth();
-  const { openClientPortal } = useView();
+  const { openClientPortal, showToast } = useView();
   const [previewClient, setPreviewClient] = useStateAdv(null);
   const [addingClient, setAddingClient] = useStateAdv(false);
   const [snoozed, setSnoozed] = useStateAdv(new Set());
@@ -2004,6 +2010,20 @@ const AdvisorDashboard = () => {
   const activeAlerts    = isLiveMode ? (dbAlerts    || []) : alertsData;
   const activeQuestions = isLiveMode ? (dbQuestions || []) : questionsData;
   const activeTasks     = isLiveMode ? (dbTasks || []) : tasksData.filter(t => !demoDoneTasks.has(t.id));
+
+  // Turn an alert into a real CRM task ("Add to agenda")
+  const addAgendaItem = async (clientObj, alert) => {
+    const title = alert?.headline || 'Follow-up';
+    if (!isLiveMode || !authUser?.id) { // demo / no live session
+      showToast(`Added to ${clientObj?.shortName || 'client'}'s agenda`);
+      return;
+    }
+    const row = await window.db.createTask(authUser.id, authUser.firm_id, {
+      title, client_id: clientObj?.id, priority: alert?.priority === 'high' ? 'high' : 'normal',
+    });
+    if (row) { setDbTasks(prev => [window.db.mapTask(row), ...(prev || [])]); showToast('Added to agenda'); }
+    else showToast('Could not add to agenda — check console');
+  };
 
   const handleClientCreated = (newClient) => {
     setDbClients(prev => [...(prev || []), newClient]);
@@ -2064,7 +2084,7 @@ const AdvisorDashboard = () => {
             headline: `${c.shortName} — no activity ${daysSince}d`,
             body:     'Consider scheduling a check-in',
             timeAgo:  'auto',
-            cta:      'Schedule call',
+            cta:      'Add to agenda',
           });
         }
       }
@@ -2263,7 +2283,7 @@ const AdvisorDashboard = () => {
             <h3><Icons.Bell size={13} style={{ verticalAlign: 'middle', marginRight: 4, color: 'var(--gold)' }} /> Alerts & nudges</h3>
             <span className="px-side-count">{visibleAlerts.length} open</span>
           </div>
-          {visibleAlerts.map(a => <AlertCard key={a.id} alert={a} onSnooze={snooze} clients={activeClients} />)}
+          {visibleAlerts.map(a => <AlertCard key={a.id} alert={a} onSnooze={snooze} clients={activeClients} onAgenda={addAgendaItem} />)}
           {visibleAlerts.length === 0 && (
             <div style={{ padding: '18px 0', textAlign: 'center', color: 'var(--ink-faint)', fontStyle: 'italic', fontSize: 13 }}>
               All clear — no open alerts.

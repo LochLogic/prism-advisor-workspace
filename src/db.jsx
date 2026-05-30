@@ -544,8 +544,8 @@ const ALERT_ICON = {
   drift: 'AlertCircle', schedule_call: 'Phone', fx_exposure: 'Building',
 };
 const ALERT_CTA = {
-  cash_drag: 'Deploy cash', roth_window: 'Open modeler', tlh: 'Run harvester',
-  drift: 'Review plan', schedule_call: 'Schedule call', fx_exposure: 'Add agenda item',
+  cash_drag: 'Deploy cash', roth_window: 'Open Roth modeler', tlh: 'Add to agenda',
+  drift: 'Review plan', schedule_call: 'Add to agenda', fx_exposure: 'Add to agenda',
 };
 
 async function dbGetAlerts(advisorId) {
