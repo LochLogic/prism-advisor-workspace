@@ -95,6 +95,7 @@ let phasesData = [
       { id: 'p5t5', label: 'Quarterly portfolio review with advisor', tool: 'discuss' },
     ],
     calc: 'montecarlo',
+    calc2: 'tlh',
     metricLabel: 'Taxable assets',
     metricKey: 'taxableBalance',
   },

@@ -375,6 +375,55 @@ const EstateTool = () => {
   );
 };
 
+/* Phase 06 · Tax-Loss Harvesting (advisor tool) */
+const TLHTool = () => {
+  const { taxableBalance } = useProfile();
+  const [lossPct, setLossPct]       = useStateC(8);     // % of taxable book below cost basis
+  const [offsetRate, setOffsetRate] = useStateC(23.8);  // LTCG 20% + NIIT 3.8% (or ordinary if short-term)
+  const result = useMemoC(() => {
+    const harvestable = taxableBalance * (lossPct / 100);
+    return {
+      harvestable,
+      taxOffset: harvestable * (offsetRate / 100),
+      alphaLow:  taxableBalance * 0.005,
+      alphaHigh: taxableBalance * 0.015,
+    };
+  }, [taxableBalance, lossPct, offsetRate]);
+
+  return (
+    <ToolShell title="Tax-loss harvesting" advanced hint="Estimated offset from harvesting unrealized losses">
+      <div className="px-tool-grid">
+        <StatCell label="Harvestable losses" value={fmt$(result.harvestable, { short: true })} big />
+        <StatCell label="Est. tax offset" value={fmt$(result.taxOffset, { short: true })} tone="good"
+          foot="Offsets gains + up to $3k ordinary / yr" />
+        <StatCell label="Annual TLH alpha (est.)"
+          value={`${fmt$(result.alphaLow, { short: true })}–${fmt$(result.alphaHigh, { short: true })}`}
+          foot="~0.5–1.5% after-tax, full cycle" />
+        <StatCell label="Taxable assets" value={fmt$(taxableBalance, { short: true })} />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 14 }}>
+        <label className="px-field">
+          <span className="px-field-label">Portfolio at a loss</span>
+          <div className="px-input-affix">
+            <input type="number" value={lossPct} min="0" max="100" onChange={(e) => setLossPct(parseFloat(e.target.value) || 0)} />
+            <span className="px-affix px-affix-r">%</span>
+          </div>
+        </label>
+        <label className="px-field">
+          <span className="px-field-label">Offset tax rate</span>
+          <div className="px-input-affix">
+            <input type="number" value={offsetRate} step="0.1" onChange={(e) => setOffsetRate(parseFloat(e.target.value) || 0)} />
+            <span className="px-affix px-affix-r">%</span>
+          </div>
+        </label>
+      </div>
+      <div style={{ marginTop: 12, fontSize: 11, color: 'var(--ink-mute)', fontStyle: 'italic', lineHeight: 1.5 }}>
+        Wash-sale rule: a harvested position can't be repurchased within 30 days — we rotate into a correlated, non-substantially-identical replacement to hold market exposure.
+      </div>
+    </ToolShell>
+  );
+};
+
 /* ─── Calculator registry ─────────────────────────────────────────── */
 const calculators = {
   cashflow:      CashflowTool,
@@ -383,6 +432,7 @@ const calculators = {
   hsa:           HSATool,
   assetlocation: AssetLocationTool,
   montecarlo:    MonteCarloTool,
+  tlh:           TLHTool,
   estate:        EstateTool,
   rothladder:    RothLadderTool,
 };

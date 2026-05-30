@@ -369,10 +369,16 @@ async function dbSaveProfile(clientId, profileData) {
       .upsert({ client_id: clientId, data: profileData, updated_at: new Date().toISOString() },
                { onConflict: 'client_id' });
     if (error) throw error;
-    // Append an immutable version snapshot (15e) — failure must not block the save
+    // Append an immutable version snapshot (15e), but only if it changed since
+    // the last one — avoids bloat from debounced autosaves. Never blocks the save.
     try {
-      await _sb().from('profile_versions').insert({
-        client_id: clientId, data: profileData, saved_by: window.__pxAuthActor?.id || null });
+      const { data: last } = await _sb()
+        .from('profile_versions').select('data')
+        .eq('client_id', clientId).order('version', { ascending: false }).limit(1).maybeSingle();
+      if (!last || JSON.stringify(last.data) !== JSON.stringify(profileData)) {
+        await _sb().from('profile_versions').insert({
+          client_id: clientId, data: profileData, saved_by: window.__pxAuthActor?.id || null });
+      }
     } catch (ve) { console.warn('[db] profileVersion:', ve.message); }
     dbAudit('profile.save', { entityType: 'profile', entityId: clientId, clientId,
       summary: 'Saved household financial profile' });
