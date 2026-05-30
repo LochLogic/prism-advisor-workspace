@@ -627,6 +627,36 @@ function printPerformanceReport(opts) {
   `);
 }
 
+// Branded advisory-fee invoice (Theme D, 18d)
+function printInvoiceReport(invoice, clientName, advisorFirm) {
+  const fmtD = (d) => new Date(d).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const num = ('INV-' + String(invoice.id).replace(/-/g, '').slice(0, 8)).toUpperCase();
+  _openPrint(`Invoice ${num}`, `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px">
+      <div><h1>Invoice</h1><div class="sub">${num} &middot; Issued ${fmtD(invoice.created_at || new Date())}</div></div>
+      <div style="font-size:11px;color:#5d7a8e;text-align:right">${escapeHtml(advisorFirm || 'Prism Advisor Workspace')}<br/>Advisory fee statement</div>
+    </div>
+    <div class="grid">
+      <div class="stat"><div class="stat-lbl">Bill to</div><div class="stat-val" style="font-size:14px;margin-top:6px">${escapeHtml(clientName || 'Client')}</div></div>
+      <div class="stat"><div class="stat-lbl">Billing period</div><div class="stat-val" style="font-size:13px;margin-top:7px">${fmtD(invoice.period_start)} – ${fmtD(invoice.period_end)}</div></div>
+      <div class="stat"><div class="stat-lbl">Status</div><div class="stat-val" style="font-size:14px;margin-top:6px;text-transform:capitalize">${escapeHtml(invoice.status || 'draft')}</div></div>
+    </div>
+    <div class="section-lbl">Detail</div>
+    <div class="task" style="font-weight:600;color:#5d7a8e;font-size:11px;text-transform:uppercase;letter-spacing:.04em">
+      <span style="flex:1">Description</span><span>Amount</span>
+    </div>
+    <div class="task">
+      <span style="flex:1">Advisory fee on billing assets of ${fmt$(invoice.basis_amount, { short: true })}</span>
+      <span style="font-weight:600">${fmt$(invoice.fee_amount)}</span>
+    </div>
+    <div class="task" style="border-bottom:none;padding-top:12px">
+      <span style="flex:1;font-weight:700;font-size:14px">Total due</span>
+      <span style="font-weight:700;font-size:16px">${fmt$(invoice.fee_amount)}</span>
+    </div>
+    <div class="footer">Advisory fees are calculated per your firm's fee schedule. Questions? Contact your advisor. Prism Advisor Workspace${advisorFirm ? ' &middot; ' + escapeHtml(advisorFirm) : ''}.</div>
+  `);
+}
+
 Object.assign(window, {
   ProfileProvider, useProfile,
   TaskProvider, useTasks,
@@ -637,6 +667,7 @@ Object.assign(window, {
   printMilestoneReport,
   printComplianceReport,
   printPerformanceReport,
+  printInvoiceReport,
   escapeHtml,
   fmt$, fmtPct, fmtN,
 });

@@ -224,10 +224,12 @@ const ClientPortal = ({ onOpenNumbers }) => {
   // Performance data for the client-facing report
   const [perfBal, setPerfBal] = React.useState(null);
   const [perfFlows, setPerfFlows] = React.useState([]);
+  const [invoices, setInvoices] = React.useState([]);
   React.useEffect(() => {
-    if (!window.db?.isUUID(activeClientId)) { setPerfBal(null); setPerfFlows([]); return; }
+    if (!window.db?.isUUID(activeClientId)) { setPerfBal(null); setPerfFlows([]); setInvoices([]); return; }
     window.db.getBalanceHistory(activeClientId).then(r => setPerfBal(r || []));
     window.db.getCashFlows(activeClientId).then(r => setPerfFlows(r || []));
+    window.db.getInvoices({ clientId: activeClientId }).then(r => setInvoices((r || []).filter(i => i.status !== 'void' && i.status !== 'draft')));
   }, [activeClientId]);
 
   // Meeting request (scheduling)
@@ -339,6 +341,28 @@ const ClientPortal = ({ onOpenNumbers }) => {
             <button className="px-btn px-btn-sm px-btn-ghost" onClick={downloadPerformance}>
               <Icons.Download size={11} /> Download performance report
             </button>
+          </div>
+        )}
+
+        {/* Advisory invoices (live clients with issued invoices) */}
+        {invoices.length > 0 && (
+          <div className="px-card" style={{ padding: 16, marginBottom: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8 }}>
+            <div className="px-eyebrow" style={{ marginBottom: 10 }}>Advisory invoices</div>
+            {invoices.map(inv => (
+              <div key={inv.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, color: 'var(--ink)' }}>
+                    {new Date(inv.period_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}–{new Date(inv.period_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    <span style={{ marginLeft: 8, fontSize: 10, textTransform: 'uppercase', letterSpacing: '.04em', color: inv.status === 'paid' ? 'var(--forest)' : 'var(--gold)' }}>{inv.status}</span>
+                  </div>
+                </div>
+                <span className="px-num-serif" style={{ fontSize: 15 }}>{fmt$(inv.fee_amount)}</span>
+                <button className="px-btn px-btn-sm px-btn-ghost" title="Download invoice"
+                  onClick={() => window.printInvoiceReport?.(inv, viewingClient.shortName || viewingClient.name, advisorDisplay.firm)}>
+                  <Icons.Download size={11} />
+                </button>
+              </div>
+            ))}
           </div>
         )}
 

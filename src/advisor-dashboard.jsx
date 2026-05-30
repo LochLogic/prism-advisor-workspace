@@ -1925,6 +1925,10 @@ const FirmAdminDashboard = () => {
                       {inv.status === 'approved' && (
                         <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => setInvoiceStatus(inv, 'paid')}>Mark paid</button>
                       )}
+                      <button className="px-btn px-btn-sm px-btn-ghost" title="Download invoice PDF"
+                        onClick={() => window.printInvoiceReport?.(inv, inv.clients?.short_name || inv.clients?.household_name, authUser?.firms?.name)}>
+                        <Icons.Download size={10} />
+                      </button>
                     </td>
                   </tr>
                 ))}
