@@ -105,11 +105,18 @@ const Toast = () => {
 const MilestoneAchievedModal = ({ isOpen, onClose, phase }) => {
   const { taskStates } = useTasks() || {};
   const { authUser } = window.useAuth?.() || {};
+  const prof = useProfile() || {};
   if (!isOpen || !phase) return null;
   const completed   = phase.tasks.filter(t => taskStates?.[phase.id]?.[t.id]);
   const advisorName = authUser?.full_name || advisor.fullName;
   const advisorFirm = authUser?.firms?.name || advisor.firm;
-  const handlePrint = () => window.printMilestoneReport?.(phase, taskStates, advisorName, advisorFirm);
+  const numbers = {
+    netWorth: prof.netWorth, invested: prof.totalInvested,
+    reserve: prof.profile?.savings?.emergency || 0, reserveTarget: prof.reserveTarget,
+    surplus: prof.surplus, savingsRate: prof.savingsRate,
+    retirementAssets: prof.retirementAssets, taxableBalance: prof.taxableBalance,
+  };
+  const handlePrint = () => window.printMilestoneReport?.(phase, taskStates, advisorName, advisorFirm, numbers);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} className="px-milestone-modal">
