@@ -44,8 +44,13 @@ try {
   mkdirSync('_site/dist', { recursive: true });
   mkdirSync('_site/src',  { recursive: true });
 
-  // Content hash → cache-bust query so a new deploy never serves stale assets
-  const hash = createHash('sha256').update(readFileSync('dist/bundle.js')).digest('hex').slice(0, 8);
+  // Content hash over all cache-busted assets → any change to any of them
+  // refreshes the lot (CSS-only edits bust too, not just JS).
+  const hash = createHash('sha256')
+    .update(readFileSync('dist/bundle.js'))
+    .update(readFileSync('src/styles.css'))
+    .update(readFileSync('src/supabase-client.js'))
+    .digest('hex').slice(0, 8);
   const bust = (html) => readFileSync(html, 'utf8')
     .replace(/dist\/bundle\.js(\?v=[^"']*)?/g,         `dist/bundle.js?v=${hash}`)
     .replace(/src\/styles\.css(\?v=[^"']*)?/g,         `src/styles.css?v=${hash}`)

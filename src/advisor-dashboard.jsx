@@ -1208,7 +1208,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                       <td style={{ padding: '9px 8px', textAlign: 'right', fontFamily: 'var(--mono, monospace)', color: 'var(--ink)' }}>{fmt$(a.balance, { short: true })}</td>
                       <td style={{ padding: '9px 8px', textAlign: 'right', fontFamily: 'var(--mono, monospace)', color: a.cash > 0 ? 'var(--brick)' : 'var(--ink-mute)' }}>{a.cash ? fmt$(a.cash, { short: true }) : '—'}</td>
                       <td style={{ padding: '9px 0 9px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        <button className="px-btn px-btn-sm px-btn-ghost" style={{ marginRight: 4 }}
+                        <button className="px-btn px-btn-sm px-btn-ghost" style={{ marginRight: 4 }} aria-label="Edit account"
                           onClick={() => setAccForm({ id: a.id, type: a.type, custodian: a.custodian || '', name: a.name || '', balance: a.balance, cash: a.cash })}>
                           <Icons.Edit size={10} />
                         </button>
@@ -1220,7 +1220,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                               onClick={() => setConfirmDeleteAccId(null)}>Cancel</button>
                           </>
                         ) : (
-                          <button className="px-btn px-btn-sm px-btn-ghost" style={{ color: 'var(--brick)' }}
+                          <button className="px-btn px-btn-sm px-btn-ghost" style={{ color: 'var(--brick)' }} aria-label="Delete account"
                             onClick={() => setConfirmDeleteAccId(a.id)}>
                             <Icons.X size={10} />
                           </button>

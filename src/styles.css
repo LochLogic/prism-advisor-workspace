@@ -371,6 +371,15 @@ input, select, textarea { font-family: inherit; color: inherit; }
 }
 .px-input:focus, .px-select:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px var(--accent-soft); }
 .px-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+
+/* Accessibility: clear keyboard-focus ring on interactive elements (mouse users unaffected) */
+a:focus-visible, button:focus-visible, [role="button"]:focus-visible,
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 /* Brief highlight when jumping to a phase tool */
 .px-tool-flash { animation: pxToolFlash 1.2s ease-out; border-radius: 8px; }
 @keyframes pxToolFlash { 0% { box-shadow: 0 0 0 3px var(--gold-soft); } 100% { box-shadow: 0 0 0 0 transparent; } }
