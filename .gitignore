@@ -26,4 +26,9 @@ supabase/functions/.edge-runtime/
 # Build
 node_modules/
 dist/
+_site/
 src/_entry.jsx
+
+# Cloudflare / Wrangler
+.wrangler/
+.dev.vars
