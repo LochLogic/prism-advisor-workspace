@@ -110,8 +110,19 @@ function perfPeriods(series, flows) {
   const ago = (days) => new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
   const yStart = `${new Date().getFullYear()}-01-01`;
   const defs = [['1M', ago(30)], ['3M', ago(90)], ['YTD', yStart], ['1Y', ago(365)], ['ITD', series[0].date]];
-  return defs.map(([label, start]) => ({ label, ...(modifiedDietz(series, flows, start, end) || {}) }));
+  return defs.map(([label, start]) => ({ label, start, end, ...(modifiedDietz(series, flows, start, end) || {}) }));
 }
+
+// Compounded benchmark return over a period given an assumed annual rate
+function benchmarkPct(start, end, annualRate) {
+  const yrs = Math.max(0, (new Date(end) - new Date(start)) / (365 * 86400000));
+  return (Math.pow(1 + annualRate, yrs) - 1) * 100;
+}
+const BENCHMARKS = [
+  { label: 'S&P 500 (~10%)', rate: 0.10 },
+  { label: '60/40 blend (~7%)', rate: 0.07 },
+  { label: 'Conservative (~5%)', rate: 0.05 },
+];
 
 // Compact portfolio-value area chart
 const PerfChart = ({ series, height = 96 }) => {
@@ -386,7 +397,35 @@ const FlaggedQuestion = ({ q, onDismiss, clients, authUser, onOpenClient }) => {
 };
 
 /* ─── Roster section ─────────────────────────────────────────────── */
-const RosterTable = ({ onOpenClient, clients, onAddClient, isLiveMode, onExportCSV }) => {
+/* ─── Pipeline board (CRM) ───────────────────────────────────────── */
+const PipelineBoard = ({ clients, onOpen, onMove }) => (
+  <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8 }}>
+    {PIPELINE_STAGES.map(stage => {
+      const inStage = clients.filter(c => (c.pipelineStage || 'active') === stage.value);
+      return (
+        <div key={stage.value} style={{ flex: '0 0 210px', minWidth: 210, background: 'var(--bg-elev)', borderRadius: 8, padding: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.04em', color: stage.color }}>{stage.label}</span>
+            <span style={{ fontSize: 11, color: 'var(--ink-faint)' }}>{inStage.length}</span>
+          </div>
+          {inStage.map(c => (
+            <div key={c.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 10px', marginBottom: 8 }}>
+              <div onClick={() => onOpen(c)} style={{ cursor: 'pointer', fontSize: 12.5, fontWeight: 600, color: 'var(--ink)' }}>{c.shortName || c.name}</div>
+              <div style={{ fontSize: 11, color: 'var(--ink-mute)', margin: '2px 0 6px' }}>{fmt$(c.aum, { short: true })}</div>
+              <select className="px-select" style={{ width: '100%', padding: '3px 6px', fontSize: 11 }}
+                value={c.pipelineStage || 'active'} onChange={e => onMove(c, e.target.value)}>
+                {PIPELINE_STAGES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+            </div>
+          ))}
+          {inStage.length === 0 && <div style={{ fontSize: 11, color: 'var(--ink-faint)', fontStyle: 'italic', padding: '6px 0' }}>—</div>}
+        </div>
+      );
+    })}
+  </div>
+);
+
+const RosterTable = ({ onOpenClient, clients, onAddClient, isLiveMode, onExportCSV, view, onView, onMoveStage }) => {
   const [q, setQ] = useStateAdv('');
   const [sort, setSort] = useStateAdv('aum');
   const filtered = useMemoAdv(() => {
@@ -404,6 +443,14 @@ const RosterTable = ({ onOpenClient, clients, onAddClient, isLiveMode, onExportC
       <div className="px-section-head">
         <h2>Client roster {isLiveMode && <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--ink-mute)', marginLeft: 6 }}>live</span>}</h2>
         <div className="px-section-tools">
+          <div className="px-viewswitch" role="tablist" aria-label="Roster view" style={{ marginRight: 4 }}>
+            <button className={view === 'board' ? '' : 'is-on'} onClick={() => onView('table')} role="tab" aria-selected={view !== 'board'}>
+              <Icons.TableCol size={12} /> Roster
+            </button>
+            <button className={view === 'board' ? 'is-on' : ''} onClick={() => onView('board')} role="tab" aria-selected={view === 'board'}>
+              <Icons.Layers size={12} /> Pipeline
+            </button>
+          </div>
           <div className="px-search">
             <Icons.Search size={12} />
             <input placeholder="Search clients…" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -427,23 +474,27 @@ const RosterTable = ({ onOpenClient, clients, onAddClient, isLiveMode, onExportC
           )}
         </div>
       </div>
-      <div className="px-roster">
-        <table className="px-table">
-          <thead>
-            <tr>
-              <th style={{ width: '32%' }}>Client</th>
-              <th style={{ width: '28%' }}>Current Horizon</th>
-              <th className="is-num">AUM</th>
-              <th className="is-num px-hide-mobile">Uninvested cash</th>
-              <th style={{ width: 90 }}>Activity</th>
-              <th className="is-num px-hide-mobile" style={{ width: 64 }}>YTD</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(c => <RosterRow key={c.id} client={c} onOpen={onOpenClient} />)}
-          </tbody>
-        </table>
-      </div>
+      {view === 'board' ? (
+        <PipelineBoard clients={filtered} onOpen={onOpenClient} onMove={onMoveStage} />
+      ) : (
+        <div className="px-roster">
+          <table className="px-table">
+            <thead>
+              <tr>
+                <th style={{ width: '32%' }}>Client</th>
+                <th style={{ width: '28%' }}>Current Horizon</th>
+                <th className="is-num">AUM</th>
+                <th className="is-num px-hide-mobile">Uninvested cash</th>
+                <th style={{ width: 90 }}>Activity</th>
+                <th className="is-num px-hide-mobile" style={{ width: 64 }}>YTD</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(c => <RosterRow key={c.id} client={c} onOpen={onOpenClient} />)}
+            </tbody>
+          </table>
+        </div>
+      )}
     </>
   );
 };
@@ -567,6 +618,8 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
   const [tasks,     setTasks]     = useStateAdv(undefined);
   const [taskForm,  setTaskForm]  = useStateAdv(null);
   const [savingTask, setSavingTask] = useStateAdv(false);
+  const [modalAdvisors, setModalAdvisors] = useStateAdv([]);
+  const advisorName = (id) => modalAdvisors.find(a => a.id === id)?.full_name || null;
   const [timeline,  setTimeline]  = useStateAdv(undefined);
   const [versionCount, setVersionCount] = useStateAdv(0);
 
@@ -574,8 +627,17 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
   const [perfBal,   setPerfBal]   = useStateAdv(undefined);
   const [perfFlows, setPerfFlows] = useStateAdv([]);
   const [flowForm,  setFlowForm]  = useStateAdv(null);
+  const [benchRate, setBenchRate] = useStateAdv(0.07);
   const perfSeries = useMemoAdv(() => buildValueSeries(perfBal || []), [perfBal]);
   const perfStats  = useMemoAdv(() => perfPeriods(perfSeries, perfFlows), [perfSeries, perfFlows]);
+  const acctMix = useMemoAdv(() => {
+    const rows = accounts || [];
+    const total = rows.reduce((s, a) => s + (Number(a.balance) || 0), 0) || 1;
+    const byType = {};
+    rows.forEach(a => { byType[a.type] = (byType[a.type] || 0) + (Number(a.balance) || 0); });
+    return Object.entries(byType).map(([type, bal]) => ({ type, bal, pct: (bal / total) * 100 }))
+      .sort((a, b) => b.bal - a.bal);
+  }, [accounts]);
 
   React.useEffect(() => {
     if (client) {
@@ -613,9 +675,11 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     if (window.db?.isUUID(client.id)) {
       window.db.getBalanceHistory(client.id).then(rows => setPerfBal(rows || []));
       window.db.getCashFlows(client.id).then(rows => setPerfFlows(rows || []));
+      if (accounts === undefined) window.db.getAccounts(client.id).then(rows => setAccounts(rows || []));
     } else {
       setPerfBal(demoBalanceHistory(client.aum || 0));
       setPerfFlows(demoCashFlows());
+      if (accounts === undefined) setAccounts(accountsData[client.id] || []);
     }
   }, [tab]);
 
@@ -632,6 +696,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     if (window.db?.isUUID(client.id) && advisorId) {
       window.db.getTasks(advisorId, { clientId: client.id, includeDone: true })
         .then(rows => setTasks(rows ? rows.map(window.db.mapTask) : []));
+      if (!modalAdvisors.length) window.db.getAdvisors().then(r => setModalAdvisors(r || []));
     } else {
       setTasks(tasksData.filter(t => t.clientId === client.id));
     }
@@ -1231,7 +1296,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
               <span style={LABEL_STYLE}>Open & recent tasks</span>
               {!taskForm && (
                 <button className="px-btn px-btn-sm px-btn-ghost"
-                  onClick={() => setTaskForm({ title: '', detail: '', priority: 'normal', due_at: '' })}>
+                  onClick={() => setTaskForm({ title: '', detail: '', priority: 'normal', due_at: '', assigned_to: advisorId || '' })}>
                   <Icons.Plus size={10} /> New task
                 </button>
               )}
@@ -1270,6 +1335,15 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                     </select>
                   </label>
                 </div>
+                {modalAdvisors.length > 1 && (
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 8 }}>
+                    <span style={{ fontSize: 11, color: 'var(--ink-mute)' }}>Assign to</span>
+                    <select className="px-select" value={taskForm.assigned_to || ''}
+                      onChange={e => setTaskForm(f => ({ ...f, assigned_to: e.target.value }))}>
+                      {modalAdvisors.map(a => <option key={a.id} value={a.id}>{a.full_name}</option>)}
+                    </select>
+                  </label>
+                )}
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button className="px-btn px-btn-sm px-btn-primary" onClick={saveTask} disabled={savingTask}>
                     {savingTask ? 'Saving…' : 'Create task'}
@@ -1301,7 +1375,12 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                       {t.title}
                     </div>
                     {t.detail && <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 2 }}>{t.detail}</div>}
-                    {!done && <div style={{ fontSize: 11, color: due.tone, marginTop: 2 }}>{due.label}</div>}
+                    <div style={{ fontSize: 11, marginTop: 2, display: 'flex', gap: 8 }}>
+                      {!done && <span style={{ color: due.tone }}>{due.label}</span>}
+                      {t.assignedTo && advisorName(t.assignedTo) && (
+                        <span style={{ color: 'var(--ink-faint)' }}>→ {advisorName(t.assignedTo)}</span>
+                      )}
+                    </div>
                   </div>
                   <button onClick={() => removeTask(t)} aria-label="Delete task"
                     style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', padding: '0 2px', flexShrink: 0 }}>
@@ -1365,25 +1444,61 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
 
                 <PerfChart series={perfSeries} />
 
-                {/* Period returns (Modified Dietz; reduces to value change when no flows logged) */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, margin: '14px 0' }}>
+                {/* Benchmark selector */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '14px 0 8px' }}>
+                  <span style={{ fontSize: 11, color: 'var(--ink-mute)' }}>Benchmark</span>
+                  <select className="px-select" style={{ width: 'auto', padding: '4px 8px', fontSize: 12 }}
+                    value={benchRate} onChange={e => setBenchRate(Number(e.target.value))}>
+                    {BENCHMARKS.map(b => <option key={b.rate} value={b.rate}>{b.label}</option>)}
+                  </select>
+                </div>
+
+                {/* Period returns vs benchmark (Modified Dietz) */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 8 }}>
                   {perfStats.map(s => {
                     const has = s.pct != null && isFinite(s.pct);
                     const pos = (s.pct || 0) >= 0;
+                    const bench = benchmarkPct(s.start, s.end, benchRate);
+                    const delta = has ? s.pct - bench : null;
                     return (
                       <div key={s.label} style={{ padding: '8px 6px', background: 'var(--bg-elev)', borderRadius: 6, textAlign: 'center' }}>
                         <div style={{ fontSize: 10, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.04em' }}>{s.label}</div>
                         <div style={{ fontSize: 14, fontWeight: 600, marginTop: 3, color: !has ? 'var(--ink-faint)' : pos ? 'var(--forest)' : 'var(--brick)' }}>
                           {has ? `${pos ? '+' : ''}${s.pct.toFixed(1)}%` : '—'}
                         </div>
+                        {has && (
+                          <div style={{ fontSize: 9.5, marginTop: 2, color: delta >= 0 ? 'var(--forest)' : 'var(--brick)' }}>
+                            {delta >= 0 ? '▲' : '▼'} {Math.abs(delta).toFixed(1)} vs bm
+                          </div>
+                        )}
                       </div>
                     );
                   })}
                 </div>
 
                 <div style={{ fontSize: 11, color: 'var(--ink-faint)', lineHeight: 1.5, marginBottom: 18 }}>
-                  Time-weighted (Modified Dietz). Log contributions/withdrawals below for accurate returns — otherwise figures reflect raw value change. Live transaction flows arrive with Plaid/custodian feeds.
+                  Time-weighted (Modified Dietz) vs an assumed benchmark return. Log flows below for accurate returns; per-security attribution arrives with holdings feeds (Plaid investments / custodian).
                 </div>
+
+                {/* Account mix (by account type; true asset-class attribution needs holdings) */}
+                {acctMix.length > 0 && (
+                  <div style={{ marginBottom: 18 }}>
+                    <div style={{ ...LABEL_STYLE, marginBottom: 8 }}>Account mix</div>
+                    {acctMix.map(m => (
+                      <div key={m.type} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                        <span style={{ fontSize: 11, color: 'var(--ink-mute)', width: 130, flexShrink: 0 }}>
+                          {window.db?.ACCOUNT_TYPE_LABELS?.[m.type] || m.type}
+                        </span>
+                        <div style={{ flex: 1, height: 8, background: 'var(--bg-elev)', borderRadius: 4, overflow: 'hidden' }}>
+                          <div style={{ width: `${m.pct}%`, height: '100%', background: 'var(--gold)' }} />
+                        </div>
+                        <span style={{ fontSize: 11, color: 'var(--ink)', width: 78, textAlign: 'right' }}>
+                          {fmt$(m.bal, { short: true })} · {m.pct.toFixed(0)}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* Cash flow log */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -2005,6 +2120,8 @@ const AdvisorDashboard = () => {
   const [addingClient, setAddingClient] = useStateAdv(false);
   const [snoozed, setSnoozed] = useStateAdv(new Set());
   const [dismissedQs, setDismissedQs] = useStateAdv(new Set());
+  const [rosterView, setRosterView] = useStateAdv('table');
+  const [stageOverride, setStageOverride] = useStateAdv({});
 
   // undefined = not yet fetched; [] = fetched, empty; [...] = has rows
   const [dbClients,     setDbClients]     = useStateAdv(undefined);
@@ -2048,6 +2165,20 @@ const AdvisorDashboard = () => {
   const activeAlerts    = isLiveMode ? (dbAlerts    || []) : alertsData;
   const activeQuestions = isLiveMode ? (dbQuestions || []) : questionsData;
   const activeTasks     = isLiveMode ? (dbTasks || []) : tasksData.filter(t => !demoDoneTasks.has(t.id));
+  // Apply in-session pipeline-stage overrides (demo) so the board reflects moves
+  const boardClients = useMemoAdv(
+    () => activeClients.map(c => stageOverride[c.id] ? { ...c, pipelineStage: stageOverride[c.id] } : c),
+    [activeClients, stageOverride]);
+
+  const moveStage = async (c, stage) => {
+    if (isLiveMode) {
+      const row = await window.db.updateClient(c.id, { pipeline_stage: stage });
+      if (row) setDbClients(prev => (prev || []).map(x => x.id === c.id ? window.db.mapClient(row) : x));
+    } else {
+      setStageOverride(prev => ({ ...prev, [c.id]: stage }));
+    }
+    showToast(`${c.shortName || 'Client'} → ${stage.replace('_', ' ')}`);
+  };
 
   // Turn an alert into a real CRM task ("Add to agenda")
   const addAgendaItem = async (clientObj, alert) => {
@@ -2250,10 +2381,13 @@ const AdvisorDashboard = () => {
         ) : (
           <RosterTable
             onOpenClient={setPreviewClient}
-            clients={activeClients}
+            clients={boardClients}
             onAddClient={() => setAddingClient(true)}
             isLiveMode={isLiveMode}
             onExportCSV={isLiveMode ? exportCSV : null}
+            view={rosterView}
+            onView={setRosterView}
+            onMoveStage={moveStage}
           />
         )}
 
