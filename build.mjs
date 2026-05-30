@@ -4,6 +4,7 @@
 
 import * as esbuild from 'esbuild';
 import { readFileSync, writeFileSync, unlinkSync, mkdirSync, rmSync, copyFileSync } from 'fs';
+import { createHash } from 'crypto';
 
 const files = [
   'src/supabase-client.js',
@@ -43,8 +44,14 @@ try {
   mkdirSync('_site/dist', { recursive: true });
   mkdirSync('_site/src',  { recursive: true });
 
+  // Content hash → cache-bust query so a new deploy never serves stale assets
+  const hash = createHash('sha256').update(readFileSync('dist/bundle.js')).digest('hex').slice(0, 8);
+  const bust = (html) => readFileSync(html, 'utf8')
+    .replace(/dist\/bundle\.js(\?v=[^"']*)?/g,         `dist/bundle.js?v=${hash}`)
+    .replace(/src\/styles\.css(\?v=[^"']*)?/g,         `src/styles.css?v=${hash}`)
+    .replace(/src\/supabase-client\.js(\?v=[^"']*)?/g, `src/supabase-client.js?v=${hash}`);
   for (const html of ['index.html', 'login.html', 'signup.html', 'landing.html']) {
-    copyFileSync(html, `_site/${html}`);
+    writeFileSync(`_site/${html}`, bust(html));
   }
   copyFileSync('dist/bundle.js',          '_site/dist/bundle.js');
   copyFileSync('src/styles.css',          '_site/src/styles.css');
