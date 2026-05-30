@@ -771,8 +771,8 @@ async function dbGetTasks(advisorId, { clientId = null, includeDone = false } = 
   try {
     let q = _sb()
       .from('crm_tasks')
-      .select('id, client_id, title, detail, priority, status, due_at, created_at, completed_at, clients(short_name, household_name)')
-      .eq('advisor_id', advisorId)
+      .select('id, client_id, title, detail, priority, status, due_at, created_at, completed_at, assigned_to, clients(short_name, household_name)')
+      .or(`advisor_id.eq.${advisorId},assigned_to.eq.${advisorId}`)
       .order('due_at', { ascending: true, nullsFirst: false });
     if (isUUID(clientId)) q = q.eq('client_id', clientId);
     if (!includeDone)     q = q.eq('status', 'open');
@@ -787,6 +787,7 @@ function mapTask(t) {
     id: t.id, clientId: t.client_id, title: t.title, detail: t.detail || '',
     priority: t.priority || 'normal', status: t.status || 'open',
     dueAt: t.due_at, createdAt: t.created_at, completedAt: t.completed_at,
+    assignedTo: t.assigned_to || null,
     clientName: t.clients?.short_name || t.clients?.household_name || null,
   };
 }
@@ -804,8 +805,9 @@ async function dbCreateTask(advisorId, firmId, fields) {
         detail:     fields.detail || null,
         priority:   fields.priority || 'normal',
         due_at:     fields.due_at || null,
+        assigned_to: isUUID(fields.assigned_to) ? fields.assigned_to : null,
       })
-      .select('id, client_id, title, detail, priority, status, due_at, created_at, completed_at')
+      .select('id, client_id, title, detail, priority, status, due_at, created_at, completed_at, assigned_to')
       .single();
     if (error) throw error;
     dbAudit('task.create', { entityType: 'task', entityId: data.id, clientId: data.client_id,
@@ -826,9 +828,10 @@ async function dbUpdateTask(id, fields, clientId) {
     if (fields.detail   !== undefined) patch.detail   = fields.detail;
     if (fields.priority !== undefined) patch.priority = fields.priority;
     if (fields.due_at   !== undefined) patch.due_at   = fields.due_at;
+    if (fields.assigned_to !== undefined) patch.assigned_to = isUUID(fields.assigned_to) ? fields.assigned_to : null;
     const { data, error } = await _sb()
       .from('crm_tasks').update(patch).eq('id', id)
-      .select('id, client_id, title, detail, priority, status, due_at, created_at, completed_at')
+      .select('id, client_id, title, detail, priority, status, due_at, created_at, completed_at, assigned_to')
       .single();
     if (error) throw error;
     if (fields.status) {
