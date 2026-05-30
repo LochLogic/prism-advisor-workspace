@@ -367,12 +367,13 @@ function NotificationProvider({ children }) {
         event: 'INSERT', schema: 'public', table: 'meetings',
         filter: `advisor_id=eq.${authUser.id}`,
       }, ({ new: m }) => {
+        const st = m.status || 'logged';
         addNotification({
           id:        `m:${m.id}`,
           type:      'meeting',
           icon:      'Calendar',
-          headline:  'Meeting logged',
-          body:      m.notes ? m.notes.slice(0, 80) : 'New meeting recorded',
+          headline:  st === 'requested' ? 'Meeting requested' : st === 'confirmed' ? 'Meeting scheduled' : 'Meeting logged',
+          body:      m.notes ? m.notes.slice(0, 80) : (st === 'requested' ? `Client requested ${new Date(m.met_at).toLocaleString()}` : 'New meeting recorded'),
           timeAgo:   'just now',
           createdAt: m.created_at || new Date().toISOString(),
           clientId:  m.client_id,

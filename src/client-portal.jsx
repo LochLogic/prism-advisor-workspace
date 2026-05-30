@@ -90,9 +90,16 @@ const PhaseCard = ({ phase, onOpenMilestone }) => {
                     </button>
                     <span className="px-task-label">{task.label}</span>
                     {task.tool === 'advanced' && (
-                      <span className="px-task-act" title="Advanced advisor tool">
-                        <Icons.Sparkles size={10} /> Tool
-                      </span>
+                      <button className="px-task-act is-discuss" title="Open the tool for this phase"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const el = document.getElementById(`tool-${phase.id}`);
+                          el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          el?.classList.add('px-tool-flash');
+                          setTimeout(() => el?.classList.remove('px-tool-flash'), 1200);
+                        }}>
+                        <Icons.Sparkles size={10} /> Open tool
+                      </button>
                     )}
                     {task.tool === 'discuss' && (
                       <button
@@ -118,8 +125,12 @@ const PhaseCard = ({ phase, onOpenMilestone }) => {
               })}
             </div>
 
-            {ToolComp && <ToolComp />}
-            {ToolComp2 && <ToolComp2 />}
+            {(ToolComp || ToolComp2) && (
+              <div id={`tool-${phase.id}`}>
+                {ToolComp && <ToolComp />}
+                {ToolComp2 && <ToolComp2 />}
+              </div>
+            )}
 
             {isComplete && (
               <div className="px-phase-complete-cta">
@@ -219,6 +230,23 @@ const ClientPortal = ({ onOpenNumbers }) => {
     window.db.getCashFlows(activeClientId).then(r => setPerfFlows(r || []));
   }, [activeClientId]);
 
+  // Meeting request (scheduling)
+  const [schedOpen, setSchedOpen] = React.useState(false);
+  const [schedForm, setSchedForm] = React.useState({ met_at: '', notes: '' });
+  const canRequest = window.db?.isUUID(activeClientId) && !!authUser?.advisor_id;
+  const openScheduler = () => {
+    if (!canRequest) { showToast('Scheduling is available once you sign in to your portal.'); return; }
+    setSchedForm({ met_at: '', notes: '' });
+    setSchedOpen(true);
+  };
+  const sendMeetingRequest = async () => {
+    const met_at = schedForm.met_at ? new Date(schedForm.met_at).toISOString() : null;
+    if (!met_at) { showToast('Pick a preferred date & time'); return; }
+    const row = await window.db.requestMeeting(activeClientId, authUser.advisor_id, { met_at, notes: schedForm.notes });
+    if (row) { showToast('Request sent — your advisor will confirm'); setSchedOpen(false); }
+    else showToast('Could not send request — try again');
+  };
+
   const activePhaseObj = phasesData.find(p => p.id === activePhase) || phasesData[0];
   // Use the real client object from ViewContext; fall back to mock only in demo mode
   const viewingClient = activeClient || clientsData.find(c => c.id === activeClientId) || clientsData[0];
@@ -270,10 +298,9 @@ const ClientPortal = ({ onOpenNumbers }) => {
             <div className="px-advisor-name">{advisorDisplay.fullName}</div>
             <div className="px-advisor-role">{advisorDisplay.firm}</div>
           </div>
-          <button className="px-advisor-chip-btn"
-            onClick={() => showToast('Scheduling integration coming soon — ask your advisor for a link.')}>
+          <button className="px-advisor-chip-btn" onClick={openScheduler}>
             <Icons.Calendar size={11} style={{ verticalAlign: 'middle', marginRight: 4 }} />
-            Schedule
+            Request meeting
           </button>
         </div>
         <div style={{ clear: 'both' }}></div>
@@ -344,6 +371,35 @@ const ClientPortal = ({ onOpenNumbers }) => {
         onClose={() => setMilestoneModal(null)}
         phase={milestoneModal}
       />
+
+      {/* Request-a-meeting modal */}
+      <Modal isOpen={schedOpen} onClose={() => setSchedOpen(false)} className="px-sched-modal">
+        <div style={{ padding: '24px 26px 26px', minWidth: 360, maxWidth: 420 }}>
+          <div className="px-eyebrow" style={{ marginBottom: 6 }}>Request a meeting</div>
+          <h2 style={{ fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 500, margin: '0 0 4px', color: 'var(--ink)' }}>
+            Pick a time with {advisorDisplay.name}
+          </h2>
+          <p style={{ fontSize: 12.5, color: 'var(--ink-mute)', lineHeight: 1.5, marginBottom: 16 }}>
+            Suggest a preferred date and time — your advisor will confirm.
+          </p>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 12 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Preferred date & time</span>
+            <input className="px-input" type="datetime-local" value={schedForm.met_at}
+              onChange={e => setSchedForm(f => ({ ...f, met_at: e.target.value }))} autoFocus />
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 16 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.06em' }}>What would you like to discuss? (optional)</span>
+            <textarea className="px-input" rows={3} style={{ resize: 'vertical' }}
+              value={schedForm.notes} onChange={e => setSchedForm(f => ({ ...f, notes: e.target.value }))} />
+          </label>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button className="px-btn px-btn-ghost" onClick={() => setSchedOpen(false)}>Cancel</button>
+            <button className="px-btn px-btn-primary" onClick={sendMeetingRequest}>
+              <Icons.Calendar size={12} /> Send request
+            </button>
+          </div>
+        </div>
+      </Modal>
     </>
   );
 };
