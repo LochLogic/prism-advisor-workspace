@@ -616,11 +616,14 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     }
   }, [tab]);
 
-  // Load tasks when the Tasks tab opens
+  // Load tasks when the Tasks tab opens (DB for live clients, mock for demo)
   React.useEffect(() => {
-    if (tab === 'tasks' && client && window.db?.isUUID(client.id) && tasks === undefined && advisorId) {
+    if (tab !== 'tasks' || !client || tasks !== undefined) return;
+    if (window.db?.isUUID(client.id) && advisorId) {
       window.db.getTasks(advisorId, { clientId: client.id, includeDone: true })
         .then(rows => setTasks(rows ? rows.map(window.db.mapTask) : []));
+    } else {
+      setTasks(tasksData.filter(t => t.clientId === client.id));
     }
   }, [tab]);
 
@@ -748,11 +751,21 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     showToast('Meeting removed');
   };
 
-  /* tasks (CRM) */
+  /* tasks (CRM) — interactive for live clients; local-only for demo/mock */
+  const mockTask = (fields) => ({
+    id: 'demo-' + Date.now(), clientId: client.id, clientName: client.shortName,
+    title: fields.title, detail: fields.detail || '', priority: fields.priority || 'normal',
+    status: 'open', dueAt: fields.due_at || null, createdAt: new Date().toISOString(), completedAt: null,
+  });
+
   const saveTask = async () => {
-    if (!advisorId || !taskForm.title?.trim()) { showToast('Task needs a title'); return; }
-    setSavingTask(true);
+    if (!taskForm.title?.trim()) { showToast('Task needs a title'); return; }
     const due_at = taskForm.due_at ? new Date(taskForm.due_at).toISOString() : null;
+    if (!isLiveClient) {
+      setTasks(prev => [mockTask({ ...taskForm, title: taskForm.title.trim(), due_at }), ...(prev || [])]);
+      setTaskForm(null); showToast('Task created'); return;
+    }
+    setSavingTask(true);
     const row = await window.db.createTask(advisorId, firmId, { ...taskForm, due_at, client_id: client.id });
     setSavingTask(false);
     if (row) {
@@ -764,11 +777,16 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
 
   const toggleTask = async (t) => {
     const next = t.status === 'done' ? 'open' : 'done';
+    if (!isLiveClient) {
+      setTasks(prev => (prev || []).map(x => x.id === t.id ? { ...x, status: next, completedAt: next === 'done' ? new Date().toISOString() : null } : x));
+      return;
+    }
     const row = await window.db.updateTask(t.id, { status: next }, client.id);
     if (row) setTasks(prev => (prev || []).map(x => x.id === t.id ? window.db.mapTask(row) : x));
   };
 
   const removeTask = async (t) => {
+    if (!isLiveClient) { setTasks(prev => (prev || []).filter(x => x.id !== t.id)); showToast('Task deleted'); return; }
     await window.db.deleteTask(t.id, client.id);
     setTasks(prev => (prev || []).filter(x => x.id !== t.id));
     showToast('Task deleted');
@@ -776,13 +794,17 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
 
   // Quick cadence — schedule a review task N months out
   const scheduleCadence = async (months, label) => {
-    if (!advisorId) { showToast('No advisor ID'); return; }
     const due = new Date(); due.setMonth(due.getMonth() + months);
+    const stamp = due.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    if (!isLiveClient) {
+      setTasks(prev => prev === undefined ? prev : [mockTask({ title: `${label} — ${client.shortName}`, due_at: due.toISOString() }), ...(prev || [])]);
+      showToast(`${label} scheduled for ${stamp}`); return;
+    }
     const row = await window.db.createTask(advisorId, firmId,
       { title: `${label} — ${client.shortName}`, due_at: due.toISOString(), client_id: client.id, priority: 'normal' });
     if (row) {
       setTasks(prev => prev === undefined ? prev : [window.db.mapTask(row), ...(prev || [])]);
-      showToast(`${label} scheduled for ${due.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`);
+      showToast(`${label} scheduled for ${stamp}`);
     }
   };
 
@@ -1943,7 +1965,10 @@ const AdvisorDashboard = () => {
     });
   }, [authUser?.id]);
 
+  const [demoDoneTasks, setDemoDoneTasks] = useStateAdv(new Set());
+
   const completeDashTask = async (t) => {
+    if (isDemo) { setDemoDoneTasks(prev => new Set([...prev, t.id])); return; }
     const row = await window.db?.updateTask(t.id, { status: 'done' }, t.clientId);
     if (row) setDbTasks(prev => (prev || []).filter(x => x.id !== t.id));
   };
@@ -1953,6 +1978,7 @@ const AdvisorDashboard = () => {
   const activeClients   = isLiveMode ? dbClients   : clientsData;
   const activeAlerts    = isLiveMode ? (dbAlerts    || []) : alertsData;
   const activeQuestions = isLiveMode ? (dbQuestions || []) : questionsData;
+  const activeTasks     = isLiveMode ? (dbTasks || []) : tasksData.filter(t => !demoDoneTasks.has(t.id));
 
   const handleClientCreated = (newClient) => {
     setDbClients(prev => [...(prev || []), newClient]);
@@ -2174,13 +2200,13 @@ const AdvisorDashboard = () => {
 
       <aside className="px-adv-side">
         {/* Tasks — next actions across the book (CRM) */}
-        {isLiveMode && (
+        {(isLiveMode || isDemo) && (
           <div className="px-side-section">
             <div className="px-side-head">
               <h3><Icons.Check size={13} style={{ verticalAlign: 'middle', marginRight: 4, color: 'var(--gold)' }} /> Tasks & next actions</h3>
-              <span className="px-side-count">{(dbTasks || []).length} open</span>
+              <span className="px-side-count">{activeTasks.length} open</span>
             </div>
-            {(dbTasks || []).slice(0, 8).map(t => {
+            {activeTasks.slice(0, 8).map(t => {
               const due = dueMeta(t.dueAt);
               return (
                 <div key={t.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
@@ -2199,7 +2225,7 @@ const AdvisorDashboard = () => {
                 </div>
               );
             })}
-            {(dbTasks || []).length === 0 && (
+            {activeTasks.length === 0 && (
               <div style={{ padding: '14px 0', textAlign: 'center', color: 'var(--ink-faint)', fontStyle: 'italic', fontSize: 13 }}>
                 No open tasks — you're clear.
               </div>

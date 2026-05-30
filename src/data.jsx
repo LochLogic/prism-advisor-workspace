@@ -281,6 +281,17 @@ const questionsData = [
   },
 ];
 
+/* ─── CRM tasks (demo only — mirrors window.db.mapTask shape) ──────── */
+const _dt = (days) => new Date(Date.now() + days * 86400000).toISOString();
+const tasksData = [
+  { id: 't1', clientId: 'c004', clientName: 'Patel Trust',   title: 'Confirm GST trust beneficiary designations', detail: 'Estate counsel to review before the annual meeting.', priority: 'high',   status: 'open', dueAt: _dt(-3), createdAt: _dt(-12), completedAt: null },
+  { id: 't2', clientId: 'c001', clientName: 'R. & E. Marsh', title: 'Finalize Roth conversion amount before year-end', detail: '$74K modeled as optimal.',                       priority: 'high',   status: 'open', dueAt: _dt(2),  createdAt: _dt(-5),  completedAt: null },
+  { id: 't3', clientId: 'c002', clientName: 'Y. Okonkwo',    title: 'Review RSU vesting tax plan',                  detail: 'Q3 vest is sizable — coordinate withholding.',      priority: 'normal', status: 'open', dueAt: _dt(0),  createdAt: _dt(-3),  completedAt: null },
+  { id: 't4', clientId: 'c005', clientName: 'J. Park',       title: 'Open and fund HSA for the plan year',          detail: '',                                                  priority: 'normal', status: 'open', dueAt: _dt(5),  createdAt: _dt(-1),  completedAt: null },
+  { id: 't5', clientId: 'c006', clientName: 'A. & M. Ferri', title: 'Set up EUR hedge ahead of property closing',   detail: 'Closing ~Q2; staged DCA or forward contract.',      priority: 'normal', status: 'open', dueAt: _dt(9),  createdAt: _dt(-2),  completedAt: null },
+  { id: 't6', clientId: 'c007', clientName: 'B. Ndlovu',     title: 'Schedule empathetic re-engagement call',       detail: 'Cash bias persists post-bereavement.',              priority: 'low',    status: 'open', dueAt: _dt(14), createdAt: _dt(-4),  completedAt: null },
+];
+
 /* ─── "Current user" — Robert & Eileen Marsh, viewed in Client Portal ─ */
 const currentClientId = 'c001';
 
@@ -289,4 +300,5 @@ window.advisor = advisor;
 window.clientsData = clientsData;
 window.alertsData = alertsData;
 window.questionsData = questionsData;
+window.tasksData = tasksData;
 window.currentClientId = currentClientId;
