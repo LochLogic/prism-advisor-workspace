@@ -73,19 +73,31 @@ function periodEnd(s: { date: string; value: number }[], end: string): number {
   return v;
 }
 
-function quarterRange(year: number, q: number) {
-  const sm = (q - 1) * 3;
-  const start = new Date(Date.UTC(year, sm, 1));
-  const end = new Date(Date.UTC(year, sm + 3, 0));
-  return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10), days: (end.getTime() - start.getTime()) / 86400000 + 1 };
+function range(start: Date, end: Date) {
+  return {
+    start: start.toISOString().slice(0, 10),
+    end: end.toISOString().slice(0, 10),
+    days: (end.getTime() - start.getTime()) / 86400000 + 1,
+  };
 }
 
-function lastCompletedQuarter() {
-  const now = new Date();
-  const q = Math.floor(now.getUTCMonth() / 3) + 1;
-  let year = now.getUTCFullYear(), pq = q - 1;
-  if (pq < 1) { pq = 4; year--; }
-  return { year, quarter: pq };
+// Most-recent COMPLETED billing period for a schedule's frequency.
+// (idempotent via the unique(client,period) constraint, so a monthly cron can
+// safely re-touch quarterly/annual schedules — duplicates are skipped.)
+function periodFor(frequency: string, ref = new Date()) {
+  const y = ref.getUTCFullYear(), m = ref.getUTCMonth();
+  if (frequency === "monthly") {
+    return range(new Date(Date.UTC(y, m - 1, 1)), new Date(Date.UTC(y, m, 0)));
+  }
+  if (frequency === "annually") {
+    return range(new Date(Date.UTC(y - 1, 0, 1)), new Date(Date.UTC(y - 1, 11, 31)));
+  }
+  // quarterly (default): previous completed quarter
+  const q = Math.floor(m / 3);
+  let py = y, pq = q - 1;
+  if (pq < 0) { pq = 3; py--; }
+  const sm = pq * 3;
+  return range(new Date(Date.UTC(py, sm, 1)), new Date(Date.UTC(py, sm + 3, 0)));
 }
 
 Deno.serve(async (req) => {
@@ -111,17 +123,13 @@ Deno.serve(async (req) => {
       actorId = user.id; actorEmail = user.email ?? null;
     }
 
-    const body = await req.json().catch(() => ({}));
-    const { year, quarter } = (body.year && body.quarter) ? body : lastCompletedQuarter();
-    const { start, end, days } = quarterRange(year, quarter);
-
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     let cq = admin.from("clients").select("id, firm_id, fee_schedule_id").eq("active", true).not("fee_schedule_id", "is", null);
     if (firmFilter) cq = cq.eq("firm_id", firmFilter);
     const { data: clients } = await cq;
 
-    let sq = admin.from("fee_schedules").select("id, tiers, basis");
+    let sq = admin.from("fee_schedules").select("id, tiers, basis, frequency");
     if (firmFilter) sq = sq.eq("firm_id", firmFilter);
     const { data: schedules } = await sq;
     const schedMap: Record<string, any> = Object.fromEntries((schedules || []).map(s => [s.id, s]));
@@ -130,6 +138,8 @@ Deno.serve(async (req) => {
     for (const c of (clients || [])) {
       const sched = schedMap[c.fee_schedule_id];
       if (!sched) continue;
+      // Bill each client for the most-recent completed period of THEIR frequency
+      const { start, end, days } = periodFor(sched.frequency || "quarterly");
       const { data: bh } = await admin.from("balance_history")
         .select("account_id, as_of, balance").eq("client_id", c.id).lte("as_of", end);
       const s = buildSeries(bh || []);
@@ -146,10 +156,10 @@ Deno.serve(async (req) => {
     await admin.from("audit_log").insert({
       actor_id: actorId, actor_role: isCron ? "system" : "admin", actor_email: actorEmail, firm_id: firmFilter,
       action: "invoices.generate", entity_type: "invoice",
-      summary: `${isCron ? "Scheduled" : "Manual"} run — ${created} draft invoice(s) for Q${quarter} ${year}`,
+      summary: `${isCron ? "Scheduled" : "Manual"} billing run — ${created} draft invoice(s), ${skipped} skipped`,
     });
 
-    return json({ created, skipped, total: Math.round(total * 100) / 100, period: `Q${quarter} ${year}`, start, end, mode: isCron ? "cron" : "manual" });
+    return json({ created, skipped, total: Math.round(total * 100) / 100, mode: isCron ? "cron" : "manual" });
   } catch (e) {
     return json({ error: (e as Error).message }, 400);
   }

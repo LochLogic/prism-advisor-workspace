@@ -1755,7 +1755,7 @@ const FirmAdminDashboard = () => {
       if (error || data?.error) throw new Error(error?.message || data?.error);
       const rows = await window.db.getInvoices({});
       setInvoices(rows || []);
-      showToast(`${data.period}: ${data.created} invoice${data.created !== 1 ? 's' : ''} generated${data.skipped ? `, ${data.skipped} skipped` : ''}`);
+      showToast(`${data.created} invoice${data.created !== 1 ? 's' : ''} generated${data.skipped ? `, ${data.skipped} skipped` : ''}`);
     } catch (e) { showToast('Invoice run failed — check console'); console.warn(e); }
     finally { setGenBusy(false); }
   };
@@ -1928,7 +1928,7 @@ const FirmAdminDashboard = () => {
           <h2>Revenue &amp; billing <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--ink-mute)', marginLeft: 6 }}>advisory fees</span></h2>
           <div className="px-section-tools">
             <button className="px-btn px-btn-sm px-btn-primary" onClick={generateInvoices} disabled={genBusy}>
-              <Icons.Refresh size={11} /> {genBusy ? 'Generating…' : 'Generate last quarter'}
+              <Icons.Refresh size={11} /> {genBusy ? 'Generating…' : 'Run billing now'}
             </button>
           </div>
         </div>
@@ -2006,7 +2006,7 @@ const FirmAdminDashboard = () => {
         {/* Invoices */}
         {(invoices || []).length === 0 ? (
           <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--ink-faint)', fontSize: 13, fontStyle: 'italic' }}>
-            No invoices yet. Assign a fee schedule to clients (in their profile → Edit), then "Generate last quarter."
+            No invoices yet. Assign a fee schedule to clients (in their profile → Edit), then "Run billing now."
           </div>
         ) : (
           <div className="px-roster">
