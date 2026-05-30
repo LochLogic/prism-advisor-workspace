@@ -213,7 +213,7 @@ const alertsData = [
     headline: 'Cash drag — Patel Trust',
     body: 'Trust account holding <b>$412,000</b> in uninvested cash following beneficiary distribution. Below target allocation by <b>3.2%</b>. Recommend brokerage deployment or laddered Treasury MMF before quarter-close.',
     timeAgo: '12m',
-    cta: 'Draft note',
+    cta: 'Deploy cash',
   },
   {
     id: 'al02', priority: 'high', clientId: 'c001',
@@ -221,7 +221,7 @@ const alertsData = [
     headline: 'Roth conversion window closing',
     body: '<b>Robert & Eileen Marsh</b> currently in 22% bracket with $84K headroom before 24% threshold. Window to convert traditional IRA closes <b>Dec 31</b>. Modeling shows $74K conversion is optimal.',
     timeAgo: '2h',
-    cta: 'Open modeler',
+    cta: 'Open Roth modeler',
   },
   {
     id: 'al03', priority: 'med', clientId: 'c005',
@@ -237,7 +237,7 @@ const alertsData = [
     headline: 'TLH opportunity — Y. Okonkwo',
     body: 'Three positions in taxable sleeve are currently <b>&gt;$8,000 below cost basis</b>. Wash-sale-safe replacement trades available. Estimated <b>$2,940</b> in offset value.',
     timeAgo: '6h',
-    cta: 'Run harvester',
+    cta: 'Add to agenda',
   },
   {
     id: 'al05', priority: 'low', clientId: 'c007',
@@ -245,7 +245,7 @@ const alertsData = [
     headline: 'Allocation drift — B. Ndlovu',
     body: 'Cash position has grown from <b>9% → 21%</b> over six months. Behavioral pattern post-bereavement is normal — flag for empathetic re-engagement, not urgent rebalance.',
     timeAgo: '1d',
-    cta: 'Schedule call',
+    cta: 'Add to agenda',
   },
   {
     id: 'al06', priority: 'low', clientId: 'c006',
@@ -253,7 +253,7 @@ const alertsData = [
     headline: 'FX exposure — Ferri household',
     body: 'Pending EUR property purchase (Q2 2026). Recommend introducing currency-hedge conversation 60 days ahead of closing. Forward contract or staged DCA.',
     timeAgo: '3d',
-    cta: 'Add agenda item',
+    cta: 'Add to agenda',
   },
 ];
 
