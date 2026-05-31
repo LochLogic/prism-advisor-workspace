@@ -55,9 +55,14 @@ try {
     .replace(/dist\/bundle\.js(\?v=[^"']*)?/g,         `dist/bundle.js?v=${hash}`)
     .replace(/src\/styles\.css(\?v=[^"']*)?/g,         `src/styles.css?v=${hash}`)
     .replace(/src\/supabase-client\.js(\?v=[^"']*)?/g, `src/supabase-client.js?v=${hash}`);
-  for (const html of ['index.html', 'login.html', 'signup.html', 'landing.html']) {
-    writeFileSync(`_site/${html}`, bust(html));
-  }
+  // Routing: marketing (landing.html) is served at / ; the app (index.html) lives at /app.
+  // login/signup stay at the root. The app's asset refs are absolute (/dist, /src, /vendor)
+  // so they resolve correctly from the /app path.
+  mkdirSync('_site/app', { recursive: true });
+  writeFileSync('_site/index.html',     bust('landing.html'));
+  writeFileSync('_site/app/index.html', bust('index.html'));
+  writeFileSync('_site/login.html',     bust('login.html'));
+  writeFileSync('_site/signup.html',    bust('signup.html'));
   copyFileSync('dist/bundle.js',          '_site/dist/bundle.js');
   copyFileSync('src/styles.css',          '_site/src/styles.css');
   copyFileSync('src/supabase-client.js',  '_site/src/supabase-client.js');
@@ -81,6 +86,23 @@ try {
   Permissions-Policy: geolocation=(), microphone=(), camera=()
   Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.plaid.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' ${SB} wss://phabxcijbbphfxvjedfj.supabase.co; frame-src https://cdn.plaid.com https://*.plaid.com; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; object-src 'none'
 `);
+
+  // ── SEO: robots, sitemap, share image ──────────────────────────────
+  // The app at /app carries a noindex meta tag, so it's kept crawlable here (a Disallow
+  // would prevent Google from reading the noindex, risking a URL-only index entry).
+  writeFileSync('_site/robots.txt', `User-agent: *
+Allow: /
+Sitemap: https://prismaw.com/sitemap.xml
+`);
+  const today = new Date().toISOString().slice(0, 10);
+  writeFileSync('_site/sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://prismaw.com/</loc><lastmod>${today}</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://prismaw.com/signup.html</loc><lastmod>${today}</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+</urlset>
+`);
+  try { copyFileSync('og-image.png', '_site/og-image.png'); }
+  catch { console.warn('! og-image.png missing - run the OG image generator'); }
 
   console.log('✓ _site/ assembled for static hosting');
 } finally {

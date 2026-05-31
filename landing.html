@@ -11,9 +11,33 @@
 <meta property="og:title" content="Prism — The Advisor Workspace" />
 <meta property="og:description" content="Lifecycle planning, compliance-grade audit trail, CRM workflow, account aggregation, and performance reporting — in one workspace for RIAs." />
 <meta property="og:url" content="https://prismaw.com/" />
-<meta name="twitter:card" content="summary" />
+<meta property="og:image" content="https://prismaw.com/og-image.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Prism — The Advisor Workspace" />
 <meta name="twitter:description" content="Lifecycle planning, compliance, CRM, aggregation, and performance reporting for RIAs." />
+<meta name="twitter:image" content="https://prismaw.com/og-image.png" />
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Prism Advisor Workspace",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Web",
+  "url": "https://prismaw.com/",
+  "description": "A lifecycle-planning workspace for RIAs: client roadmaps, a compliance-grade audit trail, CRM workflow, account aggregation, and performance reporting."
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "Prism Advisor Workspace",
+  "url": "https://prismaw.com/",
+  "logo": "https://prismaw.com/og-image.png"
+}
+</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231c2e4a' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M12 2 3 20h18Z'/><path d='m12 2 4 9-9 4'/></svg>" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -247,7 +271,7 @@
   <script>
     function enterDemo() {
       try { sessionStorage.setItem('px_demo', '1'); } catch (e) {}
-      window.location.href = 'index.html';
+      window.location.href = '/app';
     }
     // If already signed in, surface a "Go to workspace" affordance in the nav.
     (async () => {
@@ -256,7 +280,7 @@
         const { data: { session } } = await window.__sb.auth.getSession();
         if (session) {
           const links = document.querySelector('.nav-links');
-          links.innerHTML = '<a class="btn btn-primary" href="index.html">Go to workspace</a>';
+          links.innerHTML = '<a class="btn btn-primary" href="/app">Go to workspace</a>';
         }
       } catch (e) {}
     })();

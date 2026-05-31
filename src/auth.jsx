@@ -37,7 +37,7 @@ function AuthProvider({ children }) {
     try {
       const { data: aal } = await window.__sb.auth.mfa.getAuthenticatorAssuranceLevel();
       if (aal && aal.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
-        window.location.href = 'login.html';
+        window.location.href = '/login.html';
         return;
       }
     } catch (e) { /* MFA unavailable — continue */ }
@@ -105,7 +105,7 @@ function AuthProvider({ children }) {
         const inCallback = new URLSearchParams(window.location.search).has('code');
         if (!inCallback) {
           setLoading(false);
-          window.location.href = 'landing.html';
+          window.location.href = '/';
         }
         // If there IS a code, the SDK will exchange it and fire SIGNED_IN next
       }
@@ -114,7 +114,7 @@ function AuthProvider({ children }) {
         setRole(null);
         setAuthUser(null);
         setLoading(false);
-        window.location.href = 'login.html';
+        window.location.href = '/login.html';
       }
     });
 
@@ -129,7 +129,7 @@ function AuthProvider({ children }) {
     window.__pxAuthActor = null;
     sessionStorage.removeItem('px_demo');
     if (window.__sb) await window.__sb.auth.signOut();
-    window.location.href = 'login.html';
+    window.location.href = '/login.html';
   };
 
   return (
