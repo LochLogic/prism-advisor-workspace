@@ -5,6 +5,7 @@
 import * as esbuild from 'esbuild';
 import { readFileSync, writeFileSync, unlinkSync, mkdirSync, rmSync, copyFileSync } from 'fs';
 import { createHash } from 'crypto';
+import { pages, renderPage } from './content/pages.mjs';
 
 const files = [
   'src/supabase-client.js',
@@ -88,6 +89,14 @@ try {
 `);
 
   // ── SEO: robots, sitemap, share image ──────────────────────────────
+  // ── B2B content/intent pages (static, crawlable) ───────────────────
+  for (const p of pages) {
+    mkdirSync(`_site/${p.slug}`, { recursive: true });
+    writeFileSync(`_site/${p.slug}/index.html`, renderPage(p));
+  }
+  console.log(`✓ ${pages.length} content pages rendered`);
+
+  // ── SEO: robots, sitemap, share image ──────────────────────────────
   // The app at /app carries a noindex meta tag, so it's kept crawlable here (a Disallow
   // would prevent Google from reading the noindex, risking a URL-only index entry).
   writeFileSync('_site/robots.txt', `User-agent: *
@@ -95,10 +104,14 @@ Allow: /
 Sitemap: https://prismaw.com/sitemap.xml
 `);
   const today = new Date().toISOString().slice(0, 10);
+  const urls = [
+    { loc: 'https://prismaw.com/', priority: '1.0', freq: 'weekly' },
+    { loc: 'https://prismaw.com/signup.html', priority: '0.7', freq: 'monthly' },
+    ...pages.map(p => ({ loc: `https://prismaw.com/${p.slug}/`, priority: '0.8', freq: 'monthly' })),
+  ];
   writeFileSync('_site/sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://prismaw.com/</loc><lastmod>${today}</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>
-  <url><loc>https://prismaw.com/signup.html</loc><lastmod>${today}</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+${urls.map(u => `  <url><loc>${u.loc}</loc><lastmod>${today}</lastmod><changefreq>${u.freq}</changefreq><priority>${u.priority}</priority></url>`).join('\n')}
 </urlset>
 `);
   try { copyFileSync('og-image.png', '_site/og-image.png'); }
