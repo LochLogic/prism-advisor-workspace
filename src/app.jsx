@@ -379,7 +379,7 @@ const Topbar = ({ onOpenNumbers, dark, toggleTheme }) => {
 
   // Logo = "home": demo → public landing page; logged in → role's default view
   const goHome = () => {
-    if (isDemo) { window.location.href = 'landing.html'; return; }
+    if (isDemo) { window.location.href = '/'; return; }
     setActiveClient?.(null);
     setView(role === 'admin' ? 'admin' : role === 'client' ? 'client' : 'advisor');
   };

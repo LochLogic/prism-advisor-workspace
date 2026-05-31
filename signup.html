@@ -114,7 +114,7 @@
   <div class="footer">
     Already have an account? <a href="login.html">Sign in</a>
     &ensp;·&ensp;
-    <a href="landing.html">Back to overview</a>
+    <a href="/">Back to overview</a>
   </div>
 </div>
 
@@ -130,7 +130,7 @@
 
   async function signUpGoogle() {
     if (!window.__sb) { showMsg('Sign-up is unavailable right now.'); return; }
-    const redirectTo = new URL('index.html', window.location.href).href;
+    const redirectTo = new URL('/app', window.location.href).href;
     const { error } = await window.__sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } });
     if (error) showMsg(error.message);
   }
@@ -145,7 +145,7 @@
     if (!email || password.length < 8) { showMsg('Enter a valid email and an 8+ character password.'); return; }
 
     setLoading(true);
-    const redirectTo = new URL('index.html', window.location.href).href;
+    const redirectTo = new URL('/app', window.location.href).href;
     const { data, error } = await window.__sb.auth.signUp({
       email, password,
       options: { data: { full_name: fullName, firm_name: firmName }, emailRedirectTo: redirectTo },
@@ -153,7 +153,7 @@
     if (error) { showMsg(error.message); setLoading(false); return; }
 
     // If email confirmation is disabled, a session exists immediately → go finish setup.
-    if (data.session) { window.location.href = 'index.html'; return; }
+    if (data.session) { window.location.href = '/app'; return; }
 
     // Otherwise prompt to confirm by email; provisioning completes after they land back in the app.
     document.getElementById('sent-to').textContent = email;
