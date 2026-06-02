@@ -11,6 +11,7 @@ const files = [
   'src/supabase-client.js',
   'src/icons.jsx',
   'src/data.jsx',
+  'src/calc-core.cjs',
   'src/db.jsx',
   'src/store.jsx',
   'src/auth.jsx',
@@ -64,6 +65,11 @@ try {
   writeFileSync('_site/app/index.html', bust('index.html'));
   writeFileSync('_site/login.html',     bust('login.html'));
   writeFileSync('_site/signup.html',    bust('signup.html'));
+
+  // Static legal + security pages (no bundle refs — plain copy).
+  for (const p of ['privacy.html', 'terms.html', 'dpa.html', 'security.html']) {
+    copyFileSync(p, `_site/${p}`);
+  }
   copyFileSync('dist/bundle.js',          '_site/dist/bundle.js');
   copyFileSync('src/styles.css',          '_site/src/styles.css');
   copyFileSync('src/supabase-client.js',  '_site/src/supabase-client.js');
@@ -109,6 +115,10 @@ Sitemap: https://prismaw.com/sitemap.xml
     { loc: 'https://prismaw.com/', priority: '1.0', freq: 'weekly' },
     { loc: 'https://prismaw.com/signup.html', priority: '0.7', freq: 'monthly' },
     ...livePages.map(p => ({ loc: `https://prismaw.com/${p.slug}/`, priority: '0.8', freq: 'monthly' })),
+    { loc: 'https://prismaw.com/security.html', priority: '0.5', freq: 'monthly' },
+    { loc: 'https://prismaw.com/privacy.html', priority: '0.3', freq: 'yearly' },
+    { loc: 'https://prismaw.com/terms.html',   priority: '0.3', freq: 'yearly' },
+    { loc: 'https://prismaw.com/dpa.html',     priority: '0.3', freq: 'yearly' },
   ];
   writeFileSync('_site/sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">

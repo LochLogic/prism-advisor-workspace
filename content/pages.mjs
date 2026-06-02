@@ -48,8 +48,8 @@ export const pages = [
 <h2>Every meaningful action, logged</h2>
 <p>Sign-ins, plan changes, client updates, and report generation are recorded with the actor, timestamp, and a human-readable summary. The trail is append-only and reviewable from an admin view.</p>
 
-<h2>Built for retention rules</h2>
-<p>Records are retained in line with <strong>SEC Rule 17a-4</strong> expectations, including a daily write-once archive (WORM-style export) so historical records can't be quietly altered. Profile versioning preserves prior states of a client's plan for point-in-time review.</p>
+<h2>Designed around the retention rules</h2>
+<p>Prism is built around the record-keeping principles of <strong>SEC Rules 17a-3 and 17a-4</strong>: an append-only trail, immutable profile versioning that preserves prior states of a plan for point-in-time review, and a daily write-once (WORM-style) archive that makes historical records tamper-evident. Production use with live client data additionally calls for object-lock archival storage and your firm's own regulatory review — see our <a href="${SITE}/security.html">security overview</a> for the current posture.</p>
 
 <h2>Why it matters</h2>
 <ul>
@@ -509,7 +509,14 @@ const siteHeader = `<header class="site"><div class="wrap">
 
 const siteFooter = `<footer class="site"><div class="wrap">
   <a href="${SITE}/">Overview</a> &middot; <a href="${SITE}/signup.html">Sign up</a> &middot; <a href="${SITE}/login.html">Sign in</a><br/>
-  Secured by row-level security &middot; Records retained per SEC 17a-4
+  Secured by row-level security &middot; Audit trail designed around SEC 17a-3/17a-4 principles
+  <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line);color:var(--ink3);">
+    &copy; 2026 Prism Advisor Workspace &middot; A product of Cory M. Lemay &nbsp;&middot;&nbsp;
+    <a href="${SITE}/privacy.html">Privacy</a> &middot;
+    <a href="${SITE}/terms.html">Terms</a> &middot;
+    <a href="${SITE}/dpa.html">DPA</a> &middot;
+    <a href="${SITE}/security.html">Security</a>
+  </div>
 </div></footer>`;
 
 export function renderPage(p) {

@@ -513,11 +513,14 @@ function AppInner() {
   const { dark, toggleTheme } = useTheme();
   const [isNumbersOpen, setIsNumbersOpen] = React.useState(false);
 
-  // Route users to their natural home view on first load
+  // Route users to their natural home view on first load.
+  // Demo opens on the wedge — the client lifecycle roadmap — not the admin grid,
+  // so visitors and prospective design partners see the differentiator first.
   React.useEffect(() => {
-    if (role === 'client') setView('client');
-    if (role === 'admin')  setView('admin');
-  }, [role]);
+    if (role === 'client')      setView('client');
+    else if (role === 'admin')  setView('admin');
+    else if (isDemo)            setView('client');
+  }, [role, isDemo]);
 
   if (loading) return <LoadingScreen />;
   if (!session && !isDemo) return <LoadingScreen />;
