@@ -460,20 +460,43 @@ const NewClientModal = ({ isOpen, onClose, advisorId, firmId, onCreated }) => {
   const [form, setForm] = useStateAdv({ household_name: '', short_name: '', household_tag: '', current_phase: 0 });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
+  // Optional starting financials — a quick pre-entry so the new client's roadmap
+  // and calculators have real numbers from day one. Fully optional; advisors can
+  // fill the rest later in the numbers panel.
+  const [showFin, setShowFin] = useStateAdv(false);
+  const [fin, setFin] = useStateAdv({ monthlyTakehome: '', emergency: '', taxableBalance: '', retirementBalance: '' });
+  const setF = (k, v) => setFin(f => ({ ...f, [k]: v }));
+
+  const resetAll = () => {
+    setForm({ household_name: '', short_name: '', household_tag: '', current_phase: 0 });
+    setFin({ monthlyTakehome: '', emergency: '', taxableBalance: '', retirementBalance: '' });
+    setShowFin(false);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.household_name.trim()) return;
     setSaving(true);
     const row = await window.db.createClient(advisorId, firmId, form);
-    setSaving(false);
     if (row) {
+      // If any starting numbers were entered, seed the client's profile.
+      const num = (v) => (v === '' || v == null ? undefined : Number(v));
+      const partial = {};
+      if (num(fin.monthlyTakehome)  != null) partial.income     = { monthlyTakehome: num(fin.monthlyTakehome) };
+      if (num(fin.emergency)        != null) partial.savings    = { emergency: num(fin.emergency) };
+      if (num(fin.taxableBalance)   != null) partial.taxable    = { balance: num(fin.taxableBalance) };
+      if (num(fin.retirementBalance)!= null) partial.retirement = { fourohonekBalance: num(fin.retirementBalance) };
+      if (Object.keys(partial).length && window.mergeProfile) {
+        try { await window.db.saveProfile(row.id, window.mergeProfile(window.emptyProfile, partial)); } catch {}
+      }
       showToast(`${form.short_name || form.household_name} added to your roster`);
       onCreated(window.db.mapClient(row));
-      setForm({ household_name: '', short_name: '', household_tag: '', current_phase: 0 });
+      resetAll();
       onClose();
     } else {
       showToast('Could not save — check console for details');
     }
+    setSaving(false);
   };
 
   return (
@@ -506,6 +529,40 @@ const NewClientModal = ({ isOpen, onClose, advisorId, firmId, onCreated }) => {
                 {PHASES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
               </select>
             </label>
+
+            {/* Optional: pre-enter a few headline numbers so the roadmap isn't blank */}
+            {!showFin ? (
+              <button type="button" className="px-btn px-btn-sm px-btn-ghost" style={{ alignSelf: 'flex-start' }}
+                onClick={() => setShowFin(true)}>
+                <Icons.Plus size={11} /> Add starting numbers (optional)
+              </button>
+            ) : (
+              <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 14, background: 'var(--bg-elev)' }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 10 }}>
+                  Starting financials — optional
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  {[
+                    ['monthlyTakehome',  'Monthly take-home'],
+                    ['emergency',        'Cash / emergency'],
+                    ['taxableBalance',   'Investment assets'],
+                    ['retirementBalance','Retirement assets'],
+                  ].map(([k, label]) => (
+                    <label key={k} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <span style={{ fontSize: 10.5, color: 'var(--ink-mute)' }}>{label}</span>
+                      <div className="px-input-affix">
+                        <span className="px-affix">$</span>
+                        <input type="number" min="0" placeholder="0" value={fin[k]}
+                          onChange={e => setF(k, e.target.value)} />
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                <div style={{ fontSize: 10.5, color: 'var(--ink-faint)', marginTop: 8, fontStyle: 'italic' }}>
+                  Optional — fill in the full picture anytime from the client's “Your numbers” panel.
+                </div>
+              </div>
+            )}
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 22 }}>
             <button type="button" className="px-btn px-btn-ghost" onClick={onClose}>Cancel</button>
@@ -1658,7 +1715,7 @@ const AUDIT_ACTION_LABELS = {
 
 const FirmAdminDashboard = () => {
   const { authUser } = useAuth();
-  const { showToast } = useView();
+  const { showToast, setView } = useView();
   const [advisors,     setAdvisors]     = useStateAdv(undefined);
   const [firmClients,  setFirmClients]  = useStateAdv(undefined);
   const [auditLog,     setAuditLog]     = useStateAdv(undefined);
@@ -1774,6 +1831,11 @@ const FirmAdminDashboard = () => {
             {firmClients?.length ?? '…'} active client{firmClients?.length !== 1 ? 's' : ''} ·{' '}
             {fmt$(totalAUM, { short: true, decimals: 1 })} book AUM
           </p>
+          <button className="px-btn px-btn-sm px-btn-ghost" style={{ marginTop: 12 }}
+            onClick={() => setView('advisor')}
+            title="Switch to your own advisor workspace">
+            <Icons.TableCol size={12} /> Open advisor workspace <Icons.ArrowRight size={12} />
+          </button>
         </div>
 
         {/* Billing & plan */}
