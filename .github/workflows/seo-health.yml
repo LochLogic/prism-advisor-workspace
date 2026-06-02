@@ -1,0 +1,21 @@
+name: SEO health monitor
+
+# Weekly health check of both live sites (prismaw.com + finfire.prismaw.com). Report-only:
+# it pushes nothing. If any check fails the job fails, and GitHub emails the repo owner on a
+# failed scheduled run — so you only hear from it when something is actually broken.
+
+on:
+  schedule:
+    - cron: '0 13 * * 1'   # weekly, Mondays 13:00 UTC
+  workflow_dispatch: {}    # allow manual runs
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run SEO health checks
+        run: node scripts/seo-check.mjs
