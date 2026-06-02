@@ -34,9 +34,12 @@ and Prism's `/app` noindex. Report-only (no push); the job fails (which emails t
 only when a check fails, staying silent when healthy. Run manually via Actions → "SEO health
 monitor" → Run workflow.
 
-## Analytics / Search Console digest (planned, this repo)
-Will run as a weekly GitHub Actions cron querying the Google Search Console Search Analytics API
-for prismaw.com (Domain property, which also covers finfire.prismaw.com) and posting a digest as
-a GitHub Issue. Requires the service-account JSON stored as the repo secret **`GSC_SA_KEY`**,
-the Search Console API enabled in the `tradecode-engine` GCP project, and the service-account
-email added as a Full user on the prismaw.com property.
+## Analytics / Search Console digest (this repo, GitHub Actions)
+`.github/workflows/seo-digest.yml` runs `scripts/gsc-digest.mjs` weekly (Mondays 14:00 UTC). It
+signs a service-account JWT (Node crypto, no deps), queries the Search Analytics API for the
+prismaw.com Domain property, **excludes finfire.prismaw.com**, and posts totals + top queries +
+top pages as a comment on a single rolling GitHub Issue ("SEO digest — prismaw.com").
+
+Requires: repo secret **`GSC_SA_KEY`** (service-account JSON); the Search Console API enabled in
+the `tradecode-engine` GCP project; and the service-account email added as a **Full** user on the
+prismaw.com property. Test anytime via Actions → "SEO search digest" → Run workflow.
