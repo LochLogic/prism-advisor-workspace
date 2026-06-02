@@ -21,6 +21,41 @@ const defaultProfile = {
   goals:   { age: 62, retireAt: 67 },
 };
 
+// A fully-shaped but zeroed profile. Real (newly created) clients start here so
+// the roadmap renders a blank-slate plan instead of crashing on a missing key —
+// and so advisors aren't shown the demo's sample numbers as if they were real.
+const emptyProfile = {
+  income:   { monthlyTakehome: 0 },
+  expenses: { housing: 0, food: 0, transport: 0, utilities: 0, healthcare: 0, other: 0 },
+  debts: [],
+  savings:  { emergency: 0 },
+  retirement: {
+    hsaBalance: 0, iraBalance: 0, fourohonekBalance: 0,
+    hsaContrib: 0, iraContributed: 0, iraLimit: 7000,
+    fourohonekContributed: 0, fourohonekLimit: 23500, employerMatchPct: 0,
+  },
+  taxes:   { marginalRate: 24, filingStatus: 'mfj' },
+  taxable: { balance: 0, monthlyContrib: 0 },
+  goals:   { age: 45, retireAt: 65 },
+};
+
+// Deep-merge a (possibly partial / empty) stored profile onto a complete base,
+// so every expected key always exists. Top-level scalars/arrays from `data`
+// win; nested objects are filled in from `base` where missing.
+function mergeProfile(base, data) {
+  if (Array.isArray(base)) return Array.isArray(data) ? data : base;
+  if (base && typeof base === 'object') {
+    const out = { ...base, ...(data && typeof data === 'object' ? data : {}) };
+    for (const k of Object.keys(base)) {
+      if (base[k] && typeof base[k] === 'object' && !Array.isArray(base[k])) {
+        out[k] = mergeProfile(base[k], data ? data[k] : undefined);
+      }
+    }
+    return out;
+  }
+  return data !== undefined ? data : base;
+}
+
 const ProfileContext = createContext(null);
 
 function ProfileProvider({ children }) {
@@ -33,11 +68,13 @@ function ProfileProvider({ children }) {
   useEffect(() => {
     clearTimeout(dbSaveTimer.current);
     if (window.db?.isUUID(activeClientId)) {
-      // Real client — reset to defaults, then load from DB
+      // Real client — reset to a blank shape, then merge in whatever the DB has.
+      // A new client's profile is an empty {}; merging keeps every key present so
+      // the roadmap and calculators render instead of crashing on undefined.
       isLoading.current = true;
-      setProfile(defaultProfile);
+      setProfile(emptyProfile);
       window.db.getProfile(activeClientId).then(data => {
-        if (data) setProfile(data);
+        setProfile(mergeProfile(emptyProfile, data));
         isLoading.current = false;
       }).catch(() => { isLoading.current = false; });
     } else {
@@ -664,7 +701,7 @@ function printInvoiceReport(invoice, clientName, advisorFirm) {
 }
 
 Object.assign(window, {
-  ProfileProvider, useProfile,
+  ProfileProvider, useProfile, emptyProfile, mergeProfile,
   TaskProvider, useTasks,
   ViewProvider, useView,
   NotificationProvider, useNotifications,
