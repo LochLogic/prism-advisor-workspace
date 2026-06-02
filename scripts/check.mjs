@@ -23,8 +23,10 @@ for (const g of ['window.App', 'window.db', 'window.AuthProvider', 'ReactDOM']) 
   assert(bundle.includes(g), `bundle exposes ${g}`);
 }
 
-// 3. Required runtime files are in the deploy dir
-for (const f of ['index.html', 'login.html', 'signup.html', 'landing.html',
+// 3. Required runtime files are in the deploy dir.
+//    Routing: landing is served at _site/index.html; the app lives at _site/app/index.html.
+for (const f of ['index.html', 'app/index.html', 'login.html', 'signup.html',
+                 'privacy.html', 'terms.html', 'dpa.html', 'security.html',
                  'src/styles.css', 'src/supabase-client.js', '_headers',
                  'vendor/react.production.min.js', 'vendor/supabase.js']) {
   assert(existsSync(`_site/${f}`), `_site/${f} present`);
@@ -39,8 +41,8 @@ assert(/Content-Security-Policy:\s/.test(headers), 'CSP is enforcing');
 assert(!headers.includes('Report-Only'), 'CSP is not Report-Only');
 assert(headers.includes('Strict-Transport-Security'), 'HSTS header present');
 
-// 6. Cache-busting applied to the bundle reference
-assert(/dist\/bundle\.js\?v=[a-f0-9]{6,}/.test(read('_site/index.html')), 'index.html has cache-busted bundle ref');
+// 6. Cache-busting applied to the bundle reference (the app page carries the bundle)
+assert(/dist\/bundle\.js\?v=[a-f0-9]{6,}/.test(read('_site/app/index.html')), 'app/index.html has cache-busted bundle ref');
 
 // 7. CSP doesn't reference the old script CDNs (self-hosted now)
 assert(!/script-src[^;]*(unpkg|jsdelivr)/.test(headers), 'CSP script-src has no unpkg/jsdelivr');

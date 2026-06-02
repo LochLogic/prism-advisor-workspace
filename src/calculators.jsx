@@ -69,16 +69,8 @@ const AvalancheTool = () => {
   const totalMin = profile.debts.reduce((a, d) => a + Number(d.min || 0), 0);
   const weightedApr = profile.debts.reduce((a, d) => a + d.balance * d.apr, 0) / Math.max(1, profile.debts.reduce((a, d) => a + d.balance, 0));
   const monthly = totalMin + extra;
-  const monthsToPayoff = (() => {
-    let bal = profile.debts.reduce((a, d) => a + Number(d.balance || 0), 0);
-    let r = weightedApr / 100 / 12;
-    if (bal <= 0 || monthly <= 0) return 0;
-    for (let m = 1; m <= 480; m++) {
-      bal = bal * (1 + r) - monthly;
-      if (bal <= 0) return m;
-    }
-    return Infinity;
-  })();
+  const totalDebtBalance = profile.debts.reduce((a, d) => a + Number(d.balance || 0), 0);
+  const monthsToPayoff = debtPayoffMonths(totalDebtBalance, weightedApr, monthly);
   return (
     <ToolShell title="Debt avalanche schedule">
       <div className="px-tool-grid">
@@ -101,12 +93,9 @@ const AvalancheTool = () => {
 /* Phase 04 · HSA */
 const HSATool = () => {
   const { profile, hsaTaxSavings } = useProfile();
-  const yearsCompounded = useMemoC(() => {
-    let bal = profile.retirement.hsaBalance;
-    const contrib = profile.retirement.hsaContrib;
-    for (let y = 0; y < 25; y++) bal = bal * 1.07 + contrib;
-    return bal;
-  }, [profile.retirement.hsaBalance, profile.retirement.hsaContrib]);
+  const yearsCompounded = useMemoC(
+    () => hsaProjection(profile.retirement.hsaBalance, profile.retirement.hsaContrib, 0.07, 25),
+    [profile.retirement.hsaBalance, profile.retirement.hsaContrib]);
   return (
     <ToolShell title="HSA · triple-advantaged">
       <div className="px-tool-grid">
@@ -183,33 +172,12 @@ const MonteCarloTool = () => {
   const [withdrawal, setWithdrawal] = useStateC(Math.round(annualExpenses / 1000) * 1000);
 
   const result = useMemoC(() => {
-    const RUNS = 800;
-    const meanReturn = 0.07;
-    const sd = 0.16;
-    let success = 0;
-    let medianFinal = 0;
-    const finals = [];
-    // Box-Muller seeded — per-client seed so each client sees consistent but distinct results
+    // Per-client seed so each client sees consistent but distinct results.
     const baseSeed = activeClientId
       ? activeClientId.split('').reduce((s, c) => s + c.charCodeAt(0), 0)
       : 42;
-    let seed = baseSeed;
-    const rand = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
-    const gauss = () => { let u = 0, v = 0; while (!u) u = rand(); while (!v) v = rand(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
-    for (let r = 0; r < RUNS; r++) {
-      let bal = totalInvested;
-      let alive = true;
-      for (let y = 0; y < yearsHorizon; y++) {
-        const ret = meanReturn + gauss() * sd;
-        bal = bal * (1 + ret) - withdrawal;
-        if (bal <= 0) { alive = false; bal = 0; break; }
-      }
-      if (alive) success++;
-      finals.push(bal);
-    }
-    finals.sort((a, b) => a - b);
-    medianFinal = finals[Math.floor(finals.length / 2)];
-    return { successPct: (success / RUNS) * 100, medianFinal, p10: finals[Math.floor(finals.length * 0.1)], p90: finals[Math.floor(finals.length * 0.9)] };
+    return monteCarlo({ principal: totalInvested, years: yearsHorizon, withdrawal,
+      seed: baseSeed, runs: 800, mean: 0.07, sd: 0.16 });
   }, [totalInvested, yearsHorizon, withdrawal]);
 
   return (
@@ -251,19 +219,9 @@ const RothLadderTool = () => {
   const [annualConvert, setAnnual] = useStateC(72_000);
   const [bracket, setBracket] = useStateC(profile.taxes.marginalRate);
 
-  const rows = useMemoC(() => {
-    let remaining = tradBalance;
-    const out = [];
-    const year = new Date().getFullYear();
-    for (let y = 0; y < 5; y++) {
-      const convert = Math.min(annualConvert, remaining);
-      const tax = convert * bracket / 100;
-      remaining -= convert;
-      remaining *= 1.06; // growth on remainder
-      out.push({ year: year + y, convert, tax, available: year + y + 5, remaining });
-    }
-    return out;
-  }, [tradBalance, annualConvert, bracket]);
+  const rows = useMemoC(
+    () => rothLadder({ tradBalance, annualConvert, bracketPct: bracket, growth: 0.06, years: 5 }),
+    [tradBalance, annualConvert, bracket]);
 
   const totalConverted = rows.reduce((a, r) => a + r.convert, 0);
   const totalTax       = rows.reduce((a, r) => a + r.tax, 0);
@@ -321,20 +279,12 @@ const EstateTool = () => {
   const [g2Years, setG2Years] = useStateC(30);     // generation-2 horizon
   const [withdrawalRate, setWdRate] = useStateC(3.5);
 
-  const result = useMemoC(() => {
-    const realRet = 0.05;
-    const draw = totalInvested * (withdrawalRate / 100);
-    let bal = totalInvested;
-    for (let y = 0; y < grossUp; y++) bal = bal * (1 + realRet) - draw;
-    const estate = Math.max(0, bal);
-    // 2026 federal estate tax exemption ~ $13.99M / individual (sunset 2026 ~ $7M post)
-    const exempt = 13_990_000;
-    const estateTax = Math.max(0, (estate - exempt)) * 0.40;
-    const netToHeirs = estate - estateTax;
-    let g2 = netToHeirs;
-    for (let y = 0; y < g2Years; y++) g2 = g2 * (1 + realRet);
-    return { estate, estateTax, netToHeirs, g2 };
-  }, [totalInvested, grossUp, withdrawalRate, g2Years]);
+  // 2026 federal estate tax exemption ~ $13.99M / individual (sunset 2026 ~ $7M post)
+  const result = useMemoC(
+    () => estateProjection({ principal: totalInvested, years: grossUp,
+      withdrawalRatePct: withdrawalRate, g2Years, realRet: 0.05,
+      exempt: 13_990_000, estateTaxRate: 0.40 }),
+    [totalInvested, grossUp, withdrawalRate, g2Years]);
 
   return (
     <ToolShell title="Estate & generational wealth" advanced
@@ -380,15 +330,9 @@ const TLHTool = () => {
   const { taxableBalance } = useProfile();
   const [lossPct, setLossPct]       = useStateC(8);     // % of taxable book below cost basis
   const [offsetRate, setOffsetRate] = useStateC(23.8);  // LTCG 20% + NIIT 3.8% (or ordinary if short-term)
-  const result = useMemoC(() => {
-    const harvestable = taxableBalance * (lossPct / 100);
-    return {
-      harvestable,
-      taxOffset: harvestable * (offsetRate / 100),
-      alphaLow:  taxableBalance * 0.005,
-      alphaHigh: taxableBalance * 0.015,
-    };
-  }, [taxableBalance, lossPct, offsetRate]);
+  const result = useMemoC(
+    () => tlh({ taxableBalance, lossPct, offsetRatePct: offsetRate }),
+    [taxableBalance, lossPct, offsetRate]);
 
   return (
     <ToolShell title="Tax-loss harvesting" advanced hint="Estimated offset from harvesting unrealized losses">

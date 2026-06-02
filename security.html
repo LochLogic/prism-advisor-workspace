@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Security at Prism | Prism Advisor Workspace</title>
+<meta name="description" content="How Prism protects client financial data: tenant isolation with row-level security, MFA, encryption, an append-only audit trail, hardened headers, and an honest look at our current posture and roadmap." />
+<link rel="canonical" href="https://prismaw.com/security.html" />
+<meta name="robots" content="all" />
+<meta name="theme-color" content="#1c2e4a" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Prism Advisor Workspace" />
+<meta property="og:title" content="Security at Prism" />
+<meta property="og:description" content="Tenant isolation, MFA, encryption, audit trails, and hardened headers — plus an honest current-posture-and-roadmap view." />
+<meta property="og:url" content="https://prismaw.com/security.html" />
+<meta property="og:image" content="https://prismaw.com/og-image.png" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231c2e4a' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M12 2 3 20h18Z'/><path d='m12 2 4 9-9 4'/></svg>" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#fafaf7;--surface:#fff;--ink:#1c2e4a;--ink2:#2d4258;--ink3:#5d7a8e;--line:#e4dfd0;--gold:#a98c4b;--forest:#3d5a4a;--forest-soft:#e0e8e1;--serif:'Source Serif 4',Georgia,serif;--sans:'Inter',system-ui,sans-serif;}
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink2);font-family:var(--sans);line-height:1.65;}
+  .wrap{max-width:760px;margin:0 auto;padding:0 22px;}
+  header.site{border-bottom:1px solid var(--line);background:var(--surface);}
+  header.site .wrap{display:flex;align-items:center;justify-content:space-between;height:60px;}
+  header.site a.brand{display:flex;align-items:center;gap:9px;text-decoration:none;color:var(--ink);font-family:var(--serif);font-weight:600;font-size:18px;}
+  header.site .cta-top{font-size:14px;text-decoration:none;color:#fff;background:var(--ink);padding:8px 16px;border-radius:8px;font-weight:500;}
+  h1{font-family:var(--serif);font-size:34px;line-height:1.18;font-weight:600;color:var(--ink);margin:26px 0 8px;}
+  .lede{font-size:18px;color:var(--ink2);margin:0 0 8px;}
+  .meta{font-size:13px;color:var(--ink3);margin:0 0 8px;}
+  h2{font-family:var(--serif);font-size:23px;font-weight:600;color:var(--ink);margin:34px 0 8px;}
+  h3{font-size:15px;font-weight:600;color:var(--ink);margin:18px 0 4px;}
+  p,li{font-size:16px;}
+  a{color:var(--gold);}
+  ul{padding-left:20px;}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0;}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px 20px;}
+  .card h3{margin-top:0;font-family:var(--serif);font-size:17px;}
+  .card p{font-size:14.5px;color:var(--ink3);margin:6px 0 0;}
+  table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14px;}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top;}
+  th{background:var(--surface);color:var(--ink);}
+  .pill{display:inline-block;font-size:11px;font-weight:600;border-radius:20px;padding:2px 9px;white-space:nowrap;}
+  .pill.now{background:var(--forest-soft);color:var(--forest);}
+  .pill.next{background:#f3ead4;color:var(--gold);}
+  .callout{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--forest);border-radius:8px;padding:14px 16px;margin:20px 0;font-size:15px;}
+  footer.site{border-top:1px solid var(--line);margin-top:44px;}
+  footer.site .wrap{padding:24px 22px;font-size:13px;color:var(--ink3);}
+  footer.site a{color:var(--ink3);}
+  .legalnav{font-size:13px;margin-top:6px;}
+  .legalnav a{color:var(--gold);margin-right:8px;}
+  @media(max-width:620px){.grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<header class="site"><div class="wrap">
+  <a class="brand" href="/">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1c2e4a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 20h18Z"/><path d="m12 2 4 9-9 4"/></svg>
+    Prism
+  </a>
+  <a class="cta-top" href="/signup.html">Create workspace</a>
+</div></header>
+
+<main class="wrap">
+  <h1>Security is part of the foundation, not a bolt-on</h1>
+  <p class="lede">Client financial data is among the most sensitive there is. Prism is built so each person sees only what they should, every meaningful action is accountable, and secrets never touch the browser.</p>
+  <p class="meta">Last updated 2 June 2026</p>
+
+  <h2>Tenant isolation at the data layer</h2>
+  <p>Prism is multi-tenant by design and isolated where it counts — in the database. Every table is governed by <strong>row-level security</strong> along the <strong>firm &rarr; advisor &rarr; client</strong> hierarchy. A client can only ever read their own household; an advisor sees only their book; a firm admin sees only their firm. These rules are enforced by the database on every query, not merely hidden in the interface — so a bug in the UI cannot expose another tenant's data.</p>
+
+  <div class="grid">
+    <div class="card"><h3>Authentication</h3><p>Managed auth with a PKCE flow, optional time-based one-time-password (TOTP) multi-factor authentication with assurance-level enforcement, and optional Google sign-in.</p></div>
+    <div class="card"><h3>Encryption</h3><p>All traffic is served over TLS. Data at rest is encrypted by our managed database provider.</p></div>
+    <div class="card"><h3>Least privilege</h3><p>Roles (client, advisor, firm admin) scope access at the data layer. New users get no access until they are provisioned into a firm.</p></div>
+    <div class="card"><h3>Secrets stay server-side</h3><p>Payment and aggregation secrets live only in serverless functions. The browser only ever holds a public key and the signed-in user's own session.</p></div>
+  </div>
+
+  <h2>Hardened application surface</h2>
+  <ul>
+    <li>An enforced <strong>Content-Security-Policy</strong> and <strong>HSTS</strong>, plus <code>X-Frame-Options</code>, <code>X-Content-Type-Options</code>, and a strict referrer and permissions policy.</li>
+    <li>Core libraries are <strong>self-hosted</strong> rather than pulled from third-party CDNs at runtime, reducing supply-chain exposure.</li>
+    <li>User-supplied content is sanitized before render.</li>
+    <li>Webhooks are signature-verified and serverless functions verify the caller's identity.</li>
+    <li>Every build passes an automated check gate before it can ship.</li>
+  </ul>
+
+  <h2>Accountability &amp; records</h2>
+  <p>Security and compliance reinforce each other. The same model that scopes access also powers an <strong>append-only audit trail</strong> of meaningful actions (with actor, timestamp, and a readable summary), <strong>immutable profile versioning</strong> for point-in-time review, and a daily <strong>write-once (WORM-style) archive</strong>. Together these are designed around the record-keeping principles of <strong>SEC Rules 17a-3 and 17a-4</strong>.</p>
+
+  <h2>Infrastructure &amp; subprocessors</h2>
+  <p>Prism runs on established providers, each engaged under data-protection terms. The full list — with purpose and location — is in our <a href="/dpa.html">Data Processing Agreement</a>: Supabase (database, auth, storage, functions), Cloudflare (hosting, CDN, edge security), Stripe (payments), Plaid (account linking, on user consent), and Google (optional sign-in).</p>
+
+  <h2>An honest view of our posture</h2>
+  <p>We would rather earn trust by being transparent than overstate where we are. Here is what is in place today and what is on the near-term roadmap before and as we onboard live client data.</p>
+  <table>
+    <tr><th>Control</th><th>Status</th></tr>
+    <tr><td>Row-level tenant isolation (firm &rarr; advisor &rarr; client)</td><td><span class="pill now">In place</span></td></tr>
+    <tr><td>Optional MFA (TOTP) with assurance-level enforcement</td><td><span class="pill now">In place</span></td></tr>
+    <tr><td>TLS in transit; encryption at rest</td><td><span class="pill now">In place</span></td></tr>
+    <tr><td>Enforced CSP + HSTS + hardened headers</td><td><span class="pill now">In place</span></td></tr>
+    <tr><td>Append-only audit trail + immutable versioning</td><td><span class="pill now">In place</span></td></tr>
+    <tr><td>Daily WORM-style archive to private storage</td><td><span class="pill now">In place</span></td></tr>
+    <tr><td>Automated tenant-isolation (RLS) test suite</td><td><span class="pill now">In place</span></td></tr>
+    <tr><td>Production database tier with point-in-time backups</td><td><span class="pill next">Provisioned before live-client onboarding</span></td></tr>
+    <tr><td>Object-lock immutable storage for the archive (full 17a-4-grade WORM)</td><td><span class="pill next">On the roadmap</span></td></tr>
+    <tr><td>Third-party attestation (e.g., SOC 2)</td><td><span class="pill next">On the roadmap</span></td></tr>
+  </table>
+
+  <div class="callout">
+    <strong>Responsible disclosure.</strong> If you believe you have found a security issue, we want to hear from you. Email
+    <a href="mailto:security@prismaw.com">security@prismaw.com</a> with details and steps to reproduce. We will acknowledge
+    your report, investigate promptly, and will not pursue good-faith research that respects user privacy and avoids service disruption.
+  </div>
+
+  <p style="margin-top:24px;">Prism is operated by <strong>Cory M. Lemay</strong>. For data-protection questions, see our
+  <a href="/privacy.html">Privacy Policy</a> and <a href="/dpa.html">DPA</a>.</p>
+</main>
+
+<footer class="site"><div class="wrap">
+  &copy; 2026 Prism Advisor Workspace &middot; A product of Cory M. Lemay
+  <div class="legalnav">
+    <a href="/">Overview</a>
+    <a href="/privacy.html">Privacy</a>
+    <a href="/terms.html">Terms</a>
+    <a href="/dpa.html">DPA</a>
+    <a href="/security.html">Security</a>
+  </div>
+</div></footer>
+</body>
+</html>

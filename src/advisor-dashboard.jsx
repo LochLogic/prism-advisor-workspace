@@ -62,56 +62,8 @@ const dueMeta = (dueAt) => {
 };
 
 /* ─── Performance math (Theme D) ─────────────────────────────────── */
-// Portfolio value per snapshot date = sum of each account's latest balance ≤ that date.
-function buildValueSeries(balanceRows) {
-  if (!balanceRows || !balanceRows.length) return [];
-  const byAccount = {};
-  const dateSet = new Set();
-  for (const r of balanceRows) {
-    (byAccount[r.account_id] = byAccount[r.account_id] || []).push({ date: r.as_of, balance: Number(r.balance) || 0 });
-    dateSet.add(r.as_of);
-  }
-  Object.values(byAccount).forEach(arr => arr.sort((a, b) => a.date < b.date ? -1 : 1));
-  const dates = [...dateSet].sort();
-  return dates.map(d => {
-    let total = 0;
-    for (const arr of Object.values(byAccount)) {
-      let last = null;
-      for (const pt of arr) { if (pt.date <= d) last = pt.balance; else break; }
-      if (last != null) total += last;
-    }
-    return { date: d, value: total };
-  });
-}
-
-// Modified Dietz return between startDate and endDate, given dated flows.
-function modifiedDietz(series, flows, startDate, endDate) {
-  if (!series.length) return null;
-  const inRange = series.filter(p => p.date <= endDate);
-  if (!inRange.length) return null;
-  const ev = inRange[inRange.length - 1].value;
-  let bv = null;
-  for (const p of series) { if (p.date < startDate) bv = p.value; else break; }
-  const inception = bv == null;
-  if (bv == null) bv = series[0].value;
-  const fls = (flows || []).filter(f => f.flow_date >= startDate && f.flow_date <= endDate);
-  const start = new Date(startDate), end = new Date(endDate);
-  const span = Math.max(1, (end - start) / 86400000);
-  const net = fls.reduce((s, f) => s + (Number(f.amount) || 0), 0);
-  const weighted = fls.reduce((s, f) => s + (Number(f.amount) || 0) * ((end - new Date(f.flow_date)) / 86400000 / span), 0);
-  const denom = bv + weighted;
-  const gain = ev - bv - net;
-  return { bv, ev, net, gain, pct: denom !== 0 ? (gain / denom) * 100 : null, inception };
-}
-
-function perfPeriods(series, flows) {
-  if (!series.length) return [];
-  const end = new Date().toISOString().slice(0, 10);
-  const ago = (days) => new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
-  const yStart = `${new Date().getFullYear()}-01-01`;
-  const defs = [['1M', ago(30)], ['3M', ago(90)], ['YTD', yStart], ['1Y', ago(365)], ['ITD', series[0].date]];
-  return defs.map(([label, start]) => ({ label, start, end, ...(modifiedDietz(series, flows, start, end) || {}) }));
-}
+// buildValueSeries / modifiedDietz / perfPeriods now live in src/calc-core.cjs
+// (single source of truth, unit-tested) and are in the shared bundle scope.
 
 // Compounded benchmark return over a period given an assumed annual rate
 function benchmarkPct(start, end, annualRate) {

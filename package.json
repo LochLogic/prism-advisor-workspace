@@ -5,7 +5,9 @@
   "scripts": {
     "build": "node build.mjs",
     "check": "node scripts/check.mjs",
-    "test": "npm run build && npm run check"
+    "test": "npm run build && npm run check && npm run test:calc",
+    "test:calc": "node scripts/calc.test.mjs",
+    "test:rls": "node scripts/rls-test.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.25.0"

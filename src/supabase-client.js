@@ -5,7 +5,7 @@
   const SUPABASE_ANON = 'sb_publishable_Aj_SLwVNmZZwlZ02RDi0zA_Bz79h5Il';
 
   if (!window.supabase || !window.supabase.createClient) {
-    console.warn('[FinFire] Supabase client failed to load — running in local-only mode.');
+    console.warn('[Prism] Supabase client failed to load — running in local-only mode.');
     window.__sb = null;
     return;
   }
