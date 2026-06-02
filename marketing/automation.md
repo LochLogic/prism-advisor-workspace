@@ -27,7 +27,16 @@ The workflow pushes with the built-in `GITHUB_TOKEN`. If pushes fail, ensure
 **Settings → Actions → General → Workflow permissions** is set to **Read and write**, and that
 `main` has no branch protection blocking the Actions bot.
 
-## Still optional (separate, not set up here)
-- **SEO health monitor** (both sites) and **analytics/Search Console digest** — intended as
-  claude.ai `/schedule` routines; see `FinFire/marketing/automation-routines.md`. The digest
-  also needs analytics + GSC API connected first.
+## SEO health monitor (this repo, GitHub Actions)
+`.github/workflows/seo-health.yml` runs `scripts/seo-check.mjs` weekly (Mondays 13:00 UTC).
+It checks both live sites (prismaw.com + finfire.prismaw.com) — sitemaps, OG images, key pages,
+and Prism's `/app` noindex. Report-only (no push); the job fails (which emails the repo owner)
+only when a check fails, staying silent when healthy. Run manually via Actions → "SEO health
+monitor" → Run workflow.
+
+## Analytics / Search Console digest (planned, this repo)
+Will run as a weekly GitHub Actions cron querying the Google Search Console Search Analytics API
+for prismaw.com (Domain property, which also covers finfire.prismaw.com) and posting a digest as
+a GitHub Issue. Requires the service-account JSON stored as the repo secret **`GSC_SA_KEY`**,
+the Search Console API enabled in the `tradecode-engine` GCP project, and the service-account
+email added as a Full user on the prismaw.com property.
