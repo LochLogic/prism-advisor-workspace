@@ -1,0 +1,41 @@
+name: SEO search digest
+
+# Weekly Google Search Console digest for prismaw.com, posted to a rolling GitHub Issue.
+# Requires the repo secret GSC_SA_KEY (service-account JSON) and that service account added
+# as a user on the prismaw.com Search Console property. FinFire subdomain data is excluded.
+
+on:
+  schedule:
+    - cron: '0 14 * * 1'   # weekly, Mondays 14:00 UTC
+  workflow_dispatch: {}    # manual run (use this to test once permission is granted)
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Generate digest
+        env:
+          GSC_SA_KEY: ${{ secrets.GSC_SA_KEY }}
+        run: node scripts/gsc-digest.mjs > digest.md
+
+      - name: Post digest to a rolling GitHub Issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ISSUE=$(gh issue list --state open --search "SEO digest in:title" --json number --jq '.[0].number' 2>/dev/null || true)
+          if [ -n "$ISSUE" ]; then
+            gh issue comment "$ISSUE" --body-file digest.md
+            echo "Commented on issue #$ISSUE"
+          else
+            gh issue create --title "SEO digest — prismaw.com" --body-file digest.md
+            echo "Created new digest issue"
+          fi
