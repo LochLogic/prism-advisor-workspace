@@ -1,0 +1,38 @@
+name: Scheduled content publish
+
+# Drips pre-written, future-dated pages live on schedule. Runs daily; only commits (and
+# thereby triggers a Cloudflare rebuild) on days a queued page's publishAt date has arrived.
+# No secrets required — uses the built-in GITHUB_TOKEN to push.
+
+on:
+  schedule:
+    - cron: '0 9 * * *'   # daily, 09:00 UTC
+  workflow_dispatch: {}   # allow manual runs
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Detect newly-due pages
+        run: node scripts/publish-due.mjs
+
+      - name: Commit if a page came due (triggers Cloudflare rebuild)
+        run: |
+          if [ -n "$(git status --porcelain content/published.json)" ]; then
+            git config user.name  "prism-content-bot"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add content/published.json
+            git commit -m "publish: scheduled content went live"
+            git push
+            echo "Published newly-due content."
+          else
+            echo "No new content due today."
+          fi

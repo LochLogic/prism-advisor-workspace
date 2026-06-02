@@ -5,7 +5,7 @@
 import * as esbuild from 'esbuild';
 import { readFileSync, writeFileSync, unlinkSync, mkdirSync, rmSync, copyFileSync } from 'fs';
 import { createHash } from 'crypto';
-import { pages, renderPage } from './content/pages.mjs';
+import { publishedPages, renderPage } from './content/pages.mjs';
 
 const files = [
   'src/supabase-client.js',
@@ -90,11 +90,12 @@ try {
 
   // ── SEO: robots, sitemap, share image ──────────────────────────────
   // ── B2B content/intent pages (static, crawlable) ───────────────────
-  for (const p of pages) {
+  const livePages = publishedPages();
+  for (const p of livePages) {
     mkdirSync(`_site/${p.slug}`, { recursive: true });
     writeFileSync(`_site/${p.slug}/index.html`, renderPage(p));
   }
-  console.log(`✓ ${pages.length} content pages rendered`);
+  console.log(`✓ ${livePages.length} content pages rendered (live by publishAt date)`);
 
   // ── SEO: robots, sitemap, share image ──────────────────────────────
   // The app at /app carries a noindex meta tag, so it's kept crawlable here (a Disallow
@@ -107,7 +108,7 @@ Sitemap: https://prismaw.com/sitemap.xml
   const urls = [
     { loc: 'https://prismaw.com/', priority: '1.0', freq: 'weekly' },
     { loc: 'https://prismaw.com/signup.html', priority: '0.7', freq: 'monthly' },
-    ...pages.map(p => ({ loc: `https://prismaw.com/${p.slug}/`, priority: '0.8', freq: 'monthly' })),
+    ...livePages.map(p => ({ loc: `https://prismaw.com/${p.slug}/`, priority: '0.8', freq: 'monthly' })),
   ];
   writeFileSync('_site/sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
