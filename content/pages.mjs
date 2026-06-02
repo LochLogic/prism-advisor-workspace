@@ -511,7 +511,7 @@ const siteFooter = `<footer class="site"><div class="wrap">
   <a href="${SITE}/">Overview</a> &middot; <a href="${SITE}/signup.html">Sign up</a> &middot; <a href="${SITE}/login.html">Sign in</a><br/>
   Secured by row-level security &middot; Audit trail designed around SEC 17a-3/17a-4 principles
   <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line);color:var(--ink3);">
-    &copy; 2026 Prism Advisor Workspace &middot; A product of Cory M. Lemay &nbsp;&middot;&nbsp;
+    &copy; 2026 Prism Advisor Workspace &middot; A product of LeMay Ventures LLC &nbsp;&middot;&nbsp;
     <a href="${SITE}/privacy.html">Privacy</a> &middot;
     <a href="${SITE}/terms.html">Terms</a> &middot;
     <a href="${SITE}/dpa.html">DPA</a> &middot;

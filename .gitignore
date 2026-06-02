@@ -15,6 +15,9 @@ desktop.ini
 *.suo
 *.user
 
+# Claude Code (local agent settings / launch config)
+.claude/
+
 # Logs
 *.log
 npm-debug.log*
