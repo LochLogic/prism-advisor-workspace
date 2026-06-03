@@ -4,7 +4,7 @@
 const { useMemo: useMemoAdv, useState: useStateAdv } = React;
 
 /* ─── KPI tiles ──────────────────────────────────────────────────── */
-const KpiTile = ({ label, value, sub, delta, deltaDir, sparkSeed, sparkTrend }) => (
+const KpiTile = ({ label, value, sub, delta, deltaDir, sparkData }) => (
   <div className="px-kpi">
     <div className="px-kpi-label">{label}</div>
     <div className="px-kpi-value">{value}</div>
@@ -15,9 +15,10 @@ const KpiTile = ({ label, value, sub, delta, deltaDir, sparkSeed, sparkTrend }) 
         {delta}
       </div>
     )}
-    {sparkSeed && (
+    {Array.isArray(sparkData) && sparkData.length >= 2 && (
       <div className="px-kpi-spark">
-        <Sparkline seed={sparkSeed} trend={sparkTrend} color="var(--gold)" width={64} height={22} />
+        <Sparkline data={sparkData} width={64} height={22}
+          color={sparkData[sparkData.length - 1] >= sparkData[0] ? 'var(--forest)' : 'var(--brick)'} />
       </div>
     )}
   </div>
@@ -1319,7 +1320,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
 
             {/* Quick cadences */}
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
-              {[['Annual review', 12], ['Semi-annual check-in', 6], ['Quarterly review', 3]].map(([label, m]) => (
+              {[['Annual review', 12], ['Semi-annual check-in', 6], ['Quarterly review', 3], ['Onboarding follow-up', 1]].map(([label, m]) => (
                 <button key={label} className="px-btn px-btn-sm px-btn-ghost" style={{ fontSize: 11 }}
                   onClick={() => scheduleCadence(m, label)}>
                   <Icons.Calendar size={10} /> {label}
@@ -1773,6 +1774,16 @@ const FirmAdminDashboard = () => {
     if (row) { setFeeSchedules(prev => [...prev, row]); setSchedForm(null); showToast('Fee schedule created'); }
   };
 
+  // Assign (or clear) a client's fee schedule inline — no need to open each client.
+  const assignFeeSchedule = async (clientId, scheduleId) => {
+    const row = await window.db.updateClient(clientId, { fee_schedule_id: scheduleId || null });
+    if (row) {
+      setFirmClients(prev => (prev || []).map(c => c.id === clientId ? { ...c, fee_schedule_id: scheduleId || null } : c));
+    } else {
+      showToast('Could not update assignment');
+    }
+  };
+
   const generateInvoices = async () => {
     setGenBusy(true);
     try {
@@ -2033,10 +2044,40 @@ const FirmAdminDashboard = () => {
           </div>
         )}
 
+        {/* Assign schedules to clients — inline, so it's not a per-client detour */}
+        {(feeSchedules || []).length > 0 && (firmClients || []).length > 0 && (
+          <div style={{ marginBottom: 18 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.05em' }}>Assign schedules to clients</span>
+            <div className="px-roster" style={{ marginTop: 8 }}>
+              <table className="px-table">
+                <thead>
+                  <tr><th>Client</th><th className="is-num">AUM</th><th style={{ width: 230 }}>Fee schedule</th></tr>
+                </thead>
+                <tbody>
+                  {(firmClients || []).map(c => (
+                    <tr key={c.id}>
+                      <td data-label="Client">{c.short_name || c.household_name || 'Client'}</td>
+                      <td className="is-num" data-label="AUM">{fmt$(Number(c.aum) || 0, { short: true })}</td>
+                      <td data-label="Fee schedule">
+                        <select className="px-select" value={c.fee_schedule_id || ''}
+                          onChange={e => assignFeeSchedule(c.id, e.target.value)}
+                          aria-label={`Fee schedule for ${c.short_name || c.household_name || 'client'}`}>
+                          <option value="">— Unassigned —</option>
+                          {feeSchedules.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {/* Invoices */}
         {(invoices || []).length === 0 ? (
           <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--ink-faint)', fontSize: 13, fontStyle: 'italic' }}>
-            No invoices yet. Assign a fee schedule to clients (in their profile → Edit), then "Run billing now."
+            No invoices yet. Assign a fee schedule to clients above, then "Run billing now."
           </div>
         ) : (
           <div className="px-roster">
@@ -2193,6 +2234,28 @@ const AdvisorDashboard = () => {
 
   const activeClients   = isLiveMode ? dbClients   : clientsData;
   const activeAlerts    = isLiveMode ? (dbAlerts    || []) : alertsData;
+
+  // Book AUM trend (sparkline): real balance history when live; summed demo
+  // histories across the roster otherwise.
+  const [bookBal, setBookBal] = useStateAdv(undefined);
+  React.useEffect(() => {
+    if (!isLiveMode || !window.db?.getBookBalanceHistory) return;
+    window.db.getBookBalanceHistory().then(r => setBookBal(r || []));
+  }, [isLiveMode]);
+  const bookSpark = useMemoAdv(() => {
+    let series;
+    if (isLiveMode) {
+      series = buildValueSeries(bookBal || []);
+    } else if (window.demoBalanceHistory) {
+      const byDate = {};
+      for (const c of activeClients) {
+        for (const r of window.demoBalanceHistory(c.aum || 0)) byDate[r.as_of] = (byDate[r.as_of] || 0) + r.balance;
+      }
+      series = Object.keys(byDate).sort().map(d => ({ date: d, value: byDate[d] }));
+    } else series = [];
+    return series.map(p => p.value);
+  }, [isLiveMode, bookBal, activeClients]);
+
   const activeQuestions = isLiveMode ? (dbQuestions || []) : questionsData;
   const activeTasks     = isLiveMode ? (dbTasks || []) : tasksData.filter(t => !demoDoneTasks.has(t.id));
   // Apply in-session pipeline-stage overrides (demo) so the board reflects moves
@@ -2414,7 +2477,7 @@ const AdvisorDashboard = () => {
         {/* KPIs */}
         <div className="px-kpis">
           <KpiTile label="Book AUM" value={kpis.totalAUM ? fmt$(kpis.totalAUM, { short: true, decimals: 1 }) : '—'}
-                   delta={isLiveMode ? null : '+ $1.8M MTD'} deltaDir="up" />
+                   delta={isLiveMode ? null : '+ $1.8M MTD'} deltaDir="up" sparkData={bookSpark} />
           <KpiTile label="Active clients" value={kpis.activeCount}
                    sub={isLiveMode ? null : '2 onboarding'} />
           <KpiTile label="Late-horizon" value={kpis.inLateHorizon}

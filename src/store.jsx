@@ -446,6 +446,41 @@ function NotificationProvider({ children }) {
     };
   }, [authUser?.id]);
 
+  // Surface overdue / due-soon CRM tasks in the notification stream on login
+  // (covers tasks assigned to me by another advisor too — getTasks ORs both).
+  // One-time scan; deep-links to the client like other notifications.
+  useEffect(() => {
+    if (!authUser?.id || !window.db) return;
+    let cancelled = false;
+    (async () => {
+      const tasks = await window.db.getTasks(authUser.id);
+      if (cancelled || !Array.isArray(tasks)) return;
+      const now = Date.now(), soonMs = 3 * 86_400_000;
+      let shown = 0;
+      for (const t of tasks) {                 // ordered by due_at asc (soonest first)
+        if (shown >= 8 || t.status !== 'open' || !t.due_at) continue;
+        const due = new Date(t.due_at).getTime();
+        if (due - now > soonMs) break;          // rest are further out
+        const overdue = due < now;
+        const who = t.clients?.short_name || t.clients?.household_name;
+        const when = new Date(t.due_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        addNotification({
+          id:        `task-due:${t.id}`,
+          type:      'task',
+          priority:  overdue ? 'high' : 'med',
+          icon:      'Check',
+          headline:  overdue ? `Overdue task — ${t.title}` : `Task due soon — ${t.title}`,
+          body:      `${who ? who + ' · ' : ''}due ${when}`,
+          timeAgo:   'now',
+          createdAt: new Date().toISOString(),
+          clientId:  t.client_id || null,
+        });
+        shown++;
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [authUser?.id, addNotification]);
+
   return (
     <NotificationContext.Provider value={{ notifications, unread, markAllRead, dismiss, realtimeStatus }}>
       {children}
