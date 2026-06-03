@@ -225,12 +225,25 @@ const ClientPortal = ({ onOpenNumbers }) => {
   const [perfBal, setPerfBal] = React.useState(null);
   const [perfFlows, setPerfFlows] = React.useState([]);
   const [invoices, setInvoices] = React.useState([]);
+  const [acks, setAcks] = React.useState([]);
+  const [signName, setSignName] = React.useState('');
+  const [signingId, setSigningId] = React.useState(null);
   React.useEffect(() => {
-    if (!window.db?.isUUID(activeClientId)) { setPerfBal(null); setPerfFlows([]); setInvoices([]); return; }
+    if (!window.db?.isUUID(activeClientId)) { setPerfBal(null); setPerfFlows([]); setInvoices([]); setAcks([]); return; }
     window.db.getBalanceHistory(activeClientId).then(r => setPerfBal(r || []));
     window.db.getCashFlows(activeClientId).then(r => setPerfFlows(r || []));
     window.db.getInvoices({ clientId: activeClientId }).then(r => setInvoices((r || []).filter(i => i.status !== 'void' && i.status !== 'draft')));
+    window.db.getAcknowledgements(activeClientId).then(r => setAcks(r || []));
   }, [activeClientId]);
+
+  const signAck = async (ack) => {
+    if (!signName.trim()) { showToast('Type your full name to acknowledge'); return; }
+    setSigningId(ack.id);
+    const row = await window.db.signAcknowledgement(ack.id, signName.trim());
+    setSigningId(null);
+    if (row) { setAcks(prev => prev.map(a => a.id === ack.id ? row : a)); setSignName(''); showToast('Acknowledged — thank you'); }
+    else showToast('Could not record acknowledgement — try again');
+  };
 
   // Meeting request (scheduling)
   const [schedOpen, setSchedOpen] = React.useState(false);
@@ -286,6 +299,14 @@ const ClientPortal = ({ onOpenNumbers }) => {
     if (!a) return null;
     return { up: b >= a, pct: ((b - a) / a) * 100, values: valueSeries.map(p => p.value) };
   }, [valueSeries]);
+
+  // Period returns for the inline performance view (live flows, or demo flows).
+  const perfFlowsForView = window.db?.isUUID(activeClientId)
+    ? perfFlows
+    : (window.demoCashFlows ? window.demoCashFlows() : []);
+  const perfPeriodsData = React.useMemo(
+    () => (valueSeries.length >= 2 ? perfPeriods(valueSeries, perfFlowsForView) : []),
+    [valueSeries, perfFlowsForView]);
 
   const downloadPerformance = () => {
     const series  = buildValueSeries(perfBal || []);
@@ -395,12 +416,66 @@ const ClientPortal = ({ onOpenNumbers }) => {
           </div>
         </div>
 
-        {/* Performance report (live clients only) */}
-        {window.db?.isUUID(activeClientId) && (
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
-            <button className="px-btn px-btn-sm px-btn-ghost" onClick={downloadPerformance}>
-              <Icons.Download size={11} /> Download performance report
-            </button>
+        {/* Acknowledgements — review & e-sign documents the advisor requested */}
+        {acks.length > 0 && (
+          <div className="px-card" style={{ padding: 18, marginBottom: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 }}>
+            <div className="px-eyebrow" style={{ marginBottom: 12 }}>Acknowledgements</div>
+            {acks.map(a => (
+              <div key={a.id} style={{ padding: '10px 0', borderTop: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                  <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink)' }}>{a.title}</div>
+                  {a.status === 'acknowledged' ? (
+                    <span style={{ fontSize: 11, color: 'var(--forest)', display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+                      <Icons.CheckCircle size={13} /> Signed {a.acknowledged_at ? new Date(a.acknowledged_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--gold)', whiteSpace: 'nowrap' }}>Action needed</span>
+                  )}
+                </div>
+                {a.body && <div style={{ fontSize: 12.5, color: 'var(--ink-mute)', marginTop: 6, lineHeight: 1.55 }}>{a.body}</div>}
+                {a.status === 'acknowledged' ? (
+                  a.signer_name && <div style={{ fontSize: 11, color: 'var(--ink-faint)', marginTop: 5 }}>Signed by {a.signer_name}</div>
+                ) : (
+                  <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                    <input className="px-input" placeholder="Type your full name to sign" value={signName}
+                      onChange={e => setSignName(e.target.value)} style={{ flex: '1 1 200px' }}
+                      aria-label="Your full name" />
+                    <button className="px-btn px-btn-sm px-btn-primary" onClick={() => signAck(a)} disabled={signingId === a.id}>
+                      <Icons.Check size={12} /> {signingId === a.id ? 'Recording…' : 'I acknowledge'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Interactive performance view — inline chart + time-weighted returns */}
+        {valueSeries.length >= 2 && (
+          <div className="px-card" style={{ padding: 18, marginBottom: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <div className="px-eyebrow">Performance</div>
+              {window.db?.isUUID(activeClientId) && (
+                <button className="px-btn px-btn-sm px-btn-ghost" onClick={downloadPerformance}>
+                  <Icons.Download size={11} /> Download report
+                </button>
+              )}
+            </div>
+            <PerfChart series={valueSeries} height={110} />
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 12 }}>
+              {perfPeriodsData.map(p => (
+                <div key={p.label} style={{ flex: '1 1 70px', minWidth: 64, textAlign: 'center', padding: '8px 6px', background: 'var(--bg-elev)', borderRadius: 8 }}>
+                  <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--ink-mute)', fontWeight: 600 }}>{p.label}</div>
+                  <div style={{ fontFamily: 'var(--serif)', fontSize: 15.5, fontWeight: 500, marginTop: 3,
+                    color: p.pct == null ? 'var(--ink-mute)' : p.pct >= 0 ? 'var(--forest)' : 'var(--brick)' }}>
+                    {p.pct == null ? '—' : `${p.pct >= 0 ? '+' : ''}${p.pct.toFixed(1)}%`}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize: 10.5, color: 'var(--ink-faint)', marginTop: 10, fontStyle: 'italic' }}>
+              Time-weighted return (Modified Dietz) · {window.db?.isUUID(activeClientId) ? 'from your linked accounts' : 'illustrative demo data'}
+            </div>
           </div>
         )}
 

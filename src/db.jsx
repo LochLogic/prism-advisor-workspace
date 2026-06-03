@@ -168,6 +168,47 @@ async function dbUpdateInvoiceStatus(id, status, clientId) {
 }
 const fmtMoney = (n) => '$' + (Number(n) || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
 
+/* ─── Acknowledgements / e-sign (migration 017) ──────────────────── */
+const ACK_COLS = 'id, client_id, advisor_id, title, body, status, requested_at, acknowledged_at, signer_name';
+
+async function dbGetAcknowledgements(clientId) {
+  if (!_sb() || !isUUID(clientId)) return null;
+  try {
+    const { data, error } = await _sb()
+      .from('acknowledgements').select(ACK_COLS)
+      .eq('client_id', clientId)
+      .order('requested_at', { ascending: false });
+    if (error) throw error;
+    return data;
+  } catch (e) { console.warn('[db] getAcknowledgements:', e.message); return null; }
+}
+
+async function dbCreateAcknowledgement(clientId, firmId, advisorId, { title, body }) {
+  if (!_sb() || !isUUID(clientId)) return null;
+  try {
+    const { data, error } = await _sb()
+      .from('acknowledgements')
+      .insert({ client_id: clientId, firm_id: firmId, advisor_id: advisorId, title, body: body || null })
+      .select(ACK_COLS).single();
+    if (error) throw error;
+    dbAudit('ack.request', { entityType: 'acknowledgement', entityId: data.id, clientId,
+      summary: `Requested acknowledgement: ${title}` });
+    return data;
+  } catch (e) { console.warn('[db] createAcknowledgement:', e.message); return null; }
+}
+
+async function dbSignAcknowledgement(id, signerName) {
+  if (!_sb() || !isUUID(id)) return null;
+  try {
+    const { data, error } = await _sb().rpc('px_sign_acknowledgement', { p_id: id, p_signer_name: signerName });
+    if (error) throw error;
+    const row = Array.isArray(data) ? data[0] : data;
+    if (row) dbAudit('ack.sign', { entityType: 'acknowledgement', entityId: id, clientId: row.client_id,
+      summary: `Acknowledged: ${row.title}` });
+    return row;
+  } catch (e) { console.warn('[db] signAcknowledgement:', e.message); return null; }
+}
+
 // Map a DB clients row to the shape the UI components expect
 function mapClient(c) {
   const name = c.household_name || 'Unknown';
@@ -910,6 +951,9 @@ window.db = {
   createFeeSchedule:   dbCreateFeeSchedule,
   getInvoices:         dbGetInvoices,
   updateInvoiceStatus: dbUpdateInvoiceStatus,
+  getAcknowledgements:   dbGetAcknowledgements,
+  createAcknowledgement: dbCreateAcknowledgement,
+  signAcknowledgement:   dbSignAcknowledgement,
   getPhases:           dbGetPhases,
   audit:               dbAudit,
   getAuditLog:         dbGetAuditLog,
