@@ -69,10 +69,19 @@ The unlock gate. Mostly **not code**.
 |---|---|
 | Recruit 3–5 ICP RIAs (warm network → XYPN/NAPFA/Kitces/LinkedIn) | ⬜ |
 | Stand up founder-led content channel (LinkedIn + newsletter) | ⬜ |
-| Make the demo open onto a populated roadmap + live collaboration thread | ⬜ |
+| Make the demo open onto a populated roadmap | ✅ Done (lands on client roadmap) |
 | RLS tenant-isolation tests in a DB-enabled CI job (harness shipped: `npm run test:rls`) | ◐ Harness done; wire to CI |
-| Calculator unit tests | ⬜ |
+| Calculator unit tests | ✅ Done (`npm run test:calc`, 39 tests) |
 | Tighten CSP — remove `'unsafe-inline'` (externalize inline handlers + React styles → nonces/hashes) | ⬜ |
+
+### UX refinements backlog (from the 2026-06 click-path review)
+Quick wins #1–#3 shipped (edit-numbers from the client modal, new-advisor onboarding + sample household, "Quick view" modal labeling). Remaining:
+| Item | Priority | Notes |
+|---|---|---|
+| **Unify fee setup** | 🟡 Med | Admin defines fee schedules in one place; advisors assign per-client in another (client modal → Edit tab). Add inline "assign to clients" right after creating a schedule, or allow assignment from the admin client list. |
+| **Preserve the high-value paths (guardrail)** | 🟢 Keep | Don't regress: 1-click demo, notification/alert deep-linking, inline question replies, single-screen client portal, and the now-fixed mobile experience. Treat these as protected UX in any future refactor. |
+| Roster → richer mobile detail / swipe actions (optional) | 🟢 Low | Cards shipped; could add quick actions. |
+| KPI sparklines: make advisor Book-AUM trend live (needs firm-level time series) | 🟢 Low | Client roadmap trend is already live; advisor-side deferred until aggregate history exists. |
 
 ### Phase 2 — Depth on demand
 | Item | Status |

@@ -275,6 +275,7 @@ function ViewProvider({ children }) {
   const [activeClient,    setActiveClient]    = useState(null);
   const [pendingPhaseId,  setPendingPhaseId]  = useState(null);
   const [toast, setToast] = useState(null);
+  const [numbersOpen, setNumbersOpen] = useState(false);
 
   useEffect(() => { try { localStorage.setItem('px_view', view); } catch {} }, [view]);
 
@@ -290,6 +291,17 @@ function ViewProvider({ children }) {
     setView('client');
   }, []);
 
+  // Numbers (household ledger) drawer — shared so any surface can open it.
+  const openNumbers  = useCallback(() => setNumbersOpen(true), []);
+  const closeNumbers = useCallback(() => setNumbersOpen(false), []);
+  // Edit a specific client's numbers (advisor editing from the client modal):
+  // point the profile context at that client, then open the drawer.
+  const openClientNumbers = useCallback((client) => {
+    setActiveClientId(client.id);
+    setActiveClient(client);
+    setNumbersOpen(true);
+  }, []);
+
   return (
     <ViewContext.Provider value={{
       view, setView,
@@ -297,6 +309,7 @@ function ViewProvider({ children }) {
       activeClient,   setActiveClient,
       pendingPhaseId, setPendingPhaseId,
       openClientPortal,
+      numbersOpen, openNumbers, closeNumbers, openClientNumbers,
       toast, showToast,
     }}>
       {children}
