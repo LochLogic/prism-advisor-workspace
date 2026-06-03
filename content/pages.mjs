@@ -467,7 +467,7 @@ const head = ({ title, description, keywords, canonical }) => `<!DOCTYPE html>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  :root { --bg:#fafaf7; --surface:#fff; --ink:#1c2e4a; --ink2:#2d4258; --ink3:#5d7a8e; --line:#e4dfd0; --gold:#a98c4b; --serif:'Source Serif 4',Georgia,serif; --sans:'Inter',system-ui,sans-serif; }
+  :root { --bg:#fafaf7; --surface:#fff; --ink:#1c2e4a; --ink2:#2d4258; --ink3:#51708a; --line:#e4dfd0; --gold:#a98c4b; --serif:'Source Serif 4',Georgia,serif; --sans:'Inter',system-ui,sans-serif; }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--ink2); font-family:var(--sans); line-height:1.65; }
   .wrap { max-width:740px; margin:0 auto; padding:0 22px; }
