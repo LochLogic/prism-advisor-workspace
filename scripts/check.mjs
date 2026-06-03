@@ -47,6 +47,11 @@ assert(/dist\/bundle\.js\?v=[a-f0-9]{6,}/.test(read('_site/app/index.html')), 'a
 // 7. CSP doesn't reference the old script CDNs (self-hosted now)
 assert(!/script-src[^;]*(unpkg|jsdelivr)/.test(headers), 'CSP script-src has no unpkg/jsdelivr');
 
+// 8. CSP script-src is hardened: no 'unsafe-inline', and inline scripts are hashed
+const scriptSrc = (headers.match(/script-src[^;]*/) || [''])[0];
+assert(!/'unsafe-inline'/.test(scriptSrc), "CSP script-src has no 'unsafe-inline'");
+assert(/'sha256-[A-Za-z0-9+/=]{40,}'/.test(scriptSrc), 'CSP script-src allow-lists inline scripts by hash');
+
 console.log('');
 if (failures) { console.error(`FAILED: ${failures} check(s)`); process.exit(1); }
 console.log('All checks passed.');
