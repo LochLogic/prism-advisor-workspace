@@ -137,7 +137,7 @@ const RosterRow = ({ client, onOpen }) => {
           </div>
         </div>
       </td>
-      <td>
+      <td data-label="Horizon">
         <div className="px-phase-pill">
           <span className="px-phase-pill-num">P{phase.num}</span>
           <span style={{ color: 'var(--ink)' }}>{phase.title}</span>
@@ -146,17 +146,17 @@ const RosterRow = ({ client, onOpen }) => {
           </span>
         </div>
       </td>
-      <td className="is-num">
+      <td className="is-num" data-label="AUM">
         <span className="px-num-serif" style={{ fontSize: 16, color: 'var(--ink)' }}>
           {fmt$(client.aum, { short: true })}
         </span>
       </td>
-      <td className="is-num px-hide-mobile">
+      <td className="is-num px-hide-mobile" data-label="Cash">
         <span style={{ color: client.uninvestedCash > 80_000 ? 'var(--brick)' : 'var(--ink-mute)' }}>
           {client.uninvestedCash ? fmt$(client.uninvestedCash, { short: true }) : '—'}
         </span>
       </td>
-      <td>
+      <td data-label="Activity">
         <span className={`px-activity-dot ${client.recent ? 'is-recent' : client.lastActivity.includes('d') && parseInt(client.lastActivity) >= 7 ? 'is-warn' : ''}`}></span>
         <span style={{ fontSize: 12, color: 'var(--ink-mute)' }}>{client.lastActivity}</span>
         {client.lastReview && (
@@ -2366,17 +2366,13 @@ const AdvisorDashboard = () => {
         {/* KPIs */}
         <div className="px-kpis">
           <KpiTile label="Book AUM" value={kpis.totalAUM ? fmt$(kpis.totalAUM, { short: true, decimals: 1 }) : '—'}
-                   delta={isLiveMode ? null : '+ $1.8M MTD'} deltaDir="up"
-                   sparkSeed={7} sparkTrend="up" />
+                   delta={isLiveMode ? null : '+ $1.8M MTD'} deltaDir="up" />
           <KpiTile label="Active clients" value={kpis.activeCount}
-                   sub={isLiveMode ? null : '2 onboarding'}
-                   sparkSeed={3} sparkTrend="up" />
+                   sub={isLiveMode ? null : '2 onboarding'} />
           <KpiTile label="Late-horizon" value={kpis.inLateHorizon}
-                   sub="Phase 06 +"
-                   sparkSeed={11} sparkTrend="up" />
+                   sub="Phase 06 +" />
           <KpiTile label="Cash drag" value={kpis.totalCashDrag ? fmt$(kpis.totalCashDrag, { short: true }) : '—'}
-                   delta={isLiveMode ? null : '3 clients over target'} deltaDir="down"
-                   sparkSeed={19} sparkTrend="up" />
+                   delta={isLiveMode ? null : '3 clients over target'} deltaDir="down" />
         </div>
 
         {/* Roster — skeleton only while a real fetch is in flight (not demo) */}

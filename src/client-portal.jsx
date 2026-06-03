@@ -272,6 +272,21 @@ const ClientPortal = ({ onOpenNumbers }) => {
     && !(pf.income?.monthlyTakehome) && !(pf.savings?.emergency)
     && !viewingClient.aum;
 
+  // Live portfolio trend for the Managed-assets card, from real balance history
+  // (the client's snapshots when live; the demo generator otherwise).
+  const valueSeries = React.useMemo(() => {
+    const rows = window.db?.isUUID(activeClientId)
+      ? (perfBal || [])
+      : (window.demoBalanceHistory ? window.demoBalanceHistory(viewingClient.aum || 0) : []);
+    return buildValueSeries(rows);
+  }, [activeClientId, perfBal, viewingClient.aum]);
+  const aumTrend = React.useMemo(() => {
+    if (valueSeries.length < 2) return null;
+    const a = valueSeries[0].value, b = valueSeries[valueSeries.length - 1].value;
+    if (!a) return null;
+    return { up: b >= a, pct: ((b - a) / a) * 100, values: valueSeries.map(p => p.value) };
+  }, [valueSeries]);
+
   const downloadPerformance = () => {
     const series  = buildValueSeries(perfBal || []);
     const periods = perfPeriods(series, perfFlows);
@@ -342,7 +357,20 @@ const ClientPortal = ({ onOpenNumbers }) => {
           <div className="px-portstat">
             <div className="px-portstat-label">Managed assets</div>
             <div className="px-portstat-value">{fmt$(viewingClient.aum, { short: true })}</div>
-            <div className="px-portstat-foot">YTD · pending portfolio sync</div>
+            {aumTrend ? (
+              <div className="px-portstat-foot" style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 5 }}>
+                <Sparkline data={aumTrend.values} width={58} height={18}
+                  color={aumTrend.up ? 'var(--forest)' : 'var(--brick)'} />
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontWeight: 600,
+                  color: aumTrend.up ? 'var(--forest)' : 'var(--brick)' }}>
+                  {aumTrend.up ? <Icons.TrendUp size={11} /> : <Icons.TrendDown size={11} />}
+                  {Math.abs(aumTrend.pct).toFixed(1)}%
+                </span>
+                <span style={{ color: 'var(--ink-faint)' }}>12-mo</span>
+              </div>
+            ) : (
+              <div className="px-portstat-foot">YTD · pending portfolio sync</div>
+            )}
           </div>
           <div className="px-portstat">
             <div className="px-portstat-label">Net worth</div>

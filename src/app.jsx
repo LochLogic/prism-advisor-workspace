@@ -403,21 +403,21 @@ const Topbar = ({ onOpenNumbers, dark, toggleTheme }) => {
           <button
             className={view === 'advisor' ? 'is-on' : ''}
             onClick={() => setView('advisor')}
-            role="tab" aria-selected={view === 'advisor'}>
-            <Icons.TableCol size={13} /> Advisor
+            role="tab" aria-selected={view === 'advisor'} aria-label="Advisor view">
+            <Icons.TableCol size={13} /> <span className="px-vs-label">Advisor</span>
           </button>
           <button
             className={view === 'client' ? 'is-on' : ''}
             onClick={() => setView('client')}
-            role="tab" aria-selected={view === 'client'}>
-            <Icons.Layers size={13} /> Client
+            role="tab" aria-selected={view === 'client'} aria-label="Client view">
+            <Icons.Layers size={13} /> <span className="px-vs-label">Client</span>
           </button>
           {role === 'admin' && (
             <button
               className={view === 'admin' ? 'is-on' : ''}
               onClick={() => setView('admin')}
-              role="tab" aria-selected={view === 'admin'}>
-              <Icons.Building size={13} /> Admin
+              role="tab" aria-selected={view === 'admin'} aria-label="Firm admin view">
+              <Icons.Building size={13} /> <span className="px-vs-label">Admin</span>
             </button>
           )}
         </div>
@@ -427,7 +427,7 @@ const Topbar = ({ onOpenNumbers, dark, toggleTheme }) => {
         {view === 'client' && (
           <button className="px-btn px-btn-sm px-btn-ghost" onClick={onOpenNumbers}
             aria-label="Update your numbers">
-            <Icons.Calculator size={12} /> Your numbers
+            <Icons.Calculator size={12} /> <span className="px-vs-label">Your numbers</span>
           </button>
         )}
         <button className="px-icon-btn" onClick={toggleTheme}
