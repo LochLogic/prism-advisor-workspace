@@ -88,6 +88,10 @@ Quick wins #1–#3 shipped (edit-numbers from the client modal, new-advisor onbo
 - 2.6 CRM depth — due/overdue tasks now surface in the notification bell (deep-linked); +1 cadence preset. (Cross-advisor assignment + cadences were already shipped in migrations 007/014.)
 - 2.7 Advisor Book-AUM live sparkline — real firm-book trend.
 
+### Sprint 3 — Client Value & Compliance ✅ (2026-06)
+- 3.8 In-portal interactive performance view — value chart + time-weighted (Modified Dietz) period returns inline in the client portal (also in the demo).
+- 3.9 Client acknowledgements / e-sign — **migration 017** (`acknowledgements` table + `px_sign_acknowledgement` RPC). Advisor requests from the client modal; client reviews & signs in the portal; immutable record + audit trail. **⚙️ Run migration 017 to activate.**
+
 ### Phase 2 — Depth on demand
 | Item | Status |
 |---|---|

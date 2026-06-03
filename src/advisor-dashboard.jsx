@@ -601,6 +601,8 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
   // Notes state
   const [editingNotes, setEditingNotes] = useStateAdv(false);
   const [notes, setNotes] = useStateAdv('');
+  const [acks, setAcks] = useStateAdv(undefined);
+  const [ackForm, setAckForm] = useStateAdv(null);
 
   // Accounts state
   const [accounts, setAccounts] = useStateAdv(undefined);
@@ -666,6 +668,8 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
         fee_schedule_id: client.feeScheduleId || '',
       });
       if (window.db?.isUUID(client.id)) window.db.getFeeSchedules().then(r => setFeeSchedules(r || []));
+      if (window.db?.isUUID(client.id)) window.db.getAcknowledgements(client.id).then(r => setAcks(r || [])); else setAcks([]);
+      setAckForm(null);
       setConfirmArchive(false);
       setConfirmDeleteAccId(null);
       setConfirmDeleteMtgId(null);
@@ -738,6 +742,14 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
   const openRoadmap = () => { openClientPortal(client); onClose(); };
 
   /* notes */
+  const requestAck = async () => {
+    if (!ackForm?.title?.trim()) { showToast('Give the acknowledgement a title'); return; }
+    const row = await window.db.createAcknowledgement(client.id, firmId, advisorId,
+      { title: ackForm.title.trim(), body: ackForm.body?.trim() || null });
+    if (row) { setAcks(prev => [row, ...(prev || [])]); setAckForm(null); showToast('Acknowledgement requested'); }
+    else showToast('Could not create — check console');
+  };
+
   const saveNotes = () => {
     setEditingNotes(false);
     if (!isLiveClient) return;
@@ -1069,6 +1081,49 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
                 <button className="px-btn px-btn-ghost" aria-label="Call client"><Icons.Phone size={12} /> Call</button>
                 <button className="px-btn px-btn-ghost" aria-label="Message client"><Icons.Message size={12} /> Message</button>
+              </div>
+            )}
+
+            {/* ── Acknowledgements (live clients) — request a client e-sign ── */}
+            {isLiveClient && (
+              <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <span style={LABEL_STYLE}>Acknowledgements</span>
+                  {!ackForm && (
+                    <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => setAckForm({ title: '', body: '' })}>
+                      <Icons.Plus size={10} /> Request
+                    </button>
+                  )}
+                </div>
+                {ackForm && (
+                  <div style={{ padding: 12, background: 'var(--bg-elev)', borderRadius: 6, marginBottom: 10 }}>
+                    <input className="px-input" placeholder="Title (e.g. Investment Policy Statement)" value={ackForm.title} autoFocus
+                      onChange={e => setAckForm(f => ({ ...f, title: e.target.value }))} style={{ marginBottom: 8 }} />
+                    <textarea className="px-input" rows={2} placeholder="Statement the client will read and sign (optional)"
+                      value={ackForm.body} onChange={e => setAckForm(f => ({ ...f, body: e.target.value }))}
+                      style={{ resize: 'vertical', marginBottom: 8 }} />
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button className="px-btn px-btn-sm px-btn-primary" onClick={requestAck}>Send request</button>
+                      <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => setAckForm(null)}>Cancel</button>
+                    </div>
+                  </div>
+                )}
+                {acks === undefined && <div style={{ fontSize: 12, color: 'var(--ink-faint)', fontStyle: 'italic' }}>Loading…</div>}
+                {Array.isArray(acks) && acks.length === 0 && !ackForm && (
+                  <div style={{ fontSize: 12, color: 'var(--ink-faint)', fontStyle: 'italic' }}>No acknowledgements yet.</div>
+                )}
+                {Array.isArray(acks) && acks.map(a => (
+                  <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '7px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
+                    <span style={{ color: 'var(--ink)' }}>{a.title}</span>
+                    {a.status === 'acknowledged' ? (
+                      <span style={{ fontSize: 11, color: 'var(--forest)', display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+                        <Icons.CheckCircle size={12} /> Signed{a.signer_name ? ` · ${a.signer_name}` : ''}
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--gold)' }}>Pending</span>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
 
