@@ -593,7 +593,7 @@ const LABEL_STYLE = {
 };
 
 const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchived, advisorId, firmId }) => {
-  const { openClientPortal, showToast } = useView();
+  const { openClientPortal, openClientNumbers, showToast } = useView();
   const { authUser } = useAuth();
   const [tab, setTab] = useStateAdv('overview');
 
@@ -977,6 +977,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
         <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginBottom: 18 }}>
           <ClientAvatar client={client} size={44} />
           <div style={{ flex: 1 }}>
+            <div className="px-eyebrow" style={{ fontSize: 10, marginBottom: 2 }}>Quick view</div>
             <h2 style={{ fontFamily: 'var(--serif)', fontSize: 20, fontWeight: 500, margin: 0, color: 'var(--ink)' }}>{client.name}</h2>
             <div style={{ fontSize: 12, color: 'var(--ink-mute)', marginTop: 3 }}>
               {client.tag} · last activity {client.lastActivity}
@@ -991,6 +992,11 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                 <Icons.Lock size={12} /> Compliance
               </button>
             )}
+            <button className="px-btn px-btn-sm px-btn-ghost"
+              aria-label="Edit this client's numbers"
+              onClick={() => { openClientNumbers(client); onClose(); }}>
+              <Icons.Calculator size={12} /> Edit numbers
+            </button>
             <button className="px-btn px-btn-sm px-btn-ghost"
               aria-label="Print client report"
               onClick={() => window.printClientReport?.(client, phase, meetings || [])}>
@@ -1687,16 +1693,26 @@ const RosterSkeleton = () => (
 );
 
 /* ─── Empty roster state ─────────────────────────────────────────── */
-const EmptyRoster = ({ onAddClient }) => (
-  <div style={{ padding: '52px 0', textAlign: 'center', borderRadius: 8, border: '1px dashed var(--border-2)', marginTop: 8 }}>
-    <div style={{ width: 44, height: 44, background: 'var(--bg-elev)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
-      <Icons.Users size={18} style={{ color: 'var(--ink-mute)' }} />
+const EmptyRoster = ({ onAddClient, onAddSample, sampling }) => (
+  <div style={{ padding: '48px 24px', textAlign: 'center', borderRadius: 12, border: '1px dashed var(--border-2)', marginTop: 8 }}>
+    <div style={{ width: 46, height: 46, background: 'var(--gold-soft)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+      <Icons.Users size={19} style={{ color: 'var(--gold)' }} />
     </div>
-    <div style={{ fontFamily: 'var(--serif)', fontSize: 16, fontWeight: 500, color: 'var(--ink)', marginBottom: 6 }}>No clients yet</div>
-    <div style={{ fontSize: 13, color: 'var(--ink-mute)', marginBottom: 18 }}>Add your first client to start building your book.</div>
-    <button className="px-btn px-btn-primary" onClick={onAddClient}>
-      <Icons.Plus size={12} /> Add first client
-    </button>
+    <div style={{ fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 500, color: 'var(--ink)', marginBottom: 6 }}>Welcome — let's set up your book</div>
+    <div style={{ fontSize: 13.5, color: 'var(--ink-mute)', marginBottom: 20, maxWidth: 440, margin: '0 auto 20px', lineHeight: 1.55 }}>
+      Add your first client to start building lifecycle plans — or drop in a fully-populated
+      sample household to explore the roadmap, calculators, and reports right away.
+    </div>
+    <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+      <button className="px-btn px-btn-primary" onClick={onAddClient}>
+        <Icons.Plus size={12} /> Add your first client
+      </button>
+      {onAddSample && (
+        <button className="px-btn px-btn-ghost" onClick={onAddSample} disabled={sampling}>
+          <Icons.Sparkles size={12} /> {sampling ? 'Adding…' : 'Load a sample household'}
+        </button>
+      )}
+    </div>
   </div>
 );
 
@@ -2212,6 +2228,38 @@ const AdvisorDashboard = () => {
     setDbClients(prev => [...(prev || []), newClient]);
   };
 
+  // Onboarding: create a fully-populated sample household so a brand-new advisor
+  // immediately sees a living roadmap (they can edit or archive it any time).
+  const [sampling, setSampling] = useStateAdv(false);
+  const handleAddSample = async () => {
+    if (!authUser?.id || !authUser?.firm_id || !window.db) return;
+    setSampling(true);
+    const row = await window.db.createClient(authUser.id, authUser.firm_id, {
+      household_name: 'Sample Household', short_name: 'Sample',
+      household_tag: 'Sample · age 45', current_phase: 2,
+    });
+    if (row) {
+      if (window.mergeProfile) {
+        try {
+          await window.db.saveProfile(row.id, window.mergeProfile(window.emptyProfile, {
+            income:   { monthlyTakehome: 14000 },
+            expenses: { housing: 3200, food: 1400, transport: 900, utilities: 500, healthcare: 600, other: 1800 },
+            savings:  { emergency: 45000 },
+            retirement: { hsaBalance: 12000, iraBalance: 180000, fourohonekBalance: 320000, hsaContrib: 4000 },
+            taxable:  { balance: 210000, monthlyContrib: 2500 },
+            debts:    [{ id: 'd1', name: 'Mortgage', balance: 280000, apr: 6.4, min: 1800 }],
+            goals:    { age: 45, retireAt: 65 },
+          }));
+        } catch {}
+      }
+      handleClientCreated(window.db.mapClient(row));
+      showToast('Sample household added — open it to explore the roadmap');
+    } else {
+      showToast('Could not add sample — check console');
+    }
+    setSampling(false);
+  };
+
   const handleClientUpdated = (updatedClient) => {
     setDbClients(prev => (prev || []).map(c => c.id === updatedClient.id ? updatedClient : c));
     setPreviewClient(updatedClient);
@@ -2386,7 +2434,8 @@ const AdvisorDashboard = () => {
         ) : activeClients.length === 0 ? (
           <>
             <div className="px-section-head"><h2>Client roster</h2></div>
-            <EmptyRoster onAddClient={() => setAddingClient(true)} />
+            <EmptyRoster onAddClient={() => setAddingClient(true)}
+              onAddSample={isLiveMode ? handleAddSample : undefined} sampling={sampling} />
           </>
         ) : (
           <RosterTable

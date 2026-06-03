@@ -508,10 +508,9 @@ function ProvisionWorkspace() {
 
 /* ─── App inner (all providers are already mounted above) ─────────── */
 function AppInner() {
-  const { view, setView } = useView();
+  const { view, setView, numbersOpen, openNumbers, closeNumbers } = useView();
   const { loading, session, role, isDemo, signOut } = useAuth();
   const { dark, toggleTheme } = useTheme();
-  const [isNumbersOpen, setIsNumbersOpen] = React.useState(false);
 
   // Route users to their natural home view on first load.
   // Demo opens on the wedge — the client lifecycle roadmap — not the admin grid,
@@ -529,11 +528,11 @@ function AppInner() {
 
   return (
     <div className="px-app">
-      <Topbar onOpenNumbers={() => setIsNumbersOpen(true)} dark={dark} toggleTheme={toggleTheme} />
+      <Topbar onOpenNumbers={openNumbers} dark={dark} toggleTheme={toggleTheme} />
       {view === 'admin'   ? <FirmAdminDashboard />
        : view === 'advisor' ? <AdvisorDashboard />
-       : <ClientPortal onOpenNumbers={() => setIsNumbersOpen(true)} />}
-      <NumbersDrawer isOpen={isNumbersOpen} onClose={() => setIsNumbersOpen(false)} />
+       : <ClientPortal onOpenNumbers={openNumbers} />}
+      <NumbersDrawer isOpen={numbersOpen} onClose={closeNumbers} />
       <Toast />
     </div>
   );
