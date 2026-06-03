@@ -265,6 +265,13 @@ const ClientPortal = ({ onOpenNumbers }) => {
 
   const completedPhases = phasesData.filter(p => p.tasks.every(t => taskStates[p.id]?.[t.id])).length;
 
+  // Blank-slate detection — a freshly created household with no numbers yet.
+  // Used to show a friendly "add numbers" nudge instead of a wall of $0s.
+  const pf = ctx.profile || {};
+  const isBlankSlate = !ctx.totalInvested && !ctx.netWorth
+    && !(pf.income?.monthlyTakehome) && !(pf.savings?.emergency)
+    && !viewingClient.aum;
+
   const downloadPerformance = () => {
     const series  = buildValueSeries(perfBal || []);
     const periods = perfPeriods(series, perfFlows);
@@ -306,6 +313,29 @@ const ClientPortal = ({ onOpenNumbers }) => {
           </button>
         </div>
         <div style={{ clear: 'both' }}></div>
+
+        {/* Blank-slate nudge — new household with no numbers entered yet */}
+        {isBlankSlate && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderLeft: '3px solid var(--gold)', borderRadius: 'var(--radius-lg)',
+            padding: '16px 18px', margin: '12px 0 4px',
+          }}>
+            <span style={{ color: 'var(--gold)', display: 'flex', flexShrink: 0 }}><Icons.Sparkles size={18} /></span>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div style={{ fontFamily: 'var(--serif)', fontSize: 16, color: 'var(--ink)', marginBottom: 2 }}>
+                Let's bring this plan to life.
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--ink-mute)', lineHeight: 1.5 }}>
+                Add the household's numbers and the roadmap, calculators, and reports fill in automatically.
+              </div>
+            </div>
+            <button className="px-btn px-btn-primary px-btn-sm" onClick={onOpenNumbers}>
+              <Icons.Edit size={12} /> Add numbers
+            </button>
+          </div>
+        )}
 
         {/* Portfolio summary strip */}
         <div className="px-portstrip">

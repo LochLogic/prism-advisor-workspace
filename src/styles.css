@@ -668,7 +668,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 .px-question-ctx { font-size: 11px; color: var(--ink-mute); margin-top: 6px; }
 
 /* ── CLIENT PORTAL ──────────────────────────────────────────────── */
-.px-client-app { max-width: 980px; margin: 0 auto; padding: 32px 28px 80px; }
+.px-client-app { max-width: 980px; margin: 0 auto; padding: 32px 28px 80px; min-width: 0; }
 
 .px-clienthero { padding: 14px 0 28px; }
 .px-clienthero-eyebrow { margin-bottom: 12px; }
@@ -1105,11 +1105,11 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
   font-size: 12.5px;
 }
 
-/* ── Floating advisor chip on client view ────────────────────────── */
+/* ── Advisor chip on client view ─────────────────────────────────── */
 .px-advisor-chip {
-  position: sticky; top: 60px;
-  margin-left: auto;
-  display: inline-flex; align-items: center; gap: 10px;
+  margin: -6px 0 0 auto;            /* right-aligned, static (was sticky → overlapped content on scroll) */
+  width: max-content; max-width: 100%;
+  display: flex; align-items: center; gap: 10px;
   padding: 8px 14px 8px 8px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1235,13 +1235,23 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
   .px-adv-main { padding: 18px 16px 50px; }
   .px-client-app { padding: 22px 16px 60px; }
   .px-clienthero h1 { font-size: 28px; }
+  /* Advisor chip: full-width + wrapping on phones (was overflowing the viewport) */
+  .px-advisor-chip { width: 100%; max-width: 100%; margin: 8px 0 0; justify-content: space-between; flex-wrap: wrap; row-gap: 8px; }
   .px-phase { padding-left: 0; }
+  /* Calculator cards: a content-sized (auto-layout) table was forcing the whole
+     page to overflow. Fix the table to the column width and stack the stat grid. */
+  .px-tool .px-table, .px-tool table { table-layout: fixed; width: 100%; }
+  .px-tool { overflow-x: auto; }
+  .px-tool-grid { grid-template-columns: 1fr 1fr; }
   .px-phase-spine, .px-phase-node { display: none; }
   .px-phase-end { margin-left: 0; }
   .px-phase-aside { gap: 8px; }
   .px-phase-metric { display: none; }
   .px-kpis { grid-template-columns: 1fr 1fr; }
-  .px-portstrip { grid-template-columns: 1fr 1fr; }
+  /* Stat strip: single column on phones (2-col couldn't shrink → forced page overflow) */
+  .px-portstrip { grid-template-columns: 1fr; }
+  .px-portstat { border-right: 0; border-bottom: 1px solid var(--border); }
+  .px-portstat:last-child { border-bottom: 0; }
   .px-greet h1 { font-size: 26px; }
   .px-modal-backdrop { padding: 12px; align-items: flex-start; padding-top: 40px; }
   .px-modal { max-height: calc(100dvh - 64px); }
