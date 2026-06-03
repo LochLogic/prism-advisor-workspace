@@ -65,21 +65,31 @@ const ClientAvatar = ({ client, size = 30 }) => {
   );
 };
 
-/* ─── Sparkline (tiny, deterministic per seed) ───────────────────── */
-const Sparkline = ({ seed = 1, width = 56, height = 18, trend = 'up', color = 'var(--gold)' }) => {
-  // pseudo-random with seed
-  const rng = (i) => Math.abs(Math.sin(i * 12.9898 + seed * 78.233)) % 1;
-  const N = 14;
-  const pts = [];
-  let v = 0.5;
-  for (let i = 0; i < N; i++) {
-    const drift = trend === 'up' ? 0.025 : trend === 'down' ? -0.025 : 0;
-    v = Math.max(0.05, Math.min(0.95, v + drift + (rng(i) - 0.5) * 0.18));
-    pts.push(v);
+/* ─── Sparkline ──────────────────────────────────────────────────────
+   Pass `data` (array of real values) to plot an actual series; otherwise
+   falls back to a deterministic seed-based shape (legacy/decorative use). */
+const Sparkline = ({ seed = 1, width = 56, height = 18, trend = 'up', color = 'var(--gold)', data = null }) => {
+  let pts;
+  if (Array.isArray(data) && data.length >= 2) {
+    // Normalize the real series to 0..1 for the viewbox.
+    const min = Math.min(...data), max = Math.max(...data), range = (max - min) || 1;
+    pts = data.map(v => (v - min) / range);
+  } else {
+    // pseudo-random with seed (decorative fallback)
+    const rng = (i) => Math.abs(Math.sin(i * 12.9898 + seed * 78.233)) % 1;
+    const N = 14;
+    pts = [];
+    let v = 0.5;
+    for (let i = 0; i < N; i++) {
+      const drift = trend === 'up' ? 0.025 : trend === 'down' ? -0.025 : 0;
+      v = Math.max(0.05, Math.min(0.95, v + drift + (rng(i) - 0.5) * 0.18));
+      pts.push(v);
+    }
   }
+  const N = pts.length;
   const d = pts.map((p, i) => {
     const x = (i / (N - 1)) * width;
-    const y = height - p * height;
+    const y = height - p * (height - 2) - 1;
     return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
   }).join(' ');
   return (
