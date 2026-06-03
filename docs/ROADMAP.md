@@ -78,10 +78,15 @@ The unlock gate. Mostly **not code**.
 Quick wins #1–#3 shipped (edit-numbers from the client modal, new-advisor onboarding + sample household, "Quick view" modal labeling). Remaining:
 | Item | Priority | Notes |
 |---|---|---|
-| **Unify fee setup** | 🟡 Med | Admin defines fee schedules in one place; advisors assign per-client in another (client modal → Edit tab). Add inline "assign to clients" right after creating a schedule, or allow assignment from the admin client list. |
+| **Unify fee setup** | ✅ Done | Inline "Assign schedules to clients" table in the admin Revenue view (Sprint 2.5). |
 | **Preserve the high-value paths (guardrail)** | 🟢 Keep | Don't regress: 1-click demo, notification/alert deep-linking, inline question replies, single-screen client portal, and the now-fixed mobile experience. Treat these as protected UX in any future refactor. |
 | Roster → richer mobile detail / swipe actions (optional) | 🟢 Low | Cards shipped; could add quick actions. |
-| KPI sparklines: make advisor Book-AUM trend live (needs firm-level time series) | 🟢 Low | Client roadmap trend is already live; advisor-side deferred until aggregate history exists. |
+| KPI sparklines: make advisor Book-AUM trend live | ✅ Done | Data-driven Book-AUM sparkline from balance_history / demo (Sprint 2.7). |
+
+### Sprint 2 — Advisor Workflow & Efficiency ✅ (2026-06)
+- 2.5 Unify fee setup — inline client→schedule assignment in the admin Revenue view.
+- 2.6 CRM depth — due/overdue tasks now surface in the notification bell (deep-linked); +1 cadence preset. (Cross-advisor assignment + cadences were already shipped in migrations 007/014.)
+- 2.7 Advisor Book-AUM live sparkline — real firm-book trend.
 
 ### Phase 2 — Depth on demand
 | Item | Status |

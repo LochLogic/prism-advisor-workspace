@@ -95,7 +95,7 @@ async function dbGetFirmClients() {
   try {
     const { data, error } = await _sb()
       .from('clients')
-      .select('id, advisor_id, aum, current_phase, fee_schedule_id')
+      .select('id, advisor_id, aum, current_phase, fee_schedule_id, household_name, short_name')
       .eq('active', true);
     if (error) throw error;
     return data;
@@ -713,6 +713,22 @@ async function dbGetBalanceHistory(clientId, { days = 365 } = {}) {
   } catch (e) { console.warn('[db] getBalanceHistory:', e.message); return null; }
 }
 
+// Book-wide balance history (RLS scopes rows to the advisor's own clients) —
+// powers the Book AUM trend sparkline. Bounded to ~13 months.
+async function dbGetBookBalanceHistory({ days = 400 } = {}) {
+  if (!_sb()) return null;
+  try {
+    const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+    const { data, error } = await _sb()
+      .from('balance_history')
+      .select('account_id, as_of, balance')
+      .gte('as_of', since)
+      .order('as_of');
+    if (error) throw error;
+    return data;
+  } catch (e) { console.warn('[db] getBookBalanceHistory:', e.message); return null; }
+}
+
 /* ─── Cash flows (for time-weighted return) ──────────────────────── */
 async function dbGetCashFlows(clientId) {
   if (!_sb() || !isUUID(clientId)) return null;
@@ -899,6 +915,7 @@ window.db = {
   getAuditLog:         dbGetAuditLog,
   getProfileVersions:  dbGetProfileVersions,
   getBalanceHistory:   dbGetBalanceHistory,
+  getBookBalanceHistory: dbGetBookBalanceHistory,
   getCashFlows:        dbGetCashFlows,
   addCashFlow:         dbAddCashFlow,
   deleteCashFlow:      dbDeleteCashFlow,
