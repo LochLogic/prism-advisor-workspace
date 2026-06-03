@@ -14,8 +14,8 @@
   /* Ink — deep navy → muted slate */
   --ink:          #1c2e4a;
   --ink-2:        #2d4258;
-  --ink-mute:     #5d7a8e;
-  --ink-faint:    #8da3b6;
+  --ink-mute:     #51708a;  /* a11y: ≥4.5:1 on bg/surface (was #5d7a8e, 4.33) */
+  --ink-faint:    #627488;  /* a11y: ≥4.5:1 on bg/surface (was #8da3b6, 2.5) */
   --ink-ghost:    #c4cfd9;
 
   /* Lines */
@@ -68,7 +68,7 @@
   --ink:          #dce7f3;
   --ink-2:        #b8ccde;
   --ink-mute:     #7a9ab5;
-  --ink-faint:    #4a6a85;
+  --ink-faint:    #6f93b0;  /* a11y: ≥4.5:1 on dark bg/surface (was #4a6a85, 3.08) */
   --ink-ghost:    #2a4a65;
 
   --border:       #243650;
