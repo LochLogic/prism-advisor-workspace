@@ -34,6 +34,11 @@ Deno.serve(async (req) => {
     const { clientId } = await req.json().catch(() => ({}));
     if (!clientId) return json({ error: "clientId required" }, 400);
 
+    // Verify the caller actually advises this client (RLS-scoped read) before
+    // minting a Link token for them — matches plaid-exchange-token's check.
+    const { data: advised } = await supa.from("clients").select("id").eq("id", clientId).maybeSingle();
+    if (!advised) return json({ error: "Not authorized for this client" }, 403);
+
     const r = await fetch(`${PLAID_BASE}/link/token/create`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

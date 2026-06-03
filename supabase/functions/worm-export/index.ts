@@ -12,6 +12,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { safeEqual } from "../_shared/auth.ts";
 
 function json(o: unknown, s = 200) {
   return new Response(JSON.stringify(o), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -21,7 +22,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
     const cronSecret = Deno.env.get("CRON_SECRET");
-    const isCron = !!cronSecret && req.headers.get("x-cron-secret") === cronSecret;
+    const isCron = !!cronSecret && safeEqual(req.headers.get("x-cron-secret") || "", cronSecret);
 
     if (!isCron) {
       const authHeader = req.headers.get("Authorization");
