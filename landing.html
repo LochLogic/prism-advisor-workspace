@@ -157,7 +157,7 @@
       compliance-minded foundation.
     </p>
     <div class="hero-cta">
-      <button class="btn btn-primary btn-lg" onclick="enterDemo()">Explore the live demo</button>
+      <button class="btn btn-primary btn-lg js-demo">Explore the live demo</button>
       <a class="btn btn-ghost btn-lg" href="signup.html">Create your workspace</a>
     </div>
     <div class="hero-note">No account needed for the demo · Your data stays isolated by row-level security</div>
@@ -249,7 +249,7 @@
     <h2>See it before you sign up.</h2>
     <p>Open a fully populated workspace — roster, roadmaps, alerts, and tools — no account required.</p>
     <div class="hero-cta">
-      <button class="btn btn-primary btn-lg" onclick="enterDemo()">Explore the live demo</button>
+      <button class="btn btn-primary btn-lg js-demo">Explore the live demo</button>
       <a class="btn btn-ghost btn-lg" href="signup.html">Create your workspace</a>
     </div>
   </div>
@@ -288,6 +288,7 @@
       try { sessionStorage.setItem('px_demo', '1'); } catch (e) {}
       window.location.href = '/app';
     }
+    document.querySelectorAll('.js-demo').forEach(b => b.addEventListener('click', enterDemo));
     // If already signed in, surface a "Go to workspace" affordance in the nav.
     (async () => {
       if (!window.__sb) return;
