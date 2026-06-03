@@ -17,3 +17,22 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm run check
+      - run: npm run test:calc
+
+  # Tenant-isolation (RLS) test. Runs against a Postgres/Supabase database via the
+  # DATABASE_URL secret; the whole test runs in a transaction that ROLLS BACK, so it
+  # leaves no rows behind. Point the secret at a DISPOSABLE / STAGING project, not prod.
+  # Until the secret is set, scripts/rls-test.mjs skips gracefully (the job stays green).
+  rls-isolation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install psql client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: RLS isolation test (skips if DATABASE_URL unset)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: node scripts/rls-test.mjs
