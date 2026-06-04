@@ -19,7 +19,9 @@ const files = [
   'src/calculators.jsx',
   'src/numbers-panel.jsx',
   'src/client-portal.jsx',
+  'src/advisor-modal.jsx',
   'src/advisor-dashboard.jsx',
+  'src/firm-admin.jsx',
   'src/app.jsx',
 ];
 
