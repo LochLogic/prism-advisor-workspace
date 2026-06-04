@@ -538,19 +538,62 @@ function AppInner() {
   );
 }
 
+/* ─── Error boundary ──────────────────────────────────────────────────
+   Catches any render error so a bug shows a friendly fallback (with a copy-
+   details affordance for the user to send you) instead of a blank screen, and
+   reports it to the lightweight error reporter. */
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null, copied: false }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  componentDidCatch(error, info) {
+    try { window.__pxReportError?.(error, { type: 'react', component: (info && info.componentStack || '').slice(0, 1000) }); } catch (e) {}
+  }
+  copyDetails = () => {
+    const e = this.state.error;
+    const text = `Prism error\n${e && (e.stack || e.message) || String(e)}\nURL: ${location.href}\n${navigator.userAgent}`;
+    try { navigator.clipboard?.writeText(text); this.setState({ copied: true }); } catch (x) {}
+  };
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center',
+        justifyContent: 'center', background: 'var(--bg)', gap: 14, padding: 32, textAlign: 'center' }}>
+        <div style={{ width: 42, height: 42, background: 'var(--ink)', borderRadius: 11,
+          display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Icons.Prism size={19} style={{ color: 'white' }} />
+        </div>
+        <div style={{ fontFamily: 'var(--serif)', fontSize: 20, fontWeight: 500, color: 'var(--ink)' }}>
+          Something went wrong
+        </div>
+        <div style={{ fontSize: 13.5, color: 'var(--ink-mute)', maxWidth: 380, lineHeight: 1.55 }}>
+          The app hit an unexpected error. Reloading usually fixes it — your data is safe.
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+          <button className="px-btn px-btn-primary" onClick={() => window.location.reload()}>Reload</button>
+          <button className="px-btn px-btn-ghost" onClick={this.copyDetails}>
+            {this.state.copied ? 'Copied ✓' : 'Copy error details'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+}
+
 function App() {
   return (
-    <AuthProvider>
-      <ViewProvider>
-        <NotificationProvider>
-          <ProfileProvider>
-            <TaskProvider>
-              <AppInner />
-            </TaskProvider>
-          </ProfileProvider>
-        </NotificationProvider>
-      </ViewProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <ViewProvider>
+          <NotificationProvider>
+            <ProfileProvider>
+              <TaskProvider>
+                <AppInner />
+              </TaskProvider>
+            </ProfileProvider>
+          </NotificationProvider>
+        </ViewProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 
