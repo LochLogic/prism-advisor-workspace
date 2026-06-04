@@ -32,7 +32,7 @@ jobs:
           node-version: '20'
       - name: Install psql client
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
-      - name: RLS isolation test (skips if DATABASE_URL unset)
+      - name: DB tests — RLS isolation + integration (skips if DATABASE_URL unset)
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: node scripts/rls-test.mjs
+        run: npm run test:db

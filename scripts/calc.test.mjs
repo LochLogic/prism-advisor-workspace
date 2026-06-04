@@ -115,6 +115,34 @@ console.log('calc-core unit tests\n');
   assert(r.alphaLow === 5000 && r.alphaHigh === 15000, 'tlh: alpha band = 0.5%–1.5% of taxable book');
 }
 
+/* ── annualFeeForAum (tiered advisory fee) ────────────────────────── */
+{
+  const flat = [{ up_to: null, annual_bps: 100 }];
+  assert(C.annualFeeForAum(flat, 1_000_000) === 10_000, 'fee: flat 100bps on $1M → $10k (1%)');
+  assert(C.annualFeeForAum(flat, 500_000) === 5_000, 'fee: flat 100bps on $500k → $5k');
+  const tiered = [{ up_to: 1_000_000, annual_bps: 100 }, { up_to: null, annual_bps: 50 }];
+  assert(C.annualFeeForAum(tiered, 2_000_000) === 15_000, 'fee: tiered (1% to $1M, 0.5% above) on $2M → $15k');
+  assert(C.annualFeeForAum(tiered, 1_000_000) === 10_000, 'fee: tiered at the breakpoint → $10k (first band only)');
+  assert(C.annualFeeForAum(tiered, 750_000) === 7_500, 'fee: tiered below breakpoint → blended within first band');
+  assert(C.annualFeeForAum([], 1_000_000) === 0, 'fee: no tiers → 0');
+  assert(C.annualFeeForAum([{ up_to: '', annual_bps: 75 }], 1_000_000) === 7_500, 'fee: empty up_to treated as no cap (Infinity)');
+}
+
+/* ── modifiedDietz edge cases (flow timing) ───────────────────────── */
+{
+  const s = [{ date: '2026-01-01', value: 1000 }, { date: '2026-02-01', value: 1100 }];
+  // Deposit on the LAST day earns nothing → return collapses toward 0.
+  const lastDay = C.modifiedDietz(s, [{ flow_date: '2026-02-01', amount: 100 }], '2026-01-01', '2026-02-01');
+  assert(near(lastDay.pct, 0), 'mDietz: deposit on the final day → ~0% (no time to earn)');
+  // Mid-period WITHDRAWAL with same ending value → higher return on a smaller base.
+  const wd = C.modifiedDietz(s, [{ flow_date: '2026-01-16', amount: -100 }], '2026-01-01', '2026-02-01');
+  assert(wd.pct > 10, 'mDietz: mid-period withdrawal lifts the % vs the 10% no-flow case');
+  assert(wd.net === -100, 'mDietz: negative (withdrawal) flow captured');
+  // Zero base with no offsetting flow → undefined return (null, not NaN/Infinity).
+  const zero = C.modifiedDietz([{ date: '2026-01-01', value: 0 }, { date: '2026-02-01', value: 100 }], [], '2026-01-01', '2026-02-01');
+  assert(zero.pct === null, 'mDietz: zero denominator → null (no divide-by-zero)');
+}
+
 console.log('');
 if (failures) { console.error(`FAILED: ${failures} test(s)`); process.exit(1); }
 console.log('All calc-core tests passed.');

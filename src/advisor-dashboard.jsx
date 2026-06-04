@@ -105,20 +105,8 @@ const PerfChart = ({ series, height = 96 }) => {
   );
 };
 
-// Tiered annual advisory fee ($) for a given AUM — mirrors the generate-invoices function
-function annualFeeForAum(tiers, aum) {
-  const list = Array.isArray(tiers) ? tiers : [];
-  if (!list.length) return 0;
-  let fee = 0, prev = 0;
-  for (const t of list) {
-    const cap = (t.up_to == null || t.up_to === '') ? Infinity : Number(t.up_to);
-    const band = Math.max(0, Math.min(aum, cap) - prev);
-    fee += band * (Number(t.annual_bps) || 0) / 10000;
-    prev = cap;
-    if (aum <= cap) break;
-  }
-  return fee;
-}
+// annualFeeForAum now lives in src/calc-core.cjs (single source of truth, tested);
+// it's in the shared bundle scope, referenced by bare name below.
 const INVOICE_STATUS_TONE = { draft: 'var(--ink-mute)', approved: 'var(--forest)', paid: 'var(--forest)', void: 'var(--ink-faint)' };
 
 /* ─── Roster row ─────────────────────────────────────────────────── */
