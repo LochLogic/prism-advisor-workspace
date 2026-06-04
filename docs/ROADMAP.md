@@ -92,6 +92,11 @@ Quick wins #1–#3 shipped (edit-numbers from the client modal, new-advisor onbo
 - 3.8 In-portal interactive performance view — value chart + time-weighted (Modified Dietz) period returns inline in the client portal (also in the demo).
 - 3.9 Client acknowledgements / e-sign — **migration 017** (`acknowledgements` table + `px_sign_acknowledgement` RPC). Advisor requests from the client modal; client reviews & signs in the portal; immutable record + audit trail. **⚙️ Run migration 017 to activate.**
 
+### Sprint 4 — Maintainability & Scale ✅ (2026-06)
+- 4.10 Refactor `advisor-dashboard.jsx` (2,665 → 955 lines): extracted modals → `src/advisor-modal.jsx`, firm admin → `src/firm-admin.jsx`. Pure code-move (shared bundle scope, no behavior change); advisor + client + modal verified in demo. *Admin view is a pure move but demo can't reach it — quick live sanity-check recommended.*
+- 4.11 Virtualized roster — **deferred**: pagination (50/page + Load more) already bounds the rendered DOM; true windowing is unnecessary in the no-deps architecture unless a firm reports slowness.
+- 4.12 Roster swipe actions — skipped (optional).
+
 ### Phase 2 — Depth on demand
 | Item | Status |
 |---|---|
