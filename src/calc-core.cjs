@@ -154,9 +154,26 @@ function tlh({ taxableBalance, lossPct, offsetRatePct }) {
   };
 }
 
+// Tiered annual advisory fee ($) for a given AUM. Mirrors the generate-invoices
+// Edge Function's annualFee() — keep the two in sync.
+function annualFeeForAum(tiers, aum) {
+  const list = Array.isArray(tiers) ? tiers : [];
+  if (!list.length) return 0;
+  let fee = 0, prev = 0;
+  for (const t of list) {
+    const cap = (t.up_to == null || t.up_to === '') ? Infinity : Number(t.up_to);
+    const band = Math.max(0, Math.min(aum, cap) - prev);
+    fee += band * (Number(t.annual_bps) || 0) / 10000;
+    prev = cap;
+    if (aum <= cap) break;
+  }
+  return fee;
+}
+
 const PrismCalc = {
   buildValueSeries, modifiedDietz, perfPeriods,
   debtPayoffMonths, hsaProjection, monteCarlo, rothLadder, estateProjection, tlh,
+  annualFeeForAum,
 };
 
 if (typeof window !== 'undefined') window.PrismCalc = PrismCalc;
