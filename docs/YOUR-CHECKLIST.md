@@ -8,6 +8,11 @@ Order matters: **Phase 0** first (cheap, activates shipped code), then **Phase 1
 
 ## Phase 0 — Activate what's already built (~1–2 hrs, no cost)
 
+> **Pre-pilot hardening (added after the deep-dive review)** — two more activate-steps, same pattern as 0.2/0.3:
+> - **Run migration `018_hardening.sql`** (SQL Editor) — pins `search_path` on 6 SECURITY DEFINER functions + creates the `client_errors` table.
+> - **Deploy the `log-error` function:** `npx supabase functions deploy log-error --no-verify-jwt --project-ref phabxcijbbphfxvjedfj`
+> Until these land, the new error boundary still works (friendly fallback + "copy details"); only the *remote* error capture waits on the function/table. View captured errors in Supabase → Table Editor → `client_errors`.
+
 ### 0.1 Rotate the Supabase access token — do this FIRST
 The old token (`sbp_…`) was visible during development. Rotate it, then use the new one for every CLI step below.
 1. Supabase Dashboard → top-right avatar → **Account → Access Tokens**.

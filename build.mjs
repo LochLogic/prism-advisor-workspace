@@ -8,6 +8,7 @@ import { createHash } from 'crypto';
 import { publishedPages, renderPage } from './content/pages.mjs';
 
 const files = [
+  'src/error-reporter.js',
   'src/supabase-client.js',
   'src/icons.jsx',
   'src/data.jsx',
