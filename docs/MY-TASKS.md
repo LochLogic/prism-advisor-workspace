@@ -11,19 +11,19 @@ Legend: 🔴 do before test users · 🟡 when a partner's ready to pay · 🟢 
 
 ## 🔴 Before your first test users (mostly quick)
 **Activate the latest code** (same pattern as before — see `YOUR-CHECKLIST.md` §0):
-- [ ] **Run migration `018_hardening.sql`** (SQL Editor) — search_path hardening + `client_errors` table.
-- [ ] **Deploy `log-error`:** `npx supabase functions deploy log-error --no-verify-jwt --project-ref phabxcijbbphfxvjedfj` → turns on remote error capture.
+- [✅] **Run migration `018_hardening.sql`** (SQL Editor) — search_path hardening + `client_errors` table.
+- [✅] **Deploy `log-error`:** `npx supabase functions deploy log-error --no-verify-jwt --project-ref phabxcijbbphfxvjedfj` → turns on remote error capture.
 
 **Make the pilot safe** (`post-review-sprints.md` Sprints 5–6):
-- [ ] **Block red deploys** — GitHub → repo Settings → Branches → protect `main`, require the **CI** check to pass before merge. *(Today Cloudflare ships on push regardless of CI.)*
+- [✅] **Block red deploys** — GitHub → repo Settings → Branches → protect `main`, require the **CI** check to pass before merge. *(Today Cloudflare ships on push regardless of CI.)*
 - [ ] **Enable the DB tests in CI** — create a throwaway **staging** Supabase project, add repo secret `DATABASE_URL` (its connection string). Lights up the RLS + integration tests (`npm run test:db`).
 
 **Production infrastructure** (`YOUR-CHECKLIST.md` §1):
 - [ ] **Supabase → Pro** + enable **PITR** (backups; stops 7-day auto-pause). 🔴 #1 blocker.
 - [ ] **Rotate `CRON_SECRET`** + update the `prism-quarterly-invoices` / WORM cron jobs to send the new value.
-- [ ] **Stand up inboxes** — `privacy@` / `legal@` / `security@ prismaw.com` (Cloudflare Email Routing).
-- [ ] **Verify auth config** — Site URL = `https://prismaw.com`, redirect allow-list, Google provider.
-- [ ] **Counsel review** of `privacy.html` / `terms.html` / `dpa.html` before a paying customer.
+- [✅] **Stand up inboxes** — `privacy@` / `legal@` / `security@ prismaw.com` (Cloudflare Email Routing).
+- [✅] **Verify auth config** — Site URL = `https://prismaw.com`, redirect allow-list, Google provider.
+- [✅] **Counsel review** of `privacy.html` / `terms.html` / `dpa.html` before a paying customer.
 
 **One live smoke pass** (`uat-results.md` — demo can't reach these):
 - [ ] In a real session: sign up → provision → add client → request + e-sign an acknowledgement → **admin**: create/assign a fee schedule → run billing → approve invoice → check audit trail. Repeat advisor+client steps once on your phone.
