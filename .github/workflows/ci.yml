@@ -6,7 +6,10 @@ on:
   pull_request:
 
 jobs:
-  build-and-check:
+  # Job name is "ci" so it satisfies the branch-protection required check of the
+  # same name. (A required status check matches the check-run/job name, not the
+  # workflow name — naming the job "ci" is what makes the rule pass.)
+  ci:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
