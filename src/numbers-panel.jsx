@@ -21,7 +21,8 @@ const NumField = ({ label, path, value, prefix = '$', step = 100, onUpdate }) =>
 const NumbersDrawer = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
   const { profile, update, setProfile, totalExpenses, surplus, netWorth,
-          isOwner, homeEquity, mortgagePrincipalMonthly, mortgageInterestMonthly, escrowMonthly } = useProfile();
+          isOwner, homeEquity, mortgagePrincipalMonthly, mortgageInterestMonthly, escrowMonthly,
+          propertiesEquity } = useProfile();
 
   const addDebt = () => setProfile(p => ({
     ...p,
@@ -31,6 +32,16 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
   const updateDebt = (id, field, value) => setProfile(p => ({
     ...p,
     debts: p.debts.map(d => d.id === id ? { ...d, [field]: value } : d),
+  }));
+
+  const addProperty = () => setProfile(p => ({
+    ...p,
+    properties: [...(p.properties || []), { id: `p${Date.now()}`, label: 'New property', use: 'second', value: 0, mortgageBalance: 0, paymentMonthly: 0, rentalIncomeMonthly: 0 }],
+  }));
+  const removeProperty = (id) => setProfile(p => ({ ...p, properties: (p.properties || []).filter(x => x.id !== id) }));
+  const updateProperty = (id, field, value) => setProfile(p => ({
+    ...p,
+    properties: (p.properties || []).map(x => x.id === id ? { ...x, [field]: value } : x),
   }));
 
   React.useEffect(() => {
@@ -132,6 +143,88 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
             })()}
           </section>
 
+          {/* Additional properties — second homes / rentals (equity → net worth) */}
+          <section style={{ marginBottom: 22 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div className="px-eyebrow">Additional properties</div>
+              <button className="px-btn px-btn-sm px-btn-ghost" style={{ padding: '3px 8px' }} onClick={addProperty}>
+                <Icons.Plus size={10} /> Add property
+              </button>
+            </div>
+            {(profile.properties || []).length === 0 && (
+              <div style={{ padding: '10px 0', textAlign: 'center', color: 'var(--ink-faint)', fontStyle: 'italic', fontSize: 12 }}>
+                Second homes or rentals — their equity counts toward net worth.
+              </div>
+            )}
+            {(profile.properties || []).map(p => {
+              const eq = Number(p.value || 0) - Number(p.mortgageBalance || 0);
+              const isRental = p.use === 'rental';
+              const net = (isRental ? Number(p.rentalIncomeMonthly || 0) : 0) - Number(p.paymentMonthly || 0);
+              return (
+                <div key={p.id} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 10, marginBottom: 8, background: 'var(--surface)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <input
+                      type="text"
+                      value={p.label}
+                      onChange={(e) => updateProperty(p.id, 'label', e.target.value)}
+                      style={{ fontFamily: 'var(--serif)', fontSize: 13, fontWeight: 500, background: 'none', border: 'none', color: 'var(--ink)', outline: 'none', flex: 1 }}
+                      placeholder="Property name"
+                    />
+                    <button onClick={() => removeProperty(p.id)}
+                      style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', padding: '2px 6px', lineHeight: 1 }}
+                      title="Remove">
+                      <Icons.X size={12} />
+                    </button>
+                  </div>
+                  <div className="px-seg" role="tablist" aria-label="Property use" style={{ marginBottom: 10 }}>
+                    <button role="tab" aria-selected={!isRental} className={`px-seg-btn ${!isRental ? 'is-on' : ''}`}
+                      onClick={() => updateProperty(p.id, 'use', 'second')}>Second home</button>
+                    <button role="tab" aria-selected={isRental} className={`px-seg-btn ${isRental ? 'is-on' : ''}`}
+                      onClick={() => updateProperty(p.id, 'use', 'rental')}>Rental</button>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <label className="px-field">
+                      <span className="px-field-label">Market value</span>
+                      <div className="px-input-affix"><span className="px-affix">$</span>
+                        <input type="number" value={p.value} step="5000"
+                          onChange={(e) => updateProperty(p.id, 'value', parseFloat(e.target.value) || 0)} /></div>
+                    </label>
+                    <label className="px-field">
+                      <span className="px-field-label">Mortgage balance</span>
+                      <div className="px-input-affix"><span className="px-affix">$</span>
+                        <input type="number" value={p.mortgageBalance} step="5000"
+                          onChange={(e) => updateProperty(p.id, 'mortgageBalance', parseFloat(e.target.value) || 0)} /></div>
+                    </label>
+                    <label className="px-field">
+                      <span className="px-field-label">Payment / mo</span>
+                      <div className="px-input-affix"><span className="px-affix">$</span>
+                        <input type="number" value={p.paymentMonthly} step="50"
+                          onChange={(e) => updateProperty(p.id, 'paymentMonthly', parseFloat(e.target.value) || 0)} /></div>
+                    </label>
+                    {isRental && (
+                      <label className="px-field">
+                        <span className="px-field-label">Rental income / mo</span>
+                        <div className="px-input-affix"><span className="px-affix">$</span>
+                          <input type="number" value={p.rentalIncomeMonthly} step="50"
+                            onChange={(e) => updateProperty(p.id, 'rentalIncomeMonthly', parseFloat(e.target.value) || 0)} /></div>
+                      </label>
+                    )}
+                  </div>
+                  <div className="px-prop-foot">
+                    <span>Equity <strong style={{ color: eq >= 0 ? 'var(--forest)' : 'var(--brick)' }}>{fmt$(eq)}</strong></span>
+                    {isRental && <span>Net / mo <strong style={{ color: net >= 0 ? 'var(--forest)' : 'var(--brick)' }}>{fmt$(net)}</strong></span>}
+                  </div>
+                </div>
+              );
+            })}
+            {(profile.properties || []).length > 0 && (
+              <div className="px-split-equity" style={{ marginTop: 4 }}>
+                <span>Real estate equity · added to net worth</span>
+                <strong style={{ color: propertiesEquity >= 0 ? 'var(--forest)' : 'var(--brick)' }}>{fmt$(propertiesEquity)}</strong>
+              </div>
+            )}
+          </section>
+
           {/* Expenses */}
           <section style={{ marginBottom: 22 }}>
             <div className="px-eyebrow" style={{ marginBottom: 10 }}>Essential outflow</div>
@@ -141,6 +234,10 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
               <NumField label="Utilities" path="expenses.utilities" value={profile.expenses.utilities}  onUpdate={update}/>
               <NumField label="Healthcare" path="expenses.healthcare" value={profile.expenses.healthcare}  onUpdate={update}/>
               <NumField label="Other" path="expenses.other" value={profile.expenses.other}  onUpdate={update}/>
+            </div>
+            <div className="px-outflow-total">
+              <span>Total monthly outflow <em>· incl. housing</em></span>
+              <strong>{fmt$(totalExpenses)}</strong>
             </div>
           </section>
 
