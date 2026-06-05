@@ -10,6 +10,12 @@ const defaultProfile = {
   // expenses.housing is the TOTAL monthly housing outflow. `housing` below records what that
   // money does: pure rent (consumed) vs. a mortgage payment that's partly principal (builds equity).
   housing: { type: 'own', homeValue: 1_250_000, mortgageBalance: 280_000, mortgageApr: 3.5, escrowMonthly: 1_400 },
+  // Additional real estate beyond the primary residence (second homes / rentals).
+  // Each property's equity (value − mortgage) rolls into net worth. Empty for most
+  // households; common for the later-stage, asset-heavy clients who seek an advisor.
+  properties: [
+    { id: 'p1', label: 'Rental — Maple St', use: 'rental', value: 540_000, mortgageBalance: 180_000, paymentMonthly: 2_100, rentalIncomeMonthly: 3_200 },
+  ],
   debts: [
     { id: 'd1', name: 'HELOC', balance: 38000, apr: 8.1, min: 420 },
   ],
@@ -31,6 +37,7 @@ const emptyProfile = {
   income:   { monthlyTakehome: 0 },
   expenses: { housing: 0, food: 0, transport: 0, utilities: 0, healthcare: 0, other: 0 },
   housing: { type: 'rent', homeValue: 0, mortgageBalance: 0, mortgageApr: 0, escrowMonthly: 0 },
+  properties: [],
   debts: [],
   savings:  { emergency: 0 },
   retirement: {
@@ -82,10 +89,13 @@ function ProfileProvider({ children }) {
         isLoading.current = false;
       }).catch(() => { isLoading.current = false; });
     } else {
-      // Mock/demo — load from per-client localStorage key
+      // Mock/demo — load from per-client localStorage key.
+      // Merge onto defaultProfile so every key exists even for profiles saved
+      // before a field (e.g. `housing`) was added — otherwise toggling housing
+      // type would write into an undefined parent and crash.
       try {
         const saved = JSON.parse(localStorage.getItem(`px_profile:${activeClientId}`));
-        setProfile(saved || defaultProfile);
+        setProfile(saved ? mergeProfile(defaultProfile, saved) : defaultProfile);
       } catch { setProfile(defaultProfile); }
     }
   }, [activeClientId]);
@@ -108,7 +118,12 @@ function ProfileProvider({ children }) {
       const next = JSON.parse(JSON.stringify(prev));
       const keys = path.split('.');
       let o = next;
-      for (let i = 0; i < keys.length - 1; i++) o = o[keys[i]];
+      for (let i = 0; i < keys.length - 1; i++) {
+        // Create missing intermediate objects so paths into a not-yet-present
+        // branch (e.g. `housing.type` on an older profile) never throw.
+        if (o[keys[i]] == null || typeof o[keys[i]] !== 'object') o[keys[i]] = {};
+        o = o[keys[i]];
+      }
       o[keys[keys.length - 1]] = value;
       return next;
     });
@@ -136,6 +151,16 @@ function ProfileProvider({ children }) {
   const mortgagePrincipalMonthly = mortgageBalance > 0 ? Math.max(0, housingPI - mortgageInterestMonthly) : 0;
   const homeEquity      = isOwner ? (homeValue - mortgageBalance) : 0;
 
+  // ── Additional properties (second homes / rentals) ──────────────
+  // Equity (value − mortgage) rolls into net worth. Net monthly cash flow is shown
+  // per-property for context but is NOT folded into the household surplus, to avoid
+  // double-counting rental income that may already sit in monthly take-home.
+  const properties = Array.isArray(profile.properties) ? profile.properties : [];
+  const propertiesEquity = properties.reduce((a, p) => a + (Number(p.value || 0) - Number(p.mortgageBalance || 0)), 0);
+  const propertiesNetCashflow = properties.reduce((a, p) =>
+    a + (p.use === 'rental' ? Number(p.rentalIncomeMonthly || 0) : 0) - Number(p.paymentMonthly || 0), 0);
+  const hasProperties = properties.length > 0;
+
   // Mortgage principal is forced savings (builds equity), so it lifts the savings rate.
   const savingsRate   = profile.income.monthlyTakehome > 0 ? ((surplus + mortgagePrincipalMonthly) / profile.income.monthlyTakehome) * 100 : 0;
   const retirementAssets = (profile.retirement.hsaBalance || 0)
@@ -143,7 +168,7 @@ function ProfileProvider({ children }) {
                          + (profile.retirement.fourohonekBalance || 0);
   const taxableBalance = profile.taxable.balance || 0;
   const totalInvested  = retirementAssets + taxableBalance;
-  const netWorth       = totalInvested + profile.savings.emergency - totalDebt + homeEquity;
+  const netWorth       = totalInvested + profile.savings.emergency - totalDebt + homeEquity + propertiesEquity;
   const reserveTarget  = totalExpenses * 6;
   const reservePct     = reserveTarget > 0 ? Math.min(100, (profile.savings.emergency / reserveTarget) * 100) : 0;
   const hsaTaxSavings  = profile.retirement.hsaContrib * profile.taxes.marginalRate / 100;
@@ -159,6 +184,7 @@ function ProfileProvider({ children }) {
     fireNumber, fireProgress, legacyValue,
     isOwner, homeValue, mortgageBalance, escrowMonthly,
     mortgageInterestMonthly, mortgagePrincipalMonthly, homeEquity,
+    propertiesEquity, propertiesNetCashflow, hasProperties,
   };
 
   return (

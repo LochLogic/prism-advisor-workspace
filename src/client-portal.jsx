@@ -396,7 +396,7 @@ const ClientPortal = ({ onOpenNumbers }) => {
           <div className="px-portstat">
             <div className="px-portstat-label">Net worth</div>
             <div className="px-portstat-value">{fmt$(ctx.netWorth, { short: true })}</div>
-            <div className="px-portstat-foot">{ctx.isOwner ? 'incl. reserve & home equity, net of debt' : 'incl. reserve, net of debt'}</div>
+            <div className="px-portstat-foot">{(ctx.isOwner || ctx.hasProperties) ? 'incl. reserve & real estate equity, net of debt' : 'incl. reserve, net of debt'}</div>
           </div>
           <div className="px-portstat">
             <div className="px-portstat-label">Horizons cleared</div>
