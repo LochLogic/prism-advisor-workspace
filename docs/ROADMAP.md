@@ -82,6 +82,10 @@ Quick wins #1–#3 shipped (edit-numbers from the client modal, new-advisor onbo
 | **Preserve the high-value paths (guardrail)** | 🟢 Keep | Don't regress: 1-click demo, notification/alert deep-linking, inline question replies, single-screen client portal, and the now-fixed mobile experience. Treat these as protected UX in any future refactor. |
 | Roster → richer mobile detail / swipe actions (optional) | 🟢 Low | Cards shipped; could add quick actions. |
 | KPI sparklines: make advisor Book-AUM trend live | ✅ Done | Data-driven Book-AUM sparkline from balance_history / demo (Sprint 2.7). |
+| **Housing model — Core (rent/own + equity)** | ✅ Done (2026-06) | Ported from FinFire v2: rent/own toggle, home value/mortgage/APR/escrow, principal/interest/escrow split bar, home equity → net worth, mortgage principal → savings rate. Re-skinned to the institutional palette. |
+| Housing — ratio coaching | 🟢 Low | Housing-to-income ratio bar with the 30% guideline + verdict (on target / a bit high / high), and a debt double-counting guard that warns when a mortgage is also listed under Liabilities. Consumer-grade; confirm it fits the advisor voice before porting. Exists in FinFire `components-v2.jsx`. |
+| Housing — field hints/tooltips | 🟢 Low | The inline `hint=` explainer text on each Numbers field (APR, escrow, etc.). Friendly for self-serve clients; may be too hand-holdy for an advisor-mediated tool. |
+| Fixed-income streams (pension / Social Security) | 🟢 Low | Add per-stream fixed income with a start age, feeding retirement-readiness math. Exists in FinFire `profile-v2.jsx` / `components-v2.jsx` (`FixedIncomeEditor`). Larger change; pair with any future FIRE/retirement-projection work. |
 
 ### Sprint 2 — Advisor Workflow & Efficiency ✅ (2026-06)
 - 2.5 Unify fee setup — inline client→schedule assignment in the admin Revenue view.

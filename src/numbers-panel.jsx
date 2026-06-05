@@ -20,7 +20,8 @@ const NumField = ({ label, path, value, prefix = '$', step = 100, onUpdate }) =>
 
 const NumbersDrawer = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
-  const { profile, update, setProfile, totalExpenses, surplus, netWorth } = useProfile();
+  const { profile, update, setProfile, totalExpenses, surplus, netWorth,
+          isOwner, homeEquity, mortgagePrincipalMonthly, mortgageInterestMonthly, escrowMonthly } = useProfile();
 
   const addDebt = () => setProfile(p => ({
     ...p,
@@ -85,11 +86,56 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
             <NumField label="Monthly take-home" path="income.monthlyTakehome" value={profile.income.monthlyTakehome}  onUpdate={update}/>
           </section>
 
+          {/* Housing — rent vs. own */}
+          <section style={{ marginBottom: 22 }}>
+            <div className="px-eyebrow" style={{ marginBottom: 10 }}>Housing</div>
+            <div className="px-seg" role="tablist" aria-label="Housing type" style={{ marginBottom: 10 }}>
+              <button role="tab" aria-selected={!isOwner} className={`px-seg-btn ${!isOwner ? 'is-on' : ''}`}
+                onClick={() => update('housing.type', 'rent')}>Rent</button>
+              <button role="tab" aria-selected={isOwner} className={`px-seg-btn ${isOwner ? 'is-on' : ''}`}
+                onClick={() => update('housing.type', 'own')}>Own — mortgage</button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <NumField label={isOwner ? 'Total payment / mo' : 'Monthly rent'} path="expenses.housing" value={profile.expenses.housing} onUpdate={update}/>
+              {isOwner && <>
+                <NumField label="Home value" path="housing.homeValue" value={profile.housing.homeValue} step="5000" onUpdate={update}/>
+                <NumField label="Mortgage balance" path="housing.mortgageBalance" value={profile.housing.mortgageBalance} step="5000" onUpdate={update}/>
+                <NumField label="Mortgage rate (%)" path="housing.mortgageApr" value={profile.housing.mortgageApr} prefix={null} step="0.1" onUpdate={update}/>
+                <NumField label="Taxes + ins / mo" path="housing.escrowMonthly" value={profile.housing.escrowMonthly} step="50" onUpdate={update}/>
+              </>}
+            </div>
+            {isOwner && Number(profile.expenses.housing) > 0 && (() => {
+              const pr = mortgagePrincipalMonthly, intr = mortgageInterestMonthly, esc = escrowMonthly;
+              const tot = Math.max(1, pr + intr + esc);
+              const pct = (n) => `${(n / tot) * 100}%`;
+              return (
+                <div style={{ marginTop: 12 }}>
+                  <div className="px-split-bar">
+                    <div className="px-split-seg px-split-principal" style={{ width: pct(pr) }} title={`Principal ${fmt$(pr)}`} />
+                    <div className="px-split-seg px-split-interest" style={{ width: pct(intr) }} title={`Interest ${fmt$(intr)}`} />
+                    {esc > 0 && <div className="px-split-seg px-split-escrow" style={{ width: pct(esc) }} title={`Taxes + insurance ${fmt$(esc)}`} />}
+                  </div>
+                  <div className="px-split-legend">
+                    <span><i className="px-split-dot px-split-principal" />{fmt$(pr)} principal <em>· builds equity</em></span>
+                    <span><i className="px-split-dot px-split-interest" />{fmt$(intr)} interest</span>
+                    {esc > 0 && <span><i className="px-split-dot px-split-escrow" />{fmt$(esc)} taxes + ins.</span>}
+                  </div>
+                  <div className="px-split-equity">
+                    <span>Home equity (value − mortgage)</span>
+                    <strong style={{ color: homeEquity >= 0 ? 'var(--forest)' : 'var(--brick)' }}>{fmt$(homeEquity)}</strong>
+                  </div>
+                  <p style={{ fontSize: 11, color: 'var(--ink-mute)', margin: '8px 0 0', lineHeight: 1.5, fontStyle: 'italic', fontFamily: 'var(--serif)' }}>
+                    Only the non-principal portion is a true cost — principal is forced savings that builds equity.
+                  </p>
+                </div>
+              );
+            })()}
+          </section>
+
           {/* Expenses */}
           <section style={{ marginBottom: 22 }}>
             <div className="px-eyebrow" style={{ marginBottom: 10 }}>Essential outflow</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <NumField label="Housing" path="expenses.housing" value={profile.expenses.housing}  onUpdate={update}/>
               <NumField label="Food" path="expenses.food" value={profile.expenses.food}  onUpdate={update}/>
               <NumField label="Transport" path="expenses.transport" value={profile.expenses.transport}  onUpdate={update}/>
               <NumField label="Utilities" path="expenses.utilities" value={profile.expenses.utilities}  onUpdate={update}/>

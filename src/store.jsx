@@ -7,6 +7,9 @@ const { useState, useEffect, useMemo, createContext, useContext, useCallback } =
 const defaultProfile = {
   income:   { monthlyTakehome: 28400 },
   expenses: { housing: 7200, food: 2400, transport: 1800, utilities: 950, healthcare: 1100, other: 5450 },
+  // expenses.housing is the TOTAL monthly housing outflow. `housing` below records what that
+  // money does: pure rent (consumed) vs. a mortgage payment that's partly principal (builds equity).
+  housing: { type: 'own', homeValue: 1_250_000, mortgageBalance: 280_000, mortgageApr: 3.5, escrowMonthly: 1_400 },
   debts: [
     { id: 'd1', name: 'HELOC', balance: 38000, apr: 8.1, min: 420 },
   ],
@@ -27,6 +30,7 @@ const defaultProfile = {
 const emptyProfile = {
   income:   { monthlyTakehome: 0 },
   expenses: { housing: 0, food: 0, transport: 0, utilities: 0, healthcare: 0, other: 0 },
+  housing: { type: 'rent', homeValue: 0, mortgageBalance: 0, mortgageApr: 0, escrowMonthly: 0 },
   debts: [],
   savings:  { emergency: 0 },
   retirement: {
@@ -115,13 +119,31 @@ function ProfileProvider({ children }) {
   const totalDebt     = profile.debts.reduce((a, d) => a + Number(d.balance || 0), 0);
   const toxicDebt     = profile.debts.filter(d => Number(d.apr) > 6).reduce((a, d) => a + Number(d.balance || 0), 0);
   const surplus       = profile.income.monthlyTakehome - totalExpenses;
-  const savingsRate   = profile.income.monthlyTakehome > 0 ? (surplus / profile.income.monthlyTakehome) * 100 : 0;
+
+  // ── Housing: rent vs. own ───────────────────────────────────────
+  // expenses.housing is the total monthly outflow. For owners we split that payment into
+  // principal (builds equity), interest, and escrow (taxes + insurance). Principal is not a
+  // true expense — it's forced savings — so it counts toward the savings rate, and home equity
+  // (value − mortgage) counts toward net worth.
+  const _h = profile.housing || { type: 'rent' };
+  const isOwner         = _h.type === 'own';
+  const homeValue       = isOwner ? Number(_h.homeValue || 0) : 0;
+  const mortgageBalance = isOwner ? Number(_h.mortgageBalance || 0) : 0;
+  const escrowMonthly   = isOwner ? Number(_h.escrowMonthly || 0) : 0;
+  const housingOutflow  = Number(profile.expenses.housing || 0);
+  const mortgageInterestMonthly  = mortgageBalance > 0 ? mortgageBalance * (Number(_h.mortgageApr || 0) / 100) / 12 : 0;
+  const housingPI                = isOwner ? Math.max(0, housingOutflow - escrowMonthly) : 0; // principal + interest
+  const mortgagePrincipalMonthly = mortgageBalance > 0 ? Math.max(0, housingPI - mortgageInterestMonthly) : 0;
+  const homeEquity      = isOwner ? (homeValue - mortgageBalance) : 0;
+
+  // Mortgage principal is forced savings (builds equity), so it lifts the savings rate.
+  const savingsRate   = profile.income.monthlyTakehome > 0 ? ((surplus + mortgagePrincipalMonthly) / profile.income.monthlyTakehome) * 100 : 0;
   const retirementAssets = (profile.retirement.hsaBalance || 0)
                          + (profile.retirement.iraBalance || 0)
                          + (profile.retirement.fourohonekBalance || 0);
   const taxableBalance = profile.taxable.balance || 0;
   const totalInvested  = retirementAssets + taxableBalance;
-  const netWorth       = totalInvested + profile.savings.emergency - totalDebt;
+  const netWorth       = totalInvested + profile.savings.emergency - totalDebt + homeEquity;
   const reserveTarget  = totalExpenses * 6;
   const reservePct     = reserveTarget > 0 ? Math.min(100, (profile.savings.emergency / reserveTarget) * 100) : 0;
   const hsaTaxSavings  = profile.retirement.hsaContrib * profile.taxes.marginalRate / 100;
@@ -135,6 +157,8 @@ function ProfileProvider({ children }) {
     retirementAssets, taxableBalance, totalInvested, netWorth,
     reserveTarget, reservePct, hsaTaxSavings, annualExpenses,
     fireNumber, fireProgress, legacyValue,
+    isOwner, homeValue, mortgageBalance, escrowMonthly,
+    mortgageInterestMonthly, mortgagePrincipalMonthly, homeEquity,
   };
 
   return (
