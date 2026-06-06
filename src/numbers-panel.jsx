@@ -63,6 +63,18 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
 
   // Planning age is now derived from members[].dateOfBirth in store.jsx — no setter needed.
 
+  // ── Insurance (life / disability / LTC) ──
+  const ins = (p) => Array.isArray(p.insurance) ? p.insurance : [];
+  const addInsurance = () => setProfile(p => ({ ...p, insurance: [...ins(p),
+    { id: `ins${Date.now()}`, type: 'life', carrier: '', owner: '', coverageAmount: 0, premiumMonthly: 0 }] }));
+  const removeInsurance = (id) => setProfile(p => ({ ...p, insurance: ins(p).filter(i => i.id !== id) }));
+  const updateInsurance = (id, field, value) => setProfile(p => ({
+    ...p, insurance: ins(p).map(i => i.id === id ? { ...i, [field]: value } : i) }));
+
+  // ── Estate checklist (will / trust / POA / directive / beneficiaries) ──
+  const updateEstate = (key, field, value) => setProfile(p => ({
+    ...p, estate: { ...(p.estate || {}), [key]: { ...((p.estate || {})[key] || {}), [field]: value } } }));
+
   const addDebt = () => setProfile(p => ({
     ...p,
     debts: [...p.debts, { id: `d${Date.now()}`, name: 'New debt', balance: 0, apr: 0, min: 0 }],
@@ -443,6 +455,14 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
               <NumField label="401(k) balance" path="retirement.fourohonekBalance" value={profile.retirement.fourohonekBalance} step="500"  onUpdate={update}/>
               <NumField label="HSA contrib / yr" path="retirement.hsaContrib" value={profile.retirement.hsaContrib} step="100"  onUpdate={update}/>
             </div>
+            <div className="px-field-label" style={{ marginTop: 14, marginBottom: 8 }}>Contributions &amp; employer match</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <NumField label="401(k) contributed / yr" path="retirement.fourohonekContributed" value={profile.retirement.fourohonekContributed} step="500" onUpdate={update}/>
+              <NumField label="401(k) limit / yr" path="retirement.fourohonekLimit" value={profile.retirement.fourohonekLimit} step="500" onUpdate={update}/>
+              <NumField label="IRA contributed / yr" path="retirement.iraContributed" value={profile.retirement.iraContributed} step="500" onUpdate={update}/>
+              <NumField label="IRA limit / yr" path="retirement.iraLimit" value={profile.retirement.iraLimit} step="500" onUpdate={update}/>
+              <NumField label="Employer match (%)" path="retirement.employerMatchPct" value={profile.retirement.employerMatchPct} prefix={null} step="0.5" onUpdate={update}/>
+            </div>
           </section>
 
           {/* Guaranteed retirement income — SS / pension / annuity */}
@@ -509,6 +529,95 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
               <NumField label="Balance" path="taxable.balance" value={profile.taxable.balance} step="1000"  onUpdate={update}/>
               <NumField label="Monthly contribution" path="taxable.monthlyContrib" value={profile.taxable.monthlyContrib}  onUpdate={update}/>
             </div>
+          </section>
+
+          {/* Insurance — protection capture (life / disability / LTC) */}
+          <section style={{ marginBottom: 22 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div className="px-eyebrow">Protection</div>
+              <button className="px-btn px-btn-sm px-btn-ghost" style={{ padding: '3px 8px' }} onClick={addInsurance}>
+                <Icons.Plus size={10} /> Add policy
+              </button>
+            </div>
+            {(profile.insurance || []).length === 0 && (
+              <div style={{ padding: '10px 0', textAlign: 'center', color: 'var(--ink-faint)', fontStyle: 'italic', fontSize: 12 }}>
+                Life, disability, or long-term care coverage — capture what's in place so the plan reflects how the household is protected.
+              </div>
+            )}
+            {(profile.insurance || []).map(i => (
+              <div key={i.id} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 10, marginBottom: 8, background: 'var(--surface)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <input type="text" value={i.carrier} placeholder="Carrier"
+                    onChange={(e) => updateInsurance(i.id, 'carrier', e.target.value)}
+                    style={{ fontFamily: 'var(--serif)', fontSize: 13, fontWeight: 500, background: 'none', border: 'none', color: 'var(--ink)', outline: 'none', flex: 1 }} />
+                  <button onClick={() => removeInsurance(i.id)} title="Remove" aria-label="Remove policy"
+                    style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', padding: '2px 6px', lineHeight: 1 }}>
+                    <Icons.X size={12} />
+                  </button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <label className="px-field">
+                    <span className="px-field-label">Type</span>
+                    <select className="px-select" value={i.type} onChange={(e) => updateInsurance(i.id, 'type', e.target.value)}>
+                      <option value="life">Life</option>
+                      <option value="disability">Disability</option>
+                      <option value="ltc">Long-term care</option>
+                    </select>
+                  </label>
+                  <label className="px-field">
+                    <span className="px-field-label">Owner</span>
+                    <div className="px-input-affix">
+                      <input type="text" value={i.owner} placeholder="Who's covered"
+                        onChange={(e) => updateInsurance(i.id, 'owner', e.target.value)} />
+                    </div>
+                  </label>
+                  <label className="px-field">
+                    <span className="px-field-label">Coverage</span>
+                    <div className="px-input-affix"><span className="px-affix">$</span>
+                      <input type="number" value={i.coverageAmount} step="10000"
+                        onChange={(e) => updateInsurance(i.id, 'coverageAmount', parseFloat(e.target.value) || 0)} /></div>
+                  </label>
+                  <label className="px-field">
+                    <span className="px-field-label">Premium / mo</span>
+                    <div className="px-input-affix"><span className="px-affix">$</span>
+                      <input type="number" value={i.premiumMonthly} step="10"
+                        onChange={(e) => updateInsurance(i.id, 'premiumMonthly', parseFloat(e.target.value) || 0)} /></div>
+                  </label>
+                </div>
+              </div>
+            ))}
+          </section>
+
+          {/* Estate readiness checklist */}
+          <section style={{ marginBottom: 22 }}>
+            <div className="px-eyebrow" style={{ marginBottom: 10 }}>Estate readiness</div>
+            {[
+              { key: 'will', label: 'Will' },
+              { key: 'trust', label: 'Revocable trust' },
+              { key: 'poa', label: 'Power of attorney' },
+              { key: 'healthcareDirective', label: 'Healthcare directive' },
+              { key: 'beneficiaries', label: 'Beneficiary review' },
+            ].map(({ key, label }) => {
+              const item = (profile.estate || {})[key] || { status: 'none', lastReviewed: '' };
+              return (
+                <div key={key} style={{ display: 'grid', gridTemplateColumns: '1fr 130px 140px', gap: 8, alignItems: 'end', marginBottom: 8 }}>
+                  <span style={{ fontSize: 13, color: 'var(--ink)' }}>{label}</span>
+                  <label className="px-field">
+                    <span className="px-field-label">Status</span>
+                    <select className="px-select" value={item.status || 'none'} onChange={(e) => updateEstate(key, 'status', e.target.value)}>
+                      <option value="none">Not started</option>
+                      <option value="in_progress">In progress</option>
+                      <option value="complete">Complete</option>
+                    </select>
+                  </label>
+                  <label className="px-field">
+                    <span className="px-field-label">Last reviewed</span>
+                    <input type="date" className="px-input" value={item.lastReviewed || ''} style={{ width: '100%' }}
+                      onChange={(e) => updateEstate(key, 'lastReviewed', e.target.value)} />
+                  </label>
+                </div>
+              );
+            })}
           </section>
 
           {/* Planning & tax */}

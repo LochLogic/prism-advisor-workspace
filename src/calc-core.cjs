@@ -256,10 +256,27 @@ function annualFeeForAum(tiers, aum) {
   return fee;
 }
 
+// ── Life-insurance coverage gap (W5) ────────────────────────────────────────
+// A simple, transparent capture-and-coach check — NOT underwriting. The common
+// rule of thumb is coverage ≈ income × a multiple, plus debts to be retired, less
+// liquid assets already earmarked. Returns the recommended figure, the gap, and a
+// coverage ratio (clamped 0..1). All inputs default to 0 so partial data is safe.
+function lifeCoverageGap({ annualIncome = 0, incomeMultiple = 10, liabilities = 0, existingCoverage = 0, liquidAssets = 0 } = {}) {
+  const income  = Math.max(0, Number(annualIncome) || 0);
+  const mult    = Math.max(0, Number(incomeMultiple) || 0);
+  const debts   = Math.max(0, Number(liabilities) || 0);
+  const liquid  = Math.max(0, Number(liquidAssets) || 0);
+  const have    = Math.max(0, Number(existingCoverage) || 0);
+  const recommended = Math.max(0, income * mult + debts - liquid);
+  const gap   = Math.max(0, recommended - have);
+  const ratio = recommended > 0 ? Math.min(1, have / recommended) : (have > 0 ? 1 : 0);
+  return { recommended, existingCoverage: have, gap, covered: gap <= 0, ratio };
+}
+
 const PrismCalc = {
   buildValueSeries, modifiedDietz, perfPeriods,
   debtPayoffMonths, hsaProjection, monteCarlo, rothLadder, estateProjection, tlh,
-  retirementReadiness, goalFunding, annualFeeForAum,
+  retirementReadiness, goalFunding, annualFeeForAum, lifeCoverageGap,
 };
 
 if (typeof window !== 'undefined') window.PrismCalc = PrismCalc;

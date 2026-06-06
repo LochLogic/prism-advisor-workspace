@@ -90,7 +90,9 @@ The product captures an e-signature but the signed IPS / statements / tax docs l
 | **Tests** | RLS: client downloads only their docs; upload writes audit row. Realtime: a client INSERT flips the roster dot without a refresh. |
 | **DoD** | Advisor uploads an IPS, requests acknowledgement on it, client downloads + signs; record is immutable + audited. A new client message lights the roster dot live while the advisor sits on the dashboard. |
 
-#### Sprint W5 — Risk & protection capture (the rest of the "whole picture")
+#### Sprint W5 — Risk & protection capture (the rest of the "whole picture") ✅ SHIPPED (main; no migration)
+> Delivered: `profile.insurance[]` (life/disability/LTC — carrier/owner/coverage/premium) + `profile.estate{}` (will/trust/POA/healthcare-directive/beneficiaries — status + last-reviewed), all jsonb (no migration; `mergeProfile` backfills). `lifeCoverageGap()` in calc-core (income×10 + debts − liquid, vs. existing life coverage; 5 tests) → derived `lifeCoverageGap`/`lifeCoverage`/`estateProgress` in store. Numbers panel gains a **Protection** editor + **Estate readiness** checklist, and the previously-dead **retirement-detail fields** (`employerMatchPct`, 401k/IRA contributed+limit) are now editable. Client portal **Protection & estate card** (journey-aware — "Well protected" / "Room to strengthen", never alarming red); advisor modal overview **Protection & estate summary** (unsoftened, shows the coverage gap). Also fixed the advisor-side inline readiness/age to read `dateOfBirth` (W4 DOB model) via `advMemberAge`.
+
 A real financial plan includes protection + estate readiness. Capture (not advise) to complete the picture and feed Phases 1 & 6.
 
 | | |

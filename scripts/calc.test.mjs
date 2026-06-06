@@ -220,6 +220,32 @@ console.log('calc-core unit tests\n');
   assert(JSON.stringify(a) === JSON.stringify(b), 'goalFunding: deterministic for a fixed asOf');
 }
 
+/* ── lifeCoverageGap (W5) ─────────────────────────────────────────── */
+{
+  // Fully covered: existing ≥ recommended → no gap, ratio 1.
+  const ok1 = C.lifeCoverageGap({ annualIncome: 100_000, incomeMultiple: 10, liabilities: 0, existingCoverage: 1_200_000 });
+  assert(ok1.recommended === 1_000_000 && ok1.gap === 0 && ok1.covered === true && ok1.ratio === 1,
+    'lifeCoverageGap: over-covered → no gap, ratio 1');
+
+  // Under-covered: gap surfaces, ratio < 1.
+  const under = C.lifeCoverageGap({ annualIncome: 100_000, incomeMultiple: 10, existingCoverage: 400_000 });
+  assert(under.recommended === 1_000_000 && under.gap === 600_000 && under.covered === false && near(under.ratio, 0.4),
+    'lifeCoverageGap: under-covered → gap + ratio');
+
+  // Liabilities raise the recommendation; liquid assets lower it.
+  const withDebt = C.lifeCoverageGap({ annualIncome: 50_000, incomeMultiple: 10, liabilities: 200_000, liquidAssets: 100_000, existingCoverage: 0 });
+  assert(withDebt.recommended === 600_000, 'lifeCoverageGap: recommended = income×mult + debts − liquid');
+
+  // No data → zeros, treated as covered (nothing to flag).
+  const empty = C.lifeCoverageGap({});
+  assert(empty.recommended === 0 && empty.gap === 0 && empty.covered === true && empty.ratio === 0,
+    'lifeCoverageGap: empty inputs → zeros, no false alarm');
+
+  // Recommendation floors at 0 when liquid assets exceed need.
+  const floored = C.lifeCoverageGap({ annualIncome: 10_000, incomeMultiple: 1, liquidAssets: 999_999, existingCoverage: 0 });
+  assert(floored.recommended === 0 && floored.covered === true, 'lifeCoverageGap: recommendation floors at 0');
+}
+
 console.log('');
 if (failures) { console.error(`FAILED: ${failures} test(s)`); process.exit(1); }
 console.log('All calc-core tests passed.');
