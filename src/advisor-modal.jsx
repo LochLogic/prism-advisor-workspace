@@ -659,6 +659,34 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                 </div>
               </div>
             )}
+            {/* Funding goals summary (live clients with goals on file) */}
+            {(() => {
+              const items = profileData?.goals?.items;
+              if (!Array.isArray(items) || !items.length) return null;
+              const gf = (window.PrismCalc || {}).goalFunding;
+              if (!gf) return null;
+              return (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ ...LABEL_STYLE, marginBottom: 8 }}>Goals</div>
+                  {items.map(g => {
+                    const f = gf(g);
+                    const tone = (f.status === 'funded' || f.status === 'on pace') ? 'var(--forest)'
+                      : f.status === 'behind' ? 'var(--gold)' : 'var(--brick)';
+                    const label = { funded: 'Funded', 'on pace': 'On pace', behind: 'Behind', 'past due': 'Past due' }[f.status] || f.status;
+                    return (
+                      <div key={g.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '5px 0', fontSize: 13 }}>
+                        <span style={{ color: 'var(--ink)' }}>{g.label || 'Goal'}</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--ink-mute)', fontSize: 12 }}>
+                          {g.targetAmount > 0 ? Math.min(100, Math.round((g.currentFunding / g.targetAmount) * 100)) : 0}%
+                          <span style={{ fontWeight: 600, color: tone, border: `1px solid ${tone}`, borderRadius: 20, padding: '1px 8px' }}>{label}</span>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+
             {(() => {
               if (!profileData) return null;
               const r = profileData.retirement || {};

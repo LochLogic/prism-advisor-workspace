@@ -54,6 +54,13 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
     ...p, incomeStreams: (p.incomeStreams || []).map(s => s.id === id ? { ...s, [field]: value } : s),
   }));
 
+  // ── Funding goals (education / home / custom) ──
+  const gitems = (p) => (p.goals && Array.isArray(p.goals.items)) ? p.goals.items : [];
+  const addGoal = () => setProfile(p => ({ ...p, goals: { ...p.goals, items: [...gitems(p),
+    { id: `g${Date.now()}`, label: '', type: 'custom', targetAmount: 0, targetDate: '', currentFunding: 0, monthlyContribution: 0 }] } }));
+  const removeGoal = (id) => setProfile(p => ({ ...p, goals: { ...p.goals, items: gitems(p).filter(g => g.id !== id) } }));
+  const updateGoal = (id, field, value) => setProfile(p => ({ ...p, goals: { ...p.goals, items: gitems(p).map(g => g.id === id ? { ...g, [field]: value } : g) } }));
+
   // Current age binds to the primary member when one exists, else to goals.age —
   // so the planning age is always an explicit, edited value (no phantom default).
   const setCurrentAge = (v) => { if (primaryMember) updateMember(primaryMember.id, 'age', v); else update('goals.age', v); };
@@ -537,6 +544,69 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
               </label>
               <NumField label="Marginal rate (%)" path="taxes.marginalRate" value={profile.taxes.marginalRate} prefix={null} step="1"  onUpdate={update}/>
             </div>
+          </section>
+
+          {/* Funding goals — education / home / custom, tracked to a target date */}
+          <section style={{ marginBottom: 22 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div className="px-eyebrow">Goals</div>
+              <button className="px-btn px-btn-sm px-btn-ghost" style={{ padding: '3px 8px' }} onClick={addGoal}>
+                <Icons.Plus size={10} /> Add goal
+              </button>
+            </div>
+            {gitems(profile).length === 0 && (
+              <div style={{ padding: '10px 0', textAlign: 'center', color: 'var(--ink-faint)', fontStyle: 'italic', fontSize: 12 }}>
+                A home, education, or any milestone with a target amount and date — we'll track whether it's on pace.
+              </div>
+            )}
+            {gitems(profile).map(g => (
+              <div key={g.id} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 10, marginBottom: 8, background: 'var(--surface)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <input type="text" value={g.label} placeholder="e.g. College fund"
+                    onChange={(e) => updateGoal(g.id, 'label', e.target.value)}
+                    style={{ fontFamily: 'var(--serif)', fontSize: 13, fontWeight: 500, background: 'none', border: 'none', color: 'var(--ink)', outline: 'none', flex: 1 }} />
+                  <button onClick={() => removeGoal(g.id)} title="Remove" aria-label="Remove goal"
+                    style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', padding: '2px 6px', lineHeight: 1 }}>
+                    <Icons.X size={12} />
+                  </button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <label className="px-field">
+                    <span className="px-field-label">Type</span>
+                    <select className="px-select" value={g.type} onChange={(e) => updateGoal(g.id, 'type', e.target.value)}>
+                      <option value="education">Education</option>
+                      <option value="home">Home / property</option>
+                      <option value="retirement">Retirement</option>
+                      <option value="custom">Custom</option>
+                    </select>
+                  </label>
+                  <label className="px-field">
+                    <span className="px-field-label">Target date</span>
+                    <div className="px-input-affix">
+                      <input type="date" value={g.targetDate || ''}
+                        onChange={(e) => updateGoal(g.id, 'targetDate', e.target.value)} /></div>
+                  </label>
+                  <label className="px-field">
+                    <span className="px-field-label">Target amount</span>
+                    <div className="px-input-affix"><span className="px-affix">$</span>
+                      <input type="number" value={g.targetAmount} step="1000"
+                        onChange={(e) => updateGoal(g.id, 'targetAmount', parseFloat(e.target.value) || 0)} /></div>
+                  </label>
+                  <label className="px-field">
+                    <span className="px-field-label">Saved so far</span>
+                    <div className="px-input-affix"><span className="px-affix">$</span>
+                      <input type="number" value={g.currentFunding} step="1000"
+                        onChange={(e) => updateGoal(g.id, 'currentFunding', parseFloat(e.target.value) || 0)} /></div>
+                  </label>
+                  <label className="px-field" style={{ gridColumn: '1 / -1' }}>
+                    <span className="px-field-label">Monthly contribution</span>
+                    <div className="px-input-affix"><span className="px-affix">$</span>
+                      <input type="number" value={g.monthlyContribution} step="50"
+                        onChange={(e) => updateGoal(g.id, 'monthlyContribution', parseFloat(e.target.value) || 0)} /></div>
+                  </label>
+                </div>
+              </div>
+            ))}
           </section>
 
           <div style={{ padding: 12, background: 'var(--bg-elev)', borderRadius: 6, fontSize: 11, color: 'var(--ink-mute)', lineHeight: 1.5, fontStyle: 'italic', fontFamily: 'var(--serif)' }}>

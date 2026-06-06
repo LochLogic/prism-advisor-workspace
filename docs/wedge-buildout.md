@@ -39,7 +39,7 @@ The advisor sees a **complete household**, a **single unified inbox** (questions
 
 ### THEME 1 — Planning that answers "are we on track?" *(the core value)*
 
-#### Sprint W1 — Fixed-income streams + retirement-readiness engine
+#### Sprint W1 — Fixed-income streams + retirement-readiness engine ✅ SHIPPED (main)
 The roadmap promises retirement/drawdown guidance but has no projection that uses the household. This makes Phase 6 real and gives every client the one answer they pay for.
 
 | | |
@@ -50,7 +50,7 @@ The roadmap promises retirement/drawdown guidance but has no projection that use
 | **Tests** | `calc.test.mjs`: streams with start-age delay, COLA, zero-asset, over-funded, gap cases. |
 | **DoD** | A household with SS at 67 + a pension shows a defensible funded ratio + verdict on both roles; FinFire `FixedIncomeEditor` ported + re-skinned. |
 
-#### Sprint W2 — Goal-based planning
+#### Sprint W2 — Goal-based planning ✅ SHIPPED (main)
 Goal tracking is the heart of client value ("are we on track for college / the house / retirement"). Today there's only a single retirement age.
 
 | | |

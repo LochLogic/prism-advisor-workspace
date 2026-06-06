@@ -181,6 +181,45 @@ console.log('calc-core unit tests\n');
   assert(JSON.stringify(a) === JSON.stringify(b), 'readiness: deterministic for identical inputs');
 }
 
+/* ── goalFunding ──────────────────────────────────────────────────── */
+{
+  const asOf = '2026-06-01';
+  // Already funded → status 'funded', nothing more required.
+  const funded = C.goalFunding({ targetAmount: 100_000, targetDate: '2030-06-01', currentFunding: 120_000, monthlyContribution: 0, asOf });
+  assert(funded.status === 'funded' && funded.requiredMonthly === 0, 'goalFunding: current ≥ target → funded, $0 required');
+  assert(funded.fundedRatio >= 1, 'goalFunding: funded goal has ratio ≥ 1');
+
+  // On pace: current + contributions project past the target.
+  const onPace = C.goalFunding({ targetAmount: 100_000, targetDate: '2031-06-01', currentFunding: 50_000, monthlyContribution: 600, asOf });
+  assert(onPace.monthsRemaining === 60, 'goalFunding: month count from asOf to target');
+  assert(onPace.status === 'on pace' && onPace.projected >= 100_000, 'goalFunding: adequate funding → on pace');
+
+  // Behind: contribution too small to reach the target in time.
+  const behind = C.goalFunding({ targetAmount: 100_000, targetDate: '2028-06-01', currentFunding: 10_000, monthlyContribution: 100, asOf });
+  assert(behind.status === 'behind' && behind.projected < 100_000, 'goalFunding: underfunding → behind');
+  assert(behind.requiredMonthly > 100 && behind.gapMonthly > 0, 'goalFunding: behind surfaces a contribution gap');
+
+  // Past due: the target date has already passed and it is not funded.
+  const overdue = C.goalFunding({ targetAmount: 100_000, targetDate: '2025-01-01', currentFunding: 50_000, monthlyContribution: 500, asOf });
+  assert(overdue.status === 'past due' && overdue.monthsRemaining === 0, 'goalFunding: past target date + unfunded → past due');
+  assert(overdue.requiredMonthly === Infinity && overdue.gapMonthly === Infinity, 'goalFunding: no time left → required is Infinity');
+
+  // Zero growth: pure sum of contributions.
+  const flat = C.goalFunding({ targetAmount: 12_000, targetDate: '2027-06-01', currentFunding: 0, monthlyContribution: 1000, annualReturn: 0, asOf });
+  assert(near(flat.projected, 12_000) && flat.status === 'on pace', 'goalFunding: 0% growth → contributions sum exactly');
+  assert(near(flat.requiredMonthly, 1000), 'goalFunding: 0% growth → required = target / months');
+
+  // The required monthly, when applied, lands the projection on the target.
+  const req = behind.requiredMonthly;
+  const solved = C.goalFunding({ targetAmount: 100_000, targetDate: '2028-06-01', currentFunding: 10_000, monthlyContribution: req, asOf });
+  assert(near(solved.projected, 100_000, 1), 'goalFunding: requiredMonthly reaches the target by the date');
+
+  // Deterministic for a fixed asOf.
+  const a = C.goalFunding({ targetAmount: 50_000, targetDate: '2030-06-01', currentFunding: 5_000, monthlyContribution: 400, asOf });
+  const b = C.goalFunding({ targetAmount: 50_000, targetDate: '2030-06-01', currentFunding: 5_000, monthlyContribution: 400, asOf });
+  assert(JSON.stringify(a) === JSON.stringify(b), 'goalFunding: deterministic for a fixed asOf');
+}
+
 console.log('');
 if (failures) { console.error(`FAILED: ${failures} test(s)`); process.exit(1); }
 console.log('All calc-core tests passed.');

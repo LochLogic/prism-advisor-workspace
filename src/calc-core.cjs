@@ -196,6 +196,39 @@ function retirementReadiness({
   return { nestEgg, depletionAge, yearsNeeded, yearsFunded, lasts, fundedRatio, verdict };
 }
 
+// Goal funding projection. Given a target amount + date, current funding, and a
+// monthly contribution, projects the balance at the target date (current funding
+// compounded + contributions as an ordinary annuity) and reports a funded ratio,
+// status, and the monthly contribution required to hit the target on time.
+function goalFunding({ targetAmount, targetDate, currentFunding = 0, monthlyContribution = 0, annualReturn = 0.05, asOf }) {
+  const target = Number(targetAmount) || 0;
+  const cur    = Number(currentFunding) || 0;
+  const pmt    = Number(monthlyContribution) || 0;
+  const now = asOf ? new Date(asOf) : new Date();
+  const end = targetDate ? new Date(targetDate) : now;
+  const n = Math.max(0, (end.getFullYear() - now.getFullYear()) * 12 + (end.getMonth() - now.getMonth()));
+  const r = (Number(annualReturn) || 0) / 12;
+
+  const fvCurrent = cur * Math.pow(1 + r, n);
+  const annuityFactor = r === 0 ? n : (Math.pow(1 + r, n) - 1) / r;
+  const projected = fvCurrent + pmt * annuityFactor;
+  const fundedRatio = target > 0 ? projected / target : 1;
+
+  // Monthly contribution required to exactly hit the target by the date.
+  let requiredMonthly;
+  if (cur >= target) requiredMonthly = 0;
+  else if (annuityFactor === 0) requiredMonthly = Infinity;       // no time left, not funded
+  else requiredMonthly = Math.max(0, (target - fvCurrent) / annuityFactor);
+  const gapMonthly = isFinite(requiredMonthly) ? Math.max(0, requiredMonthly - pmt) : Infinity;
+
+  const status = cur >= target ? 'funded'
+    : n <= 0 ? 'past due'
+    : projected >= target ? 'on pace'
+    : 'behind';
+
+  return { monthsRemaining: n, projected, fundedRatio, requiredMonthly, gapMonthly, status };
+}
+
 // Tax-loss harvesting estimate from the share of the taxable book below basis.
 function tlh({ taxableBalance, lossPct, offsetRatePct }) {
   const harvestable = taxableBalance * (lossPct / 100);
@@ -226,7 +259,7 @@ function annualFeeForAum(tiers, aum) {
 const PrismCalc = {
   buildValueSeries, modifiedDietz, perfPeriods,
   debtPayoffMonths, hsaProjection, monteCarlo, rothLadder, estateProjection, tlh,
-  retirementReadiness, annualFeeForAum,
+  retirementReadiness, goalFunding, annualFeeForAum,
 };
 
 if (typeof window !== 'undefined') window.PrismCalc = PrismCalc;

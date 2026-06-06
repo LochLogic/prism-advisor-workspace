@@ -40,7 +40,12 @@ const defaultProfile = {
   },
   taxes:   { marginalRate: 24, filingStatus: 'mfj', state: 'CA' },
   taxable: { balance: 1_628_000, monthlyContrib: 8500 },
-  goals:   { age: 62, retireAt: 67 },
+  // goals.age / retireAt anchor the retirement projection; goals.items are
+  // discrete funding goals (education / home / custom) tracked to a target date.
+  goals:   { age: 62, retireAt: 67, items: [
+    { id: 'g1', label: 'Grandchildren 529', type: 'education', targetAmount: 200_000, targetDate: '2032-09-01', currentFunding: 90_000, monthlyContribution: 1200 },
+    { id: 'g2', label: 'Lake house',         type: 'home',      targetAmount: 600_000, targetDate: '2029-06-01', currentFunding: 180_000, monthlyContribution: 2500 },
+  ] },
   // Guaranteed income in retirement — Social Security / pension / annuity. Each
   // turns on at startAge and grows by its COLA. Netted against spending by the
   // retirement-readiness engine.
@@ -68,7 +73,7 @@ const emptyProfile = {
   },
   taxes:   { marginalRate: 24, filingStatus: 'mfj', state: '' },
   taxable: { balance: 0, monthlyContrib: 0 },
-  goals:   { age: 45, retireAt: 65 },
+  goals:   { age: 45, retireAt: 65, items: [] },
   incomeStreams: [],
 };
 
@@ -239,11 +244,16 @@ function ProfileProvider({ children }) {
     + (Number(profile.retirement.hsaContrib) || 0)
     + (Number(profile.retirement.iraContributed) || 0)
     + (Number(profile.retirement.fourohonekContributed) || 0);
-  const retirementReadiness = (typeof PrismCalc !== 'undefined' ? PrismCalc.retirementReadiness : window.PrismCalc.retirementReadiness)({
+  const _calc = (typeof PrismCalc !== 'undefined' ? PrismCalc : window.PrismCalc);
+  const retirementReadiness = _calc.retirementReadiness({
     currentAge: planningAge, retireAt: profile.goals.retireAt,
     currentInvested: totalInvested, annualContribution: annualRetirementContribution,
     annualExpenses, streams: incomeStreams,
   });
+
+  // ── Funding goals (education / home / custom) ───────────────────
+  const goalItems   = Array.isArray(profile.goals?.items) ? profile.goals.items : [];
+  const goalsFunding = goalItems.map(g => ({ goal: g, ...(_calc.goalFunding(g)) }));
 
   const metrics = {
     totalExpenses, totalDebt, toxicDebt, surplus, savingsRate,
@@ -256,6 +266,7 @@ function ProfileProvider({ children }) {
     members, primaryMember, planningAge, dependentsCount, householdSize,
     incomeSources, grossMonthlyIncome, grossAnnualIncome,
     incomeStreams, annualRetirementContribution, retirementReadiness,
+    goalItems, goalsFunding,
   };
 
   return (

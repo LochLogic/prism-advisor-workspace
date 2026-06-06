@@ -471,6 +471,41 @@ const ClientPortal = ({ onOpenNumbers }) => {
           );
         })()}
 
+        {/* Funding goals — per-goal progress + on-pace nudge */}
+        {!isBlankSlate && (ctx.goalsFunding || []).length > 0 && (
+          <div className="px-card" style={{ padding: 18, marginBottom: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 }}>
+            <div className="px-eyebrow" style={{ marginBottom: 12 }}>Goals</div>
+            {ctx.goalsFunding.map(({ goal, status, gapMonthly }) => {
+              const tone = (status === 'funded' || status === 'on pace') ? 'var(--forest)'
+                : status === 'behind' ? 'var(--gold)' : 'var(--brick)';
+              // The bar shows saved-so-far progress; the badge carries the projection (on pace / behind).
+              const pct = goal.targetAmount > 0 ? Math.min(100, Math.round((goal.currentFunding / goal.targetAmount) * 100)) : 0;
+              const yr = goal.targetDate ? new Date(goal.targetDate).getFullYear() : null;
+              const label = { funded: 'Funded', 'on pace': 'On pace', behind: 'Behind', 'past due': 'Past due' }[status] || status;
+              return (
+                <div key={goal.id} style={{ padding: '10px 0', borderTop: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink)' }}>
+                      {goal.label || 'Goal'}{yr ? <span style={{ color: 'var(--ink-faint)', fontWeight: 400, fontSize: 12 }}> · by {yr}</span> : null}
+                    </span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: tone, border: `1px solid ${tone}`, borderRadius: 20, padding: '1px 9px', whiteSpace: 'nowrap' }}>{label}</span>
+                  </div>
+                  <div style={{ height: 7, background: 'var(--bg-elev)', borderRadius: 4, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${pct}%`, background: tone, transition: 'width .4s' }} />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 5, fontSize: 11.5, color: 'var(--ink-mute)' }}>
+                    <span>{fmt$(goal.currentFunding, { short: true })} of {fmt$(goal.targetAmount, { short: true })} · {pct}%</span>
+                    {status === 'behind' && isFinite(gapMonthly) && gapMonthly > 0 && (
+                      <span style={{ color: 'var(--gold)' }}>+{fmt$(gapMonthly)}/mo to stay on pace</span>
+                    )}
+                    {status === 'past due' && <span style={{ color: 'var(--brick)' }}>Target date passed</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {/* Acknowledgements — review & e-sign documents the advisor requested */}
         {acks.length > 0 && (
           <div className="px-card" style={{ padding: 18, marginBottom: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 }}>
