@@ -77,16 +77,16 @@ Collaboration is the wedge, and today it's the thinnest part — only per-task f
 
 ### THEME 3 — Completeness & trust *(whole-picture)*
 
-#### Sprint W4 — Document vault
-The product captures an e-signature but the signed IPS / statements / tax docs live nowhere. Close the loop.
+#### Sprint W4 — Document vault + passive realtime messaging
+The product captures an e-signature but the signed IPS / statements / tax docs live nowhere. Close the loop. **Also folds in the W3 follow-on:** the advisor roster should light up a new-message indicator in realtime, without any modal open (today the `MessageThread` only subscribes while its tab is mounted, and the roster unread dot only refreshes when a preview modal closes — see [[arch-review-w1-w4]]).
 
 | | |
 |---|---|
-| **Build** | • Private Supabase **Storage bucket** (`client-documents`, RLS-scoped) + `documents` table (metadata, owner, category, linked acknowledgement).<br>• Advisor **upload**; client **review + download**; link an acknowledgement to a stored document so e-sign attaches to a real file.<br>• Categories: IPS, statement, tax, estate, disclosure, other. |
-| **Data / infra** | **Migration 020**: `documents` table + Storage bucket + RLS policies + audit. |
-| **Surfaces** | `db.jsx`, `advisor-modal.jsx` (Documents tab), `client-portal.jsx` (Documents card). |
-| **Tests** | RLS: client downloads only their docs; upload writes audit row. |
-| **DoD** | Advisor uploads an IPS, requests acknowledgement on it, client downloads + signs; record is immutable + audited. |
+| **Build** | • Private Supabase **Storage bucket** (`client-documents`, RLS-scoped) + `documents` table (metadata, owner, category, linked acknowledgement).<br>• Advisor **upload**; client **review + download**; link an acknowledgement to a stored document so e-sign attaches to a real file.<br>• Categories: IPS, statement, tax, estate, disclosure, other.<br>• **Passive realtime messaging (W3 follow-on):** an advisor-scoped `subscribeAllMessages(onInsert)` channel (RLS already scopes rows to the advisor's book) wired at the dashboard level, so the roster unread dot + a subtle toast appear live on a new client message — no modal required. Reuses the existing realtime infra; complements (does not replace) `getUnreadMessageClients()` for the initial paint. |
+| **Data / infra** | **Migration 020**: `documents` table + Storage bucket + RLS policies + audit. (Messaging needs no new migration — 019 already publishes `messages` to realtime.) |
+| **Surfaces** | `db.jsx` (documents + `subscribeAllMessages`), `advisor-modal.jsx` (Documents tab), `client-portal.jsx` (Documents card), `advisor-dashboard.jsx` (realtime unread subscription). |
+| **Tests** | RLS: client downloads only their docs; upload writes audit row. Realtime: a client INSERT flips the roster dot without a refresh. |
+| **DoD** | Advisor uploads an IPS, requests acknowledgement on it, client downloads + signs; record is immutable + audited. A new client message lights the roster dot live while the advisor sits on the dashboard. |
 
 #### Sprint W5 — Risk & protection capture (the rest of the "whole picture")
 A real financial plan includes protection + estate readiness. Capture (not advise) to complete the picture and feed Phases 1 & 6.
