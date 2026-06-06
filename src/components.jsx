@@ -278,4 +278,124 @@ const MessageThread = ({ clientId, role, authorId, firmId, demoSeed = [], contex
   );
 };
 
-Object.assign(window, { Modal, ClientAvatar, Sparkline, Toast, MilestoneAchievedModal, MessageThread });
+/* ─── Document vault — advisor uploads, client reviews + downloads (W4) ──── */
+const DOC_CATEGORIES = [
+  { value: 'ips', label: 'IPS' }, { value: 'statement', label: 'Statement' },
+  { value: 'tax', label: 'Tax' }, { value: 'estate', label: 'Estate' },
+  { value: 'disclosure', label: 'Disclosure' }, { value: 'other', label: 'Other' },
+];
+const _docCatLabel = (v) => (DOC_CATEGORIES.find(c => c.value === v) || { label: 'Other' }).label;
+const _fmtBytes = (b) => {
+  if (!b) return ''; const u = ['B', 'KB', 'MB', 'GB']; let i = 0, n = b;
+  while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+  return `${n.toFixed(n < 10 && i > 0 ? 1 : 0)} ${u[i]}`;
+};
+const _fmtDocDate = (t) => new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+// `role` is the viewer ('advisor' | 'client'). Advisors upload + delete; clients
+// review + download. Live clients hit Storage; demo/mock clients use demoSeed.
+const DocumentVault = ({ clientId, role, firmId, advisorId, demoSeed = [], emptyHint }) => {
+  const isLive = window.db?.isUUID(clientId);
+  const canManage = role === 'advisor';
+  const [docs, setDocs] = React.useState(isLive ? undefined : demoSeed);
+  const [busy, setBusy] = React.useState(false);
+  const [err, setErr] = React.useState('');
+  const [form, setForm] = React.useState(null);
+  const fileRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (!isLive) { setDocs(demoSeed); return; }
+    setDocs(undefined);
+    window.db.getDocuments(clientId).then(rows => setDocs(rows || []));
+  }, [clientId]);
+
+  const pickFile = (e) => {
+    const f = e.target.files?.[0]; if (!f) return;
+    setErr('');
+    setForm({ file: f, title: f.name.replace(/\.[^.]+$/, ''), category: 'other' });
+  };
+  const upload = async () => {
+    if (!form?.file || busy) return;
+    if (!isLive) { setErr('Uploads are available on live clients.'); return; }
+    setBusy(true); setErr('');
+    const row = await window.db.uploadDocument(clientId, firmId, advisorId, form.file,
+      { title: form.title?.trim() || form.file.name, category: form.category });
+    setBusy(false);
+    if (row) { setDocs(prev => [row, ...(prev || [])]); setForm(null); if (fileRef.current) fileRef.current.value = ''; }
+    else setErr('Upload failed — please try again.');
+  };
+  const download = async (d) => {
+    setErr('');
+    if (!isLive) { setErr('Documents open in the live portal.'); setTimeout(() => setErr(''), 2500); return; }
+    const url = await window.db.getDocumentUrl(d.storage_path);
+    if (url) window.open(url, '_blank', 'noopener'); else setErr('Could not open the document.');
+  };
+  const remove = async (d) => {
+    if (!isLive) return;
+    const ok = await window.db.deleteDocument(d.id, d.storage_path, clientId);
+    if (ok) setDocs(prev => (prev || []).filter(x => x.id !== d.id));
+  };
+
+  return (
+    <div className="px-docs">
+      {canManage && (
+        <div style={{ marginBottom: 12 }}>
+          {!form && (
+            <label className="px-btn px-btn-sm px-btn-ghost" style={{ cursor: 'pointer' }}>
+              <Icons.Upload size={12} /> Upload document
+              <input ref={fileRef} type="file" onChange={pickFile} style={{ display: 'none' }} />
+            </label>
+          )}
+          {form && (
+            <div style={{ padding: 12, background: 'var(--bg-elev)', borderRadius: 6 }}>
+              <div style={{ fontSize: 12.5, color: 'var(--ink-2)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Icons.FileText size={13} /> {form.file.name} <span style={{ color: 'var(--ink-faint)' }}>· {_fmtBytes(form.file.size)}</span>
+              </div>
+              <input className="px-input" placeholder="Title" value={form.title} autoFocus
+                onChange={e => setForm(f => ({ ...f, title: e.target.value }))} style={{ marginBottom: 8 }} />
+              <select className="px-select" value={form.category}
+                onChange={e => setForm(f => ({ ...f, category: e.target.value }))} style={{ marginBottom: 8, width: '100%' }}>
+                {DOC_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              </select>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button className="px-btn px-btn-sm px-btn-primary" onClick={upload} disabled={busy}>
+                  {busy ? 'Uploading…' : 'Upload'}
+                </button>
+                <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => { setForm(null); if (fileRef.current) fileRef.current.value = ''; }}>Cancel</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      {err && <div style={{ fontSize: 11.5, color: 'var(--brick)', marginBottom: 8, padding: '4px 8px', background: 'rgba(140,61,61,.07)', borderRadius: 5 }}>{err}</div>}
+      {docs === undefined && <div className="px-thread-empty">Loading…</div>}
+      {docs !== undefined && docs.length === 0 && (
+        <div className="px-thread-empty">{emptyHint || 'No documents yet.'}</div>
+      )}
+      {(docs || []).map(d => (
+        <div key={d.id} className="px-doc-row">
+          <span className="px-doc-icon"><Icons.FileText size={16} /></span>
+          <div className="px-doc-meta">
+            <div className="px-doc-title">{d.title}</div>
+            <div className="px-doc-sub">
+              <span className="px-doc-cat">{_docCatLabel(d.category)}</span>
+              {d.file_name ? ` · ${d.file_name}` : ''}{d.size_bytes ? ` · ${_fmtBytes(d.size_bytes)}` : ''}
+              {d.uploaded_at ? ` · ${_fmtDocDate(d.uploaded_at)}` : ''}
+            </div>
+          </div>
+          <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => download(d)} title="Download">
+            <Icons.Download size={12} />
+          </button>
+          {canManage && (
+            <button className="px-icon-btn" onClick={() => remove(d)} title="Delete" aria-label="Delete document"
+              style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', padding: 4 }}>
+              <Icons.Trash size={13} />
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+Object.assign(window, { Modal, ClientAvatar, Sparkline, Toast, MilestoneAchievedModal, MessageThread, DocumentVault });

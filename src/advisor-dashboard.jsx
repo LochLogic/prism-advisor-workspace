@@ -605,6 +605,19 @@ const AdvisorDashboard = () => {
     window.db.getUnreadMessageClients().then(ids => setUnreadIds(new Set(ids || [])));
   }, [isLiveMode, previewClient]);
 
+  // Passive realtime (W4): light the roster unread dot the moment a client messages —
+  // no modal needed. RLS scopes the stream to this advisor's book. Complements the
+  // fetch above (which paints the initial state + clears on modal close).
+  React.useEffect(() => {
+    if (!isLiveMode || !window.db?.subscribeAllMessages) return;
+    const unsub = window.db.subscribeAllMessages((m) => {
+      if (m?.author_role === 'client' && m.client_id) {
+        setUnreadIds(prev => prev.has(m.client_id) ? prev : new Set(prev).add(m.client_id));
+      }
+    });
+    return () => unsub && unsub();
+  }, [isLiveMode]);
+
   // Apply in-session pipeline-stage overrides (demo) + unread-message flags so the
   // roster reflects moves and surfaces clients awaiting a reply.
   const boardClients = useMemoAdv(

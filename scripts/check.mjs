@@ -52,6 +52,12 @@ const scriptSrc = (headers.match(/script-src[^;]*/) || [''])[0];
 assert(!/'unsafe-inline'/.test(scriptSrc), "CSP script-src has no 'unsafe-inline'");
 assert(/'sha256-[A-Za-z0-9+/=]{40,}'/.test(scriptSrc), 'CSP script-src allow-lists inline scripts by hash');
 
+// 9. W4 — document vault surface is wired into the bundle + migration present
+for (const sym of ['DocumentVault', 'getDocuments', 'uploadDocument', 'getDocumentUrl', 'subscribeAllMessages']) {
+  assert(bundle.includes(sym), `bundle wires W4 symbol ${sym}`);
+}
+assert(existsSync('supabase/migrations/020_documents.sql'), 'migration 020_documents.sql present');
+
 console.log('');
 if (failures) { console.error(`FAILED: ${failures} check(s)`); process.exit(1); }
 console.log('All checks passed.');

@@ -169,7 +169,7 @@ async function dbUpdateInvoiceStatus(id, status, clientId) {
 const fmtMoney = (n) => '$' + (Number(n) || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
 
 /* ─── Acknowledgements / e-sign (migration 017) ──────────────────── */
-const ACK_COLS = 'id, client_id, advisor_id, title, body, status, requested_at, acknowledged_at, signer_name';
+const ACK_COLS = 'id, client_id, advisor_id, title, body, status, requested_at, acknowledged_at, signer_name, document_id';
 
 async function dbGetAcknowledgements(clientId) {
   if (!_sb() || !isUUID(clientId)) return null;
@@ -183,12 +183,13 @@ async function dbGetAcknowledgements(clientId) {
   } catch (e) { console.warn('[db] getAcknowledgements:', e.message); return null; }
 }
 
-async function dbCreateAcknowledgement(clientId, firmId, advisorId, { title, body }) {
+async function dbCreateAcknowledgement(clientId, firmId, advisorId, { title, body, documentId }) {
   if (!_sb() || !isUUID(clientId)) return null;
   try {
     const { data, error } = await _sb()
       .from('acknowledgements')
-      .insert({ client_id: clientId, firm_id: firmId, advisor_id: advisorId, title, body: body || null })
+      .insert({ client_id: clientId, firm_id: firmId, advisor_id: advisorId, title, body: body || null,
+                document_id: documentId || null })
       .select(ACK_COLS).single();
     if (error) throw error;
     dbAudit('ack.request', { entityType: 'acknowledgement', entityId: data.id, clientId,
@@ -977,6 +978,87 @@ function subscribeMessages(clientId, onInsert) {
   return () => { try { sb.removeChannel(ch); } catch {} };
 }
 
+// Passive realtime (W4): subscribe to ALL new messages the caller may see. RLS scopes
+// the stream to the advisor's own book, so no client-side tenant filtering is needed.
+// Used at the dashboard level so the roster unread dot lights up without a modal open.
+function subscribeAllMessages(onInsert) {
+  const sb = _sb();
+  if (!sb) return () => {};
+  const ch = sb.channel('messages:all')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' },
+      (payload) => onInsert && onInsert(payload.new))
+    .subscribe();
+  return () => { try { sb.removeChannel(ch); } catch {} };
+}
+
+/* ─── Document vault (migration 020) ─────────────────────────────── */
+const DOC_BUCKET = 'client-documents';
+const DOC_COLS = 'id, client_id, advisor_id, category, title, file_name, storage_path, mime_type, size_bytes, uploaded_by_role, uploaded_at';
+
+async function dbGetDocuments(clientId) {
+  if (!_sb() || !isUUID(clientId)) return null;
+  try {
+    const { data, error } = await _sb()
+      .from('documents').select(DOC_COLS)
+      .eq('client_id', clientId)
+      .order('uploaded_at', { ascending: false });
+    if (error) throw error;
+    return data;
+  } catch (e) { console.warn('[db] getDocuments:', e.message); return null; }
+}
+
+// Advisor uploads a file: store the binary under <client_id>/<uuid>-<name>, then
+// write the metadata row. Returns the row (or null on failure).
+async function dbUploadDocument(clientId, firmId, advisorId, file, { title, category } = {}) {
+  if (!_sb() || !isUUID(clientId) || !file) return null;
+  try {
+    const safeName = String(file.name || 'document').replace(/[^\w.\-]+/g, '_').slice(0, 120);
+    const uid = (crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+    const path = `${clientId}/${uid}-${safeName}`;
+    const up = await _sb().storage.from(DOC_BUCKET)
+      .upload(path, file, { contentType: file.type || 'application/octet-stream', upsert: false });
+    if (up.error) throw up.error;
+    const { data, error } = await _sb()
+      .from('documents')
+      .insert({ client_id: clientId, firm_id: firmId || null, advisor_id: advisorId || null,
+                category: category || 'other', title: (title || safeName).slice(0, 200),
+                file_name: file.name || safeName, storage_path: path,
+                mime_type: file.type || null, size_bytes: file.size || null,
+                uploaded_by_role: 'advisor' })
+      .select(DOC_COLS).single();
+    if (error) {
+      // Roll back the orphaned object so storage doesn't drift from metadata.
+      try { await _sb().storage.from(DOC_BUCKET).remove([path]); } catch {}
+      throw error;
+    }
+    dbAudit('document.upload', { entityType: 'document', entityId: data.id, clientId,
+      summary: `Uploaded document: ${data.title}` });
+    return data;
+  } catch (e) { console.warn('[db] uploadDocument:', e.message); return null; }
+}
+
+// Short-lived signed URL for download (default 60s). Bucket is private.
+async function dbGetDocumentUrl(storagePath, expiresIn = 60) {
+  if (!_sb() || !storagePath) return null;
+  try {
+    const { data, error } = await _sb().storage.from(DOC_BUCKET).createSignedUrl(storagePath, expiresIn);
+    if (error) throw error;
+    return data?.signedUrl || null;
+  } catch (e) { console.warn('[db] getDocumentUrl:', e.message); return null; }
+}
+
+async function dbDeleteDocument(id, storagePath, clientId) {
+  if (!_sb() || !isUUID(id)) return false;
+  try {
+    if (storagePath) { try { await _sb().storage.from(DOC_BUCKET).remove([storagePath]); } catch {} }
+    const { error } = await _sb().from('documents').delete().eq('id', id);
+    if (error) throw error;
+    dbAudit('document.delete', { entityType: 'document', entityId: id, clientId,
+      summary: 'Deleted a document' });
+    return true;
+  } catch (e) { console.warn('[db] deleteDocument:', e.message); return false; }
+}
+
 window.db = {
   getClients:          dbGetClients,
   mapClient,
@@ -1021,6 +1103,11 @@ window.db = {
   markMessagesRead:    dbMarkMessagesRead,
   getUnreadMessageClients: dbGetUnreadMessageClients,
   subscribeMessages,
+  subscribeAllMessages,
+  getDocuments:        dbGetDocuments,
+  uploadDocument:      dbUploadDocument,
+  getDocumentUrl:      dbGetDocumentUrl,
+  deleteDocument:      dbDeleteDocument,
   getPhases:           dbGetPhases,
   audit:               dbAudit,
   getAuditLog:         dbGetAuditLog,

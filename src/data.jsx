@@ -346,6 +346,16 @@ const demoMessages = () => {
   ];
 };
 
+/* ─── Demo document vault (mock clients; mirrors the documents shape) ─ */
+const demoDocuments = () => {
+  const now = Date.now(), ago = (d) => new Date(now - d * 86400000).toISOString();
+  return [
+    { id: 'doc1', category: 'ips',        title: 'Investment Policy Statement 2026', file_name: 'IPS_Marsh_2026.pdf',        mime_type: 'application/pdf', size_bytes: 248000, uploaded_at: ago(12) },
+    { id: 'doc2', category: 'statement',  title: 'Q1 2026 Performance Statement',     file_name: 'Statement_Q1_2026.pdf',     mime_type: 'application/pdf', size_bytes: 184000, uploaded_at: ago(40) },
+    { id: 'doc3', category: 'disclosure', title: 'Form ADV Part 2A',                   file_name: 'ADV_2A.pdf',                 mime_type: 'application/pdf', size_bytes: 512000, uploaded_at: ago(95) },
+  ];
+};
+
 /* ─── "Current user" — Robert & Eileen Marsh, viewed in Client Portal ─ */
 const currentClientId = 'c001';
 
@@ -360,4 +370,5 @@ window.demoBalanceHistory = demoBalanceHistory;
 window.demoCashFlows = demoCashFlows;
 window.demoTimeline = demoTimeline;
 window.demoMessages = demoMessages;
+window.demoDocuments = demoDocuments;
 window.currentClientId = currentClientId;
