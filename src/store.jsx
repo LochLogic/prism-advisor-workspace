@@ -9,8 +9,8 @@ const defaultProfile = {
   // drives planning math (retirement horizon, legacy projection); spouse/dependents
   // give the advisor the relationship context the roadmap promises.
   members: [
-    { id: 'm1', name: 'Robert Marsh', role: 'primary', age: 62 },
-    { id: 'm2', name: 'Eileen Marsh', role: 'spouse',  age: 60 },
+    { id: 'm1', name: 'Robert Marsh', role: 'primary', dateOfBirth: '1962-04-15' },
+    { id: 'm2', name: 'Eileen Marsh', role: 'spouse',  dateOfBirth: '1964-09-22' },
   ],
   // income.monthlyTakehome is the spendable cash that drives the cash-flow math.
   // income.sources is optional composition (salary / RSU / bonus / self-employment)
@@ -179,7 +179,17 @@ function ProfileProvider({ children }) {
   // the age driving the math is always a real, edited value — not a phantom default.
   const members        = Array.isArray(profile.members) ? profile.members : [];
   const primaryMember  = members.find(m => m.role === 'primary') || members[0] || null;
-  const planningAge    = Number(primaryMember?.age) > 0 ? Number(primaryMember.age) : Number(profile.goals?.age || 0);
+  // Derive age from dateOfBirth when available; fall back to explicit age field (legacy profiles),
+  // then to goals.age. This ensures the planning anchor is always a real, edited value.
+  const _ageFromDob = (dob) => {
+    if (!dob) return 0;
+    const bd = new Date(dob), today = new Date();
+    let a = today.getFullYear() - bd.getFullYear();
+    if (today.getMonth() < bd.getMonth() || (today.getMonth() === bd.getMonth() && today.getDate() < bd.getDate())) a--;
+    return a > 0 ? a : 0;
+  };
+  const _memberAge = (m) => m ? (_ageFromDob(m.dateOfBirth) || Number(m.age) || 0) : 0;
+  const planningAge    = _memberAge(primaryMember) || Number(profile.goals?.age || 0);
   const dependentsCount = members.filter(m => m.role === 'dependent').length;
   const householdSize  = members.length;
 

@@ -28,7 +28,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
   const addMember = () => setProfile(p => {
     const hasPrimary = (p.members || []).some(m => m.role === 'primary');
     return { ...p, members: [...(p.members || []),
-      { id: `m${Date.now()}`, name: '', role: hasPrimary ? 'spouse' : 'primary', age: 0 }] };
+      { id: `m${Date.now()}`, name: '', role: hasPrimary ? 'spouse' : 'primary', dateOfBirth: '' }] };
   });
   const removeMember = (id) => setProfile(p => ({ ...p, members: (p.members || []).filter(m => m.id !== id) }));
   const updateMember = (id, field, value) => setProfile(p => ({
@@ -61,9 +61,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
   const removeGoal = (id) => setProfile(p => ({ ...p, goals: { ...p.goals, items: gitems(p).filter(g => g.id !== id) } }));
   const updateGoal = (id, field, value) => setProfile(p => ({ ...p, goals: { ...p.goals, items: gitems(p).map(g => g.id === id ? { ...g, [field]: value } : g) } }));
 
-  // Current age binds to the primary member when one exists, else to goals.age —
-  // so the planning age is always an explicit, edited value (no phantom default).
-  const setCurrentAge = (v) => { if (primaryMember) updateMember(primaryMember.id, 'age', v); else update('goals.age', v); };
+  // Planning age is now derived from members[].dateOfBirth in store.jsx — no setter needed.
 
   const addDebt = () => setProfile(p => ({
     ...p,
@@ -146,7 +144,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
               </div>
             )}
             {(profile.members || []).map(m => (
-              <div key={m.id} style={{ display: 'grid', gridTemplateColumns: '1fr 110px 64px 24px', gap: 8, alignItems: 'end', marginBottom: 8 }}>
+              <div key={m.id} style={{ display: 'grid', gridTemplateColumns: '1fr 100px 148px 22px', gap: 8, alignItems: 'end', marginBottom: 8 }}>
                 <label className="px-field">
                   <span className="px-field-label">Name</span>
                   <div className="px-input-affix">
@@ -163,11 +161,10 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                   </select>
                 </label>
                 <label className="px-field">
-                  <span className="px-field-label">Age</span>
-                  <div className="px-input-affix">
-                    <input type="number" value={m.age} step="1" min="0"
-                      onChange={(e) => updateMember(m.id, 'age', parseInt(e.target.value) || 0)} />
-                  </div>
+                  <span className="px-field-label">Date of birth</span>
+                  <input type="date" className="px-input" value={m.dateOfBirth || ''}
+                    style={{ width: '100%' }}
+                    onChange={(e) => updateMember(m.id, 'dateOfBirth', e.target.value)} />
                 </label>
                 <button onClick={() => removeMember(m.id)} aria-label="Remove person"
                   style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', padding: '0 0 9px', lineHeight: 1 }}>
@@ -519,10 +516,11 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
             <div className="px-eyebrow" style={{ marginBottom: 10 }}>Planning &amp; tax</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <label className="px-field">
-                <span className="px-field-label">Current age{primaryMember ? ` · ${primaryMember.name || 'primary'}` : ''}</span>
-                <div className="px-input-affix">
-                  <input type="number" value={planningAge} step="1" min="0" onChange={(e) => setCurrentAge(parseInt(e.target.value) || 0)} />
+                <span className="px-field-label">Planning age{primaryMember ? ` · ${primaryMember.name || 'primary'}` : ''}</span>
+                <div className="px-input-affix" style={{ background: 'var(--bg)', cursor: 'default' }}>
+                  <input type="text" readOnly value={planningAge > 0 ? `${planningAge} yrs` : '—'} style={{ cursor: 'default', color: 'var(--ink-mute)' }} />
                 </div>
+                <span style={{ fontSize: 10, color: 'var(--ink-faint)', marginTop: 2, display: 'block' }}>from date of birth above</span>
               </label>
               <NumField label="Target retirement age" path="goals.retireAt" value={profile.goals.retireAt} prefix={null} step="1" onUpdate={update}/>
               <label className="px-field">
