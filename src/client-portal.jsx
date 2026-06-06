@@ -416,6 +416,61 @@ const ClientPortal = ({ onOpenNumbers }) => {
           </div>
         </div>
 
+        {/* Asset reconciliation — managed/linked AUM vs. the invested balances on file.
+            A gap means one side is stale; we nudge directionally instead of showing two
+            unrelated totals silently. */}
+        {(() => {
+          const rec = reconcileAssets?.(viewingClient.aum, ctx.investedOnFile);
+          if (!rec?.diverges) return null;
+          const exceeds = rec.direction === 'aum-exceeds';
+          return (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+              background: 'var(--surface)', border: '1px solid var(--border)',
+              borderLeft: '3px solid var(--gold)', borderRadius: 'var(--radius-lg)',
+              padding: '12px 16px', margin: '4px 0 12px', fontSize: 12.5, color: 'var(--ink-mute)', lineHeight: 1.5,
+            }}>
+              <span style={{ color: 'var(--gold)', display: 'flex', flexShrink: 0 }}><Icons.AlertCircle size={16} /></span>
+              <span style={{ flex: 1, minWidth: 200 }}>
+                {exceeds
+                  ? <>Your managed assets ({fmt$(viewingClient.aum, { short: true })}) are higher than the invested balances on file ({fmt$(ctx.investedOnFile, { short: true })}). Your numbers may be out of date.</>
+                  : <>The invested balances on file ({fmt$(ctx.investedOnFile, { short: true })}) exceed managed assets ({fmt$(viewingClient.aum, { short: true })}) — likely held-away accounts your advisor doesn't yet manage.</>}
+              </span>
+              {exceeds && (
+                <button className="px-btn px-btn-sm px-btn-ghost" style={{ flexShrink: 0 }} onClick={onOpenNumbers}>
+                  <Icons.Edit size={11} /> Update numbers
+                </button>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Retirement readiness — the "are we on track?" answer */}
+        {!isBlankSlate && ctx.retirementReadiness && (() => {
+          const rr = ctx.retirementReadiness;
+          const tone = rr.verdict === 'On track' ? 'var(--forest)'
+            : rr.verdict === 'Nearly there' ? 'var(--gold)' : 'var(--brick)';
+          const pct = Math.round(rr.fundedRatio * 100);
+          return (
+            <div className="px-card" style={{ padding: 18, marginBottom: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+                <div className="px-eyebrow">Retirement readiness</div>
+                <span style={{ fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600, color: tone }}>{rr.verdict}</span>
+              </div>
+              <div style={{ height: 8, background: 'var(--bg-elev)', borderRadius: 4, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${pct}%`, background: tone, transition: 'width .4s' }} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 12, color: 'var(--ink-mute)' }}>
+                <span>{pct}% funded</span>
+                <span>{rr.lasts ? 'Plan funded through age 95' : `Projected to last until age ${rr.depletionAge}`}</span>
+              </div>
+              <div style={{ fontSize: 10.5, color: 'var(--ink-faint)', marginTop: 10, fontStyle: 'italic', lineHeight: 1.5 }}>
+                Projection nets your guaranteed income (Social Security, pensions) against inflated spending. Assumptions are illustrative — refine them with {advisorDisplay.name}.
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Acknowledgements — review & e-sign documents the advisor requested */}
         {acks.length > 0 && (
           <div className="px-card" style={{ padding: 18, marginBottom: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 }}>

@@ -143,6 +143,59 @@ function estateProjection({ principal, years, withdrawalRatePct, g2Years, realRe
   return { estate, estateTax, netToHeirs, g2 };
 }
 
+// Retirement-readiness engine. Deterministic year-by-year accumulation, then
+// decumulation that nets fixed-income streams (Social Security / pension / annuity)
+// against inflated spending — to answer the one question every client asks:
+// "are we on track?" Returns a funded ratio + a plain-language verdict.
+//
+// Assumptions are intentionally simple and transparent (the advisor can refine):
+// nominal growth, expenses inflated from today, retirement spending ≈ today's
+// spending, contributions flat in nominal terms, plan horizon to age 95. A stream
+// only counts once the member reaches its start age, and grows by its COLA after.
+function retirementReadiness({
+  currentAge, retireAt, currentInvested, annualContribution = 0,
+  annualExpenses, streams = [],
+  nominalReturn = 0.06, inflation = 0.025, horizonAge = 95,
+}) {
+  currentAge = Number(currentAge) || 0;
+  retireAt   = Math.max(currentAge, Number(retireAt) || currentAge);
+  let bal    = Number(currentInvested) || 0;
+  const need0 = Number(annualExpenses) || 0;
+  const contrib = Number(annualContribution) || 0;
+
+  // Accumulation: today → retirement.
+  for (let a = currentAge; a < retireAt; a++) bal = (bal + contrib) * (1 + nominalReturn);
+  const nestEgg = bal;
+
+  // Decumulation: retirement → horizon. Each year, withdraw the gap between
+  // inflated spending and the income streams active that year.
+  let depletionAge = null;
+  for (let a = retireAt; a < horizonAge; a++) {
+    const need = need0 * Math.pow(1 + inflation, a - currentAge);
+    const streamIncome = (streams || []).reduce((s, st) => {
+      const start = Number(st.startAge) || 0;
+      if (a < start) return s;
+      const annual = (Number(st.monthlyAmount) || 0) * 12;
+      const cola = Math.pow(1 + (Number(st.colaPct) || 0) / 100, a - start);
+      return s + annual * cola;
+    }, 0);
+    const withdrawal = Math.max(0, need - streamIncome);
+    bal = (bal - withdrawal) * (1 + nominalReturn);
+    if (bal <= 0) { depletionAge = a; bal = 0; break; }
+  }
+
+  const yearsNeeded = Math.max(0, horizonAge - retireAt);
+  const lasts       = depletionAge == null;
+  const yearsFunded = lasts ? yearsNeeded : (depletionAge - retireAt);
+  const fundedRatio = yearsNeeded > 0 ? Math.min(1, yearsFunded / yearsNeeded) : 1;
+  const verdict = fundedRatio >= 1 ? 'On track'
+    : fundedRatio >= 0.85 ? 'Nearly there'
+    : fundedRatio >= 0.6  ? 'Off track'
+    : 'At risk';
+
+  return { nestEgg, depletionAge, yearsNeeded, yearsFunded, lasts, fundedRatio, verdict };
+}
+
 // Tax-loss harvesting estimate from the share of the taxable book below basis.
 function tlh({ taxableBalance, lossPct, offsetRatePct }) {
   const harvestable = taxableBalance * (lossPct / 100);
@@ -173,7 +226,7 @@ function annualFeeForAum(tiers, aum) {
 const PrismCalc = {
   buildValueSeries, modifiedDietz, perfPeriods,
   debtPayoffMonths, hsaProjection, monteCarlo, rothLadder, estateProjection, tlh,
-  annualFeeForAum,
+  retirementReadiness, annualFeeForAum,
 };
 
 if (typeof window !== 'undefined') window.PrismCalc = PrismCalc;

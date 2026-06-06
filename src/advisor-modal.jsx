@@ -184,6 +184,9 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
   const [timeline,  setTimeline]  = useStateAdv(undefined);
   const [versionCount, setVersionCount] = useStateAdv(0);
 
+  // Household profile (for members + asset reconciliation in Overview)
+  const [profileData, setProfileData] = useStateAdv(null);
+
   // Performance state
   const [perfBal,   setPerfBal]   = useStateAdv(undefined);
   const [perfFlows, setPerfFlows] = useStateAdv([]);
@@ -281,6 +284,14 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
   React.useEffect(() => {
     if (client && window.db?.isUUID(client.id)) {
       window.db.getMeetings(client.id).then(rows => setMeetings(rows || []));
+    }
+  }, [client?.id]);
+
+  // Load the household profile (members + invested balances) for the Overview
+  React.useEffect(() => {
+    setProfileData(null);
+    if (client && window.db?.isUUID(client.id)) {
+      window.db.getProfile(client.id).then(d => setProfileData(d || null));
     }
   }, [client?.id]);
 
@@ -598,6 +609,76 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                 </div>
               ))}
             </div>
+
+            {/* Retirement-readiness verdict (live clients with profile data) */}
+            {(() => {
+              if (!profileData) return null;
+              const m = Array.isArray(profileData.members) ? profileData.members : [];
+              const primary = m.find(x => x.role === 'primary') || m[0];
+              const age = Number(primary?.age) > 0 ? Number(primary.age) : Number(profileData.goals?.age || 0);
+              const r = profileData.retirement || {};
+              const invested = (Number(r.hsaBalance) || 0) + (Number(r.iraBalance) || 0)
+                + (Number(r.fourohonekBalance) || 0) + (Number(profileData.taxable?.balance) || 0);
+              const expenses = Object.values(profileData.expenses || {}).reduce((a, b) => a + (Number(b) || 0), 0) * 12;
+              const contrib = (Number(profileData.taxable?.monthlyContrib) || 0) * 12
+                + (Number(r.hsaContrib) || 0) + (Number(r.iraContributed) || 0) + (Number(r.fourohonekContributed) || 0);
+              if (!age && !invested && !expenses) return null;
+              const rr = (window.PrismCalc || {}).retirementReadiness?.({
+                currentAge: age, retireAt: Number(profileData.goals?.retireAt) || 65,
+                currentInvested: invested, annualContribution: contrib,
+                annualExpenses: expenses, streams: profileData.incomeStreams || [] });
+              if (!rr) return null;
+              const tone = rr.verdict === 'On track' ? 'var(--forest)'
+                : rr.verdict === 'Nearly there' ? 'var(--gold)' : 'var(--brick)';
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 16,
+                  padding: '10px 12px', background: 'var(--bg-elev)', borderRadius: 6 }}>
+                  <span style={LABEL_STYLE}>Retirement readiness</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--ink-mute)' }}>
+                    {Math.round(rr.fundedRatio * 100)}% funded
+                    <span style={{ fontWeight: 600, color: tone, border: `1px solid ${tone}`, borderRadius: 20, padding: '1px 9px' }}>{rr.verdict}</span>
+                  </span>
+                </div>
+              );
+            })()}
+
+            {/* Household members + asset reconciliation (live clients with profile data) */}
+            {profileData && Array.isArray(profileData.members) && profileData.members.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ ...LABEL_STYLE, marginBottom: 8 }}>Household</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {profileData.members.map(m => (
+                    <span key={m.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12,
+                      background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 20, padding: '3px 10px' }}>
+                      <span style={{ color: 'var(--ink)' }}>{m.name || 'Unnamed'}</span>
+                      <span style={{ color: 'var(--ink-faint)', textTransform: 'capitalize' }}>
+                        {m.role}{Number(m.age) > 0 ? ` · ${m.age}` : ''}
+                      </span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {(() => {
+              if (!profileData) return null;
+              const r = profileData.retirement || {};
+              const investedOnFile = (Number(r.hsaBalance) || 0) + (Number(r.iraBalance) || 0)
+                + (Number(r.fourohonekBalance) || 0) + (Number(profileData.taxable?.balance) || 0);
+              const rec = window.reconcileAssets?.(client.aum, investedOnFile);
+              if (!rec?.diverges) return null;
+              const exceeds = rec.direction === 'aum-exceeds';
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16,
+                  padding: '10px 12px', background: 'var(--bg-elev)', borderLeft: '3px solid var(--gold)',
+                  borderRadius: 6, fontSize: 12, color: 'var(--ink-mute)', lineHeight: 1.5 }}>
+                  <span style={{ color: 'var(--gold)', display: 'flex', flexShrink: 0 }}><Icons.AlertCircle size={15} /></span>
+                  <span>{exceeds
+                    ? <>Managed AUM ({fmt$(client.aum, { short: true })}) exceeds invested balances on file ({fmt$(investedOnFile, { short: true })}) — the household's numbers may be stale.</>
+                    : <>Invested balances on file ({fmt$(investedOnFile, { short: true })}) exceed managed AUM ({fmt$(client.aum, { short: true })}) — likely held-away assets not under management.</>}
+                  </span>
+                </div>
+              );
+            })()}
 
             {/* Notes */}
             <div>

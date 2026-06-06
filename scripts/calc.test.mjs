@@ -143,6 +143,44 @@ console.log('calc-core unit tests\n');
   assert(zero.pct === null, 'mDietz: zero denominator → null (no divide-by-zero)');
 }
 
+/* ── retirementReadiness ──────────────────────────────────────────── */
+{
+  // Streams that fully cover spending → portfolio never drawn → on track.
+  const covered = C.retirementReadiness({
+    currentAge: 67, retireAt: 67, currentInvested: 100_000, annualContribution: 0,
+    annualExpenses: 60_000, streams: [{ monthlyAmount: 12_000, startAge: 67, colaPct: 0 }] });
+  assert(covered.lasts === true && covered.depletionAge === null, 'readiness: streams covering spend → never depletes');
+  assert(covered.fundedRatio === 1 && covered.verdict === 'On track', 'readiness: covered household is On track');
+
+  // No assets, no streams, already retired with real expenses → immediate depletion.
+  const broke = C.retirementReadiness({
+    currentAge: 67, retireAt: 67, currentInvested: 0, annualContribution: 0,
+    annualExpenses: 50_000, streams: [] });
+  assert(broke.depletionAge === 67, 'readiness: zero resources deplete in the first retirement year');
+  assert(broke.fundedRatio === 0 && broke.verdict === 'At risk', 'readiness: zero resources → At risk');
+
+  // Accumulation grows the balance before retirement.
+  const accum = C.retirementReadiness({
+    currentAge: 40, retireAt: 65, currentInvested: 200_000, annualContribution: 30_000,
+    annualExpenses: 80_000, streams: [{ monthlyAmount: 2_500, startAge: 67, colaPct: 2 }] });
+  assert(accum.nestEgg > 200_000 && Number.isFinite(accum.nestEgg), 'readiness: contributions compound the nest egg');
+
+  // Adding an income stream can only help: never lowers funded ratio or years funded.
+  const base = { currentAge: 60, retireAt: 65, currentInvested: 300_000, annualContribution: 10_000, annualExpenses: 70_000, streams: [] };
+  const without = C.retirementReadiness(base);
+  const withSS  = C.retirementReadiness({ ...base, streams: [{ monthlyAmount: 3_000, startAge: 65, colaPct: 0 }] });
+  assert(withSS.fundedRatio >= without.fundedRatio, 'readiness: adding a stream never lowers the funded ratio');
+  assert(withSS.yearsFunded >= without.yearsFunded, 'readiness: adding a stream never shortens years funded');
+
+  // Funded ratio is capped at 1 (no "over 100%").
+  const rich = C.retirementReadiness({ currentAge: 65, retireAt: 65, currentInvested: 10_000_000, annualContribution: 0, annualExpenses: 50_000, streams: [] });
+  assert(rich.fundedRatio === 1 && rich.lasts === true, 'readiness: ample portfolio caps funded ratio at 1');
+
+  // Deterministic for identical inputs.
+  const a = C.retirementReadiness(base), b = C.retirementReadiness(base);
+  assert(JSON.stringify(a) === JSON.stringify(b), 'readiness: deterministic for identical inputs');
+}
+
 console.log('');
 if (failures) { console.error(`FAILED: ${failures} test(s)`); process.exit(1); }
 console.log('All calc-core tests passed.');

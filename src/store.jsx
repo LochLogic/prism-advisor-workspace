@@ -5,7 +5,20 @@ const { useState, useEffect, useMemo, createContext, useContext, useCallback } =
 
 /* ─── Profile context (per-client view) ───────────────────────────── */
 const defaultProfile = {
-  income:   { monthlyTakehome: 28400 },
+  // Household members — the people behind the plan. The "primary" member's age
+  // drives planning math (retirement horizon, legacy projection); spouse/dependents
+  // give the advisor the relationship context the roadmap promises.
+  members: [
+    { id: 'm1', name: 'Robert Marsh', role: 'primary', age: 62 },
+    { id: 'm2', name: 'Eileen Marsh', role: 'spouse',  age: 60 },
+  ],
+  // income.monthlyTakehome is the spendable cash that drives the cash-flow math.
+  // income.sources is optional composition (salary / RSU / bonus / self-employment)
+  // captured for tax planning — it does NOT alter take-home or surplus.
+  income:   { monthlyTakehome: 28400, sources: [
+    { id: 's1', label: 'Salary — Robert', type: 'salary', monthlyGross: 22000 },
+    { id: 's2', label: 'RSU vesting',      type: 'rsu',    monthlyGross: 9000 },
+  ] },
   expenses: { housing: 7200, food: 2400, transport: 1800, utilities: 950, healthcare: 1100, other: 5450 },
   // expenses.housing is the TOTAL monthly housing outflow. `housing` below records what that
   // money does: pure rent (consumed) vs. a mortgage payment that's partly principal (builds equity).
@@ -25,16 +38,24 @@ const defaultProfile = {
     hsaContrib: 4400, iraContributed: 7000, iraLimit: 7000,
     fourohonekContributed: 23500, fourohonekLimit: 23500, employerMatchPct: 5,
   },
-  taxes:   { marginalRate: 24, filingStatus: 'mfj' },
+  taxes:   { marginalRate: 24, filingStatus: 'mfj', state: 'CA' },
   taxable: { balance: 1_628_000, monthlyContrib: 8500 },
   goals:   { age: 62, retireAt: 67 },
+  // Guaranteed income in retirement — Social Security / pension / annuity. Each
+  // turns on at startAge and grows by its COLA. Netted against spending by the
+  // retirement-readiness engine.
+  incomeStreams: [
+    { id: 'is1', label: 'Social Security — Robert', type: 'social_security', monthlyAmount: 3800, startAge: 67, colaPct: 2.5 },
+    { id: 'is2', label: 'Social Security — Eileen',  type: 'social_security', monthlyAmount: 2600, startAge: 67, colaPct: 2.5 },
+  ],
 };
 
 // A fully-shaped but zeroed profile. Real (newly created) clients start here so
 // the roadmap renders a blank-slate plan instead of crashing on a missing key —
 // and so advisors aren't shown the demo's sample numbers as if they were real.
 const emptyProfile = {
-  income:   { monthlyTakehome: 0 },
+  members:  [],
+  income:   { monthlyTakehome: 0, sources: [] },
   expenses: { housing: 0, food: 0, transport: 0, utilities: 0, healthcare: 0, other: 0 },
   housing: { type: 'rent', homeValue: 0, mortgageBalance: 0, mortgageApr: 0, escrowMonthly: 0 },
   properties: [],
@@ -45,10 +66,28 @@ const emptyProfile = {
     hsaContrib: 0, iraContributed: 0, iraLimit: 7000,
     fourohonekContributed: 0, fourohonekLimit: 23500, employerMatchPct: 0,
   },
-  taxes:   { marginalRate: 24, filingStatus: 'mfj' },
+  taxes:   { marginalRate: 24, filingStatus: 'mfj', state: '' },
   taxable: { balance: 0, monthlyContrib: 0 },
   goals:   { age: 45, retireAt: 65 },
+  incomeStreams: [],
 };
+
+// Reconcile managed/linked AUM against the household's self-reported invested
+// balances. These are DIFFERENT concepts — assets custodied under management vs.
+// all invested assets (which may include held-away accounts) — so a gap is not
+// inherently an error. But a silent gap is: it means one of the two surfaces is
+// stale. We surface it directionally so the right party knows to update.
+function reconcileAssets(aum, investedOnFile) {
+  const a = Number(aum) || 0, f = Number(investedOnFile) || 0;
+  if (a <= 0 || f <= 0) return { diverges: false, delta: 0 };
+  const delta = a - f;                       // + → managed exceeds what's on file
+  const rel = Math.abs(delta) / Math.max(a, f);
+  if (rel < 0.1) return { diverges: false, delta };
+  return { diverges: true, delta, rel,
+    // 'aum-exceeds' → the typed numbers look stale (real managed money is higher);
+    // 'file-exceeds' → held-away assets exist beyond what's managed/linked.
+    direction: delta > 0 ? 'aum-exceeds' : 'file-exceeds' };
+}
 
 // Deep-merge a (possibly partial / empty) stored profile onto a complete base,
 // so every expected key always exists. Top-level scalars/arrays from `data`
@@ -129,6 +168,21 @@ function ProfileProvider({ children }) {
     });
   }, []);
 
+  // ── Household members ───────────────────────────────────────────
+  // The "primary" member's age is the planning anchor (retirement horizon, legacy
+  // projection). Falls back to goals.age only when no members are recorded yet, so
+  // the age driving the math is always a real, edited value — not a phantom default.
+  const members        = Array.isArray(profile.members) ? profile.members : [];
+  const primaryMember  = members.find(m => m.role === 'primary') || members[0] || null;
+  const planningAge    = Number(primaryMember?.age) > 0 ? Number(primaryMember.age) : Number(profile.goals?.age || 0);
+  const dependentsCount = members.filter(m => m.role === 'dependent').length;
+  const householdSize  = members.length;
+
+  // ── Income composition (optional; informational for tax planning) ──
+  const incomeSources    = Array.isArray(profile.income.sources) ? profile.income.sources : [];
+  const grossMonthlyIncome = incomeSources.reduce((a, s) => a + Number(s.monthlyGross || 0), 0);
+  const grossAnnualIncome  = grossMonthlyIncome * 12;
+
   // ── Derived ─────────────────────────────────────────────────────
   const totalExpenses = Object.values(profile.expenses).reduce((a, b) => a + Number(b || 0), 0);
   const totalDebt     = profile.debts.reduce((a, d) => a + Number(d.balance || 0), 0);
@@ -168,6 +222,7 @@ function ProfileProvider({ children }) {
                          + (profile.retirement.fourohonekBalance || 0);
   const taxableBalance = profile.taxable.balance || 0;
   const totalInvested  = retirementAssets + taxableBalance;
+  const investedOnFile = totalInvested;   // alias for asset reconciliation vs. managed AUM
   const netWorth       = totalInvested + profile.savings.emergency - totalDebt + homeEquity + propertiesEquity;
   const reserveTarget  = totalExpenses * 6;
   const reservePct     = reserveTarget > 0 ? Math.min(100, (profile.savings.emergency / reserveTarget) * 100) : 0;
@@ -175,16 +230,32 @@ function ProfileProvider({ children }) {
   const annualExpenses = totalExpenses * 12;
   const fireNumber     = annualExpenses * 25;
   const fireProgress   = fireNumber > 0 ? Math.min(100, (totalInvested / fireNumber) * 100) : 0;
-  const legacyValue    = totalInvested * Math.pow(1.06, Math.max(0, profile.goals.retireAt - profile.goals.age + 20));
+  const legacyValue    = totalInvested * Math.pow(1.06, Math.max(0, profile.goals.retireAt - planningAge + 20));
+
+  // ── Retirement readiness — the "are we on track?" answer ─────────
+  const incomeStreams = Array.isArray(profile.incomeStreams) ? profile.incomeStreams : [];
+  const annualRetirementContribution =
+      (Number(profile.taxable.monthlyContrib) || 0) * 12
+    + (Number(profile.retirement.hsaContrib) || 0)
+    + (Number(profile.retirement.iraContributed) || 0)
+    + (Number(profile.retirement.fourohonekContributed) || 0);
+  const retirementReadiness = (typeof PrismCalc !== 'undefined' ? PrismCalc.retirementReadiness : window.PrismCalc.retirementReadiness)({
+    currentAge: planningAge, retireAt: profile.goals.retireAt,
+    currentInvested: totalInvested, annualContribution: annualRetirementContribution,
+    annualExpenses, streams: incomeStreams,
+  });
 
   const metrics = {
     totalExpenses, totalDebt, toxicDebt, surplus, savingsRate,
-    retirementAssets, taxableBalance, totalInvested, netWorth,
+    retirementAssets, taxableBalance, totalInvested, investedOnFile, netWorth,
     reserveTarget, reservePct, hsaTaxSavings, annualExpenses,
     fireNumber, fireProgress, legacyValue,
     isOwner, homeValue, mortgageBalance, escrowMonthly,
     mortgageInterestMonthly, mortgagePrincipalMonthly, homeEquity,
     propertiesEquity, propertiesNetCashflow, hasProperties,
+    members, primaryMember, planningAge, dependentsCount, householdSize,
+    incomeSources, grossMonthlyIncome, grossAnnualIncome,
+    incomeStreams, annualRetirementContribution, retirementReadiness,
   };
 
   return (
@@ -799,7 +870,7 @@ function printInvoiceReport(invoice, clientName, advisorFirm) {
 }
 
 Object.assign(window, {
-  ProfileProvider, useProfile, emptyProfile, mergeProfile,
+  ProfileProvider, useProfile, emptyProfile, mergeProfile, reconcileAssets,
   TaskProvider, useTasks,
   ViewProvider, useView,
   NotificationProvider, useNotifications,
