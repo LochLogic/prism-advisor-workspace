@@ -208,6 +208,7 @@ const MessageThread = ({ clientId, role, authorId, firmId, demoSeed = [], contex
   const [messages, setMessages] = React.useState(isLive ? undefined : demoSeed);
   const [draft, setDraft] = React.useState('');
   const [sending, setSending] = React.useState(false);
+  const [sendError, setSendError] = React.useState('');
   const endRef = React.useRef(null);
 
   React.useEffect(() => {
@@ -225,15 +226,21 @@ const MessageThread = ({ clientId, role, authorId, firmId, demoSeed = [], contex
   const send = async () => {
     const body = draft.trim();
     if (!body || sending) return;
-    setDraft('');
+    setSendError('');
     if (!isLive) {
+      setDraft('');
       setMessages(prev => [...(prev || []), { id: 'demo-' + Date.now(), author_role: role, body, context, created_at: new Date().toISOString() }]);
       return;
     }
     setSending(true);
     const row = await window.db.sendMessage(clientId, { body, authorRole: role, authorId, context, firmId });
     setSending(false);
-    if (row) setMessages(prev => (prev || []).some(x => x.id === row.id) ? prev : [...(prev || []), row]);
+    if (row) {
+      setDraft('');
+      setMessages(prev => (prev || []).some(x => x.id === row.id) ? prev : [...(prev || []), row]);
+    } else {
+      setSendError('Message could not be sent — please try again.');
+    }
   };
 
   const fmtTime = (t) => new Date(t).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -257,13 +264,14 @@ const MessageThread = ({ clientId, role, authorId, firmId, demoSeed = [], contex
         <div ref={endRef} />
       </div>
       <div className="px-thread-compose">
+        {sendError && <div style={{ fontSize: 11.5, color: 'var(--brick)', marginBottom: 6, padding: '4px 8px', background: 'rgba(140,61,61,.07)', borderRadius: 5 }}>{sendError}</div>}
         <textarea className="px-input" rows={2} value={draft} placeholder="Write a message… (Enter to send)"
           aria-label="Write a message"
-          onChange={e => setDraft(e.target.value)}
+          onChange={e => { setDraft(e.target.value); if (sendError) setSendError(''); }}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
           style={{ resize: 'none' }} />
         <button className="px-btn px-btn-primary px-btn-sm" onClick={send} disabled={sending || !draft.trim()}>
-          <Icons.Message size={12} /> Send
+          <Icons.Message size={12} /> {sending ? 'Sending…' : 'Send'}
         </button>
       </div>
     </div>

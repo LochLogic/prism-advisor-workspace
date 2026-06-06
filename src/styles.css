@@ -346,7 +346,7 @@ input, select, textarea { font-family: inherit; color: inherit; }
 }
 .px-drawer {
   position: fixed; top: 0; right: 0; bottom: 0; z-index: 91;
-  width: 100%; max-width: 460px;
+  width: min(540px, 92vw);
   background: var(--surface);
   border-left: 1px solid var(--border-2);
   box-shadow: -20px 0 40px rgba(28,46,74,.12);
