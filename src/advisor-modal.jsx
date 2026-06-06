@@ -295,6 +295,13 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     }
   }, [client?.id]);
 
+  // Mark the client's messages read when the advisor opens the Messages tab.
+  React.useEffect(() => {
+    if (tab === 'messages' && client && window.db?.isUUID(client.id)) {
+      window.db.markMessagesRead(client.id);
+    }
+  }, [tab, client?.id]);
+
   if (!client) return null;
 
   const phase = phaseLabel(client.phase);
@@ -584,7 +591,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
         {/* Tabs — only for live (real UUID) clients */}
         {isLiveClient && (
           <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)' }}>
-            {['overview', 'accounts', 'tasks', 'timeline', 'performance', 'edit'].map(t => (
+            {['overview', 'accounts', 'messages', 'tasks', 'timeline', 'performance', 'edit'].map(t => (
               <button key={t} style={TAB_STYLE(tab === t)} onClick={() => setTab(t)}>{t}</button>
             ))}
           </div>
@@ -1016,6 +1023,20 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
               </div>
             )}
           </>
+        )}
+
+        {/* ── Messages (two-way thread) ── */}
+        {tab === 'messages' && (
+          <MessageThread
+            clientId={client.id}
+            role="advisor"
+            authorId={advisorId}
+            firmId={firmId}
+            counterpartName={client.shortName || client.name}
+            emptyHint={`No messages yet — open the conversation with ${client.shortName || client.name}.`}
+            demoSeed={window.demoMessages ? window.demoMessages() : []}
+            height={360}
+          />
         )}
 
         {/* ── Tasks (CRM) ── */}

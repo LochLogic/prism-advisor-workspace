@@ -63,7 +63,8 @@ Goal tracking is the heart of client value ("are we on track for college / the h
 
 ### THEME 2 — Collaboration depth *(the actual differentiator)*
 
-#### Sprint W3 — Unified two-way messaging + advisor inbox
+#### Sprint W3 — Unified two-way messaging + advisor inbox ✅ SHIPPED (main; needs migration 019)
+> Delivered: a persistent realtime advisor↔client thread (`messages` table, migration 019), a `MessageThread` component used in both the client portal ("Conversation") and the advisor client modal (Messages tab), advisor mark-read on open, and a **roster unread dot** so the advisor knows who's waiting. **Lightened from spec (follow-on):** merging flagged questions / tasks-due / meeting-requests into one stream, and co-built meeting agendas — the thread + existing questions inbox coexist for now. **Activation:** run `supabase/migrations/019_messaging.sql` (demo works without it; live messaging needs it).
 Collaboration is the wedge, and today it's the thinnest part — only per-task flags. Add a real thread.
 
 | | |
@@ -114,6 +115,13 @@ Make it all hang together and not regress.
 2. **W3 next** — collaboration is the literal differentiator; it's higher-effort (new table + realtime + inbox merge) so it follows the quick planning wins.
 3. **W4–W5** — completeness/trust; W4 (documents) unblocks a credible compliance story, W5 fills the last picture gaps.
 4. **W6** — the integration/hardening sprint that turns "features shipped" into "coherent product."
+
+## Tone & inclusivity principle (added 2026-06-06)
+Client-facing verdicts must **inform without discouraging**. Someone young or early in their journey should never be told they're "at risk" or that a goal is "past due" in alarming red — that's both demoralizing and inaccurate when decades of compounding lie ahead. Concretely:
+- The retirement-readiness card reframes a low funded ratio as **"Building · time on your side"** for early-journey households (age < 40 or > 25 years to retirement), with copy that names time + steady saving as the advantage. Honest numbers (e.g. "13% funded") still show.
+- Goal states stay constructive on the client side — no red; "past due" reads as "needs attention" paired with an actionable next step.
+- **The advisor's own view keeps the unsoftened verdict** — advisors get the truth; clients get the truth with encouragement.
+Apply this lens to every future client-facing surface.
 
 ## What stays deferred (discipline preserved)
 - Holdings-level aggregation / per-security attribution (Plaid Investments) — **partner-gated**.

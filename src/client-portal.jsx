@@ -445,27 +445,41 @@ const ClientPortal = ({ onOpenNumbers }) => {
           );
         })()}
 
-        {/* Retirement readiness — the "are we on track?" answer */}
+        {/* Retirement readiness — the "are we on track?" answer.
+            Journey-aware tone: someone with decades ahead is "Building", not "At risk" —
+            time + steady saving is the real lever, and the copy says so. The advisor's
+            own view (client modal) keeps the unsoftened verdict. */}
         {!isBlankSlate && ctx.retirementReadiness && (() => {
           const rr = ctx.retirementReadiness;
-          const tone = rr.verdict === 'On track' ? 'var(--forest)'
-            : rr.verdict === 'Nearly there' ? 'var(--gold)' : 'var(--brick)';
+          const retireAt = ctx.profile?.goals?.retireAt || 65;
+          const yearsToRetire = Math.max(0, retireAt - (ctx.planningAge || 0));
+          const earlyJourney = (ctx.planningAge > 0 && ctx.planningAge < 40) || yearsToRetire > 25;
+          const down = rr.verdict === 'Off track' || rr.verdict === 'At risk';
+          let label = rr.verdict, tone = 'var(--brick)', note;
+          if (rr.verdict === 'On track') { tone = 'var(--forest)'; note = `On pace to fund the plan through age 95 — nicely done.`; }
+          else if (rr.verdict === 'Nearly there') { tone = 'var(--gold)'; note = `Close — a small, steady increase closes the gap from here.`; }
+          else if (down && earlyJourney) { label = 'Building'; tone = 'var(--gold)';
+            note = `You're early in the journey, and that's the advantage — time does the heavy lifting. Steady saving now compounds enormously, and small increases go a long way.`; }
+          else { note = `Let's close the gap together — ${advisorDisplay.name} can model a higher contribution or a later target date.`; }
           const pct = Math.round(rr.fundedRatio * 100);
+          const rightLabel = (down && earlyJourney) ? 'Time on your side'
+            : rr.lasts ? 'Plan funded through age 95' : `Projected to age ${rr.depletionAge}`;
           return (
             <div className="px-card" style={{ padding: 18, marginBottom: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
                 <div className="px-eyebrow">Retirement readiness</div>
-                <span style={{ fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600, color: tone }}>{rr.verdict}</span>
+                <span style={{ fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600, color: tone }}>{label}</span>
               </div>
               <div style={{ height: 8, background: 'var(--bg-elev)', borderRadius: 4, overflow: 'hidden' }}>
                 <div style={{ height: '100%', width: `${pct}%`, background: tone, transition: 'width .4s' }} />
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 12, color: 'var(--ink-mute)' }}>
                 <span>{pct}% funded</span>
-                <span>{rr.lasts ? 'Plan funded through age 95' : `Projected to last until age ${rr.depletionAge}`}</span>
+                <span>{rightLabel}</span>
               </div>
-              <div style={{ fontSize: 10.5, color: 'var(--ink-faint)', marginTop: 10, fontStyle: 'italic', lineHeight: 1.5 }}>
-                Projection nets your guaranteed income (Social Security, pensions) against inflated spending. Assumptions are illustrative — refine them with {advisorDisplay.name}.
+              <div style={{ fontSize: 11.5, color: 'var(--ink-2)', marginTop: 10, lineHeight: 1.5 }}>{note}</div>
+              <div style={{ fontSize: 10.5, color: 'var(--ink-faint)', marginTop: 6, fontStyle: 'italic', lineHeight: 1.5 }}>
+                Projection nets your guaranteed income against inflated spending — illustrative, and best refined with {advisorDisplay.name}.
               </div>
             </div>
           );
@@ -476,12 +490,12 @@ const ClientPortal = ({ onOpenNumbers }) => {
           <div className="px-card" style={{ padding: 18, marginBottom: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 }}>
             <div className="px-eyebrow" style={{ marginBottom: 12 }}>Goals</div>
             {ctx.goalsFunding.map(({ goal, status, gapMonthly }) => {
-              const tone = (status === 'funded' || status === 'on pace') ? 'var(--forest)'
-                : status === 'behind' ? 'var(--gold)' : 'var(--brick)';
-              // The bar shows saved-so-far progress; the badge carries the projection (on pace / behind).
+              // Client side stays constructive — no alarming red; the bar shows saved-so-far
+              // progress, the badge carries the projection, paired with an actionable nudge.
+              const tone = (status === 'funded' || status === 'on pace') ? 'var(--forest)' : 'var(--gold)';
               const pct = goal.targetAmount > 0 ? Math.min(100, Math.round((goal.currentFunding / goal.targetAmount) * 100)) : 0;
               const yr = goal.targetDate ? new Date(goal.targetDate).getFullYear() : null;
-              const label = { funded: 'Funded', 'on pace': 'On pace', behind: 'Behind', 'past due': 'Past due' }[status] || status;
+              const label = { funded: 'Funded', 'on pace': 'On pace', behind: 'Behind', 'past due': 'Needs attention' }[status] || status;
               return (
                 <div key={goal.id} style={{ padding: '10px 0', borderTop: '1px solid var(--border)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
@@ -498,13 +512,27 @@ const ClientPortal = ({ onOpenNumbers }) => {
                     {status === 'behind' && isFinite(gapMonthly) && gapMonthly > 0 && (
                       <span style={{ color: 'var(--gold)' }}>+{fmt$(gapMonthly)}/mo to stay on pace</span>
                     )}
-                    {status === 'past due' && <span style={{ color: 'var(--brick)' }}>Target date passed</span>}
+                    {status === 'past due' && <span style={{ color: 'var(--gold)' }}>Worth a fresh look with your advisor</span>}
                   </div>
                 </div>
               );
             })}
           </div>
         )}
+
+        {/* Conversation — the two-way thread with the advisor (the collaboration wedge) */}
+        <div className="px-card" style={{ padding: 18, marginBottom: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 }}>
+          <div className="px-eyebrow" style={{ marginBottom: 12 }}>Conversation with {advisorDisplay.name}</div>
+          <MessageThread
+            clientId={activeClientId}
+            role="client"
+            authorId={window.db?.isUUID(activeClientId) ? activeClientId : null}
+            firmId={authUser?.firm_id || authUser?.firms?.id || null}
+            counterpartName={advisorDisplay.name}
+            emptyHint={`Have a question between meetings? Message ${advisorDisplay.name} here — no question is too small.`}
+            demoSeed={window.demoMessages ? window.demoMessages() : []}
+          />
+        </div>
 
         {/* Acknowledgements — review & e-sign documents the advisor requested */}
         {acks.length > 0 && (

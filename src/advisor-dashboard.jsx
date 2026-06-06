@@ -118,7 +118,12 @@ const RosterRow = ({ client, onOpen }) => {
         <div className="px-client-cell">
           <ClientAvatar client={client} size={32} />
           <div className="px-client-meta">
-            <div className="px-client-name">{client.name}</div>
+            <div className="px-client-name">
+              {client.name}
+              {client.hasUnread && (
+                <span title="New message" aria-label="New message" style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: 'var(--gold)', boxShadow: '0 0 0 3px var(--gold-soft)', marginLeft: 7, verticalAlign: 'middle' }} />
+              )}
+            </div>
             <div className="px-client-tag" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               {client.tag}
               {client.pipelineStage && client.pipelineStage !== 'active' && <StagePill stage={client.pipelineStage} />}
@@ -511,7 +516,7 @@ const AUDIT_ACTION_LABELS = {
   'meeting.archive': 'Meeting archived', 'profile.save': 'Profile saved',
   'auth.signin': 'Signed in', 'auth.signout': 'Signed out',
   'mfa.enroll': '2FA enabled', 'mfa.unenroll': '2FA disabled',
-  'message.create': 'Message sent', 'task.create': 'Task created',
+  'message.create': 'Message sent', 'message.send': 'Message sent', 'task.create': 'Task created',
   'task.complete': 'Task completed', 'task.reopen': 'Task reopened', 'task.delete': 'Task deleted',
 };
 
@@ -591,10 +596,25 @@ const AdvisorDashboard = () => {
 
   const activeQuestions = isLiveMode ? (dbQuestions || []) : questionsData;
   const activeTasks     = isLiveMode ? (dbTasks || []) : tasksData.filter(t => !demoDoneTasks.has(t.id));
-  // Apply in-session pipeline-stage overrides (demo) so the board reflects moves
+
+  // Clients with unread client→advisor messages (refreshes when a preview closes,
+  // i.e. after the advisor has likely read + cleared the thread).
+  const [unreadIds, setUnreadIds] = useStateAdv(() => new Set());
+  React.useEffect(() => {
+    if (!isLiveMode || !window.db?.getUnreadMessageClients) return;
+    window.db.getUnreadMessageClients().then(ids => setUnreadIds(new Set(ids || [])));
+  }, [isLiveMode, previewClient]);
+
+  // Apply in-session pipeline-stage overrides (demo) + unread-message flags so the
+  // roster reflects moves and surfaces clients awaiting a reply.
   const boardClients = useMemoAdv(
-    () => activeClients.map(c => stageOverride[c.id] ? { ...c, pipelineStage: stageOverride[c.id] } : c),
-    [activeClients, stageOverride]);
+    () => activeClients.map(c => {
+      const stage = stageOverride[c.id];
+      const hasUnread = unreadIds.has(c.id);
+      if (!stage && !hasUnread) return c;
+      return { ...c, ...(stage ? { pipelineStage: stage } : {}), ...(hasUnread ? { hasUnread: true } : {}) };
+    }),
+    [activeClients, stageOverride, unreadIds]);
 
   const moveStage = async (c, stage) => {
     if (isLiveMode) {
