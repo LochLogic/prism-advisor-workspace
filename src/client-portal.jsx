@@ -520,6 +520,64 @@ const ClientPortal = ({ onOpenNumbers }) => {
           </div>
         )}
 
+        {/* Protection & estate — capture + gentle coaching; never alarming on the client side */}
+        {!isBlankSlate && (() => {
+          const cg = ctx.lifeCoverageGap || { covered: true, gap: 0, recommended: 0, ratio: 1 };
+          const estate = ctx.estate || {};
+          const estateRows = [
+            { key: 'will', label: 'Will' }, { key: 'trust', label: 'Revocable trust' },
+            { key: 'poa', label: 'Power of attorney' }, { key: 'healthcareDirective', label: 'Healthcare directive' },
+            { key: 'beneficiaries', label: 'Beneficiary review' },
+          ];
+          const lifeTone = cg.covered ? 'var(--forest)' : 'var(--gold)';
+          const lifeLabel = cg.covered ? 'Well protected' : 'Room to strengthen';
+          const hasAny = (ctx.insurance || []).length > 0 || (ctx.estateComplete || 0) > 0;
+          if (!hasAny && cg.recommended <= 0) return null;
+          return (
+            <div className="px-card" style={{ padding: 18, marginBottom: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 }}>
+              <div className="px-eyebrow" style={{ marginBottom: 12 }}>Protection &amp; estate</div>
+
+              {/* Life coverage vs. a simple income-multiple guideline */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink)' }}>Life coverage</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: lifeTone, border: `1px solid ${lifeTone}`, borderRadius: 20, padding: '1px 9px', whiteSpace: 'nowrap' }}>{lifeLabel}</span>
+              </div>
+              <div style={{ height: 7, background: 'var(--bg-elev)', borderRadius: 4, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${Math.round((cg.ratio || 0) * 100)}%`, background: lifeTone, transition: 'width .4s' }} />
+              </div>
+              <div style={{ fontSize: 11.5, color: 'var(--ink-mute)', marginTop: 5 }}>
+                {fmt$(ctx.lifeCoverage || 0, { short: true })} in place
+                {cg.recommended > 0 ? ` · guideline ≈ ${fmt$(cg.recommended, { short: true })}` : ''}
+                {!cg.covered && cg.gap > 0 && (
+                  <span style={{ color: 'var(--gold)' }}> · worth reviewing with {advisorDisplay.name} whether to add coverage</span>
+                )}
+              </div>
+
+              {/* Estate readiness */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, margin: '16px 0 6px' }}>
+                <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink)' }}>Estate readiness</span>
+                <span style={{ fontSize: 11.5, color: 'var(--ink-mute)' }}>{ctx.estateComplete || 0} of {estateRows.length} in place</span>
+              </div>
+              <div style={{ height: 7, background: 'var(--bg-elev)', borderRadius: 4, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${ctx.estateProgress || 0}%`, background: 'var(--forest)', transition: 'width .4s' }} />
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                {estateRows.map(({ key, label }) => {
+                  const st = estate[key]?.status || 'none';
+                  const done = st === 'complete';
+                  const prog = st === 'in_progress';
+                  const tone = done ? 'var(--forest)' : prog ? 'var(--gold)' : 'var(--ink-faint)';
+                  return (
+                    <span key={key} style={{ fontSize: 11, color: tone, border: `1px solid ${tone}`, borderRadius: 20, padding: '2px 9px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      {done && <Icons.Check size={10} />}{label}{prog ? ' · in progress' : done ? '' : ' · to do'}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Conversation — the two-way thread with the advisor (the collaboration wedge) */}
         <div className="px-card" style={{ padding: 18, marginBottom: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 }}>
           <div className="px-eyebrow" style={{ marginBottom: 12 }}>Conversation with {advisorDisplay.name}</div>

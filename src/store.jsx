@@ -53,6 +53,20 @@ const defaultProfile = {
     { id: 'is1', label: 'Social Security — Robert', type: 'social_security', monthlyAmount: 3800, startAge: 67, colaPct: 2.5 },
     { id: 'is2', label: 'Social Security — Eileen',  type: 'social_security', monthlyAmount: 2600, startAge: 67, colaPct: 2.5 },
   ],
+  // Protection (W5) — capture, not advise. Coverage feeds a simple gap check vs. an
+  // income-multiple guideline; the advisor coaches, Prism doesn't underwrite.
+  insurance: [
+    { id: 'ins1', type: 'life',       carrier: 'Northwestern', owner: 'Robert Marsh', coverageAmount: 1_500_000, premiumMonthly: 320 },
+    { id: 'ins2', type: 'disability', carrier: 'Guardian',     owner: 'Robert Marsh', coverageAmount: 180_000,   premiumMonthly: 140 },
+  ],
+  // Estate readiness checklist — status + last-reviewed per instrument.
+  estate: {
+    will:                { status: 'complete',    lastReviewed: '2023-03-01' },
+    trust:               { status: 'complete',    lastReviewed: '2023-03-01' },
+    poa:                 { status: 'in_progress', lastReviewed: '' },
+    healthcareDirective: { status: 'complete',    lastReviewed: '2023-03-01' },
+    beneficiaries:       { status: 'none',        lastReviewed: '' },
+  },
 };
 
 // A fully-shaped but zeroed profile. Real (newly created) clients start here so
@@ -75,6 +89,14 @@ const emptyProfile = {
   taxable: { balance: 0, monthlyContrib: 0 },
   goals:   { age: 45, retireAt: 65, items: [] },
   incomeStreams: [],
+  insurance: [],
+  estate: {
+    will:                { status: 'none', lastReviewed: '' },
+    trust:               { status: 'none', lastReviewed: '' },
+    poa:                 { status: 'none', lastReviewed: '' },
+    healthcareDirective: { status: 'none', lastReviewed: '' },
+    beneficiaries:       { status: 'none', lastReviewed: '' },
+  },
 };
 
 // Reconcile managed/linked AUM against the household's self-reported invested
@@ -265,6 +287,21 @@ function ProfileProvider({ children }) {
   const goalItems   = Array.isArray(profile.goals?.items) ? profile.goals.items : [];
   const goalsFunding = goalItems.map(g => ({ goal: g, ...(_calc.goalFunding(g)) }));
 
+  // ── Protection & estate (W5) ────────────────────────────────────
+  const insurance     = Array.isArray(profile.insurance) ? profile.insurance : [];
+  const lifeCoverage  = insurance.filter(i => i.type === 'life')
+                                 .reduce((s, i) => s + (Number(i.coverageAmount) || 0), 0);
+  // Guideline: ~10× gross income + debts to retire, less the liquidity reserve.
+  const lifeCoverageGap = _calc.lifeCoverageGap({
+    annualIncome: grossAnnualIncome || (profile.income.monthlyTakehome || 0) * 12,
+    incomeMultiple: 10, liabilities: totalDebt,
+    existingCoverage: lifeCoverage, liquidAssets: profile.savings.emergency || 0,
+  });
+  const estate = (profile.estate && typeof profile.estate === 'object') ? profile.estate : {};
+  const estateKeys = ['will', 'trust', 'poa', 'healthcareDirective', 'beneficiaries'];
+  const estateComplete = estateKeys.filter(k => estate[k]?.status === 'complete').length;
+  const estateProgress = Math.round((estateComplete / estateKeys.length) * 100);
+
   const metrics = {
     totalExpenses, totalDebt, toxicDebt, surplus, savingsRate,
     retirementAssets, taxableBalance, totalInvested, investedOnFile, netWorth,
@@ -277,6 +314,7 @@ function ProfileProvider({ children }) {
     incomeSources, grossMonthlyIncome, grossAnnualIncome,
     incomeStreams, annualRetirementContribution, retirementReadiness,
     goalItems, goalsFunding,
+    insurance, lifeCoverage, lifeCoverageGap, estate, estateProgress, estateComplete,
   };
 
   return (

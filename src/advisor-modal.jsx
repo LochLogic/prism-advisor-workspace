@@ -142,6 +142,19 @@ const LABEL_STYLE = {
   textTransform: 'uppercase', letterSpacing: '.05em',
 };
 
+// Member age from dateOfBirth (W4 DOB model), falling back to a legacy `age` field.
+// Mirrors store.jsx so the advisor-side inline readiness calc ages DOB-based members.
+const advMemberAge = (m) => {
+  if (!m) return 0;
+  if (m.dateOfBirth) {
+    const bd = new Date(m.dateOfBirth), t = new Date();
+    let a = t.getFullYear() - bd.getFullYear();
+    if (t.getMonth() < bd.getMonth() || (t.getMonth() === bd.getMonth() && t.getDate() < bd.getDate())) a--;
+    return a > 0 ? a : 0;
+  }
+  return Number(m.age) || 0;
+};
+
 const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchived, advisorId, firmId }) => {
   const { openClientPortal, openClientNumbers, showToast } = useView();
   const { authUser } = useAuth();
@@ -622,7 +635,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
               if (!profileData) return null;
               const m = Array.isArray(profileData.members) ? profileData.members : [];
               const primary = m.find(x => x.role === 'primary') || m[0];
-              const age = Number(primary?.age) > 0 ? Number(primary.age) : Number(profileData.goals?.age || 0);
+              const age = advMemberAge(primary) || Number(profileData.goals?.age || 0);
               const r = profileData.retirement || {};
               const invested = (Number(r.hsaBalance) || 0) + (Number(r.iraBalance) || 0)
                 + (Number(r.fourohonekBalance) || 0) + (Number(profileData.taxable?.balance) || 0);
@@ -659,7 +672,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                       background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 20, padding: '3px 10px' }}>
                       <span style={{ color: 'var(--ink)' }}>{m.name || 'Unnamed'}</span>
                       <span style={{ color: 'var(--ink-faint)', textTransform: 'capitalize' }}>
-                        {m.role}{Number(m.age) > 0 ? ` · ${m.age}` : ''}
+                        {m.role}{advMemberAge(m) > 0 ? ` · ${advMemberAge(m)}` : ''}
                       </span>
                     </span>
                   ))}
@@ -690,6 +703,39 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                       </div>
                     );
                   })}
+                </div>
+              );
+            })()}
+
+            {/* Protection & estate summary (unsoftened, advisor-side) */}
+            {(() => {
+              if (!profileData) return null;
+              const insurance = Array.isArray(profileData.insurance) ? profileData.insurance : [];
+              const estate = (profileData.estate && typeof profileData.estate === 'object') ? profileData.estate : {};
+              const estateKeys = ['will', 'trust', 'poa', 'healthcareDirective', 'beneficiaries'];
+              const estateComplete = estateKeys.filter(k => estate[k]?.status === 'complete').length;
+              if (!insurance.length && !estateComplete) return null;
+              const lifeCoverage = insurance.filter(i => i.type === 'life').reduce((s, i) => s + (Number(i.coverageAmount) || 0), 0);
+              const grossAnnual = (Array.isArray(profileData.income?.sources) ? profileData.income.sources : [])
+                .reduce((s, x) => s + (Number(x.monthlyGross) || 0), 0) * 12 || (Number(profileData.income?.monthlyTakehome) || 0) * 12;
+              const totalDebt = (Array.isArray(profileData.debts) ? profileData.debts : []).reduce((s, d) => s + (Number(d.balance) || 0), 0);
+              const cg = (window.PrismCalc || {}).lifeCoverageGap?.({
+                annualIncome: grossAnnual, incomeMultiple: 10, liabilities: totalDebt,
+                existingCoverage: lifeCoverage, liquidAssets: Number(profileData.savings?.emergency) || 0 }) || {};
+              const tone = cg.covered ? 'var(--forest)' : 'var(--gold)';
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 16,
+                  padding: '10px 12px', background: 'var(--bg-elev)', borderRadius: 6 }}>
+                  <span style={LABEL_STYLE}>Protection &amp; estate</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--ink-mute)' }}>
+                    Life {fmt$(lifeCoverage, { short: true })}{cg.recommended > 0 ? ` / ${fmt$(cg.recommended, { short: true })}` : ''}
+                    {!cg.covered && cg.gap > 0 && (
+                      <span style={{ fontWeight: 600, color: tone, border: `1px solid ${tone}`, borderRadius: 20, padding: '1px 9px' }}>
+                        gap {fmt$(cg.gap, { short: true })}
+                      </span>
+                    )}
+                    <span style={{ color: 'var(--ink-faint)' }}>· estate {estateComplete}/{estateKeys.length}</span>
+                  </span>
                 </div>
               );
             })()}

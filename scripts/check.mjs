@@ -58,6 +58,12 @@ for (const sym of ['DocumentVault', 'getDocuments', 'uploadDocument', 'getDocume
 }
 assert(existsSync('supabase/migrations/020_documents.sql'), 'migration 020_documents.sql present');
 
+// 10. W5 — risk & protection capture wired into the bundle (jsonb, no migration)
+//     calc fn + derived metric survive as keys; UI string literals prove the panels shipped.
+for (const sym of ['lifeCoverageGap', 'estateProgress', 'retirement.employerMatchPct', 'Estate readiness']) {
+  assert(bundle.includes(sym), `bundle wires W5: ${sym}`);
+}
+
 console.log('');
 if (failures) { console.error(`FAILED: ${failures} check(s)`); process.exit(1); }
 console.log('All checks passed.');
