@@ -22,7 +22,48 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
   const { profile, update, setProfile, totalExpenses, surplus, netWorth,
           isOwner, homeEquity, mortgagePrincipalMonthly, mortgageInterestMonthly, escrowMonthly,
-          propertiesEquity } = useProfile();
+          propertiesEquity, primaryMember, planningAge, grossMonthlyIncome } = useProfile();
+
+  // ── Household members ──
+  const addMember = () => setProfile(p => {
+    const hasPrimary = (p.members || []).some(m => m.role === 'primary');
+    return { ...p, members: [...(p.members || []),
+      { id: `m${Date.now()}`, name: '', role: hasPrimary ? 'spouse' : 'primary', age: 0 }] };
+  });
+  const removeMember = (id) => setProfile(p => ({ ...p, members: (p.members || []).filter(m => m.id !== id) }));
+  const updateMember = (id, field, value) => setProfile(p => ({
+    ...p, members: (p.members || []).map(m => m.id === id ? { ...m, [field]: value } : m),
+  }));
+
+  // ── Income sources (optional composition) ──
+  const srcs = (p) => (p.income && Array.isArray(p.income.sources)) ? p.income.sources : [];
+  const addSource = () => setProfile(p => ({
+    ...p, income: { ...p.income, sources: [...srcs(p), { id: `s${Date.now()}`, label: '', type: 'salary', monthlyGross: 0 }] },
+  }));
+  const removeSource = (id) => setProfile(p => ({ ...p, income: { ...p.income, sources: srcs(p).filter(s => s.id !== id) } }));
+  const updateSource = (id, field, value) => setProfile(p => ({
+    ...p, income: { ...p.income, sources: srcs(p).map(s => s.id === id ? { ...s, [field]: value } : s) },
+  }));
+
+  // ── Guaranteed income streams (SS / pension / annuity) ──
+  const addStream = () => setProfile(p => ({
+    ...p, incomeStreams: [...(p.incomeStreams || []),
+      { id: `is${Date.now()}`, label: '', type: 'social_security', monthlyAmount: 0, startAge: 67, colaPct: 2.5 }] }));
+  const removeStream = (id) => setProfile(p => ({ ...p, incomeStreams: (p.incomeStreams || []).filter(s => s.id !== id) }));
+  const updateStream = (id, field, value) => setProfile(p => ({
+    ...p, incomeStreams: (p.incomeStreams || []).map(s => s.id === id ? { ...s, [field]: value } : s),
+  }));
+
+  // ── Funding goals (education / home / custom) ──
+  const gitems = (p) => (p.goals && Array.isArray(p.goals.items)) ? p.goals.items : [];
+  const addGoal = () => setProfile(p => ({ ...p, goals: { ...p.goals, items: [...gitems(p),
+    { id: `g${Date.now()}`, label: '', type: 'custom', targetAmount: 0, targetDate: '', currentFunding: 0, monthlyContribution: 0 }] } }));
+  const removeGoal = (id) => setProfile(p => ({ ...p, goals: { ...p.goals, items: gitems(p).filter(g => g.id !== id) } }));
+  const updateGoal = (id, field, value) => setProfile(p => ({ ...p, goals: { ...p.goals, items: gitems(p).map(g => g.id === id ? { ...g, [field]: value } : g) } }));
+
+  // Current age binds to the primary member when one exists, else to goals.age —
+  // so the planning age is always an explicit, edited value (no phantom default).
+  const setCurrentAge = (v) => { if (primaryMember) updateMember(primaryMember.id, 'age', v); else update('goals.age', v); };
 
   const addDebt = () => setProfile(p => ({
     ...p,
@@ -91,10 +132,100 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
             </div>
           </div>
 
+          {/* Household members */}
+          <section style={{ marginBottom: 22 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div className="px-eyebrow">Household</div>
+              <button className="px-btn px-btn-sm px-btn-ghost" style={{ padding: '3px 8px' }} onClick={addMember}>
+                <Icons.Plus size={10} /> Add person
+              </button>
+            </div>
+            {(profile.members || []).length === 0 && (
+              <div style={{ padding: '10px 0', textAlign: 'center', color: 'var(--ink-faint)', fontStyle: 'italic', fontSize: 12 }}>
+                Add the people in this household — their ages anchor the retirement and legacy projections.
+              </div>
+            )}
+            {(profile.members || []).map(m => (
+              <div key={m.id} style={{ display: 'grid', gridTemplateColumns: '1fr 110px 64px 24px', gap: 8, alignItems: 'end', marginBottom: 8 }}>
+                <label className="px-field">
+                  <span className="px-field-label">Name</span>
+                  <div className="px-input-affix">
+                    <input type="text" value={m.name} placeholder="Full name"
+                      onChange={(e) => updateMember(m.id, 'name', e.target.value)} />
+                  </div>
+                </label>
+                <label className="px-field">
+                  <span className="px-field-label">Role</span>
+                  <select className="px-select" value={m.role} onChange={(e) => updateMember(m.id, 'role', e.target.value)}>
+                    <option value="primary">Primary</option>
+                    <option value="spouse">Spouse / partner</option>
+                    <option value="dependent">Dependent</option>
+                  </select>
+                </label>
+                <label className="px-field">
+                  <span className="px-field-label">Age</span>
+                  <div className="px-input-affix">
+                    <input type="number" value={m.age} step="1" min="0"
+                      onChange={(e) => updateMember(m.id, 'age', parseInt(e.target.value) || 0)} />
+                  </div>
+                </label>
+                <button onClick={() => removeMember(m.id)} aria-label="Remove person"
+                  style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', padding: '0 0 9px', lineHeight: 1 }}>
+                  <Icons.X size={12} />
+                </button>
+              </div>
+            ))}
+          </section>
+
           {/* Income */}
           <section style={{ marginBottom: 22 }}>
             <div className="px-eyebrow" style={{ marginBottom: 10 }}>Income</div>
             <NumField label="Monthly take-home" path="income.monthlyTakehome" value={profile.income.monthlyTakehome}  onUpdate={update}/>
+
+            {/* Optional income composition — informational for tax planning; does NOT change take-home */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '14px 0 8px' }}>
+              <span style={{ fontSize: 11, color: 'var(--ink-mute)', fontStyle: 'italic' }}>Gross income sources (optional)</span>
+              <button className="px-btn px-btn-sm px-btn-ghost" style={{ padding: '3px 8px' }} onClick={addSource}>
+                <Icons.Plus size={10} /> Add source
+              </button>
+            </div>
+            {(profile.income.sources || []).map(s => (
+              <div key={s.id} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 100px 24px', gap: 8, alignItems: 'end', marginBottom: 8 }}>
+                <label className="px-field">
+                  <span className="px-field-label">Label</span>
+                  <div className="px-input-affix">
+                    <input type="text" value={s.label} placeholder="e.g. Salary"
+                      onChange={(e) => updateSource(s.id, 'label', e.target.value)} />
+                  </div>
+                </label>
+                <label className="px-field">
+                  <span className="px-field-label">Type</span>
+                  <select className="px-select" value={s.type} onChange={(e) => updateSource(s.id, 'type', e.target.value)}>
+                    <option value="salary">Salary / wages</option>
+                    <option value="rsu">RSU / equity</option>
+                    <option value="bonus">Bonus</option>
+                    <option value="self">Self-employment</option>
+                    <option value="other">Other</option>
+                  </select>
+                </label>
+                <label className="px-field">
+                  <span className="px-field-label">Gross / mo</span>
+                  <div className="px-input-affix"><span className="px-affix">$</span>
+                    <input type="number" value={s.monthlyGross} step="500"
+                      onChange={(e) => updateSource(s.id, 'monthlyGross', parseFloat(e.target.value) || 0)} /></div>
+                </label>
+                <button onClick={() => removeSource(s.id)} aria-label="Remove source"
+                  style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', padding: '0 0 9px', lineHeight: 1 }}>
+                  <Icons.X size={12} />
+                </button>
+              </div>
+            ))}
+            {grossMonthlyIncome > 0 && (
+              <div className="px-split-equity" style={{ marginTop: 4 }}>
+                <span>Gross income · {fmt$(grossMonthlyIncome)}/mo</span>
+                <strong>{fmt$(grossMonthlyIncome * 12, { short: true })}/yr</strong>
+              </div>
+            )}
           </section>
 
           {/* Housing — rent vs. own */}
@@ -317,6 +448,63 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
             </div>
           </section>
 
+          {/* Guaranteed retirement income — SS / pension / annuity */}
+          <section style={{ marginBottom: 22 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div className="px-eyebrow">Guaranteed income</div>
+              <button className="px-btn px-btn-sm px-btn-ghost" style={{ padding: '3px 8px' }} onClick={addStream}>
+                <Icons.Plus size={10} /> Add stream
+              </button>
+            </div>
+            {(profile.incomeStreams || []).length === 0 && (
+              <div style={{ padding: '10px 0', textAlign: 'center', color: 'var(--ink-faint)', fontStyle: 'italic', fontSize: 12 }}>
+                Social Security, pensions, or annuities — these reduce how much the portfolio must cover in retirement.
+              </div>
+            )}
+            {(profile.incomeStreams || []).map(s => (
+              <div key={s.id} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 10, marginBottom: 8, background: 'var(--surface)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <input type="text" value={s.label} placeholder="e.g. Social Security — Robert"
+                    onChange={(e) => updateStream(s.id, 'label', e.target.value)}
+                    style={{ fontFamily: 'var(--serif)', fontSize: 13, fontWeight: 500, background: 'none', border: 'none', color: 'var(--ink)', outline: 'none', flex: 1 }} />
+                  <button onClick={() => removeStream(s.id)} title="Remove" aria-label="Remove stream"
+                    style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', padding: '2px 6px', lineHeight: 1 }}>
+                    <Icons.X size={12} />
+                  </button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <label className="px-field">
+                    <span className="px-field-label">Type</span>
+                    <select className="px-select" value={s.type} onChange={(e) => updateStream(s.id, 'type', e.target.value)}>
+                      <option value="social_security">Social Security</option>
+                      <option value="pension">Pension</option>
+                      <option value="annuity">Annuity</option>
+                    </select>
+                  </label>
+                  <label className="px-field">
+                    <span className="px-field-label">Amount / mo</span>
+                    <div className="px-input-affix"><span className="px-affix">$</span>
+                      <input type="number" value={s.monthlyAmount} step="100"
+                        onChange={(e) => updateStream(s.id, 'monthlyAmount', parseFloat(e.target.value) || 0)} /></div>
+                  </label>
+                  <label className="px-field">
+                    <span className="px-field-label">Starts at age</span>
+                    <div className="px-input-affix">
+                      <input type="number" value={s.startAge} step="1" min="0"
+                        onChange={(e) => updateStream(s.id, 'startAge', parseInt(e.target.value) || 0)} /></div>
+                  </label>
+                  <label className="px-field">
+                    <span className="px-field-label">Annual COLA (%)</span>
+                    <div className="px-input-affix">
+                      <input type="number" value={s.colaPct} step="0.1"
+                        onChange={(e) => updateStream(s.id, 'colaPct', parseFloat(e.target.value) || 0)} />
+                      <span className="px-affix px-affix-r">%</span></div>
+                  </label>
+                </div>
+              </div>
+            ))}
+          </section>
+
           {/* Taxable */}
           <section style={{ marginBottom: 22 }}>
             <div className="px-eyebrow" style={{ marginBottom: 10 }}>Taxable brokerage</div>
@@ -326,10 +514,99 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
             </div>
           </section>
 
-          {/* Tax */}
+          {/* Planning & tax */}
           <section style={{ marginBottom: 22 }}>
-            <div className="px-eyebrow" style={{ marginBottom: 10 }}>Tax profile</div>
-            <NumField label="Marginal rate (%)" path="taxes.marginalRate" value={profile.taxes.marginalRate} prefix={null} step="1"  onUpdate={update}/>
+            <div className="px-eyebrow" style={{ marginBottom: 10 }}>Planning &amp; tax</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <label className="px-field">
+                <span className="px-field-label">Current age{primaryMember ? ` · ${primaryMember.name || 'primary'}` : ''}</span>
+                <div className="px-input-affix">
+                  <input type="number" value={planningAge} step="1" min="0" onChange={(e) => setCurrentAge(parseInt(e.target.value) || 0)} />
+                </div>
+              </label>
+              <NumField label="Target retirement age" path="goals.retireAt" value={profile.goals.retireAt} prefix={null} step="1" onUpdate={update}/>
+              <label className="px-field">
+                <span className="px-field-label">Filing status</span>
+                <select className="px-select" value={profile.taxes.filingStatus || 'mfj'}
+                  onChange={(e) => update('taxes.filingStatus', e.target.value)}>
+                  <option value="single">Single</option>
+                  <option value="mfj">Married filing jointly</option>
+                  <option value="mfs">Married filing separately</option>
+                  <option value="hoh">Head of household</option>
+                </select>
+              </label>
+              <label className="px-field">
+                <span className="px-field-label">State of residence</span>
+                <div className="px-input-affix">
+                  <input type="text" value={profile.taxes.state || ''} placeholder="e.g. CA" maxLength="2"
+                    onChange={(e) => update('taxes.state', e.target.value.toUpperCase())} />
+                </div>
+              </label>
+              <NumField label="Marginal rate (%)" path="taxes.marginalRate" value={profile.taxes.marginalRate} prefix={null} step="1"  onUpdate={update}/>
+            </div>
+          </section>
+
+          {/* Funding goals — education / home / custom, tracked to a target date */}
+          <section style={{ marginBottom: 22 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div className="px-eyebrow">Goals</div>
+              <button className="px-btn px-btn-sm px-btn-ghost" style={{ padding: '3px 8px' }} onClick={addGoal}>
+                <Icons.Plus size={10} /> Add goal
+              </button>
+            </div>
+            {gitems(profile).length === 0 && (
+              <div style={{ padding: '10px 0', textAlign: 'center', color: 'var(--ink-faint)', fontStyle: 'italic', fontSize: 12 }}>
+                A home, education, or any milestone with a target amount and date — we'll track whether it's on pace.
+              </div>
+            )}
+            {gitems(profile).map(g => (
+              <div key={g.id} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 10, marginBottom: 8, background: 'var(--surface)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <input type="text" value={g.label} placeholder="e.g. College fund"
+                    onChange={(e) => updateGoal(g.id, 'label', e.target.value)}
+                    style={{ fontFamily: 'var(--serif)', fontSize: 13, fontWeight: 500, background: 'none', border: 'none', color: 'var(--ink)', outline: 'none', flex: 1 }} />
+                  <button onClick={() => removeGoal(g.id)} title="Remove" aria-label="Remove goal"
+                    style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', padding: '2px 6px', lineHeight: 1 }}>
+                    <Icons.X size={12} />
+                  </button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <label className="px-field">
+                    <span className="px-field-label">Type</span>
+                    <select className="px-select" value={g.type} onChange={(e) => updateGoal(g.id, 'type', e.target.value)}>
+                      <option value="education">Education</option>
+                      <option value="home">Home / property</option>
+                      <option value="retirement">Retirement</option>
+                      <option value="custom">Custom</option>
+                    </select>
+                  </label>
+                  <label className="px-field">
+                    <span className="px-field-label">Target date</span>
+                    <div className="px-input-affix">
+                      <input type="date" value={g.targetDate || ''}
+                        onChange={(e) => updateGoal(g.id, 'targetDate', e.target.value)} /></div>
+                  </label>
+                  <label className="px-field">
+                    <span className="px-field-label">Target amount</span>
+                    <div className="px-input-affix"><span className="px-affix">$</span>
+                      <input type="number" value={g.targetAmount} step="1000"
+                        onChange={(e) => updateGoal(g.id, 'targetAmount', parseFloat(e.target.value) || 0)} /></div>
+                  </label>
+                  <label className="px-field">
+                    <span className="px-field-label">Saved so far</span>
+                    <div className="px-input-affix"><span className="px-affix">$</span>
+                      <input type="number" value={g.currentFunding} step="1000"
+                        onChange={(e) => updateGoal(g.id, 'currentFunding', parseFloat(e.target.value) || 0)} /></div>
+                  </label>
+                  <label className="px-field" style={{ gridColumn: '1 / -1' }}>
+                    <span className="px-field-label">Monthly contribution</span>
+                    <div className="px-input-affix"><span className="px-affix">$</span>
+                      <input type="number" value={g.monthlyContribution} step="50"
+                        onChange={(e) => updateGoal(g.id, 'monthlyContribution', parseFloat(e.target.value) || 0)} /></div>
+                  </label>
+                </div>
+              </div>
+            ))}
           </section>
 
           <div style={{ padding: 12, background: 'var(--bg-elev)', borderRadius: 6, fontSize: 11, color: 'var(--ink-mute)', lineHeight: 1.5, fontStyle: 'italic', fontFamily: 'var(--serif)' }}>

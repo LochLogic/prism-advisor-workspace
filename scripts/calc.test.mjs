@@ -143,6 +143,83 @@ console.log('calc-core unit tests\n');
   assert(zero.pct === null, 'mDietz: zero denominator → null (no divide-by-zero)');
 }
 
+/* ── retirementReadiness ──────────────────────────────────────────── */
+{
+  // Streams that fully cover spending → portfolio never drawn → on track.
+  const covered = C.retirementReadiness({
+    currentAge: 67, retireAt: 67, currentInvested: 100_000, annualContribution: 0,
+    annualExpenses: 60_000, streams: [{ monthlyAmount: 12_000, startAge: 67, colaPct: 0 }] });
+  assert(covered.lasts === true && covered.depletionAge === null, 'readiness: streams covering spend → never depletes');
+  assert(covered.fundedRatio === 1 && covered.verdict === 'On track', 'readiness: covered household is On track');
+
+  // No assets, no streams, already retired with real expenses → immediate depletion.
+  const broke = C.retirementReadiness({
+    currentAge: 67, retireAt: 67, currentInvested: 0, annualContribution: 0,
+    annualExpenses: 50_000, streams: [] });
+  assert(broke.depletionAge === 67, 'readiness: zero resources deplete in the first retirement year');
+  assert(broke.fundedRatio === 0 && broke.verdict === 'At risk', 'readiness: zero resources → At risk');
+
+  // Accumulation grows the balance before retirement.
+  const accum = C.retirementReadiness({
+    currentAge: 40, retireAt: 65, currentInvested: 200_000, annualContribution: 30_000,
+    annualExpenses: 80_000, streams: [{ monthlyAmount: 2_500, startAge: 67, colaPct: 2 }] });
+  assert(accum.nestEgg > 200_000 && Number.isFinite(accum.nestEgg), 'readiness: contributions compound the nest egg');
+
+  // Adding an income stream can only help: never lowers funded ratio or years funded.
+  const base = { currentAge: 60, retireAt: 65, currentInvested: 300_000, annualContribution: 10_000, annualExpenses: 70_000, streams: [] };
+  const without = C.retirementReadiness(base);
+  const withSS  = C.retirementReadiness({ ...base, streams: [{ monthlyAmount: 3_000, startAge: 65, colaPct: 0 }] });
+  assert(withSS.fundedRatio >= without.fundedRatio, 'readiness: adding a stream never lowers the funded ratio');
+  assert(withSS.yearsFunded >= without.yearsFunded, 'readiness: adding a stream never shortens years funded');
+
+  // Funded ratio is capped at 1 (no "over 100%").
+  const rich = C.retirementReadiness({ currentAge: 65, retireAt: 65, currentInvested: 10_000_000, annualContribution: 0, annualExpenses: 50_000, streams: [] });
+  assert(rich.fundedRatio === 1 && rich.lasts === true, 'readiness: ample portfolio caps funded ratio at 1');
+
+  // Deterministic for identical inputs.
+  const a = C.retirementReadiness(base), b = C.retirementReadiness(base);
+  assert(JSON.stringify(a) === JSON.stringify(b), 'readiness: deterministic for identical inputs');
+}
+
+/* ── goalFunding ──────────────────────────────────────────────────── */
+{
+  const asOf = '2026-06-01';
+  // Already funded → status 'funded', nothing more required.
+  const funded = C.goalFunding({ targetAmount: 100_000, targetDate: '2030-06-01', currentFunding: 120_000, monthlyContribution: 0, asOf });
+  assert(funded.status === 'funded' && funded.requiredMonthly === 0, 'goalFunding: current ≥ target → funded, $0 required');
+  assert(funded.fundedRatio >= 1, 'goalFunding: funded goal has ratio ≥ 1');
+
+  // On pace: current + contributions project past the target.
+  const onPace = C.goalFunding({ targetAmount: 100_000, targetDate: '2031-06-01', currentFunding: 50_000, monthlyContribution: 600, asOf });
+  assert(onPace.monthsRemaining === 60, 'goalFunding: month count from asOf to target');
+  assert(onPace.status === 'on pace' && onPace.projected >= 100_000, 'goalFunding: adequate funding → on pace');
+
+  // Behind: contribution too small to reach the target in time.
+  const behind = C.goalFunding({ targetAmount: 100_000, targetDate: '2028-06-01', currentFunding: 10_000, monthlyContribution: 100, asOf });
+  assert(behind.status === 'behind' && behind.projected < 100_000, 'goalFunding: underfunding → behind');
+  assert(behind.requiredMonthly > 100 && behind.gapMonthly > 0, 'goalFunding: behind surfaces a contribution gap');
+
+  // Past due: the target date has already passed and it is not funded.
+  const overdue = C.goalFunding({ targetAmount: 100_000, targetDate: '2025-01-01', currentFunding: 50_000, monthlyContribution: 500, asOf });
+  assert(overdue.status === 'past due' && overdue.monthsRemaining === 0, 'goalFunding: past target date + unfunded → past due');
+  assert(overdue.requiredMonthly === Infinity && overdue.gapMonthly === Infinity, 'goalFunding: no time left → required is Infinity');
+
+  // Zero growth: pure sum of contributions.
+  const flat = C.goalFunding({ targetAmount: 12_000, targetDate: '2027-06-01', currentFunding: 0, monthlyContribution: 1000, annualReturn: 0, asOf });
+  assert(near(flat.projected, 12_000) && flat.status === 'on pace', 'goalFunding: 0% growth → contributions sum exactly');
+  assert(near(flat.requiredMonthly, 1000), 'goalFunding: 0% growth → required = target / months');
+
+  // The required monthly, when applied, lands the projection on the target.
+  const req = behind.requiredMonthly;
+  const solved = C.goalFunding({ targetAmount: 100_000, targetDate: '2028-06-01', currentFunding: 10_000, monthlyContribution: req, asOf });
+  assert(near(solved.projected, 100_000, 1), 'goalFunding: requiredMonthly reaches the target by the date');
+
+  // Deterministic for a fixed asOf.
+  const a = C.goalFunding({ targetAmount: 50_000, targetDate: '2030-06-01', currentFunding: 5_000, monthlyContribution: 400, asOf });
+  const b = C.goalFunding({ targetAmount: 50_000, targetDate: '2030-06-01', currentFunding: 5_000, monthlyContribution: 400, asOf });
+  assert(JSON.stringify(a) === JSON.stringify(b), 'goalFunding: deterministic for a fixed asOf');
+}
+
 console.log('');
 if (failures) { console.error(`FAILED: ${failures} test(s)`); process.exit(1); }
 console.log('All calc-core tests passed.');

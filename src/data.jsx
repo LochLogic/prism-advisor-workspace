@@ -336,6 +336,16 @@ const demoTimeline = (client) => {
   ];
 };
 
+/* ─── Demo conversation thread (mock clients; mirrors the messages shape) ─ */
+const demoMessages = () => {
+  const now = Date.now(), ago = (h) => new Date(now - h * 3600000).toISOString();
+  return [
+    { id: 'm1', author_role: 'client',  body: 'Thanks for the roadmap walkthrough — it really helped clarify where we stand.', created_at: ago(52) },
+    { id: 'm2', author_role: 'advisor', body: 'Glad it landed. You two are in great shape; the Roth conversion window is the main thing I want to coordinate before year-end.', created_at: ago(50) },
+    { id: 'm3', author_role: 'client',  body: 'Sounds good. Is now a reasonable time to revisit the 529 contribution for the grandkids?', context: 'Phase 07 · Legacy', created_at: ago(6) },
+  ];
+};
+
 /* ─── "Current user" — Robert & Eileen Marsh, viewed in Client Portal ─ */
 const currentClientId = 'c001';
 
@@ -349,4 +359,5 @@ window.accountsData = accountsData;
 window.demoBalanceHistory = demoBalanceHistory;
 window.demoCashFlows = demoCashFlows;
 window.demoTimeline = demoTimeline;
+window.demoMessages = demoMessages;
 window.currentClientId = currentClientId;

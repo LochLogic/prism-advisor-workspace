@@ -166,9 +166,9 @@ const AssetLocationTool = () => {
 
 /* Monte Carlo — 1,000 deterministic-feeling scenarios using seeded RNG */
 const MonteCarloTool = () => {
-  const { profile, totalInvested, annualExpenses } = useProfile();
+  const { profile, totalInvested, annualExpenses, planningAge } = useProfile();
   const { activeClientId } = useView();
-  const [yearsHorizon, setYears] = useStateC(Math.max(20, profile.goals.retireAt - profile.goals.age + 25));
+  const [yearsHorizon, setYears] = useStateC(Math.max(20, profile.goals.retireAt - planningAge + 25));
   const [withdrawal, setWithdrawal] = useStateC(Math.round(annualExpenses / 1000) * 1000);
 
   const result = useMemoC(() => {

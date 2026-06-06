@@ -915,6 +915,68 @@ async function dbDeleteTask(id, clientId) {
   } catch (e) { console.warn('[db] deleteTask:', e.message); }
 }
 
+/* ─── Messaging (migration 019) ──────────────────────────────────── */
+const MSG_COLS = 'id, client_id, author_id, author_role, body, context, created_at, read_by_advisor';
+
+async function dbGetMessages(clientId) {
+  if (!_sb() || !isUUID(clientId)) return null;
+  try {
+    const { data, error } = await _sb()
+      .from('messages').select(MSG_COLS)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return data;
+  } catch (e) { console.warn('[db] getMessages:', e.message); return null; }
+}
+
+async function dbSendMessage(clientId, { body, authorRole, authorId, context, firmId }) {
+  if (!_sb() || !isUUID(clientId) || !body?.trim()) return null;
+  try {
+    const { data, error } = await _sb()
+      .from('messages')
+      .insert({ client_id: clientId, author_role: authorRole, author_id: authorId || null,
+                body: body.trim(), context: context || null, firm_id: firmId || null,
+                read_by_advisor: authorRole === 'advisor' })
+      .select(MSG_COLS).single();
+    if (error) throw error;
+    dbAudit('message.send', { entityType: 'message', entityId: data.id, clientId,
+      summary: `${authorRole === 'advisor' ? 'Advisor' : 'Client'} sent a message` });
+    return data;
+  } catch (e) { console.warn('[db] sendMessage:', e.message); return null; }
+}
+
+// Advisor marks the client's messages read (clears the unread badge).
+async function dbMarkMessagesRead(clientId) {
+  if (!_sb() || !isUUID(clientId)) return;
+  try {
+    await _sb().from('messages').update({ read_by_advisor: true })
+      .eq('client_id', clientId).eq('author_role', 'client').eq('read_by_advisor', false);
+  } catch (e) { console.warn('[db] markMessagesRead:', e.message); }
+}
+
+// Client ids with unread client→advisor messages (RLS scopes to the advisor's book).
+async function dbGetUnreadMessageClients() {
+  if (!_sb()) return [];
+  try {
+    const { data, error } = await _sb().from('messages')
+      .select('client_id').eq('author_role', 'client').eq('read_by_advisor', false);
+    if (error) throw error;
+    return [...new Set((data || []).map(r => r.client_id))];
+  } catch (e) { console.warn('[db] getUnreadMessageClients:', e.message); return []; }
+}
+
+// Subscribe to new messages for a client; returns an unsubscribe fn.
+function subscribeMessages(clientId, onInsert) {
+  const sb = _sb();
+  if (!sb || !isUUID(clientId)) return () => {};
+  const ch = sb.channel(`messages:${clientId}`)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `client_id=eq.${clientId}` },
+      (payload) => onInsert && onInsert(payload.new))
+    .subscribe();
+  return () => { try { sb.removeChannel(ch); } catch {} };
+}
+
 window.db = {
   getClients:          dbGetClients,
   mapClient,
@@ -954,6 +1016,11 @@ window.db = {
   getAcknowledgements:   dbGetAcknowledgements,
   createAcknowledgement: dbCreateAcknowledgement,
   signAcknowledgement:   dbSignAcknowledgement,
+  getMessages:         dbGetMessages,
+  sendMessage:         dbSendMessage,
+  markMessagesRead:    dbMarkMessagesRead,
+  getUnreadMessageClients: dbGetUnreadMessageClients,
+  subscribeMessages,
   getPhases:           dbGetPhases,
   audit:               dbAudit,
   getAuditLog:         dbGetAuditLog,
