@@ -77,7 +77,9 @@ Collaboration is the wedge, and today it's the thinnest part — only per-task f
 
 ### THEME 3 — Completeness & trust *(whole-picture)*
 
-#### Sprint W4 — Document vault + passive realtime messaging
+#### Sprint W4 — Document vault + passive realtime messaging ✅ SHIPPED (main; needs migration 020)
+> Delivered: a private Supabase Storage bucket (`client-documents`) + `documents` table (migration 020, RLS firm→advisor→client), a shared `DocumentVault` component used in the advisor client modal (Documents tab — upload/delete) and the client portal (Documents card — review/download via short-lived signed URLs), an acknowledgement→document link so e-sign can attach to a real file, and `demoDocuments()` for demo parity. **Plus the passive-realtime follow-on:** `subscribeAllMessages` wired at the dashboard so the roster unread dot lights live without a modal open. **Activation:** run `supabase/migrations/020_documents.sql` (creates the table, bucket, and Storage RLS; demo works without it).
+
 The product captures an e-signature but the signed IPS / statements / tax docs live nowhere. Close the loop. **Also folds in the W3 follow-on:** the advisor roster should light up a new-message indicator in realtime, without any modal open (today the `MessageThread` only subscribes while its tab is mounted, and the roster unread dot only refreshes when a preview modal closes — see [[arch-review-w1-w4]]).
 
 | | |

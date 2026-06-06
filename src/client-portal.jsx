@@ -534,6 +534,17 @@ const ClientPortal = ({ onOpenNumbers }) => {
           />
         </div>
 
+        {/* Documents — review & download what the advisor has shared */}
+        <div className="px-card" style={{ padding: 18, marginBottom: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 }}>
+          <div className="px-eyebrow" style={{ marginBottom: 12 }}>Documents</div>
+          <DocumentVault
+            clientId={activeClientId}
+            role="client"
+            demoSeed={window.demoDocuments ? window.demoDocuments() : []}
+            emptyHint={`When ${advisorDisplay.name} shares a statement, IPS, or disclosure, it will appear here to review and download.`}
+          />
+        </div>
+
         {/* Acknowledgements — review & e-sign documents the advisor requested */}
         {acks.length > 0 && (
           <div className="px-card" style={{ padding: 18, marginBottom: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 }}>

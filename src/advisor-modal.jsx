@@ -591,7 +591,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
         {/* Tabs — only for live (real UUID) clients */}
         {isLiveClient && (
           <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)' }}>
-            {['overview', 'accounts', 'messages', 'tasks', 'timeline', 'performance', 'edit'].map(t => (
+            {['overview', 'accounts', 'messages', 'documents', 'tasks', 'timeline', 'performance', 'edit'].map(t => (
               <button key={t} style={TAB_STYLE(tab === t)} onClick={() => setTab(t)}>{t}</button>
             ))}
           </div>
@@ -1036,6 +1036,18 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
             emptyHint={`No messages yet — open the conversation with ${client.shortName || client.name}.`}
             demoSeed={window.demoMessages ? window.demoMessages() : []}
             height={360}
+          />
+        )}
+
+        {/* ── Documents (vault) ── */}
+        {tab === 'documents' && (
+          <DocumentVault
+            clientId={client.id}
+            role="advisor"
+            firmId={firmId}
+            advisorId={advisorId}
+            demoSeed={window.demoDocuments ? window.demoDocuments() : []}
+            emptyHint={`No documents yet — upload an IPS, statement, or disclosure for ${client.shortName || client.name}.`}
           />
         )}
 
