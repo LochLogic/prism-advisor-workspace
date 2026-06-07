@@ -7,7 +7,8 @@
 # Requires these repo secrets (TODO.md H3):
 #   SUPABASE_ACCESS_TOKEN  — a Supabase personal access token
 #   SUPABASE_DB_PASSWORD   — the project DB password (for `db push`)
-# Project ref is read from supabase/config.toml.
+# The project is linked explicitly (supabase link --project-ref …) in the first
+# step; the CLI does not infer the ref from config.toml's project_id.
 name: Deploy (manual)
 
 on:
@@ -27,6 +28,14 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: latest
+
+      # `db push` / `functions deploy` need the project explicitly linked — the
+      # CLI does NOT infer the ref from config.toml's project_id. Link once here.
+      - name: Link project
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: supabase link --project-ref phabxcijbbphfxvjedfj
 
       - name: Push migrations
         env:
