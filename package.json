@@ -5,12 +5,17 @@
   "scripts": {
     "build": "node build.mjs",
     "check": "node scripts/check.mjs",
+    "lint": "node scripts/lint.mjs",
     "test": "npm run build && npm run check && npm run test:calc",
     "test:calc": "node scripts/calc.test.mjs",
     "test:db": "node scripts/db-test.mjs",
-    "test:rls": "node scripts/rls-test.mjs"
+    "test:rls": "node scripts/rls-test.mjs",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
-    "esbuild": "^0.25.0"
+    "@playwright/test": "^1.49.0",
+    "esbuild": "^0.25.0",
+    "eslint": "^9.17.0",
+    "globals": "^15.14.0"
   }
 }

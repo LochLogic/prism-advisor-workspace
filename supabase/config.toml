@@ -1,0 +1,42 @@
+# Supabase project config — the source of truth for function deploy settings.
+# Captured in-repo so deploys are reproducible and can't drift from what's live
+# (2026-06 review, DevOps). `supabase functions deploy <name>` reads verify_jwt
+# from here instead of relying on a remembered --no-verify-jwt flag.
+#
+# verify_jwt = false means the platform does NOT require a Supabase user JWT to
+# reach the function. Those functions are either called by a non-user (Stripe,
+# Plaid is user; pg_cron via x-cron-secret) or self-enforce auth in code.
+project_id = "phabxcijbbphfxvjedfj"
+
+# Browser-called by an authenticated advisor → keep the platform JWT gate on.
+[functions.create-checkout-session]
+verify_jwt = true
+
+[functions.plaid-create-link-token]
+verify_jwt = true
+
+[functions.plaid-exchange-token]
+verify_jwt = true
+
+# Public/system/cron functions. NOTE: generate-invoices and worm-export accept
+# BOTH a pg_cron call (x-cron-secret, no JWT) and an admin call (validated in
+# code via supa.auth.getUser), so the platform gate must be OFF or the cron path
+# would be rejected before the function runs. They are NOT unauthenticated — they
+# enforce auth themselves.
+[functions.log-error]
+verify_jwt = false
+
+[functions.health]
+verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.generate-invoices]
+verify_jwt = false
+
+[functions.error-digest]
+verify_jwt = false
+
+[functions.worm-export]
+verify_jwt = false

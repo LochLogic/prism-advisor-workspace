@@ -23,14 +23,6 @@
 
 Sequenced to the roadmap's goal — *onboard a first paying advisor* — pre-live hardening first, then the adoption unlocks that turn a demo into a "yes," then depth and polish. Each sprint is independently shippable.
 
-### C2 — Quality gates in CI
-*Cheap guards that stop a silent regression on the no-types, bare-globals codebase.*
-- [ ] **ESLint in CI** — `no-undef` against a `window`-globals allow-list (catches the typo'd-identifier failure mode the bare-name architecture invites) + basic rules; wire into the existing `ci` workflow.
-- [ ] **`npm audit` / Dependabot** — add the audit step + a Dependabot config.
-- [ ] **Playwright e2e over the protected paths** — 1-click demo, notification deep-link, inline reply, single-screen portal, mobile. Run against the demo build in CI.
-- [ ] **Gate deploys in CI** — manual-approval job that runs `supabase db push` + edge-function deploy so the repo stops drifting from live. *↔ blocked-by-you: needs the CI secrets in H3.*
-- [ ] **Move the `015` billing cron off its embedded secret** — re-schedule the `prism-monthly-invoices` job to read `cron_secret` from Supabase Vault (same pattern as `022`), so no `CRON_SECRET` literal lives in any migration. *↔ depends on H2 having stored the Vault secret.*
-
 ### C3 — Adoption unlocks (Tier A — without these, RIAs won't move)
 - [ ] **Bulk client import** — CSV importer + column mapper UI, plus preset mappers for Wealthbox / Redtail / Orion exports. The #1 blocker to a "yes." *Cheaper if you drop a real sample export into `/docs/samples/` — see H5.*
 - [ ] **White-label branding** — firm logo + accent color + optional "powered by Prism", driven off a `firms` settings row; client portal reads it. Custom-subdomain rendering is code; the DNS half is H5. *↔ blocked-by-you (subdomain only).*
@@ -73,27 +65,26 @@ These are the things I genuinely can't do — they cost money, need your identit
    - Supabase **service-role key** and **access/personal token** (Settings → API / Account → Tokens).
    - **Stripe** `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` (and decide live vs test `STRIPE_PRICE_GROWTH`).
    - **Plaid** `PLAID_CLIENT_ID` / `PLAID_SECRET` (+ set `PLAID_ENV`).
-   - `CRON_SECRET` (regenerate; it guards the billing cron **and** the new hourly error-digest cron). ⚠️ The **old** value is still hard-coded in `015_cron_billing.sql` (committed before this was a concern) — rotating `CRON_SECRET` neutralizes that embedded value. The new error-digest cron (`022`) instead reads the secret from **Supabase Vault**, so after rotating you must store it once: `select vault.create_secret('<new CRON_SECRET>', 'cron_secret');`. (C2-cleanup will move the `015` billing cron onto the same Vault lookup so no secret is embedded anywhere.)
+   - `CRON_SECRET` (regenerate; it guards the billing cron **and** the new hourly error-digest cron). ⚠️ The **old** value is still hard-coded in `015_cron_billing.sql` (committed before this was a concern) — rotating `CRON_SECRET` neutralizes that embedded value. Both cron jobs (`022` error-digest and, as of **migration 023**, the `015` billing cron) now read the secret from **Supabase Vault**, so after rotating you must store it once: `select vault.create_secret('<new CRON_SECRET>', 'cron_secret');`. No `CRON_SECRET` literal remains in any migration going forward (the old value still sits in `015`'s history, which rotation neutralizes).
    After rotating, set the new value in **Supabase → Edge Functions → Secrets**, in **Vault** (`cron_secret`, per above), *and* in the GitHub Actions secrets (H3). Tell me when done and I'll redeploy functions against the new values.
 3. **Decide live keys.** Choose whether Stripe and Plaid go live now or stay in test/sandbox for design partners. This decides whether real money/aggregation flows — say the word and I'll flip the env config.
 4. *(If C5 MFA needs it)* toggle TOTP factor support on in Supabase → Authentication → Providers.
 
 ### H3 — Repo & host settings I can't touch
-1. **Promote the RLS-isolation job to a required check.** It's wired and green (session pooler); GitHub → repo Settings → Branches → `main` rule → add `rls-isolation` to required status checks. (It's the most security-relevant test we have.)
-2. **Set `ALERT_WEBHOOK_URL`** (Supabase → Edge Functions → Secrets) to a Slack incoming-webhook URL (or any endpoint accepting a `{ "text": ... }` POST). This is the **last wire** on the C1 error alerting — the `error-digest` function is built and scheduled hourly, but stays **inert and won't advance its cursor** until this is set, so nothing is lost in the meantime. Once set, the first run flushes the backlog.
-3. **Add the CI secrets for C2:** the rotated H2 secrets as GitHub Actions repo secrets, so the gated `db push` + function-deploy job can run.
+1. **Promote the test jobs to required checks.** `rls-isolation` is green (session pooler) and the new `e2e` job runs the demo smoke + DOB regression. GitHub → repo Settings → Branches → `main` rule → add `rls-isolation` (now) and `e2e` (once you've seen a few green runs) to required status checks.
+2. **Set `ALERT_WEBHOOK_URL`** (Supabase → Edge Functions → Secrets) to a Slack incoming-webhook URL (or any endpoint accepting a `{ "text": ... }` POST). This is the **last wire** on the C1 error alerting — the `error-digest` function stays **inert and won't advance its cursor** until this is set, so nothing is lost in the meantime. Once set, the first run flushes the backlog. *(Also requires the function to be deployed — see H4.)*
+3. **Wire the manual deploy workflow.** `.github/workflows/deploy.yml` (a manual, confirm-gated job) now does `supabase db push` + deploys every function with the correct `verify_jwt` from `supabase/config.toml`. To enable it, add two GitHub repo secrets — **`SUPABASE_ACCESS_TOKEN`** (a Supabase personal access token) and **`SUPABASE_DB_PASSWORD`** — and, for a second human gate, create a **`production`** environment (Settings → Environments) with yourself as a required reviewer. After that, deploys run from the Actions tab instead of by hand (H4 retires).
 4. **Enable per-PR Cloudflare preview deploys.** Cloudflare Pages → project → Settings → Builds & deployments → turn on preview deployments for non-production branches. Lets us both see a branch live before merge.
 5. **Stand up an uptime monitor.** Free UptimeRobot/Cloudflare check pinging the `health` edge function + the app URL, alerting to your email. ~5 minutes; I can't create the account.
 
-### H4 — Run the pending migrations / deploys *(until C2 gates them in CI)*
-Migrations and edge functions currently deploy **by hand**, so the live DB can lag the repo. The repo is now at migration **022**; per our notes **017–022 may be unapplied** on live. Once H2 is done:
-1. Run `supabase db push` (or apply `017_acknowledgements` → `022_error_digest` in order) against the live project. This activates acknowledgements/e-sign, hardening, messaging, the document vault, **the log-error rate-limit + telemetry retention (021), and the error-digest cron (022)**.
-2. Deploy the touched/new edge functions so live matches the repo:
-   - `supabase functions deploy log-error --no-verify-jwt --project-ref phabxcijbbphfxvjedfj` (now rate-limited)
-   - `supabase functions deploy generate-invoices --project-ref phabxcijbbphfxvjedfj` (honest skip/fail counting)
-   - `supabase functions deploy error-digest --project-ref phabxcijbbphfxvjedfj` (new — the alerting)
-3. Confirm `CRON_SECRET` and (for alerting) `ALERT_WEBHOOK_URL` are set in Edge Function secrets before the crons fire.
-> This whole item disappears once I finish **C2's deploy-gating job** — at that point CI owns it. Flag me when you want it prioritized.
+### H4 — Deploy the edge functions + apply migration 023 *(retires once H3's deploy workflow is wired)*
+You applied **021 + 022 migrations** to live & test — but the **edge functions were not redeployed**, so the C1 changes aren't live yet:
+1. **Deploy the functions** (or just run the new `deploy.yml` once H3 secrets are set — preferred, and it sets `verify_jwt` from `config.toml` automatically):
+   - `log-error` — until redeployed, the rate-limit code isn't active (the live function doesn't call `px_log_error_allowed` yet).
+   - `error-digest` — **not on live at all yet**, so the hourly `022` cron is currently 404ing (harmless but no alerts fire). Deploy it, then set `ALERT_WEBHOOK_URL` (H3 #2).
+   - `generate-invoices` — honest skip/fail counting. ⚠️ **Finding:** `config.toml` sets its `verify_jwt = false`. If it was previously deployed JWT-gated, the monthly billing cron (x-cron-secret, no JWT) would have been **silently 401'd by the platform** — worth checking whether any invoices actually generated. Redeploying via `config.toml` fixes this.
+2. **Apply migration 023** (`supabase db push`, or run it directly) to move the billing cron onto the Vault `cron_secret` lookup. Requires the Vault secret from H2 to exist first.
+3. Confirm `CRON_SECRET` is in Edge Function secrets **and** stored in Vault as `cron_secret` before the crons fire.
 
 ### H5 — External credentials that unblock my feature work
 Each one directly unblocks a 🤖 item; drop them into Supabase Edge Function secrets (or tell me the value channel) and I'll build against them:
