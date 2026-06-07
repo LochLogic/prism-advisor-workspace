@@ -28,7 +28,14 @@ const ci = process.env.GITHUB_ACTIONS === 'true';
 const probe = spawnSync('psql', [url, '-tAc', 'select 1'], { stdio: ['ignore', 'ignore', 'pipe'] });
 if (probe.status !== 0) {
   const why = (probe.stderr?.toString() || '').split('\n').find(Boolean) || `psql exit ${probe.status}`;
-  const sanitized = why.replace(/postgres(?:ql)?:\/\/[^\s]+/gi, '<url>');
+  // Redact anything that could identify the (secret) DB: full URLs, the host in
+  // psql's `server at "..."` text, parenthesised IPs, and supabase hostnames.
+  // We keep the human-readable failure reason (e.g. "Network is unreachable").
+  const sanitized = why
+    .replace(/postgres(?:ql)?:\/\/[^\s]+/gi, '<url>')
+    .replace(/server at "[^"]*"/gi, 'server at <host>')
+    .replace(/\([0-9a-fA-F:.]+\)/g, '(<ip>)')
+    .replace(/[a-z0-9.-]+\.supabase\.(?:co|com|net)/gi, '<host>');
   const msg = `DB tests skipped: DATABASE_URL is set but the database is unreachable (${sanitized}). Verify the staging project is running and the credentials are current.`;
   console.log(`⊘ ${msg}`);
   if (ci) console.log(`::warning title=rls-isolation::${msg}`);

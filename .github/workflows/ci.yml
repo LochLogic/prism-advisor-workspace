@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, fix/rls-isolation-ci-green]
+    branches: [main]
   pull_request:
 
 jobs:
