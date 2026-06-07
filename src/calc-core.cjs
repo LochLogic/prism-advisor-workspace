@@ -273,10 +273,32 @@ function lifeCoverageGap({ annualIncome = 0, incomeMultiple = 10, liabilities = 
   return { recommended, existingCoverage: have, gap, covered: gap <= 0, ratio };
 }
 
+// ── Asset-truth composition (W6) ────────────────────────────────────────────
+// Replaces the AUM-vs-typed "reconciliation warning" with a correct *composition*:
+// total invested = assets under management + explicitly held-away balances. The
+// household's typed invested total is treated as the whole picture; managed AUM is
+// the slice the advisor custodies. Held-away is the remainder. The ONE genuine error
+// case — managed AUM materially exceeding the reported total — means the typed numbers
+// are stale; we flag that (and trust managed as the floor) rather than invent negative
+// held-away. All inputs default to 0 so partial data is safe.
+function assetComposition({ managedAum = 0, investedOnFile = 0 } = {}) {
+  const managed = Math.max(0, Number(managedAum) || 0);
+  const typed   = Math.max(0, Number(investedOnFile) || 0);
+  const stale   = typed > 0 && managed > typed * 1.1;   // managed > reported total by >10%
+  const heldAway = stale ? 0 : Math.max(0, typed - managed);
+  const total    = stale ? managed : typed;             // managed is the better floor when typed is stale
+  return {
+    managed, heldAway, total,
+    hasHeldAway: heldAway > 0,
+    managedPct: total > 0 ? Math.round((managed / total) * 100) : 0,
+    stale, staleDelta: stale ? managed - typed : 0,
+  };
+}
+
 const PrismCalc = {
   buildValueSeries, modifiedDietz, perfPeriods,
   debtPayoffMonths, hsaProjection, monteCarlo, rothLadder, estateProjection, tlh,
-  retirementReadiness, goalFunding, annualFeeForAum, lifeCoverageGap,
+  retirementReadiness, goalFunding, annualFeeForAum, lifeCoverageGap, assetComposition,
 };
 
 if (typeof window !== 'undefined') window.PrismCalc = PrismCalc;

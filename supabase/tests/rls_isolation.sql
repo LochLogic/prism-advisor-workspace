@@ -58,6 +58,24 @@ insert into clients (id, firm_id, advisor_id, auth_user_id, household_name, shor
    'bbbb1111-0000-4000-8000-000000000002', null, 'Household B', 'B')
 on conflict (id) do nothing;
 
+-- Seed a message + a document for Household A (used by checks 6 & 7). Guarded so the
+-- test still runs on a database where migrations 019/020 haven't been applied yet.
+do $$ begin
+  if to_regclass('public.messages') is not null then
+    insert into messages (id, firm_id, client_id, author_role, body) values
+      ('aaaa5555-0000-4000-8000-000000000001', 'aaaa0000-0000-4000-8000-000000000001',
+       'aaaa3333-0000-4000-8000-000000000001', 'advisor', 'rls-test message for A')
+    on conflict (id) do nothing;
+  end if;
+  if to_regclass('public.documents') is not null then
+    insert into documents (id, firm_id, client_id, category, title, file_name, storage_path) values
+      ('aaaa6666-0000-4000-8000-000000000001', 'aaaa0000-0000-4000-8000-000000000001',
+       'aaaa3333-0000-4000-8000-000000000001', 'ips', 'IPS A', 'ipsA.pdf',
+       'aaaa3333-0000-4000-8000-000000000001/ipsA.pdf')
+    on conflict (id) do nothing;
+  end if;
+end $$;
+
 -- Helper: become a given Supabase user (sets the JWT claims the RLS helpers read).
 create or replace function pg_temp.act_as(p_uid uuid) returns void
 language plpgsql as $$
@@ -128,6 +146,42 @@ begin
   get diagnostics affected = row_count;
   if affected <> 0 then raise exception 'FAIL 5: Advisor A updated % of Firm B''s client rows (write leak)', affected; end if;
   raise notice 'PASS 5 · cross-tenant write blocked';
+end $$;
+
+-- ── 6 · Messaging isolation (migration 019) ─────────────────────────────────
+do $$
+declare n int;
+begin
+  if to_regclass('public.messages') is null then
+    raise notice 'SKIP 6 · messages table not present (run migration 019)';
+  else
+    -- Client A reads their own thread; Advisor B (other firm) cannot.
+    perform pg_temp.act_as('aaaa4444-0000-4000-8000-000000000001');
+    select count(*) into n from messages where client_id = 'aaaa3333-0000-4000-8000-000000000001';
+    if n < 1 then raise exception 'FAIL 6a: Client A cannot read their own message'; end if;
+    perform pg_temp.act_as('bbbb2222-0000-4000-8000-000000000002');
+    select count(*) into n from messages where client_id = 'aaaa3333-0000-4000-8000-000000000001';
+    if n <> 0 then raise exception 'FAIL 6b: Advisor B can read Firm A''s messages (cross-tenant leak)'; end if;
+    raise notice 'PASS 6 · message thread isolation holds';
+  end if;
+end $$;
+
+-- ── 7 · Document vault isolation (migration 020) ────────────────────────────
+do $$
+declare n int;
+begin
+  if to_regclass('public.documents') is null then
+    raise notice 'SKIP 7 · documents table not present (run migration 020)';
+  else
+    -- Client A reads their own document; Advisor B (other firm) cannot.
+    perform pg_temp.act_as('aaaa4444-0000-4000-8000-000000000001');
+    select count(*) into n from documents where client_id = 'aaaa3333-0000-4000-8000-000000000001';
+    if n < 1 then raise exception 'FAIL 7a: Client A cannot read their own document'; end if;
+    perform pg_temp.act_as('bbbb2222-0000-4000-8000-000000000002');
+    select count(*) into n from documents where client_id = 'aaaa3333-0000-4000-8000-000000000001';
+    if n <> 0 then raise exception 'FAIL 7b: Advisor B can read Firm A''s documents (cross-tenant leak)'; end if;
+    raise notice 'PASS 7 · document vault isolation holds';
+  end if;
 end $$;
 
 reset role;

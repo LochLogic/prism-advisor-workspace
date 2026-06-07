@@ -246,6 +246,34 @@ console.log('calc-core unit tests\n');
   assert(floored.recommended === 0 && floored.covered === true, 'lifeCoverageGap: recommendation floors at 0');
 }
 
+/* ── assetComposition (W6) ────────────────────────────────────────── */
+{
+  // Held-away present: total = typed; managed is a slice; remainder is held away.
+  const ha = C.assetComposition({ managedAum: 1_000_000, investedOnFile: 1_600_000 });
+  assert(ha.managed === 1_000_000 && ha.heldAway === 600_000 && ha.total === 1_600_000
+    && ha.hasHeldAway === true && ha.stale === false && ha.managedPct === 63,
+    'assetComposition: held-away = typed − managed');
+
+  // Fully managed: no held-away, total = managed = typed.
+  const full = C.assetComposition({ managedAum: 800_000, investedOnFile: 800_000 });
+  assert(full.heldAway === 0 && full.hasHeldAway === false && full.total === 800_000 && full.managedPct === 100,
+    'assetComposition: fully managed → no held-away');
+
+  // Stale: managed materially exceeds the reported total → flag, trust managed, no negative held-away.
+  const stale = C.assetComposition({ managedAum: 1_500_000, investedOnFile: 1_000_000 });
+  assert(stale.stale === true && stale.heldAway === 0 && stale.total === 1_500_000 && stale.staleDelta === 500_000,
+    'assetComposition: managed ≫ typed → stale flag, managed is the floor');
+
+  // Within 10%: not stale (tolerance), small held-away or none.
+  const close = C.assetComposition({ managedAum: 1_050_000, investedOnFile: 1_000_000 });
+  assert(close.stale === false, 'assetComposition: within 10% tolerance is not stale');
+
+  // Empty → all zeros, nothing to show.
+  const empty = C.assetComposition({});
+  assert(empty.total === 0 && empty.hasHeldAway === false && empty.stale === false,
+    'assetComposition: empty inputs → zeros');
+}
+
 console.log('');
 if (failures) { console.error(`FAILED: ${failures} test(s)`); process.exit(1); }
 console.log('All calc-core tests passed.');

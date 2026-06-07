@@ -39,7 +39,9 @@ const defaultProfile = {
     fourohonekContributed: 23500, fourohonekLimit: 23500, employerMatchPct: 5,
   },
   taxes:   { marginalRate: 24, filingStatus: 'mfj', state: 'CA' },
-  taxable: { balance: 1_628_000, monthlyContrib: 8500 },
+  // Taxable set so the demo's total invested exceeds managed AUM ($4.28M) — this
+  // makes the W6 asset-truth strip show a real "managed + held-away = total" split.
+  taxable: { balance: 3_200_000, monthlyContrib: 8500 },
   // goals.age / retireAt anchor the retirement projection; goals.items are
   // discrete funding goals (education / home / custom) tracked to a target date.
   goals:   { age: 62, retireAt: 67, items: [
@@ -316,6 +318,10 @@ function ProfileProvider({ children }) {
     goalItems, goalsFunding,
     insurance, lifeCoverage, lifeCoverageGap, estate, estateProgress, estateComplete,
   };
+
+  // Asset-truth composition (managed AUM is passed in by the view, which knows the
+  // client record); expose the helper so portal/modal compose one honest total.
+  metrics.assetComposition = (managedAum) => _calc.assetComposition({ managedAum, investedOnFile });
 
   return (
     <ProfileContext.Provider value={{ profile, setProfile, update, ...metrics }}>

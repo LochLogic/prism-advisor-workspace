@@ -740,23 +740,34 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
               );
             })()}
 
+            {/* Asset-truth composition (W6) — managed + held-away = total, or a stale-data flag */}
             {(() => {
               if (!profileData) return null;
               const r = profileData.retirement || {};
               const investedOnFile = (Number(r.hsaBalance) || 0) + (Number(r.iraBalance) || 0)
                 + (Number(r.fourohonekBalance) || 0) + (Number(profileData.taxable?.balance) || 0);
-              const rec = window.reconcileAssets?.(client.aum, investedOnFile);
-              if (!rec?.diverges) return null;
-              const exceeds = rec.direction === 'aum-exceeds';
+              const comp = (window.PrismCalc || {}).assetComposition?.({ managedAum: client.aum, investedOnFile });
+              if (!comp || comp.total <= 0) return null;
+              if (comp.stale) {
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16,
+                    padding: '10px 12px', background: 'var(--bg-elev)', borderLeft: '3px solid var(--gold)',
+                    borderRadius: 6, fontSize: 12, color: 'var(--ink-mute)', lineHeight: 1.5 }}>
+                    <span style={{ color: 'var(--gold)', display: 'flex', flexShrink: 0 }}><Icons.AlertCircle size={15} /></span>
+                    <span>Managed AUM ({fmt$(comp.managed, { short: true })}) exceeds invested balances on file ({fmt$(investedOnFile, { short: true })}) — the household's numbers are likely stale.</span>
+                  </div>
+                );
+              }
+              if (!comp.hasHeldAway) return null;
               return (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16,
-                  padding: '10px 12px', background: 'var(--bg-elev)', borderLeft: '3px solid var(--gold)',
-                  borderRadius: 6, fontSize: 12, color: 'var(--ink-mute)', lineHeight: 1.5 }}>
-                  <span style={{ color: 'var(--gold)', display: 'flex', flexShrink: 0 }}><Icons.AlertCircle size={15} /></span>
-                  <span>{exceeds
-                    ? <>Managed AUM ({fmt$(client.aum, { short: true })}) exceeds invested balances on file ({fmt$(investedOnFile, { short: true })}) — the household's numbers may be stale.</>
-                    : <>Invested balances on file ({fmt$(investedOnFile, { short: true })}) exceed managed AUM ({fmt$(client.aum, { short: true })}) — likely held-away assets not under management.</>}
-                  </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 16,
+                  padding: '10px 12px', background: 'var(--bg-elev)', borderRadius: 6, fontSize: 12, color: 'var(--ink-mute)' }}>
+                  <span style={LABEL_STYLE}>Invested</span>
+                  <span><span style={{ color: 'var(--forest)', fontWeight: 600 }}>{fmt$(comp.managed, { short: true })}</span> managed</span>
+                  <span style={{ color: 'var(--border-2)' }}>+</span>
+                  <span><span style={{ color: 'var(--ink)', fontWeight: 600 }}>{fmt$(comp.heldAway, { short: true })}</span> held away</span>
+                  <span style={{ color: 'var(--border-2)' }}>=</span>
+                  <span><span style={{ color: 'var(--ink)', fontWeight: 700 }}>{fmt$(comp.total, { short: true })}</span> total · {comp.managedPct}% managed</span>
                 </div>
               );
             })()}

@@ -103,7 +103,9 @@ A real financial plan includes protection + estate readiness. Capture (not advis
 | **Tests** | coverage-gap helpers in `calc.test.mjs`. |
 | **DoD** | No dead fields remain; coverage + estate status show on both roles; Phase 1 "Protection" framing is backed by real data. |
 
-#### Sprint W6 — Coherence, parity & hardening
+#### Sprint W6 — Coherence, parity & hardening ✅ SHIPPED (main; no migration)
+> Delivered: `assetComposition()` in calc-core (5 tests) — the AUM-vs-typed *warning* is retired for a correct *composition* ("managed + held-away = total", with the one genuine error case — managed materially exceeding the reported total — kept as a stale-data flag). Surfaced on the client portal (composition strip) and advisor modal overview, replacing the old reconciliation note. Demo parity: the flagship demo household's taxable balance was tuned so its total invested exceeds managed AUM, showing a real held-away split in the demo (insurance/estate already seeded in W5; messages/documents seeded in W3/W4). a11y: aria-labels on the icon-only document/composition controls. CI hardening: the RLS isolation test now covers `messages` (019) + `documents` (020) cross-tenant boundaries (guarded so it skips if those migrations aren't applied to the test DB). check.mjs → 34 assertions; calc → 77 tests.
+
 Make it all hang together and not regress.
 
 | | |

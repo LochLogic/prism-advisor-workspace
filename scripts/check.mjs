@@ -64,6 +64,12 @@ for (const sym of ['lifeCoverageGap', 'estateProgress', 'retirement.employerMatc
   assert(bundle.includes(sym), `bundle wires W5: ${sym}`);
 }
 
+// 11. W6 — asset-truth composition + RLS coverage for the new tables
+assert(bundle.includes('assetComposition'), 'bundle wires W6: assetComposition');
+const rlsSql = read('supabase/tests/rls_isolation.sql');
+assert(/from messages/.test(rlsSql) && /from documents/.test(rlsSql),
+  'RLS isolation test covers messages + documents');
+
 console.log('');
 if (failures) { console.error(`FAILED: ${failures} check(s)`); process.exit(1); }
 console.log('All checks passed.');
