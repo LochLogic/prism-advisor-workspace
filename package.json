@@ -14,8 +14,8 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",
-    "esbuild": "^0.25.0",
-    "eslint": "^9.17.0",
-    "globals": "^15.14.0"
+    "esbuild": "^0.28.0",
+    "eslint": "^10.4.1",
+    "globals": "^17.6.0"
   }
 }
