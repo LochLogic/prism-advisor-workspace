@@ -34,6 +34,13 @@ function buildValueSeries(balanceRows) {
 }
 
 // Modified Dietz return between startDate and endDate, given dated flows.
+//
+// Advisory fees (flows with kind === 'fee') are treated as a return DRAG, not as a
+// capital flow: a fee debit already reduced the ending value and is NOT added back,
+// so the default `pct` is NET of advisory fees — the number the client actually keeps.
+// Contributions / withdrawals are capital flows: time-weighted and netted out so the
+// client's own money moving in/out doesn't distort the return. `grossPct` adds the fee
+// drag back for the advisor's pre-fee comparison; `netOfFees` flags that a fee was seen.
 function modifiedDietz(series, flows, startDate, endDate) {
   if (!series.length) return null;
   const inRange = series.filter(p => p.date <= endDate);
@@ -43,14 +50,24 @@ function modifiedDietz(series, flows, startDate, endDate) {
   for (const p of series) { if (p.date < startDate) bv = p.value; else break; }
   const inception = bv == null;
   if (bv == null) bv = series[0].value;
-  const fls = (flows || []).filter(f => f.flow_date >= startDate && f.flow_date <= endDate);
+  const inPeriod = (flows || []).filter(f => f.flow_date >= startDate && f.flow_date <= endDate);
+  const capital  = inPeriod.filter(f => f.kind !== 'fee');   // contributions / withdrawals
+  const feeFlows = inPeriod.filter(f => f.kind === 'fee');   // advisory fee debits
   const start = new Date(startDate), end = new Date(endDate);
   const span = Math.max(1, (end - start) / 86400000);
-  const net = fls.reduce((s, f) => s + (Number(f.amount) || 0), 0);
-  const weighted = fls.reduce((s, f) => s + (Number(f.amount) || 0) * ((end - new Date(f.flow_date)) / 86400000 / span), 0);
+  const net = capital.reduce((s, f) => s + (Number(f.amount) || 0), 0);
+  const weighted = capital.reduce((s, f) => s + (Number(f.amount) || 0) * ((end - new Date(f.flow_date)) / 86400000 / span), 0);
+  const fees = feeFlows.reduce((s, f) => s + Math.abs(Number(f.amount) || 0), 0);
   const denom = bv + weighted;
-  const gain = ev - bv - net;
-  return { bv, ev, net, gain, pct: denom !== 0 ? (gain / denom) * 100 : null, inception };
+  const gain  = ev - bv - net;     // net of fees: fee debits already reduced ev and are not added back
+  const grossGain = gain + fees;   // pre-fee gain for the advisor's gross figure
+  return {
+    bv, ev, net, gain, fees,
+    pct:      denom !== 0 ? (gain / denom) * 100 : null,
+    grossPct: denom !== 0 ? (grossGain / denom) * 100 : null,
+    netOfFees: fees > 0,
+    inception,
+  };
 }
 
 function perfPeriods(series, flows) {
