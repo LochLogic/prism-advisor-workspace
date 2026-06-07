@@ -30,11 +30,11 @@ const StatCell = ({ label, value, tone, foot, big }) => (
 
 /* Phase 01 · Cash flow */
 const CashflowTool = () => {
-  const { profile, totalExpenses, surplus, savingsRate } = useProfile();
+  const { profile, totalExpenses, surplus, savingsRate, effectiveTakehome } = useProfile();
   return (
     <ToolShell title="Household cash flow" hint="Sourced from your numbers">
       <div className="px-tool-grid">
-        <StatCell label="Monthly take-home" value={fmt$(profile.income.monthlyTakehome)} />
+        <StatCell label="Monthly take-home" value={fmt$(effectiveTakehome)} />
         <StatCell label="Essential outflow" value={fmt$(totalExpenses)} />
         <StatCell label="Net surplus" value={fmt$(surplus)} tone={surplus < 0 ? 'bad' : 'good'} />
         <StatCell label="Savings rate" value={fmtPct(savingsRate)}

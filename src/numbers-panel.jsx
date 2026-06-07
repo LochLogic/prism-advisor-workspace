@@ -1,6 +1,40 @@
 // Prism — Numbers Panel drawer. Lets the client (or advisor on their behalf)
 // edit the household ledger. Restyled for the institutional palette.
 
+// Date-of-birth picker: Month / Day / Year dropdowns instead of a native <input
+// type="date">, so picking a birth year is one click from a descending list rather
+// than scrolling the native calendar back decades. Stores/parses YYYY-MM-DD.
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const DobSelects = ({ value, onChange }) => {
+  const [yy = '', mm = '', dd = ''] = (value || '').split('-');
+  const year = yy, mon = mm ? String(parseInt(mm, 10)) : '', day = dd ? String(parseInt(dd, 10)) : '';
+  const thisYear = new Date().getFullYear();
+  const years = []; for (let y = thisYear; y >= thisYear - 100; y--) years.push(y);
+  const daysInMonth = (y, m) => (y && m) ? new Date(Number(y), Number(m), 0).getDate() : 31;
+  const emit = (ny, nm, nd) => {
+    if (!ny || !nm || !nd) { onChange(''); return; }
+    const clampedDay = Math.min(Number(nd), daysInMonth(ny, nm));
+    onChange(`${ny}-${String(nm).padStart(2, '0')}-${String(clampedDay).padStart(2, '0')}`);
+  };
+  const days = []; for (let d = 1; d <= daysInMonth(year || thisYear, mon || 1); d++) days.push(d);
+  return (
+    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+      <select className="px-select" aria-label="Birth month" value={mon} onChange={(e) => emit(year, e.target.value, day)} style={{ flex: '2 1 90px' }}>
+        <option value="">Month</option>
+        {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+      </select>
+      <select className="px-select" aria-label="Birth day" value={day} onChange={(e) => emit(year, mon, e.target.value)} style={{ flex: '1 1 56px' }}>
+        <option value="">Day</option>
+        {days.map(d => <option key={d} value={d}>{d}</option>)}
+      </select>
+      <select className="px-select" aria-label="Birth year" value={year} onChange={(e) => emit(e.target.value, mon, day)} style={{ flex: '1 1 70px' }}>
+        <option value="">Year</option>
+        {years.map(y => <option key={y} value={y}>{y}</option>)}
+      </select>
+    </div>
+  );
+};
+
 // NumField must be at module scope — defining it inside a component
 // causes React to remount the input on every render, losing focus mid-edit.
 const NumField = ({ label, path, value, prefix = '$', step = 100, onUpdate }) => (
@@ -22,7 +56,8 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
   const { profile, update, setProfile, totalExpenses, surplus, netWorth,
           isOwner, homeEquity, mortgagePrincipalMonthly, mortgageInterestMonthly, escrowMonthly,
-          propertiesEquity, primaryMember, planningAge, grossMonthlyIncome } = useProfile();
+          propertiesEquity, primaryMember, planningAge, grossMonthlyIncome, effectiveTakehome } = useProfile();
+  const hasIncomeSources = (profile.income.sources || []).length > 0;
 
   // ── Household members ──
   const addMember = () => setProfile(p => {
@@ -74,6 +109,15 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
   // ── Estate checklist (will / trust / POA / directive / beneficiaries) ──
   const updateEstate = (key, field, value) => setProfile(p => ({
     ...p, estate: { ...(p.estate || {}), [key]: { ...((p.estate || {})[key] || {}), [field]: value } } }));
+
+  // ── Custom outflow boxes (editable-title expense lines) ──
+  const cexp = (p) => Array.isArray(p.expenses?.custom) ? p.expenses.custom : [];
+  const addCustomExpense = () => setProfile(p => ({ ...p, expenses: { ...p.expenses,
+    custom: [...cexp(p), { id: `ce${Date.now()}`, label: '', amount: 0 }] } }));
+  const removeCustomExpense = (id) => setProfile(p => ({ ...p, expenses: { ...p.expenses,
+    custom: cexp(p).filter(c => c.id !== id) } }));
+  const updateCustomExpense = (id, field, value) => setProfile(p => ({ ...p, expenses: { ...p.expenses,
+    custom: cexp(p).map(c => c.id === id ? { ...c, [field]: value } : c) } }));
 
   const addDebt = () => setProfile(p => ({
     ...p,
@@ -156,32 +200,34 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
               </div>
             )}
             {(profile.members || []).map(m => (
-              <div key={m.id} style={{ display: 'grid', gridTemplateColumns: '1fr 100px 148px 22px', gap: 8, alignItems: 'end', marginBottom: 8 }}>
-                <label className="px-field">
-                  <span className="px-field-label">Name</span>
-                  <div className="px-input-affix">
-                    <input type="text" value={m.name} placeholder="Full name"
-                      onChange={(e) => updateMember(m.id, 'name', e.target.value)} />
-                  </div>
-                </label>
-                <label className="px-field">
-                  <span className="px-field-label">Role</span>
-                  <select className="px-select" value={m.role} onChange={(e) => updateMember(m.id, 'role', e.target.value)}>
-                    <option value="primary">Primary</option>
-                    <option value="spouse">Spouse / partner</option>
-                    <option value="dependent">Dependent</option>
-                  </select>
-                </label>
-                <label className="px-field">
-                  <span className="px-field-label">Date of birth</span>
-                  <input type="date" className="px-input" value={m.dateOfBirth || ''}
-                    style={{ width: '100%' }}
-                    onChange={(e) => updateMember(m.id, 'dateOfBirth', e.target.value)} />
-                </label>
-                <button onClick={() => removeMember(m.id)} aria-label="Remove person"
-                  style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', padding: '0 0 9px', lineHeight: 1 }}>
-                  <Icons.X size={12} />
-                </button>
+              <div key={m.id} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 10, marginBottom: 8, background: 'var(--surface)' }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'end', marginBottom: 8 }}>
+                  <label className="px-field" style={{ flex: 1 }}>
+                    <span className="px-field-label">Name</span>
+                    <div className="px-input-affix">
+                      <input type="text" value={m.name} placeholder="Full name"
+                        onChange={(e) => updateMember(m.id, 'name', e.target.value)} />
+                    </div>
+                  </label>
+                  <button onClick={() => removeMember(m.id)} aria-label="Remove person" title="Remove"
+                    style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', padding: '0 0 9px', lineHeight: 1 }}>
+                    <Icons.X size={12} />
+                  </button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: 8, alignItems: 'end' }}>
+                  <label className="px-field">
+                    <span className="px-field-label">Role</span>
+                    <select className="px-select" value={m.role} onChange={(e) => updateMember(m.id, 'role', e.target.value)}>
+                      <option value="primary">Primary</option>
+                      <option value="spouse">Spouse / partner</option>
+                      <option value="dependent">Dependent</option>
+                    </select>
+                  </label>
+                  <label className="px-field">
+                    <span className="px-field-label">Date of birth</span>
+                    <DobSelects value={m.dateOfBirth || ''} onChange={(v) => updateMember(m.id, 'dateOfBirth', v)} />
+                  </label>
+                </div>
               </div>
             ))}
           </section>
@@ -189,11 +235,22 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
           {/* Income */}
           <section style={{ marginBottom: 22 }}>
             <div className="px-eyebrow" style={{ marginBottom: 10 }}>Income</div>
-            <NumField label="Monthly take-home" path="income.monthlyTakehome" value={profile.income.monthlyTakehome}  onUpdate={update}/>
+            {hasIncomeSources ? (
+              <label className="px-field">
+                <span className="px-field-label">Monthly take-home</span>
+                <div className="px-input-affix" style={{ background: 'var(--bg)' }}>
+                  <span className="px-affix">$</span>
+                  <input type="text" readOnly value={(effectiveTakehome || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })} style={{ cursor: 'default', color: 'var(--ink-mute)' }} />
+                </div>
+                <span style={{ fontSize: 10, color: 'var(--ink-faint)', marginTop: 2, display: 'block' }}>auto-summed from the income sources below</span>
+              </label>
+            ) : (
+              <NumField label="Monthly take-home" path="income.monthlyTakehome" value={profile.income.monthlyTakehome}  onUpdate={update}/>
+            )}
 
-            {/* Optional income composition — informational for tax planning; does NOT change take-home */}
+            {/* Income sources — itemized lines that auto-sum into monthly take-home */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '14px 0 8px' }}>
-              <span style={{ fontSize: 11, color: 'var(--ink-mute)', fontStyle: 'italic' }}>Gross income sources (optional)</span>
+              <span style={{ fontSize: 11, color: 'var(--ink-mute)', fontStyle: 'italic' }}>Income sources (optional — these sum to take-home)</span>
               <button className="px-btn px-btn-sm px-btn-ghost" style={{ padding: '3px 8px' }} onClick={addSource}>
                 <Icons.Plus size={10} /> Add source
               </button>
@@ -218,7 +275,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                   </select>
                 </label>
                 <label className="px-field">
-                  <span className="px-field-label">Gross / mo</span>
+                  <span className="px-field-label">Amount / mo</span>
                   <div className="px-input-affix"><span className="px-affix">$</span>
                     <input type="number" value={s.monthlyGross} step="500"
                       onChange={(e) => updateSource(s.id, 'monthlyGross', parseFloat(e.target.value) || 0)} /></div>
@@ -231,7 +288,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
             ))}
             {grossMonthlyIncome > 0 && (
               <div className="px-split-equity" style={{ marginTop: 4 }}>
-                <span>Gross income · {fmt$(grossMonthlyIncome)}/mo</span>
+                <span>Total income · {fmt$(grossMonthlyIncome)}/mo</span>
                 <strong>{fmt$(grossMonthlyIncome * 12, { short: true })}/yr</strong>
               </div>
             )}
@@ -367,7 +424,12 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
 
           {/* Expenses */}
           <section style={{ marginBottom: 22 }}>
-            <div className="px-eyebrow" style={{ marginBottom: 10 }}>Essential outflow</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div className="px-eyebrow">Essential outflow</div>
+              <button className="px-btn px-btn-sm px-btn-ghost" style={{ padding: '3px 8px' }} onClick={addCustomExpense}>
+                <Icons.Plus size={10} /> Add box
+              </button>
+            </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <NumField label="Food" path="expenses.food" value={profile.expenses.food}  onUpdate={update}/>
               <NumField label="Transport" path="expenses.transport" value={profile.expenses.transport}  onUpdate={update}/>
@@ -375,6 +437,28 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
               <NumField label="Healthcare" path="expenses.healthcare" value={profile.expenses.healthcare}  onUpdate={update}/>
               <NumField label="Other" path="expenses.other" value={profile.expenses.other}  onUpdate={update}/>
             </div>
+            {/* Custom outflow boxes — editable title + amount */}
+            {(profile.expenses.custom || []).map(c => (
+              <div key={c.id} style={{ display: 'grid', gridTemplateColumns: '1fr 130px 24px', gap: 8, alignItems: 'end', marginTop: 10 }}>
+                <label className="px-field">
+                  <span className="px-field-label">Category</span>
+                  <div className="px-input-affix">
+                    <input type="text" value={c.label} placeholder="e.g. Childcare, tuition…"
+                      onChange={(e) => updateCustomExpense(c.id, 'label', e.target.value)} />
+                  </div>
+                </label>
+                <label className="px-field">
+                  <span className="px-field-label">Amount / mo</span>
+                  <div className="px-input-affix"><span className="px-affix">$</span>
+                    <input type="number" value={c.amount} step="50"
+                      onChange={(e) => updateCustomExpense(c.id, 'amount', parseFloat(e.target.value) || 0)} /></div>
+                </label>
+                <button onClick={() => removeCustomExpense(c.id)} aria-label="Remove box"
+                  style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', padding: '0 0 9px', lineHeight: 1 }}>
+                  <Icons.X size={12} />
+                </button>
+              </div>
+            ))}
             <div className="px-outflow-total">
               <span>Total monthly outflow <em>· incl. housing</em></span>
               <strong>{fmt$(totalExpenses)}</strong>
