@@ -312,10 +312,43 @@ function assetComposition({ managedAum = 0, investedOnFile = 0 } = {}) {
   };
 }
 
+// ── Risk tolerance profile → strategic allocation (C4) ───────────────────────
+// Maps a short risk questionnaire to a band + a transparent strategic asset
+// allocation (equity / fixed income / cash). Pure and deterministic so the draft
+// IPS it feeds is reproducible. `answers` is an array of per-question scores
+// (each option weighted 0..4, higher = more risk-tolerant). An optional planning
+// horizon nudges tolerance up for long runways, down for short ones. Returns null
+// for an empty questionnaire so callers can show it as not-yet-taken.
+const RISK_ALLOCATIONS = {
+  Conservative: { equity: 30, fixedIncome: 55, cash: 15 },
+  Moderate:     { equity: 45, fixedIncome: 45, cash: 10 },
+  Balanced:     { equity: 60, fixedIncome: 35, cash: 5 },
+  Growth:       { equity: 75, fixedIncome: 22, cash: 3 },
+  Aggressive:   { equity: 90, fixedIncome: 9,  cash: 1 },
+};
+function riskProfile({ answers = [], horizonYears = null } = {}) {
+  const a = (Array.isArray(answers) ? answers : []).filter(x => x != null && x !== '');
+  if (!a.length) return null;
+  const raw = a.reduce((s, x) => s + (Number(x) || 0), 0);
+  const max = a.length * 4;                       // each question scored 0..4
+  let score = max > 0 ? (raw / max) * 100 : 0;
+  if (horizonYears != null && isFinite(horizonYears)) {
+    if (horizonYears >= 20)     score = Math.min(100, score + 6);
+    else if (horizonYears <= 5) score = Math.max(0, score - 10);
+  }
+  const band = score >= 80 ? 'Aggressive'
+    : score >= 62 ? 'Growth'
+    : score >= 42 ? 'Balanced'
+    : score >= 22 ? 'Moderate'
+    : 'Conservative';
+  return { score: Math.round(score), band, allocation: RISK_ALLOCATIONS[band] };
+}
+
 const PrismCalc = {
   buildValueSeries, modifiedDietz, perfPeriods,
   debtPayoffMonths, hsaProjection, monteCarlo, rothLadder, estateProjection, tlh,
   retirementReadiness, goalFunding, annualFeeForAum, lifeCoverageGap, assetComposition,
+  riskProfile, RISK_ALLOCATIONS,
 };
 
 if (typeof window !== 'undefined') window.PrismCalc = PrismCalc;

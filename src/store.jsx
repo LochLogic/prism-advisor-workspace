@@ -69,6 +69,9 @@ const defaultProfile = {
     healthcareDirective: { status: 'complete',    lastReviewed: '2023-03-01' },
     beneficiaries:       { status: 'none',        lastReviewed: '' },
   },
+  // Risk tolerance questionnaire (C4) — per-question scores (0..4). Feeds the
+  // strategic allocation and the draft IPS. Completed in the sample household.
+  risk: { answers: [3, 3, 2, 3, 2, 3], completedAt: '2026-02-10' },
 };
 
 // A fully-shaped but zeroed profile. Real (newly created) clients start here so
@@ -99,6 +102,7 @@ const emptyProfile = {
     healthcareDirective: { status: 'none', lastReviewed: '' },
     beneficiaries:       { status: 'none', lastReviewed: '' },
   },
+  risk: { answers: [], completedAt: null },
 };
 
 // Reconcile managed/linked AUM against the household's self-reported invested
@@ -316,6 +320,23 @@ function ProfileProvider({ children }) {
   const estateComplete = estateKeys.filter(k => estate[k]?.status === 'complete').length;
   const estateProgress = Math.round((estateComplete / estateKeys.length) * 100);
 
+  // ── Risk tolerance → strategic allocation (C4) ──────────────────
+  const riskAnswers = Array.isArray(profile.risk?.answers) ? profile.risk.answers : [];
+  const riskComplete = riskAnswers.filter(x => x != null && x !== '').length;
+  const yearsToRetire = Math.max(0, (Number(profile.goals?.retireAt) || 65) - planningAge);
+  const riskProfile = _calc.riskProfile({ answers: riskAnswers, horizonYears: yearsToRetire });
+
+  // ── Monte Carlo probability-of-success band (C4) ────────────────
+  // Surfaces the existing seeded simulation as a confidence band on the
+  // retirement horizon. Deterministic per client so the figure is stable.
+  const mcSeed = (activeClientId || 'demo').split('').reduce((s, c) => s + c.charCodeAt(0), 0) || 42;
+  const mcYears = Math.max(20, (Number(profile.goals?.retireAt) || 65) - planningAge + 25);
+  const mcWithdrawal = Math.round(annualExpenses / 1000) * 1000;
+  const successBand = totalInvested > 0 && annualExpenses > 0
+    ? _calc.monteCarlo({ principal: totalInvested, years: mcYears, withdrawal: mcWithdrawal,
+        seed: mcSeed, runs: 600, mean: 0.07, sd: 0.16 })
+    : null;
+
   const metrics = {
     totalExpenses, totalDebt, toxicDebt, surplus, savingsRate,
     retirementAssets, taxableBalance, totalInvested, investedOnFile, netWorth,
@@ -329,6 +350,7 @@ function ProfileProvider({ children }) {
     incomeStreams, annualRetirementContribution, retirementReadiness,
     goalItems, goalsFunding,
     insurance, lifeCoverage, lifeCoverageGap, estate, estateProgress, estateComplete,
+    riskAnswers, riskComplete, riskProfile, successBand,
   };
 
   // Asset-truth composition (managed AUM is passed in by the view, which knows the
@@ -919,6 +941,146 @@ function printPerformanceReport(opts) {
   `);
 }
 
+// One-click QBR packet (C4). Assembles a client-ready quarterly business review
+// from data already in the system: roadmap progress + retirement readiness +
+// net-of-fee performance + goals + protection. A pure renderer — the advisor
+// modal gathers the pieces and passes pre-computed display values.
+function printQBRReport(opts) {
+  const o = opts || {};
+  const client = o.client || {};
+  const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+  // Roadmap progress strip
+  const phaseRows = (o.phases || []).map(p => {
+    const pct = p.total ? Math.round((p.completed / p.total) * 100) : 0;
+    const tone = pct === 100 ? '#3d5a4a' : pct > 0 ? '#a98c4b' : '#8da3b6';
+    return `<div class="task"><span style="flex:1">Phase ${escapeHtml(p.num)} · ${escapeHtml(p.title)}</span>
+      <span style="color:${tone};font-weight:600">${p.completed}/${p.total} · ${pct}%</span></div>`;
+  }).join('');
+
+  // Retirement readiness + probability band
+  let readinessHtml = '';
+  if (o.readiness) {
+    const r = o.readiness;
+    const pct = Math.round((r.fundedRatio || 0) * 100);
+    const band = o.successBand
+      ? ` &middot; Monte Carlo success ${Math.round(o.successBand.successPct)}% (bear ${fmt$(o.successBand.p10, { short: true })} · median ${fmt$(o.successBand.medianFinal, { short: true })} · bull ${fmt$(o.successBand.p90, { short: true })})`
+      : '';
+    readinessHtml = `<div class="section-lbl">Retirement readiness</div>
+      <div style="font-size:12.5px;color:#2d4258">${pct}% funded &middot; <b>${escapeHtml(r.verdict)}</b>${r.lasts ? ' — plan funded through age 95' : (r.depletionAge ? ` — projected to age ${r.depletionAge}` : '')}${band}</div>`;
+  }
+
+  // Goals
+  const goalsHtml = (o.goals || []).length
+    ? `<div class="section-lbl">Goals</div>${o.goals.map(g => `
+        <div class="task"><span style="flex:1">${escapeHtml(g.label)}</span><span style="color:#5d7a8e">${g.pct}% · ${escapeHtml(g.status)}</span></div>`).join('')}`
+    : '';
+
+  // Protection
+  let protHtml = '';
+  if (o.protection) {
+    const p = o.protection;
+    protHtml = `<div class="section-lbl">Protection &amp; estate</div>
+      <div style="font-size:12.5px;color:#2d4258">Life coverage ${fmt$(p.lifeCoverage, { short: true })}${p.recommended > 0 ? ` of ${fmt$(p.recommended, { short: true })} guideline` : ''}${p.gap > 0 ? ` &middot; gap ${fmt$(p.gap, { short: true })}` : ' &middot; well covered'} &middot; estate ${p.estateComplete}/${p.estateTotal} in place</div>`;
+  }
+
+  // Performance chart + period returns
+  const series = o.series || [], periods = o.periods || [], flows = o.flows || [];
+  let chartHtml = '';
+  if (series.length >= 2) {
+    const W = 640, H = 150;
+    const vals = series.map(p => p.value);
+    const min = Math.min(...vals), max = Math.max(...vals), range = (max - min) || 1, n = series.length;
+    const x = i => (i / (n - 1)) * W, y = v => H - ((v - min) / range) * (H - 20) - 10;
+    const line = series.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`).join(' ');
+    const up = vals[n - 1] >= vals[0], color = up ? '#3d5a4a' : '#8c3d3d';
+    chartHtml = `<svg width="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="border:1px solid #e4dfd0;border-radius:6px;background:#fff">
+      <path d="${line} L${W},${H} L0,${H} Z" fill="${color}" opacity="0.08"/>
+      <path d="${line}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round"/></svg>`;
+  }
+  const netOfFees = (flows || []).some(f => f.kind === 'fee');
+  const periodCells = periods.map(s => {
+    const has = s.pct != null && isFinite(s.pct), pos = (s.pct || 0) >= 0;
+    return `<div class="stat"><div class="stat-lbl">${escapeHtml(s.label)}</div><div class="stat-val" style="color:${!has ? '#8da3b6' : pos ? '#3d5a4a' : '#8c3d3d'}">${has ? `${pos ? '+' : ''}${s.pct.toFixed(1)}%` : '—'}</div></div>`;
+  }).join('');
+  const perfHtml = series.length >= 2
+    ? `<div class="section-lbl">Performance — portfolio value</div>${chartHtml}
+       <div class="section-lbl" style="margin-top:18px">Time-weighted return${netOfFees ? ' &middot; net of advisory fees' : ''}</div>
+       <div class="grid" style="grid-template-columns:repeat(5,1fr)">${periodCells}</div>`
+    : '';
+
+  // Risk allocation
+  const allocHtml = (o.risk && o.risk.allocation)
+    ? `<div class="section-lbl">Strategic allocation (${escapeHtml(o.risk.band)})</div>
+       <div style="font-size:12.5px;color:#2d4258">Equity ${o.risk.allocation.equity}% &middot; Fixed income ${o.risk.allocation.fixedIncome}% &middot; Cash ${o.risk.allocation.cash}%</div>`
+    : '';
+
+  _openPrint(`Quarterly Review — ${escapeHtml(client.name)}`, `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
+      <div><h1>Quarterly Business Review</h1><div class="sub">${escapeHtml(client.name)} &middot; ${date}</div></div>
+      <div style="font-size:10px;color:#8da3b6;text-align:right">${escapeHtml(o.advisorFirm || 'Prism Advisor Workspace')}${o.advisorName ? `<br/>Prepared by ${escapeHtml(o.advisorName)}` : ''}<br/>Confidential</div>
+    </div>
+    <div class="grid">
+      <div class="stat"><div class="stat-lbl">Net worth</div><div class="stat-val">${fmt$(o.netWorth, { short: true })}</div></div>
+      <div class="stat"><div class="stat-lbl">Managed assets</div><div class="stat-val">${fmt$(o.aum, { short: true })}</div></div>
+      <div class="stat"><div class="stat-lbl">Current horizon</div><div class="stat-val" style="font-size:13px;margin-top:6px">Phase ${escapeHtml(o.phase?.num || '—')} · ${escapeHtml(o.phase?.title || '')}</div></div>
+    </div>
+    <div class="section-lbl">Plan progress</div>
+    ${phaseRows}
+    ${readinessHtml}
+    ${allocHtml}
+    ${goalsHtml}
+    ${protHtml}
+    ${perfHtml}
+    <div class="footer">This review summarizes your plan as of ${date} and is prepared for discussion with your advisor. Returns are time-weighted (Modified Dietz)${netOfFees ? ', shown net of advisory fees' : ''}. Projections are illustrative; past performance is not indicative of future results. Prism Advisor Workspace${o.advisorFirm ? ' &middot; ' + escapeHtml(o.advisorFirm) : ''}.</div>
+  `);
+}
+
+// Draft Investment Policy Statement (C4). Built from the client's risk profile
+// (band + strategic allocation from calc-core.riskProfile). A starting draft the
+// advisor reviews, prints for the vault, and sends for e-sign via acknowledgements.
+//   opts: { client, risk:{ score, band, allocation }, planningAge, retireAt, advisorName, advisorFirm }
+function printIPSReport(opts) {
+  const { client, risk, planningAge, retireAt, advisorName, advisorFirm } = opts || {};
+  const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const a = risk?.allocation || { equity: 60, fixedIncome: 35, cash: 5 };
+  const horizon = (retireAt && planningAge) ? Math.max(0, retireAt - planningAge) : null;
+  const allocRows = [
+    ['Equity (global, diversified)', a.equity],
+    ['Fixed income / bonds', a.fixedIncome],
+    ['Cash & equivalents', a.cash],
+  ].map(([label, pct]) => `
+    <div class="task"><span style="flex:1">${escapeHtml(label)}</span><span style="font-weight:600">${pct}%</span></div>`).join('');
+
+  _openPrint(`Investment Policy Statement — ${escapeHtml(client.name)}`, `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
+      <div><h1>Investment Policy Statement</h1><div class="sub">${escapeHtml(client.name)} &middot; Draft ${date}</div></div>
+      <div style="font-size:10px;color:#8da3b6;text-align:right">${escapeHtml(advisorFirm || 'Prism Advisor Workspace')}${advisorName ? `<br/>Prepared by ${escapeHtml(advisorName)}` : ''}<br/>DRAFT — for review</div>
+    </div>
+    <div class="grid">
+      <div class="stat"><div class="stat-lbl">Risk profile</div><div class="stat-val" style="font-size:15px;margin-top:6px">${escapeHtml(risk?.band || '—')}</div></div>
+      <div class="stat"><div class="stat-lbl">Risk score</div><div class="stat-val">${risk?.score != null ? risk.score + ' / 100' : '—'}</div></div>
+      <div class="stat"><div class="stat-lbl">Time horizon</div><div class="stat-val" style="font-size:15px;margin-top:6px">${horizon != null ? `${horizon} yrs to retirement` : 'Long-term'}</div></div>
+    </div>
+    <div class="section-lbl">1 · Purpose</div>
+    <div style="font-size:12.5px;line-height:1.6;color:#2d4258">This Investment Policy Statement sets the objectives, risk tolerance, and target asset allocation for the assets managed on behalf of ${escapeHtml(client.name)}. It is a working framework reviewed with the advisor and updated as circumstances change.</div>
+    <div class="section-lbl">2 · Investment objective &amp; risk tolerance</div>
+    <div style="font-size:12.5px;line-height:1.6;color:#2d4258">Based on a completed risk questionnaire, the household's tolerance is assessed as <b>${escapeHtml(risk?.band || 'Balanced')}</b>. The portfolio is constructed to pursue long-term growth consistent with this tolerance${horizon != null ? ` over an approximately ${horizon}-year horizon to retirement` : ''}, accepting the interim volatility this allocation implies.</div>
+    <div class="section-lbl">3 · Target strategic asset allocation</div>
+    <div class="task" style="font-weight:600;color:#5d7a8e;font-size:11px;text-transform:uppercase;letter-spacing:.04em"><span style="flex:1">Asset class</span><span>Target</span></div>
+    ${allocRows}
+    <div class="section-lbl">4 · Rebalancing</div>
+    <div style="font-size:12.5px;line-height:1.6;color:#2d4258">Allocations are reviewed at least annually and rebalanced when any asset class drifts more than ±5% from its target, or upon a material change in the household's circumstances.</div>
+    <div class="section-lbl">5 · Review &amp; acknowledgement</div>
+    <div style="font-size:12.5px;line-height:1.6;color:#2d4258">This statement is reviewed at each periodic meeting. By signing, the client acknowledges they have reviewed and agree to this policy as a basis for ongoing management.</div>
+    <div style="display:flex;gap:40px;margin-top:34px">
+      <div style="flex:1;border-top:1px solid #1c2e4a;padding-top:6px;font-size:11px;color:#5d7a8e">Client signature &amp; date</div>
+      <div style="flex:1;border-top:1px solid #1c2e4a;padding-top:6px;font-size:11px;color:#5d7a8e">Advisor signature &amp; date</div>
+    </div>
+    <div class="footer">Draft Investment Policy Statement generated by Prism Advisor Workspace${advisorFirm ? ' &middot; ' + escapeHtml(advisorFirm) : ''}. This draft is informational, is not investment advice, and is finalized only upon signature by both parties.</div>
+  `);
+}
+
 // Branded advisory-fee invoice (Theme D, 18d)
 function printInvoiceReport(invoice, clientName, advisorFirm) {
   const fmtD = (d) => new Date(d).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
@@ -960,6 +1122,8 @@ Object.assign(window, {
   printComplianceReport,
   printPerformanceReport,
   printInvoiceReport,
+  printQBRReport,
+  printIPSReport,
   escapeHtml, sanitizeHtml,
   fmt$, fmtPct, fmtN,
 });

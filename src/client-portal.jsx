@@ -202,6 +202,127 @@ const PhaseCard = ({ phase, onOpenMilestone }) => {
   );
 };
 
+/* ─── Risk questionnaire (C4) ─────────────────────────────────────────
+   Client-facing risk profiling. Each option is weighted 0..4; the summed
+   score maps (in calc-core.riskProfile) to a band + strategic allocation that
+   feeds the roadmap and the advisor's draft IPS. Plain-language, no jargon. */
+const RISK_QUESTIONS = [
+  { q: 'When you picture investing, which feels most like you?',
+    options: ['Protecting what I have matters most', 'Mostly safety, a little growth',
+      'A balance of growth and safety', 'Mostly growth — some ups and downs are fine',
+      'Maximum growth — I can ride out big swings'] },
+  { q: 'If your portfolio dropped 20% over a few months, you would…',
+    options: ['Sell to stop further losses', 'Move some into safer holdings',
+      'Wait and hold steady', "Do nothing — it's part of investing",
+      'Invest more while prices are lower'] },
+  { q: 'How would you describe your investing experience?',
+    options: ['New to it', 'Some — mostly funds or a 401(k)',
+      'Comfortable with a diversified portfolio', 'Experienced across asset classes',
+      'Very experienced, including individual securities'] },
+  { q: 'Which best describes what you want this money to do?',
+    options: ["I'll need it fairly soon", 'Produce income and stay stable',
+      'Grow steadily over the long term', 'Build wealth over decades',
+      'Grow as aggressively as possible'] },
+  { q: 'How stable is your income and overall situation?',
+    options: ['Variable or uncertain', 'Somewhat stable', 'Stable',
+      'Very stable', 'Very stable, with strong reserves'] },
+  { q: 'Which portfolio would you be most comfortable holding for 10 years?',
+    options: ['Best year +4% / worst −2%', '+8% / −8%', '+12% / −15%',
+      '+18% / −25%', '+25% / −35%'] },
+];
+
+const RISK_BAND_TONE = { Conservative: 'var(--forest)', Moderate: 'var(--forest)',
+  Balanced: 'var(--gold)', Growth: 'var(--gold)', Aggressive: 'var(--brick)' };
+
+const RiskProfileCard = ({ advisorName }) => {
+  const ctx = useProfile();
+  const answers = ctx.riskAnswers || [];
+  const answeredCount = ctx.riskComplete || 0;
+  const done = answeredCount >= RISK_QUESTIONS.length;
+  const [editing, setEditing] = React.useState(!done);
+  const result = ctx.riskProfile; // { score, band, allocation } | null
+
+  const setAnswer = (i, score) => {
+    const next = answers.slice();
+    next[i] = score;
+    ctx.update('risk.answers', next);
+    if (next.filter(x => x != null && x !== '').length === RISK_QUESTIONS.length) {
+      ctx.update('risk.completedAt', new Date().toISOString().slice(0, 10));
+    }
+  };
+
+  return (
+    <div className="px-card" style={{ padding: 18, marginBottom: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12, gap: 8, flexWrap: 'wrap' }}>
+        <div className="px-eyebrow">Risk profile</div>
+        {done && result && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--ink-mute)' }}>
+            {result.score} / 100
+            <span style={{ fontFamily: 'var(--serif)', fontSize: 15, fontWeight: 600, color: RISK_BAND_TONE[result.band] }}>{result.band}</span>
+            {!editing && (
+              <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => setEditing(true)}>
+                <Icons.Edit size={10} /> Review
+              </button>
+            )}
+          </span>
+        )}
+      </div>
+
+      {editing ? (
+        <>
+          <div style={{ fontSize: 12.5, color: 'var(--ink-mute)', lineHeight: 1.5, marginBottom: 14 }}>
+            A few quick questions shape your recommended investment mix — and the draft Investment Policy Statement {advisorName} prepares with you.
+          </div>
+          {RISK_QUESTIONS.map((item, qi) => (
+            <div key={qi} style={{ padding: '10px 0', borderTop: qi === 0 ? 'none' : '1px solid var(--border)' }}>
+              <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--ink)', marginBottom: 8 }}>{qi + 1}. {item.q}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {item.options.map((opt, oi) => {
+                  const sel = answers[qi] === oi;
+                  return (
+                    <button key={oi} onClick={() => setAnswer(qi, oi)}
+                      style={{ textAlign: 'left', cursor: 'pointer', fontFamily: 'var(--sans)',
+                        fontSize: 12.5, padding: '7px 11px', borderRadius: 6,
+                        border: `1px solid ${sel ? 'var(--gold)' : 'var(--border)'}`,
+                        background: sel ? 'var(--gold-soft)' : 'var(--bg)',
+                        color: sel ? 'var(--ink)' : 'var(--ink-2)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ width: 13, height: 13, borderRadius: '50%', flexShrink: 0,
+                        border: `1.5px solid ${sel ? 'var(--gold)' : 'var(--border-2)'}`,
+                        background: sel ? 'var(--gold)' : 'transparent' }} />
+                      {opt}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          {done && (
+            <button className="px-btn px-btn-primary px-btn-sm" style={{ marginTop: 14 }} onClick={() => setEditing(false)}>
+              <Icons.Check size={12} /> View my recommended mix
+            </button>
+          )}
+        </>
+      ) : result && (
+        <>
+          <div style={{ fontSize: 12.5, color: 'var(--ink-2)', lineHeight: 1.5, marginBottom: 12 }}>
+            Based on your answers, a <b style={{ color: RISK_BAND_TONE[result.band] }}>{result.band.toLowerCase()}</b> strategy fits you — a starting point {advisorName} will tailor with you.
+          </div>
+          <div style={{ display: 'flex', height: 12, borderRadius: 6, overflow: 'hidden', marginBottom: 10 }}>
+            <div style={{ width: `${result.allocation.equity}%`, background: 'var(--forest)' }} title={`Equity ${result.allocation.equity}%`} />
+            <div style={{ width: `${result.allocation.fixedIncome}%`, background: 'var(--gold)' }} title={`Fixed income ${result.allocation.fixedIncome}%`} />
+            <div style={{ width: `${result.allocation.cash}%`, background: 'var(--ink-faint)' }} title={`Cash ${result.allocation.cash}%`} />
+          </div>
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 11.5, color: 'var(--ink-mute)' }}>
+            <span><span style={{ color: 'var(--forest)', fontWeight: 700 }}>●</span> Equity {result.allocation.equity}%</span>
+            <span><span style={{ color: 'var(--gold)', fontWeight: 700 }}>●</span> Fixed income {result.allocation.fixedIncome}%</span>
+            <span><span style={{ color: 'var(--ink-faint)', fontWeight: 700 }}>●</span> Cash {result.allocation.cash}%</span>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
 const ClientPortal = ({ onOpenNumbers }) => {
   const ctx = useProfile();
   const { overallPct, completedCount, totalTasks, activePhase, taskStates, setOpenPhases } = useTasks();
@@ -499,12 +620,49 @@ const ClientPortal = ({ onOpenNumbers }) => {
                 <span>{rightLabel}</span>
               </div>
               <div style={{ fontSize: 11.5, color: 'var(--ink-2)', marginTop: 10, lineHeight: 1.5 }}>{note}</div>
-              <div style={{ fontSize: 10.5, color: 'var(--ink-faint)', marginTop: 6, fontStyle: 'italic', lineHeight: 1.5 }}>
-                Projection nets your guaranteed income against inflated spending — illustrative, and best refined with {advisorDisplay.name}.
+
+              {/* Probability-of-success band — the existing Monte Carlo, surfaced
+                  as a confidence range on the retirement horizon (C4). */}
+              {ctx.successBand && (() => {
+                const sb = ctx.successBand;
+                const sbMax = Math.max(sb.p90, sb.medianFinal, 1);
+                const segLeft = Math.max(0, Math.min(100, (sb.p10 / sbMax) * 100));
+                const medPos  = Math.max(2, Math.min(98, (sb.medianFinal / sbMax) * 100));
+                const sbTone = sb.successPct >= 85 ? 'var(--forest)'
+                  : sb.successPct >= 70 ? 'var(--gold)'
+                  : (earlyJourney ? 'var(--gold)' : 'var(--brick)');
+                return (
+                  <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+                      <span className="px-eyebrow">Probability of success</span>
+                      <span style={{ fontFamily: 'var(--serif)', fontSize: 16, fontWeight: 600, color: sbTone }}>{Math.round(sb.successPct)}%</span>
+                    </div>
+                    <div style={{ position: 'relative', height: 8, background: 'var(--bg-elev)', borderRadius: 4 }}
+                         aria-label={`Outcomes range from ${fmt$(sb.p10, { short: true })} to ${fmt$(sb.p90, { short: true })}, median ${fmt$(sb.medianFinal, { short: true })}`}>
+                      <div style={{ position: 'absolute', left: `${segLeft}%`, right: 0, top: 0, bottom: 0,
+                        background: sbTone, opacity: 0.35, borderRadius: 4 }} />
+                      <div style={{ position: 'absolute', left: `${medPos}%`, top: -2, bottom: -2, width: 2,
+                        background: sbTone, borderRadius: 2 }} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 11, color: 'var(--ink-mute)' }}>
+                      <span>Bear case {fmt$(sb.p10, { short: true })}</span>
+                      <span style={{ color: sbTone, fontWeight: 600 }}>Median {fmt$(sb.medianFinal, { short: true })}</span>
+                      <span>Bull case {fmt$(sb.p90, { short: true })}</span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div style={{ fontSize: 10.5, color: 'var(--ink-faint)', marginTop: 8, fontStyle: 'italic', lineHeight: 1.5 }}>
+                {ctx.successBand ? 'Funded ratio nets guaranteed income against inflated spending; the probability band reflects 600 simulated market paths. Both are illustrative and best refined with ' + advisorDisplay.name + '.'
+                  : 'Projection nets your guaranteed income against inflated spending — illustrative, and best refined with ' + advisorDisplay.name + '.'}
               </div>
             </div>
           );
         })()}
+
+        {/* Risk profile — client questionnaire → recommended mix + draft IPS (C4) */}
+        {!isBlankSlate && <RiskProfileCard advisorName={advisorDisplay.name} />}
 
         {/* Funding goals — per-goal progress + on-pace nudge */}
         {!isBlankSlate && (ctx.goalsFunding || []).length > 0 && (
