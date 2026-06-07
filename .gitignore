@@ -35,3 +35,8 @@ src/_entry.jsx
 # Cloudflare / Wrangler
 .wrangler/
 .dev.vars
+
+# Playwright e2e artifacts
+test-results/
+playwright-report/
+blob-report/

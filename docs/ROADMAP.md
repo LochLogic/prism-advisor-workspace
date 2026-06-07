@@ -1,6 +1,7 @@
 # Prism — Product & Go-to-Market Roadmap
 
-> **Canonical roadmap. Supersedes the prior sprint plan.** Last updated 2026-06-06.
+> **Canonical roadmap. Supersedes the prior sprint plan.** Last updated 2026-06-07.
+> Dated shipped-sprint history lives in [`sprint-log.md`](sprint-log.md); live working board (Claude vs human queues) is [`TODO.md`](TODO.md).
 > The feature build is mature and revenue is gated by trust, focus, distribution, and infrastructure — but *building* is no longer gated (see Standing principle). This roadmap is sequenced for **onboarding a first paying advisor**, with a wedge-expansion track (added 2026-06-06) for the features that make an RIA switch.
 
 ---
@@ -159,19 +160,19 @@ The product is mature; these close the gaps that bite the day a design partner i
 
 | Item | Sev | Area |
 |---|---|---|
-| Rate-limit + retention-prune the public `log-error` endpoint | 🔴 | InfoSec / Backend |
+| ~~Rate-limit + retention-prune the public `log-error` endpoint~~ — ✅ done 2026-06-07 (migration 021: per-IP+global token bucket + daily prune cron). *Function redeploy pending (TODO H4).* | 🟢 | InfoSec / Backend |
 | Supabase Pro (PITR/backups) + rotate Supabase/service-role/Stripe/CRON secrets before live data | 🔴 | InfoSec / Scale (existing Phase-0 blocker) |
-| Error alerting + a `client_errors` dashboard (capture exists; nobody is told) | 🔴 | Monitoring |
+| Error alerting (capture exists; nobody is told) — ◐ built 2026-06-07 (migration 022 + `error-digest` hourly cron → `ALERT_WEBHOOK_URL`). Needs the webhook set + function deployed (TODO H3/H4). *No in-app dashboard: cross-tenant errors stay service-role only; the alert goes to the operator.* | 🟡 | Monitoring |
 | ~~Wire the RLS-isolation CI job (set `DATABASE_URL` to a disposable project — see [docs/rls-ci-wiring.md](rls-ci-wiring.md))~~ — ✅ done 2026-06-07: wired via session pooler; RLS tests enforce in CI. Remaining: promote to a required check | 🟢 | QA / InfoSec |
 | Per-PR Cloudflare preview deploys | 🟡 | DevOps |
-| Gate `supabase db push` + edge-function deploy in CI so the repo can't drift from live | 🟡 | DevOps |
-| ESLint + `npm audit`/Dependabot in CI | 🟡 | Frontend / InfoSec |
+| Gate `supabase db push` + edge-function deploy in CI so the repo can't drift from live — ◐ shipped 2026-06-07 (`deploy.yml` manual confirm-gated job + `supabase/config.toml` declaring per-function `verify_jwt`). Needs repo secrets to run (TODO H3). | 🟡 | DevOps |
+| ~~ESLint + `npm audit`/Dependabot in CI~~ — ✅ done 2026-06-07 (`npm run lint` over the esbuild-transformed concatenation in the required `ci` job; `npm audit --audit-level=critical`; `dependabot.yml`). | 🟢 | Frontend / InfoSec |
 | Enforce advisor MFA (TOTP) | 🟡 | InfoSec |
 | Privacy-respecting product analytics (activation events: login, invite, message, plan-update, report) | 🟡 | Monitoring |
 | Uptime monitor on `health` + app | 🟡 | Monitoring |
-| Playwright e2e over the protected high-value paths | 🟡 | QA |
+| ~~Playwright e2e over the protected high-value paths~~ — ✅ done 2026-06-07 (`e2e/demo.spec.ts`: 1-click demo, mobile render, DOB-fix regression guard; non-required `e2e` CI job — promote to required once proven, TODO H3). | 🟢 | QA |
 | Split the client portal into its own bundle entry (payload + attack surface) | 🟡 | Frontend / Code-Opt / InfoSec |
-| Verify invoice-generation idempotency (no double-billing on cron retry) | 🟡 | Backend |
+| ~~Verify invoice-generation idempotency (no double-billing on cron retry)~~ — ✅ done 2026-06-07 (confirmed `unique(client,period)` constraint; `generate-invoices` now distinguishes a 23505 duplicate-skip from a real failure). | 🟢 | Backend |
 | Deep-linkable in-app routing (`/app#/client/:id/tab`) | 🟡 | Click-pathing |
 | `⌘K` client + action command palette | 🟢 | UX |
 | Retention/partitioning for audit / `client_errors` / `balance_history` | 🟡 | Database |

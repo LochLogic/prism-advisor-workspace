@@ -18,9 +18,30 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
+      - run: npm run lint
       - run: npm run build
       - run: npm run check
       - run: npm run test:calc
+      # Supply-chain gate. The app has no runtime npm deps (libs are vendored), so
+      # this guards the build/test toolchain. Blocks only on CRITICAL; Dependabot
+      # handles the long tail of lower-severity bumps via weekly PRs.
+      - run: npm audit --audit-level=critical
+
+  # End-to-end smoke over the demo's protected high-value paths. Separate, NON-required
+  # job (like rls-isolation) so a flaky browser run never blocks a merge while it
+  # stabilises. Promote to required once it's proven reliable.
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm run test:e2e
 
   # Tenant-isolation (RLS) test. Runs against a Postgres/Supabase database via the
   # DATABASE_URL secret; the whole test runs in a transaction that ROLLS BACK, so it

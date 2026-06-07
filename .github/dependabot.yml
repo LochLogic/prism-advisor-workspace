@@ -1,0 +1,22 @@
+# Dependabot — weekly dependency + CI-action update PRs.
+# The app ships no runtime npm deps (React/supabase-js are vendored), so this
+# mostly covers the build/test toolchain (esbuild, eslint, playwright) and the
+# GitHub Actions we pin. Grouped to keep PR noise low.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      dev-dependencies:
+        patterns: ["*"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      actions:
+        patterns: ["*"]

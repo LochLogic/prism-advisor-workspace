@@ -6,25 +6,7 @@ import * as esbuild from 'esbuild';
 import { readFileSync, writeFileSync, unlinkSync, mkdirSync, rmSync, copyFileSync } from 'fs';
 import { createHash } from 'crypto';
 import { publishedPages, renderPage } from './content/pages.mjs';
-
-const files = [
-  'src/error-reporter.js',
-  'src/supabase-client.js',
-  'src/icons.jsx',
-  'src/data.jsx',
-  'src/calc-core.cjs',
-  'src/db.jsx',
-  'src/store.jsx',
-  'src/auth.jsx',
-  'src/components.jsx',
-  'src/calculators.jsx',
-  'src/numbers-panel.jsx',
-  'src/client-portal.jsx',
-  'src/advisor-modal.jsx',
-  'src/advisor-dashboard.jsx',
-  'src/firm-admin.jsx',
-  'src/app.jsx',
-];
+import { sourceFiles as files } from './build-files.mjs';
 
 const combined = files.map(f => readFileSync(f, 'utf8')).join('\n\n');
 const tmp = 'src/_entry.jsx';
