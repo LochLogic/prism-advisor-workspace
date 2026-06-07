@@ -35,11 +35,37 @@ const DobSelects = ({ value, onChange }) => {
   );
 };
 
+// Inline help affordance — an info icon that reveals an upscale tooltip on hover
+// or keyboard focus. Sprinkle a `hint=` onto any field where a word of context
+// helps. `title` is kept as a no-CSS / assistive fallback.
+const FieldHint = ({ text }) => (
+  <span className="px-hint" tabIndex={0} aria-label={text} title={text}>
+    <Icons.Info size={12} />
+    <span className="px-hint-bubble" role="tooltip">{text}</span>
+  </span>
+);
+
+// US states + DC, for the residence dropdown. Value is the 2-letter code, which
+// matches what `taxes.state` already stored as free text (back-compatible).
+const US_STATES = [
+  ['AL','Alabama'],['AK','Alaska'],['AZ','Arizona'],['AR','Arkansas'],['CA','California'],
+  ['CO','Colorado'],['CT','Connecticut'],['DE','Delaware'],['DC','District of Columbia'],
+  ['FL','Florida'],['GA','Georgia'],['HI','Hawaii'],['ID','Idaho'],['IL','Illinois'],
+  ['IN','Indiana'],['IA','Iowa'],['KS','Kansas'],['KY','Kentucky'],['LA','Louisiana'],
+  ['ME','Maine'],['MD','Maryland'],['MA','Massachusetts'],['MI','Michigan'],['MN','Minnesota'],
+  ['MS','Mississippi'],['MO','Missouri'],['MT','Montana'],['NE','Nebraska'],['NV','Nevada'],
+  ['NH','New Hampshire'],['NJ','New Jersey'],['NM','New Mexico'],['NY','New York'],
+  ['NC','North Carolina'],['ND','North Dakota'],['OH','Ohio'],['OK','Oklahoma'],['OR','Oregon'],
+  ['PA','Pennsylvania'],['RI','Rhode Island'],['SC','South Carolina'],['SD','South Dakota'],
+  ['TN','Tennessee'],['TX','Texas'],['UT','Utah'],['VT','Vermont'],['VA','Virginia'],
+  ['WA','Washington'],['WV','West Virginia'],['WI','Wisconsin'],['WY','Wyoming'],
+];
+
 // NumField must be at module scope — defining it inside a component
 // causes React to remount the input on every render, losing focus mid-edit.
-const NumField = ({ label, path, value, prefix = '$', step = 100, onUpdate }) => (
+const NumField = ({ label, path, value, prefix = '$', step = 100, onUpdate, hint }) => (
   <label className="px-field">
-    <span className="px-field-label">{label}</span>
+    <span className="px-field-label">{label}{hint && <FieldHint text={hint} />}</span>
     <div className="px-input-affix">
       {prefix && <span className="px-affix">{prefix}</span>}
       <input
@@ -245,7 +271,8 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                 <span style={{ fontSize: 10, color: 'var(--ink-faint)', marginTop: 2, display: 'block' }}>auto-summed from the income sources below</span>
               </label>
             ) : (
-              <NumField label="Monthly take-home" path="income.monthlyTakehome" value={profile.income.monthlyTakehome}  onUpdate={update}/>
+              <NumField label="Monthly take-home" path="income.monthlyTakehome" value={profile.income.monthlyTakehome}  onUpdate={update}
+                hint="Income after taxes and payroll deductions — what actually lands in your account each month, not gross pay." />
             )}
 
             {/* Income sources — itemized lines that auto-sum into monthly take-home */}
@@ -727,13 +754,15 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                 </select>
               </label>
               <label className="px-field">
-                <span className="px-field-label">State of residence</span>
-                <div className="px-input-affix">
-                  <input type="text" value={profile.taxes.state || ''} placeholder="e.g. CA" maxLength="2"
-                    onChange={(e) => update('taxes.state', e.target.value.toUpperCase())} />
-                </div>
+                <span className="px-field-label">State of residence<FieldHint text="Used to estimate state income tax in your plan. Pick None / N/A if you split residency." /></span>
+                <select className="px-select" value={profile.taxes.state || ''}
+                  onChange={(e) => update('taxes.state', e.target.value)}>
+                  <option value="">Select a state…</option>
+                  {US_STATES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+                </select>
               </label>
-              <NumField label="Marginal rate (%)" path="taxes.marginalRate" value={profile.taxes.marginalRate} prefix={null} step="1"  onUpdate={update}/>
+              <NumField label="Marginal rate (%)" path="taxes.marginalRate" value={profile.taxes.marginalRate} prefix={null} step="1"  onUpdate={update}
+                hint="Your combined top tax bracket — the rate on your next dollar of income. Drives tax-advantaged savings estimates." />
             </div>
           </section>
 
