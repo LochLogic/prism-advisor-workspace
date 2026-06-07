@@ -6,28 +6,46 @@
 // than scrolling the native calendar back decades. Stores/parses YYYY-MM-DD.
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const DobSelects = ({ value, onChange }) => {
-  const [yy = '', mm = '', dd = ''] = (value || '').split('-');
-  const year = yy, mon = mm ? String(parseInt(mm, 10)) : '', day = dd ? String(parseInt(dd, 10)) : '';
   const thisYear = new Date().getFullYear();
+  // Hold partial selections locally. The stored value is only a *complete*
+  // YYYY-MM-DD, so a brand-new member starts blank. Without local state, picking
+  // Month first would emit '' (date incomplete) and the controlled <select> would
+  // snap back to "Month" — making it impossible to ever set a new member's DOB.
+  // Local state lets Month → Day → Year accumulate; we commit upstream only once
+  // all three are chosen. (Seeded members already had full DOBs, which is why the
+  // bug only bit newly-added people.)
+  const parse = (v) => {
+    const [yy = '', mm = '', dd = ''] = (v || '').split('-');
+    return { y: yy, m: mm ? String(parseInt(mm, 10)) : '', d: dd ? String(parseInt(dd, 10)) : '' };
+  };
+  const [sel, setSel] = React.useState(() => parse(value));
+  // Re-sync when the upstream value changes (e.g. switching members/clients).
+  React.useEffect(() => { setSel(parse(value)); }, [value]);
+
   const years = []; for (let y = thisYear; y >= thisYear - 100; y--) years.push(y);
   const daysInMonth = (y, m) => (y && m) ? new Date(Number(y), Number(m), 0).getDate() : 31;
-  const emit = (ny, nm, nd) => {
-    if (!ny || !nm || !nd) { onChange(''); return; }
-    const clampedDay = Math.min(Number(nd), daysInMonth(ny, nm));
-    onChange(`${ny}-${String(nm).padStart(2, '0')}-${String(clampedDay).padStart(2, '0')}`);
+  const days = []; for (let d = 1; d <= daysInMonth(sel.y || thisYear, sel.m || 1); d++) days.push(d);
+
+  const pick = (next) => {
+    setSel(next);
+    if (next.y && next.m && next.d) {
+      const clampedDay = Math.min(Number(next.d), daysInMonth(next.y, next.m));
+      onChange(`${next.y}-${String(next.m).padStart(2, '0')}-${String(clampedDay).padStart(2, '0')}`);
+    } else {
+      onChange('');
+    }
   };
-  const days = []; for (let d = 1; d <= daysInMonth(year || thisYear, mon || 1); d++) days.push(d);
   return (
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-      <select className="px-select" aria-label="Birth month" value={mon} onChange={(e) => emit(year, e.target.value, day)} style={{ flex: '2 1 90px' }}>
+      <select className="px-select" aria-label="Birth month" value={sel.m} onChange={(e) => pick({ ...sel, m: e.target.value })} style={{ flex: '2 1 90px' }}>
         <option value="">Month</option>
         {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
       </select>
-      <select className="px-select" aria-label="Birth day" value={day} onChange={(e) => emit(year, mon, e.target.value)} style={{ flex: '1 1 56px' }}>
+      <select className="px-select" aria-label="Birth day" value={sel.d} onChange={(e) => pick({ ...sel, d: e.target.value })} style={{ flex: '1 1 56px' }}>
         <option value="">Day</option>
         {days.map(d => <option key={d} value={d}>{d}</option>)}
       </select>
-      <select className="px-select" aria-label="Birth year" value={year} onChange={(e) => emit(e.target.value, mon, day)} style={{ flex: '1 1 70px' }}>
+      <select className="px-select" aria-label="Birth year" value={sel.y} onChange={(e) => pick({ ...sel, y: e.target.value })} style={{ flex: '1 1 70px' }}>
         <option value="">Year</option>
         {years.map(y => <option key={y} value={y}>{y}</option>)}
       </select>
@@ -37,9 +55,11 @@ const DobSelects = ({ value, onChange }) => {
 
 // Inline help affordance — an info icon that reveals an upscale tooltip on hover
 // or keyboard focus. Sprinkle a `hint=` onto any field where a word of context
-// helps. `title` is kept as a no-CSS / assistive fallback.
+// helps. The styled `px-hint-bubble` is the visible tooltip; `aria-label` covers
+// assistive tech. We deliberately omit the native `title` — leaving it on stacks
+// the browser's default tooltip on top of our bubble (double tooltip on hover).
 const FieldHint = ({ text }) => (
-  <span className="px-hint" tabIndex={0} aria-label={text} title={text}>
+  <span className="px-hint" tabIndex={0} aria-label={text}>
     <Icons.Info size={12} />
     <span className="px-hint-bubble" role="tooltip">{text}</span>
   </span>

@@ -20,6 +20,17 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return new Response(null, { status: 405, headers: corsHeaders });
   try {
+    // Rate-limit before doing any work. Per-IP + global token buckets (migration
+    // 021) blunt a flood of this unauthenticated public write. Cloudflare fronts
+    // the app, so cf-connecting-ip is the real client; x-forwarded-for is the
+    // fallback. Throttled requests are dropped silently (still 204) — we never
+    // signal success/failure to the caller.
+    const ip = (req.headers.get("cf-connecting-ip")
+      || (req.headers.get("x-forwarded-for") || "").split(",")[0]
+      || "").trim();
+    const { data: allowed } = await admin.rpc("px_log_error_allowed", { p_ip: ip });
+    if (allowed === false) return new Response(null, { status: 204, headers: corsHeaders });
+
     const b = await req.json().catch(() => ({}));
     const message = cap(b.message, 1000);
     if (message) {
