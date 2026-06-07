@@ -72,9 +72,19 @@ These are the things I genuinely can't do — they cost money, need your identit
 
 ### H3 — Repo & host settings I can't touch
 1. **Promote the test jobs to required checks.** `rls-isolation` is green (session pooler) and the new `e2e` job runs the demo smoke + DOB regression. GitHub → repo Settings → Branches → `main` rule → add `rls-isolation` (now) and `e2e` (once you've seen a few green runs) to required status checks.
-2. **Set `ALERT_WEBHOOK_URL`** (Supabase → Edge Functions → Secrets) to a Slack incoming-webhook URL (or any endpoint accepting a `{ "text": ... }` POST). This is the **last wire** on the C1 error alerting. `error-digest` is now deployed and verified (returns `{"configured":false}` until this is set); it stays **inert and won't advance its cursor** until then, so nothing is lost in the meantime. Once set, the first run flushes the backlog.
-3. **Enable per-PR Cloudflare preview deploys.** Cloudflare Pages → project → Settings → Builds & deployments → turn on preview deployments for non-production branches. Lets us both see a branch live before merge.
-4. **Stand up an uptime monitor.** Free UptimeRobot/Cloudflare check pinging the `health` edge function + the app URL, alerting to your email. ~5 minutes; I can't create the account.
+2. **Set `ALERT_WEBHOOK_URL`** (Supabase → Edge Functions → Secrets) to a Slack incoming-webhook URL (or any endpoint accepting a `{ "text": ... }` POST). This is the **last wire** on the C1 error alerting — the `error-digest` function stays **inert and won't advance its cursor** until this is set, so nothing is lost in the meantime. Once set, the first run flushes the backlog. *(Also requires the function to be deployed — see H4.)*
+3. **Wire the manual deploy workflow.** `.github/workflows/deploy.yml` (a manual, confirm-gated job) links the project and deploys **every edge function** with the correct `verify_jwt` from `supabase/config.toml`. It does **not** push migrations — those are applied by hand in the SQL editor (the migration ledger is unmanaged, so a `db push` would replay 001+ and fail). To enable it, add two GitHub repo secrets — **`SUPABASE_ACCESS_TOKEN`** (a Supabase personal access token) and **`SUPABASE_DB_PASSWORD`** (keeps `link` non-interactive) — and, for a second human gate, create a **`production`** environment (Settings → Environments) with yourself as a required reviewer. After that, function deploys run from the Actions tab instead of by hand.
+4. **Enable per-PR Cloudflare preview deploys.** Cloudflare Pages → project → Settings → Builds & deployments → turn on preview deployments for non-production branches. Lets us both see a branch live before merge.
+5. **Stand up an uptime monitor.** Free UptimeRobot/Cloudflare check pinging the `health` edge function + the app URL, alerting to your email. ~5 minutes; I can't create the account.
+
+### H4 — Deploy the edge functions + apply migration 023 *(retires once H3's deploy workflow is wired)*
+You applied **021 + 022 migrations** to live & test — but the **edge functions were not redeployed**, so the C1 changes aren't live yet:
+1. **Deploy the functions** (or just run the new `deploy.yml` once H3 secrets are set — preferred, and it sets `verify_jwt` from `config.toml` automatically):
+   - `log-error` — until redeployed, the rate-limit code isn't active (the live function doesn't call `px_log_error_allowed` yet).
+   - `error-digest` — **not on live at all yet**, so the hourly `022` cron is currently 404ing (harmless but no alerts fire). Deploy it, then set `ALERT_WEBHOOK_URL` (H3 #2).
+   - `generate-invoices` — honest skip/fail counting. ⚠️ **Finding:** `config.toml` sets its `verify_jwt = false`. If it was previously deployed JWT-gated, the monthly billing cron (x-cron-secret, no JWT) would have been **silently 401'd by the platform** — worth checking whether any invoices actually generated. Redeploying via `config.toml` fixes this.
+2. **Apply migration 023** (`supabase db push`, or run it directly) to move the billing cron onto the Vault `cron_secret` lookup. Requires the Vault secret from H2 to exist first.
+3. Confirm `CRON_SECRET` is in Edge Function secrets **and** stored in Vault as `cron_secret` before the crons fire.
 
 ### H5 — External credentials that unblock my feature work
 Each one directly unblocks a 🤖 item; drop them into Supabase Edge Function secrets (or tell me the value channel) and I'll build against them:
