@@ -1,7 +1,7 @@
 # Prism — Product & Go-to-Market Roadmap
 
-> **Canonical roadmap. Supersedes the prior sprint plan.** Last updated 2026-06-02.
-> The feature build is mature; the path to revenue is now trust, focus, distribution, and infrastructure — not more features. This roadmap is sequenced for **onboarding a first paying advisor**, not for shipping features.
+> **Canonical roadmap. Supersedes the prior sprint plan.** Last updated 2026-06-06.
+> The feature build is mature and revenue is gated by trust, focus, distribution, and infrastructure — but *building* is no longer gated (see Standing principle). This roadmap is sequenced for **onboarding a first paying advisor**, with a wedge-expansion track (added 2026-06-06) for the features that make an RIA switch.
 
 ---
 
@@ -117,5 +117,74 @@ Quick wins #1–#3 shipped (edit-numbers from the client modal, new-advisor onbo
 
 ---
 
+## Wedge expansion — what makes an RIA switch (2026-06-06 clean-room review)
+
+Full analysis in [`clean-room-review-2026-06-06.md`](clean-room-review-2026-06-06.md).
+An RIA today stitches together planning (RightCapital/eMoney), CRM (Wealthbox/Redtail),
+portfolio/performance (Orion/Black Diamond), tax (Holistiplan), and risk (Nitrogen).
+To make one *switch*, Prism must (1) remove the cost of moving in, (2) be visibly
+better at the client-facing layer, and (3) retire at least one paid tool.
+
+### Tier A — Adoption unlocks (without these, RIAs won't move)
+| Item | Why it's switch-critical |
+|---|---|
+| **Bulk client import + migration** (CSV + Wealthbox/Redtail/Orion mappers) | #1 blocker to a "yes" — nobody hand-keys 150 households. |
+| **White-label branding** (firm logo, accent color, custom subdomain) | Table stakes for a client-facing tool; makes "no second portal" literally true. |
+| **Prospect / proposal mode** (run a prospect through a sample roadmap pre-signing) | Turns the wedge into a closing tool — the most direct "why switch." |
+| **Core integrations** (Google/Outlook calendar, real e-sign, Zapier/API) | Each removes a rip-and-replace objection. |
+
+### Tier B — Wedge deepeners (visible client value; retire a tool)
+| Item | Notes |
+|---|---|
+| **Probability-of-success on the client roadmap** | Surface the existing `calc-core.monteCarlo` as a confidence band on the retirement horizon. Low effort, high expectation-match. |
+| **Tax-return insight (Holistiplan-lite)** | "Drop the 1040 → planning observations in the roadmap + portal." High willingness-to-pay; differentiating inside a client portal. |
+| **Risk questionnaire → auto-drafted IPS** | Client-facing risk profiling feeds the roadmap and drops a draft IPS into the vault for e-sign (vault + acknowledgements already exist). |
+| **One-click review packet (QBR generator)** | Auto-assemble a client-ready review (roadmap + net-of-fee performance + goals + protection) from existing data. Saves hours of prep. |
+| **AI relationship assistant (Opus)** | Draft replies, summarize a household, generate review talking points, flag "who needs attention." Rides on the messaging + CRM already shipped. |
+
+### Tier C — Reach & retention
+| Item | Notes |
+|---|---|
+| **Client PWA + push** | Clients live on mobile; push on new message/task/document. |
+| **Exam-ready compliance export** | One-click books-&-records packet (audit log + acknowledgements + WORM) for SEC/state exams. |
+| **Client-initiated uploads** | `documents.uploaded_by_role` already allows `'client'`. |
+
+**If forced to pick five:** bulk import · white-label · prospect mode · tax-return insight · AI assistant.
+
+---
+
+## Foundation hardening (from the 2026-06-06 review)
+
+The product is mature; these close the gaps that bite the day a design partner is live.
+
+| Item | Sev | Area |
+|---|---|---|
+| Rate-limit + retention-prune the public `log-error` endpoint | 🔴 | InfoSec / Backend |
+| Supabase Pro (PITR/backups) + rotate Supabase/service-role/Stripe/CRON secrets before live data | 🔴 | InfoSec / Scale (existing Phase-0 blocker) |
+| Error alerting + a `client_errors` dashboard (capture exists; nobody is told) | 🔴 | Monitoring |
+| Wire the RLS-isolation CI job (set `DATABASE_URL` to a disposable project) | 🟡 | QA / InfoSec |
+| Per-PR Cloudflare preview deploys | 🟡 | DevOps |
+| Gate `supabase db push` + edge-function deploy in CI so the repo can't drift from live | 🟡 | DevOps |
+| ESLint + `npm audit`/Dependabot in CI | 🟡 | Frontend / InfoSec |
+| Enforce advisor MFA (TOTP) | 🟡 | InfoSec |
+| Privacy-respecting product analytics (activation events: login, invite, message, plan-update, report) | 🟡 | Monitoring |
+| Uptime monitor on `health` + app | 🟡 | Monitoring |
+| Playwright e2e over the protected high-value paths | 🟡 | QA |
+| Split the client portal into its own bundle entry (payload + attack surface) | 🟡 | Frontend / Code-Opt / InfoSec |
+| Verify invoice-generation idempotency (no double-billing on cron retry) | 🟡 | Backend |
+| Deep-linkable in-app routing (`/app#/client/:id/tab`) | 🟡 | Click-pathing |
+| `⌘K` client + action command palette | 🟢 | UX |
+| Retention/partitioning for audit / `client_errors` / `balance_history` | 🟡 | Database |
+| Minify `styles.css`; verify RLS-predicate index coverage | 🟢 | Code-Opt / Database |
+| Close `style-src 'unsafe-inline'` via inline-styles → classes migration | 🟡 | InfoSec / UI |
+
+---
+
 ## Standing principle
-Resist building net-new features. The product is past the point where more features move the needle. Revenue is gated by trust, focus, distribution, and infrastructure — let design partners' real needs decide what gets built next.
+**Build with intent.** The "resist net-new features" stance is eased — net-new
+feature work is a normal part of growth, **not** gated behind design partners by
+default. The discipline that remains is *intentionality*: every feature ties to
+customer value or the wedge, and we don't add breadth for its own sake. Trust,
+focus, distribution, and infrastructure still gate *revenue* — but they no longer
+gate *building*. When asked "what's next," propose and build genuinely valuable
+features; keep each one purposeful.

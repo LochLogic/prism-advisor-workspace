@@ -893,8 +893,11 @@ function printPerformanceReport(opts) {
     return `<div class="stat"><div class="stat-lbl">${escapeHtml(s.label)}</div><div class="stat-val" style="color:${!has ? '#8da3b6' : pos ? '#3d5a4a' : '#8c3d3d'}">${has ? `${pos ? '+' : ''}${s.pct.toFixed(1)}%` : '—'}</div></div>`;
   }).join('');
 
-  const contrib = (flows || []).filter(f => Number(f.amount) > 0).reduce((s, f) => s + Number(f.amount), 0);
-  const withdr  = (flows || []).filter(f => Number(f.amount) < 0).reduce((s, f) => s + Math.abs(Number(f.amount)), 0);
+  const capital = (flows || []).filter(f => f.kind !== 'fee');
+  const fees    = (flows || []).filter(f => f.kind === 'fee').reduce((s, f) => s + Math.abs(Number(f.amount) || 0), 0);
+  const contrib = capital.filter(f => Number(f.amount) > 0).reduce((s, f) => s + Number(f.amount), 0);
+  const withdr  = capital.filter(f => Number(f.amount) < 0).reduce((s, f) => s + Math.abs(Number(f.amount)), 0);
+  const netOfFees = fees > 0;
 
   _openPrint(`Performance Report — ${escapeHtml(client.name)}`, `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
@@ -908,11 +911,11 @@ function printPerformanceReport(opts) {
     </div>
     <div class="section-lbl">Portfolio value over time</div>
     ${chartHtml}
-    <div class="section-lbl" style="margin-top:22px">Time-weighted return</div>
+    <div class="section-lbl" style="margin-top:22px">Time-weighted return${netOfFees ? ' &middot; net of advisory fees' : ''}</div>
     <div class="grid" style="grid-template-columns:repeat(5,1fr)">${periodCells}</div>
     <div class="section-lbl" style="margin-top:22px">Cash flow summary</div>
-    <div style="font-size:12px;color:#2d4258">Contributions: <b>${fmt$(contrib, { short: true })}</b> &nbsp;&middot;&nbsp; Withdrawals: <b>${fmt$(withdr, { short: true })}</b></div>
-    <div class="footer">Returns are time-weighted (Modified Dietz) and reflect account value change where transaction-level cash flows have not been recorded. Past performance is not indicative of future results; this report is informational and is not investment advice. Prism Advisor Workspace${advisorFirm ? ' &middot; ' + escapeHtml(advisorFirm) : ''}.</div>
+    <div style="font-size:12px;color:#2d4258">Contributions: <b>${fmt$(contrib, { short: true })}</b> &nbsp;&middot;&nbsp; Withdrawals: <b>${fmt$(withdr, { short: true })}</b>${netOfFees ? ` &nbsp;&middot;&nbsp; Advisory fees: <b>${fmt$(fees, { short: true })}</b>` : ''}</div>
+    <div class="footer">Returns are time-weighted (Modified Dietz). ${netOfFees ? 'Returns are shown <b>net of advisory fees</b> debited from the account over the period.' : 'No advisory-fee debits were recorded for this period, so returns are shown <b>before advisory fees</b>.'} Returns reflect account value change where transaction-level cash flows have not been recorded. Past performance is not indicative of future results; this report is informational and is not investment advice. Prism Advisor Workspace${advisorFirm ? ' &middot; ' + escapeHtml(advisorFirm) : ''}.</div>
   `);
 }
 

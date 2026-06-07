@@ -45,6 +45,29 @@ console.log('calc-core unit tests\n');
   assert(C.modifiedDietz([], [], 'a', 'b') === null, 'modifiedDietz: empty series → null');
 }
 
+/* ── modifiedDietz: advisory fees are a net-of-fee drag, not a capital flow ─ */
+{
+  const series = [
+    { date: '2026-01-01', value: 1000 },
+    { date: '2026-02-01', value: 1100 },   // ending value already reflects the fee debit
+  ];
+  // A $10 advisory fee debited mid-period: the account grew to 1110 gross, the fee
+  // took 10, leaving 1100. Net return = 10%, gross = 11%.
+  const withFee = C.modifiedDietz(series, [{ flow_date: '2026-01-16', amount: -10, kind: 'fee' }], '2026-01-01', '2026-02-01');
+  assert(withFee.fees === 10, 'modifiedDietz: fee magnitude captured');
+  assert(near(withFee.pct, 10), 'modifiedDietz: default pct is NET of advisory fees');
+  assert(near(withFee.grossPct, 11), 'modifiedDietz: grossPct adds the fee drag back');
+  assert(withFee.net === 0, 'modifiedDietz: a fee is not counted as a capital flow');
+  assert(withFee.netOfFees === true, 'modifiedDietz: netOfFees flag set when a fee is present');
+  // No fee → net and gross coincide, flag is false.
+  const noFee = C.modifiedDietz(series, [], '2026-01-01', '2026-02-01');
+  assert(noFee.fees === 0 && noFee.netOfFees === false, 'modifiedDietz: no fee → fees 0, netOfFees false');
+  assert(near(noFee.pct, noFee.grossPct), 'modifiedDietz: no fee → net equals gross');
+  // A withdrawal of the same size is a CAPITAL flow (added back), not a fee.
+  const withWd = C.modifiedDietz(series, [{ flow_date: '2026-01-16', amount: -10, kind: 'withdrawal' }], '2026-01-01', '2026-02-01');
+  assert(withWd.fees === 0 && withWd.net === -10, 'modifiedDietz: withdrawal is a capital flow, not a fee');
+}
+
 /* ── perfPeriods ──────────────────────────────────────────────────── */
 {
   const series = [{ date: '2020-01-01', value: 1000 }, { date: '2026-01-01', value: 2000 }];

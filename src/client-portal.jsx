@@ -307,6 +307,9 @@ const ClientPortal = ({ onOpenNumbers }) => {
   const perfPeriodsData = React.useMemo(
     () => (valueSeries.length >= 2 ? perfPeriods(valueSeries, perfFlowsForView) : []),
     [valueSeries, perfFlowsForView]);
+  // Returns shown to clients are NET of advisory fees whenever fee debits are on
+  // record; otherwise we say so plainly rather than imply a net figure.
+  const perfNetOfFees = perfPeriodsData.some(p => p.fees > 0);
 
   const downloadPerformance = () => {
     const series  = buildValueSeries(perfBal || []);
@@ -679,7 +682,7 @@ const ClientPortal = ({ onOpenNumbers }) => {
               ))}
             </div>
             <div style={{ fontSize: 10.5, color: 'var(--ink-faint)', marginTop: 10, fontStyle: 'italic' }}>
-              Time-weighted return (Modified Dietz) · {window.db?.isUUID(activeClientId) ? 'from your linked accounts' : 'illustrative demo data'}
+              {perfNetOfFees ? 'Net of advisory fees' : 'Before advisory fees'} · time-weighted (Modified Dietz) · {window.db?.isUUID(activeClientId) ? 'from your linked accounts' : 'illustrative demo data'}
             </div>
           </div>
         )}

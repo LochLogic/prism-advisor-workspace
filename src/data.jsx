@@ -321,6 +321,10 @@ const demoCashFlows = () => {
   return [
     { id: 'cf1', flow_date: m(8), amount:  50000, kind: 'contribution' },
     { id: 'cf2', flow_date: m(3), amount: -15000, kind: 'withdrawal' },
+    // Quarterly advisory fee debits — make the demo show a true net-of-fee return.
+    { id: 'cf3', flow_date: m(6), amount:  -2500, kind: 'fee' },
+    { id: 'cf4', flow_date: m(3), amount:  -2600, kind: 'fee' },
+    { id: 'cf5', flow_date: m(1), amount:  -2700, kind: 'fee' },
   ];
 };
 const demoTimeline = (client) => {

@@ -1275,19 +1275,28 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                 {/* Period returns vs benchmark (Modified Dietz) */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 8 }}>
                   {perfStats.map(s => {
-                    const has = s.pct != null && isFinite(s.pct);
-                    const pos = (s.pct || 0) >= 0;
+                    // Advisor view leads with the GROSS (pre-fee) return — that's what
+                    // benchmarks the manager's skill. Net of fees is shown beneath when
+                    // fee debits are on record (it's what the client sees in their portal).
+                    const gross = s.grossPct != null ? s.grossPct : s.pct;
+                    const has = gross != null && isFinite(gross);
+                    const pos = (gross || 0) >= 0;
                     const bench = benchmarkPct(s.start, s.end, benchRate);
-                    const delta = has ? s.pct - bench : null;
+                    const delta = has ? gross - bench : null;
                     return (
                       <div key={s.label} style={{ padding: '8px 6px', background: 'var(--bg-elev)', borderRadius: 6, textAlign: 'center' }}>
                         <div style={{ fontSize: 10, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.04em' }}>{s.label}</div>
                         <div style={{ fontSize: 14, fontWeight: 600, marginTop: 3, color: !has ? 'var(--ink-faint)' : pos ? 'var(--forest)' : 'var(--brick)' }}>
-                          {has ? `${pos ? '+' : ''}${s.pct.toFixed(1)}%` : '—'}
+                          {has ? `${pos ? '+' : ''}${gross.toFixed(1)}%` : '—'}
                         </div>
                         {has && (
                           <div style={{ fontSize: 9.5, marginTop: 2, color: delta >= 0 ? 'var(--forest)' : 'var(--brick)' }}>
                             {delta >= 0 ? '▲' : '▼'} {Math.abs(delta).toFixed(1)} vs bm
+                          </div>
+                        )}
+                        {has && s.fees > 0 && s.pct != null && (
+                          <div style={{ fontSize: 9, marginTop: 2, color: 'var(--ink-faint)' }}>
+                            net {s.pct >= 0 ? '+' : ''}{s.pct.toFixed(1)}%
                           </div>
                         )}
                       </div>
@@ -1296,7 +1305,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                 </div>
 
                 <div style={{ fontSize: 11, color: 'var(--ink-faint)', lineHeight: 1.5, marginBottom: 18 }}>
-                  Time-weighted (Modified Dietz) vs an assumed benchmark return. Log flows below for accurate returns; per-security attribution arrives with holdings feeds (Plaid investments / custodian).
+                  Gross of advisory fees, time-weighted (Modified Dietz) vs an assumed benchmark — clients see the net-of-fee return in their portal. Log flows below (including fee debits, kind “fee”) for accurate returns; per-security attribution arrives with holdings feeds (Plaid investments / custodian).
                 </div>
 
                 {/* Account mix (by account type; true asset-class attribution needs holdings) */}
