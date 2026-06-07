@@ -47,6 +47,31 @@ jobs:
             sudo apt-get install -y postgresql-client || true
             psql --version || echo "psql unavailable — DB tests will skip"
           fi
+      - name: DIAGNOSTIC (temporary — revert before merge) sanitized DB state
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::notice title=diag::DATABASE_URL is EMPTY/unset"
+          else
+            echo "::notice title=diag::DATABASE_URL is SET (length ${#DATABASE_URL})"
+            # connectivity probe; capture stderr but NEVER echo the URL/host
+            err=$(psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "select 1" 2>&1 >/dev/null); rc=$?
+            echo "::notice title=diag::psql 'select 1' exit code = $rc"
+            klass="other"
+            case "$err" in
+              *"could not translate host name"*|*"Name or service not known"*|*"Temporary failure in name resolution"*) klass="DNS_HOST_UNRESOLVABLE (project likely deleted/renamed)";;
+              *"Connection refused"*) klass="CONNECTION_REFUSED";;
+              *"timeout"*|*"timed out"*) klass="TIMEOUT";;
+              *"password authentication failed"*) klass="BAD_PASSWORD";;
+              *"role"*"does not exist"*) klass="BAD_ROLE";;
+              *"database"*"does not exist"*) klass="DB_NOT_FOUND";;
+              *"relation"*"does not exist"*|*"does not exist"*) klass="SCHEMA_MISSING (relation not found — migrations not applied)";;
+              *"no pg_hba.conf entry"*|*"SSL"*) klass="TLS/PGHBA";;
+              "") klass="OK (connected)";;
+            esac
+            echo "::notice title=diag::error class = $klass"
+          fi
       - name: DB tests — RLS isolation + integration (skips if DATABASE_URL unset)
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
