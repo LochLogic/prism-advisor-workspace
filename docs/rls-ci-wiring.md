@@ -11,15 +11,10 @@ database. [`scripts/db-test.mjs`](../scripts/db-test.mjs) decides what to do bas
 | Secret **set but DB unreachable** | `select 1` precheck fails → skips with a loud `::warning::` | 🟢 green (inert) |
 | Secret **set and DB reachable** | Runs every `*.sql` file; fails on any error | 🟢 green / 🔴 red (enforcing) |
 
-> ⚠️ **Current state (2026-06-06):** a `DATABASE_URL` secret **is** configured, but it points at a
-> Supabase project that is **unreachable** (psql connection error — "Network is unreachable",
-> consistent with a paused free-tier project or stale host). The job is green only because the
-> precheck skips. To get real enforcement, the secret must point at a **live** disposable project —
-> follow the steps below, then confirm the CI warning disappears and the SQL files actually run.
->
-> The stale staging project ref was briefly exposed in a public CI annotation during diagnosis
-> (host only — **no password**). Low risk, but consider rotating the staging project's DB password
-> or re-provisioning the project when you re-wire it.
+> ✅ **Current state (2026-06-07):** `DATABASE_URL` is wired to a disposable staging project
+> ("PRISM · Advisor Workspace- test DB") via its **session pooler**, and the RLS tests now run and
+> **enforce** in CI — `rls_isolation.sql` passes all 7 cross-tenant checks. The DB password and the
+> 1-hour management token used during setup should be rotated/revoked.
 
 ## What the tests cover
 
@@ -37,13 +32,22 @@ safe to point at any Postgres database — but use a **disposable / staging** pr
 2. **Apply the schema** to it so the tables/policies under test exist:
    - `supabase db push` against the staging project (preferred), or
    - run the migrations in `supabase/migrations/` in order.
-3. **Get the connection string** from Supabase → Project Settings → Database → Connection string
-   (URI form, e.g. `postgresql://postgres:<pw>@db.<ref>.supabase.co:5432/postgres`). Use the
-   direct connection (port 5432), not the pooler, so `ON_ERROR_STOP` + transactions behave.
-4. **Add the repo secret**: GitHub → repo → Settings → Secrets and variables → Actions →
-   New repository secret → name `DATABASE_URL`, value = the URI above.
-5. **Re-run CI** on any branch. The `rls-isolation` job will now actually execute the SQL and fail
-   if isolation regresses.
+3. **Get the SESSION POOLER connection string** — Supabase → *Connect* → *Session pooler*:
+   ```
+   postgresql://postgres.<ref>:<pw>@aws-<n>-<region>.pooler.supabase.com:5432/postgres?sslmode=require
+   ```
+   ⚠️ **Do NOT use the direct connection** (`db.<ref>.supabase.co:5432`). Supabase serves it over
+   **IPv6 only**, and GitHub-hosted runners are **IPv4-only** → every CI run fails with
+   `connection ... failed: Network is unreachable`. This was the original root cause. The **session
+   pooler** (port `5432`, user `postgres.<ref>`) is IPv4 and gives a full session — required because
+   the test scripts use `set local role` + transaction-scoped `set_config`. The *transaction* pooler
+   (port `6543`) is not a safe substitute for `psql -f`.
+   - URL-encode special characters in the password (`!`→`%21`, `$`→`%24`, etc.); libpq decodes them.
+4. **Add the repo secret**: `gh secret set DATABASE_URL --repo <owner>/<repo>` (paste the URI at the
+   hidden prompt), or via GitHub → Settings → Secrets and variables → Actions.
+5. **Trigger CI** — push any branch / open a PR, or re-run an existing run (`gh run rerun <id>`;
+   secrets are read at run time). The `rls-isolation` job will now execute the SQL and fail if
+   isolation regresses. Read results with `gh run view <id> --log --job <rls-isolation job id>`.
 
 ## Notes
 
