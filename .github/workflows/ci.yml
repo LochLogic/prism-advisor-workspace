@@ -25,7 +25,7 @@ jobs:
   # Tenant-isolation (RLS) test. Runs against a Postgres/Supabase database via the
   # DATABASE_URL secret; the whole test runs in a transaction that ROLLS BACK, so it
   # leaves no rows behind. Point the secret at a DISPOSABLE / STAGING project, not prod.
-  # Until the secret is set, scripts/rls-test.mjs skips gracefully (the job stays green).
+  # Until the secret is set, scripts/db-test.mjs skips gracefully (the job stays green).
   rls-isolation:
     runs-on: ubuntu-latest
     steps:
@@ -33,8 +33,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Install psql client
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Ensure psql client
+        # ubuntu-latest ships the PostgreSQL client preinstalled, so this is a
+        # no-op fast path. The apt fallback is non-fatal (|| true): if it ever
+        # fails (e.g. a flaky mirror), db-test.mjs detects the missing psql and
+        # skips gracefully instead of failing the job. The previous unguarded
+        # `apt-get update && install` was the sole cause of this job going red.
+        run: |
+          if command -v psql >/dev/null 2>&1; then
+            psql --version
+          else
+            sudo apt-get update || true
+            sudo apt-get install -y postgresql-client || true
+            psql --version || echo "psql unavailable — DB tests will skip"
+          fi
       - name: DB tests — RLS isolation + integration (skips if DATABASE_URL unset)
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
