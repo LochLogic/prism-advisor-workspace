@@ -372,6 +372,11 @@ input, select, textarea { font-family: inherit; color: inherit; }
 .px-input:focus, .px-select:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px var(--accent-soft); }
 .px-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 
+/* Numbers panel: render inputs/selects in the proportional sans so digits show a
+   clean zero — the mono face's dotted zero was distracting. (Affix number inputs
+   already inherit the sans; this aligns the date/text/select fields with them.) */
+.px-drawer .px-input, .px-drawer .px-select { font-family: var(--sans); }
+
 /* Accessibility: clear keyboard-focus ring on interactive elements (mouse users unaffected) */
 a:focus-visible, button:focus-visible, [role="button"]:focus-visible,
 input:focus-visible, select:focus-visible, textarea:focus-visible {

@@ -19,7 +19,7 @@ const defaultProfile = {
     { id: 's1', label: 'Salary — Robert', type: 'salary', monthlyGross: 22000 },
     { id: 's2', label: 'RSU vesting',      type: 'rsu',    monthlyGross: 9000 },
   ] },
-  expenses: { housing: 7200, food: 2400, transport: 1800, utilities: 950, healthcare: 1100, other: 5450 },
+  expenses: { housing: 7200, food: 2400, transport: 1800, utilities: 950, healthcare: 1100, other: 5450, custom: [] },
   // expenses.housing is the TOTAL monthly housing outflow. `housing` below records what that
   // money does: pure rent (consumed) vs. a mortgage payment that's partly principal (builds equity).
   housing: { type: 'own', homeValue: 1_250_000, mortgageBalance: 280_000, mortgageApr: 3.5, escrowMonthly: 1_400 },
@@ -77,7 +77,7 @@ const defaultProfile = {
 const emptyProfile = {
   members:  [],
   income:   { monthlyTakehome: 0, sources: [] },
-  expenses: { housing: 0, food: 0, transport: 0, utilities: 0, healthcare: 0, other: 0 },
+  expenses: { housing: 0, food: 0, transport: 0, utilities: 0, healthcare: 0, other: 0, custom: [] },
   housing: { type: 'rent', homeValue: 0, mortgageBalance: 0, mortgageApr: 0, escrowMonthly: 0 },
   properties: [],
   debts: [],
@@ -217,16 +217,28 @@ function ProfileProvider({ children }) {
   const dependentsCount = members.filter(m => m.role === 'dependent').length;
   const householdSize  = members.length;
 
-  // ── Income composition (optional; informational for tax planning) ──
+  // ── Income composition ──
+  // When the household itemizes income sources, those line items are the single
+  // source of truth and AUTO-SUM into monthly take-home (no double entry). With no
+  // sources, the manually-entered take-home stands.
   const incomeSources    = Array.isArray(profile.income.sources) ? profile.income.sources : [];
   const grossMonthlyIncome = incomeSources.reduce((a, s) => a + Number(s.monthlyGross || 0), 0);
   const grossAnnualIncome  = grossMonthlyIncome * 12;
+  const effectiveTakehome  = incomeSources.length > 0
+    ? grossMonthlyIncome
+    : (Number(profile.income.monthlyTakehome) || 0);
 
   // ── Derived ─────────────────────────────────────────────────────
-  const totalExpenses = Object.values(profile.expenses).reduce((a, b) => a + Number(b || 0), 0);
+  // Expenses = the fixed categories + any custom outflow boxes the user added.
+  const _exp = profile.expenses || {};
+  const customExpenses = Array.isArray(_exp.custom) ? _exp.custom : [];
+  const totalExpenses =
+      ['housing', 'food', 'transport', 'utilities', 'healthcare', 'other']
+        .reduce((a, k) => a + Number(_exp[k] || 0), 0)
+    + customExpenses.reduce((a, c) => a + Number(c.amount || 0), 0);
   const totalDebt     = profile.debts.reduce((a, d) => a + Number(d.balance || 0), 0);
   const toxicDebt     = profile.debts.filter(d => Number(d.apr) > 6).reduce((a, d) => a + Number(d.balance || 0), 0);
-  const surplus       = profile.income.monthlyTakehome - totalExpenses;
+  const surplus       = effectiveTakehome - totalExpenses;
 
   // ── Housing: rent vs. own ───────────────────────────────────────
   // expenses.housing is the total monthly outflow. For owners we split that payment into
@@ -255,7 +267,7 @@ function ProfileProvider({ children }) {
   const hasProperties = properties.length > 0;
 
   // Mortgage principal is forced savings (builds equity), so it lifts the savings rate.
-  const savingsRate   = profile.income.monthlyTakehome > 0 ? ((surplus + mortgagePrincipalMonthly) / profile.income.monthlyTakehome) * 100 : 0;
+  const savingsRate   = effectiveTakehome > 0 ? ((surplus + mortgagePrincipalMonthly) / effectiveTakehome) * 100 : 0;
   const retirementAssets = (profile.retirement.hsaBalance || 0)
                          + (profile.retirement.iraBalance || 0)
                          + (profile.retirement.fourohonekBalance || 0);
@@ -295,7 +307,7 @@ function ProfileProvider({ children }) {
                                  .reduce((s, i) => s + (Number(i.coverageAmount) || 0), 0);
   // Guideline: ~10× gross income + debts to retire, less the liquidity reserve.
   const lifeCoverageGap = _calc.lifeCoverageGap({
-    annualIncome: grossAnnualIncome || (profile.income.monthlyTakehome || 0) * 12,
+    annualIncome: grossAnnualIncome || effectiveTakehome * 12,
     incomeMultiple: 10, liabilities: totalDebt,
     existingCoverage: lifeCoverage, liquidAssets: profile.savings.emergency || 0,
   });
@@ -313,7 +325,7 @@ function ProfileProvider({ children }) {
     mortgageInterestMonthly, mortgagePrincipalMonthly, homeEquity,
     propertiesEquity, propertiesNetCashflow, hasProperties,
     members, primaryMember, planningAge, dependentsCount, householdSize,
-    incomeSources, grossMonthlyIncome, grossAnnualIncome,
+    incomeSources, grossMonthlyIncome, grossAnnualIncome, effectiveTakehome, customExpenses,
     incomeStreams, annualRetirementContribution, retirementReadiness,
     goalItems, goalsFunding,
     insurance, lifeCoverage, lifeCoverageGap, estate, estateProgress, estateComplete,
