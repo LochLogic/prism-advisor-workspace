@@ -48,9 +48,10 @@ begin
 
   -- (a) a NON-owner can't sign it (claims = the advisor, not the client)
   perform set_config('request.jwt.claims', json_build_object('sub','11110000-0000-4000-8000-000000000001')::text, true);
-  select px_sign_acknowledgement(ack_id, 'Wrong Person') into r;
-  select status into n from acknowledgements where id = ack_id and status='pending';
+  select * from px_sign_acknowledgement(ack_id, 'Wrong Person') into r;
   if r is not null then raise exception 'FAIL 1a: a non-client signed an acknowledgement'; end if;
+  select count(*) into n from acknowledgements where id = ack_id and status = 'pending';
+  if n <> 1 then raise exception 'FAIL 1a2: acknowledgement should still be pending after a rejected sign'; end if;
 
   -- (b) the client signs their own pending ack
   perform set_config('request.jwt.claims', json_build_object('sub','22220000-0000-4000-8000-000000000002')::text, true);
@@ -60,7 +61,7 @@ begin
   if r.signer_auth_user_id <> '22220000-0000-4000-8000-000000000002' then raise exception 'FAIL 1d: signer uid wrong'; end if;
 
   -- (c) re-signing an already-acknowledged row is a no-op
-  select px_sign_acknowledgement(ack_id, 'Again') into r;
+  select * from px_sign_acknowledgement(ack_id, 'Again') into r;
   if r is not null then raise exception 'FAIL 1e: re-signing an acknowledged row should no-op'; end if;
   raise notice 'PASS 1 · acknowledgement e-sign (owner-only, immutable-after-sign)';
 end $$;

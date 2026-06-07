@@ -162,7 +162,7 @@ The product is mature; these close the gaps that bite the day a design partner i
 | Rate-limit + retention-prune the public `log-error` endpoint | 🔴 | InfoSec / Backend |
 | Supabase Pro (PITR/backups) + rotate Supabase/service-role/Stripe/CRON secrets before live data | 🔴 | InfoSec / Scale (existing Phase-0 blocker) |
 | Error alerting + a `client_errors` dashboard (capture exists; nobody is told) | 🔴 | Monitoring |
-| Wire the RLS-isolation CI job (set `DATABASE_URL` to a disposable project — see [docs/rls-ci-wiring.md](rls-ci-wiring.md)) | 🟡 | QA / InfoSec |
+| ~~Wire the RLS-isolation CI job (set `DATABASE_URL` to a disposable project — see [docs/rls-ci-wiring.md](rls-ci-wiring.md))~~ — ✅ done 2026-06-07: wired via session pooler; RLS tests enforce in CI. Remaining: promote to a required check | 🟢 | QA / InfoSec |
 | Per-PR Cloudflare preview deploys | 🟡 | DevOps |
 | Gate `supabase db push` + edge-function deploy in CI so the repo can't drift from live | 🟡 | DevOps |
 | ESLint + `npm audit`/Dependabot in CI | 🟡 | Frontend / InfoSec |
