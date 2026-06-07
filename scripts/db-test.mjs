@@ -18,6 +18,30 @@ if (spawnSync('psql', ['--version'], { stdio: 'ignore' }).status !== 0) {
   process.exit(0);
 }
 
+// Connectivity precheck. A DATABASE_URL may be configured but point at a DB that
+// is unreachable (e.g. a paused/deleted Supabase free-tier project, or stale
+// creds). Treat "cannot connect" as a graceful SKIP rather than a hard failure,
+// so a non-required CI job stays green instead of being permanently red noise.
+// We still ENFORCE when the DB is reachable — only a working `select 1` lets the
+// SQL test files run below. (psql exit 2 = connection error.)
+const ci = process.env.GITHUB_ACTIONS === 'true';
+const probe = spawnSync('psql', [url, '-tAc', 'select 1'], { stdio: ['ignore', 'ignore', 'pipe'] });
+if (probe.status !== 0) {
+  const why = (probe.stderr?.toString() || '').split('\n').find(Boolean) || `psql exit ${probe.status}`;
+  // Redact anything that could identify the (secret) DB: full URLs, the host in
+  // psql's `server at "..."` text, parenthesised IPs, and supabase hostnames.
+  // We keep the human-readable failure reason (e.g. "Network is unreachable").
+  const sanitized = why
+    .replace(/postgres(?:ql)?:\/\/[^\s]+/gi, '<url>')
+    .replace(/server at "[^"]*"/gi, 'server at <host>')
+    .replace(/\([0-9a-fA-F:.]+\)/g, '(<ip>)')
+    .replace(/[a-z0-9.-]+\.supabase\.(?:co|com|net)/gi, '<host>');
+  const msg = `DB tests skipped: DATABASE_URL is set but the database is unreachable (${sanitized}). Verify the staging project is running and the credentials are current.`;
+  console.log(`⊘ ${msg}`);
+  if (ci) console.log(`::warning title=rls-isolation::${msg}`);
+  process.exit(0);
+}
+
 const files = readdirSync(DIR).filter(f => f.endsWith('.sql')).sort();
 let failed = 0;
 for (const f of files) {
