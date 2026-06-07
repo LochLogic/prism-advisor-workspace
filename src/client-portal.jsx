@@ -422,9 +422,12 @@ const ClientPortal = ({ onOpenNumbers }) => {
   }, [valueSeries]);
 
   // Period returns for the inline performance view (live flows, or demo flows).
-  const perfFlowsForView = window.db?.isUUID(activeClientId)
-    ? perfFlows
-    : (window.demoCashFlows ? window.demoCashFlows() : []);
+  // Memoized so the demo generator's fresh array doesn't bust perfPeriodsData each render.
+  const perfFlowsForView = React.useMemo(
+    () => (window.db?.isUUID(activeClientId)
+      ? perfFlows
+      : (window.demoCashFlows ? window.demoCashFlows() : [])),
+    [activeClientId, perfFlows]);
   const perfPeriodsData = React.useMemo(
     () => (valueSeries.length >= 2 ? perfPeriods(valueSeries, perfFlowsForView) : []),
     [valueSeries, perfFlowsForView]);
