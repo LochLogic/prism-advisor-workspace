@@ -135,7 +135,7 @@ Deno.serve(async (req) => {
     const { data: schedules } = await sq;
     const schedMap: Record<string, any> = Object.fromEntries((schedules || []).map(s => [s.id, s]));
 
-    let created = 0, skipped = 0, total = 0;
+    let created = 0, skipped = 0, failed = 0, total = 0;
     for (const c of (clients || [])) {
       const sched = schedMap[c.fee_schedule_id];
       if (!sched) continue;
@@ -151,16 +151,22 @@ Deno.serve(async (req) => {
         firm_id: c.firm_id, client_id: c.id, period_start: start, period_end: end,
         basis_amount: Math.round(basis), fee_amount: Math.round(fee * 100) / 100, status: "draft",
       });
-      if (error) skipped++; else { created++; total += fee; }
+      // The unique(client_id, period_start, period_end) constraint makes the run
+      // idempotent: a retry (or the monthly cron re-touching a quarterly schedule)
+      // hits 23505 and is a legitimate skip. Any OTHER error is a real failure and
+      // must not be silently counted as "skipped" — surface it so we notice.
+      if (!error) { created++; total += fee; }
+      else if (error.code === "23505") skipped++;
+      else { failed++; console.error(`invoice insert failed for client ${c.id}:`, error.message); }
     }
 
     await admin.from("audit_log").insert({
       actor_id: actorId, actor_role: isCron ? "system" : "admin", actor_email: actorEmail, firm_id: firmFilter,
       action: "invoices.generate", entity_type: "invoice",
-      summary: `${isCron ? "Scheduled" : "Manual"} billing run — ${created} draft invoice(s), ${skipped} skipped`,
+      summary: `${isCron ? "Scheduled" : "Manual"} billing run — ${created} draft invoice(s), ${skipped} skipped (already billed)${failed ? `, ${failed} FAILED` : ""}`,
     });
 
-    return json({ created, skipped, total: Math.round(total * 100) / 100, mode: isCron ? "cron" : "manual" });
+    return json({ created, skipped, failed, total: Math.round(total * 100) / 100, mode: isCron ? "cron" : "manual" });
   } catch (e) {
     return json({ error: (e as Error).message }, 400);
   }
