@@ -741,7 +741,7 @@ const AdvisorDashboard = () => {
         const pct = ((c.uninvestedCash / c.aum) * 100).toFixed(0);
         alerts.push({
           id:       `gen_cash_${c.id}`,
-          priority: c.uninvestedCash > 100_000 ? 'high' : 'medium',
+          priority: c.uninvestedCash > 100_000 ? 'high' : 'med',
           clientId: c.id,
           icon:     'Dollar',
           headline: `${c.shortName} — ${pct}% cash drag`,
@@ -756,7 +756,7 @@ const AdvisorDashboard = () => {
         if (daysSince >= 14) {
           alerts.push({
             id:       `gen_stale_${c.id}`,
-            priority: daysSince >= 30 ? 'high' : 'medium',
+            priority: daysSince >= 30 ? 'high' : 'med',
             clientId: c.id,
             icon:     'Phone',
             headline: `${c.shortName} — no activity ${daysSince}d`,

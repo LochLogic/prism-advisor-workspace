@@ -105,23 +105,6 @@ const emptyProfile = {
   risk: { answers: [], completedAt: null },
 };
 
-// Reconcile managed/linked AUM against the household's self-reported invested
-// balances. These are DIFFERENT concepts — assets custodied under management vs.
-// all invested assets (which may include held-away accounts) — so a gap is not
-// inherently an error. But a silent gap is: it means one of the two surfaces is
-// stale. We surface it directionally so the right party knows to update.
-function reconcileAssets(aum, investedOnFile) {
-  const a = Number(aum) || 0, f = Number(investedOnFile) || 0;
-  if (a <= 0 || f <= 0) return { diverges: false, delta: 0 };
-  const delta = a - f;                       // + → managed exceeds what's on file
-  const rel = Math.abs(delta) / Math.max(a, f);
-  if (rel < 0.1) return { diverges: false, delta };
-  return { diverges: true, delta, rel,
-    // 'aum-exceeds' → the typed numbers look stale (real managed money is higher);
-    // 'file-exceeds' → held-away assets exist beyond what's managed/linked.
-    direction: delta > 0 ? 'aum-exceeds' : 'file-exceeds' };
-}
-
 // Deep-merge a (possibly partial / empty) stored profile onto a complete base,
 // so every expected key always exists. Top-level scalars/arrays from `data`
 // win; nested objects are filled in from `base` where missing.
@@ -332,10 +315,14 @@ function ProfileProvider({ children }) {
   const mcSeed = (activeClientId || 'demo').split('').reduce((s, c) => s + c.charCodeAt(0), 0) || 42;
   const mcYears = Math.max(20, (Number(profile.goals?.retireAt) || 65) - planningAge + 25);
   const mcWithdrawal = Math.round(annualExpenses / 1000) * 1000;
-  const successBand = totalInvested > 0 && annualExpenses > 0
-    ? _calc.monteCarlo({ principal: totalInvested, years: mcYears, withdrawal: mcWithdrawal,
-        seed: mcSeed, runs: 600, mean: 0.07, sd: 0.16 })
-    : null;
+  // Memoized: monteCarlo runs 600 sims — without this it re-ran on every keystroke
+  // in the Numbers drawer (ProfileProvider re-renders on every profile change).
+  const successBand = useMemo(
+    () => (totalInvested > 0 && annualExpenses > 0
+      ? _calc.monteCarlo({ principal: totalInvested, years: mcYears, withdrawal: mcWithdrawal,
+          seed: mcSeed, runs: 600, mean: 0.07, sd: 0.16 })
+      : null),
+    [totalInvested, annualExpenses, mcYears, mcWithdrawal, mcSeed]);
 
   const metrics = {
     totalExpenses, totalDebt, toxicDebt, surplus, savingsRate,
@@ -1112,7 +1099,7 @@ function printInvoiceReport(invoice, clientName, advisorFirm) {
 }
 
 Object.assign(window, {
-  ProfileProvider, useProfile, emptyProfile, mergeProfile, reconcileAssets,
+  ProfileProvider, useProfile, emptyProfile, mergeProfile,
   TaskProvider, useTasks,
   ViewProvider, useView,
   NotificationProvider, useNotifications,

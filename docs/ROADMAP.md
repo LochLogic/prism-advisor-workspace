@@ -6,6 +6,27 @@
 
 ---
 
+## Code-review findings (2026-06-07) — **first in line, ahead of all feature work**
+
+From a full architecture + granular code review. These are sequenced ahead of C3/C4/C5; live working items are tracked in [`TODO.md`](TODO.md) §C0. Frontend-only fixes are shippable immediately; the checkout/webhook items touch the billing flow (edge-function redeploy + money-adjacent — confirm before deploy).
+
+| Finding | Sev | Status |
+|---|---|---|
+| Post-checkout `success_url` → `/index.html` (marketing) instead of `/app/`; billing toast handler never runs | 🔴 High | ⬜ TODO C0 |
+| Debounced profile save cancelled on client switch → last <1.5s of edits lost (`store.jsx:151-186`) | 🟡 Med | ⬜ TODO C0 |
+| KPI / Book-AUM totals computed over the 50-row first page only → under-count for big books (`advisor-dashboard.jsx:817`) | 🟡 Med | ⬜ TODO C0 |
+| Monte Carlo (`runs:600`) ran unmemoized in `ProfileProvider` → fired every keystroke | 🟡 Med | ✅ 2026-06-07 (`useMemo`) |
+| Generated-alert `priority:'medium'` vs app's `'med'` → mislabeled "FYI", dead CSS class | 🟢 Low | ✅ 2026-06-07 |
+| Stripe webhook returns 400 on permanent errors → ~3-day retry storm | 🟢 Low | ⬜ TODO C0 |
+| Demo cash-flows array identity busts `perfPeriodsData` memo each render | 🟢 Low | ✅ 2026-06-07 |
+| Dead code `reconcileAssets` (superseded by `assetComposition`) | 🟢 Low | ✅ 2026-06-07 (removed) |
+| Drift-prone duplication: fee math (calc-core ↔ generate-invoices) + audit-label map ×3 | 🟢 Low | ⬜ TODO C0 |
+| Fuller `ProfileProvider` memoization (readiness/goals/risk + context value) | 🟢 Low | ⬜ C5 |
+
+**What the review found healthy:** report layer escapes all interpolated user content; `sanitizeHtml` is escape-then-allowlist; build emits per-file SHA-256 CSP hashes with no script `unsafe-inline`; RLS is tenant-scoped per firm/advisor; soft-deletes preserve the 17a-4 trail; audit/error writes are fire-and-forget. Security posture is the strongest part of the codebase.
+
+---
+
 ## Positioning — the wedge (resolves Blocker 4)
 
 Prism touches five mature product categories (planning, CRM, aggregation, performance, billing). It cannot out-build the incumbents in all five as a solo product, so it **does not try to.**
