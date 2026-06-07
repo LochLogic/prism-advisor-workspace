@@ -383,7 +383,7 @@ const DocumentVault = ({ clientId, role, firmId, advisorId, demoSeed = [], empty
               {d.uploaded_at ? ` · ${_fmtDocDate(d.uploaded_at)}` : ''}
             </div>
           </div>
-          <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => download(d)} title="Download">
+          <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => download(d)} title="Download" aria-label={`Download ${d.title}`}>
             <Icons.Download size={12} />
           </button>
           {canManage && (

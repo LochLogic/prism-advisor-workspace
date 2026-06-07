@@ -416,31 +416,49 @@ const ClientPortal = ({ onOpenNumbers }) => {
           </div>
         </div>
 
-        {/* Asset reconciliation — managed/linked AUM vs. the invested balances on file.
-            A gap means one side is stale; we nudge directionally instead of showing two
-            unrelated totals silently. */}
+        {/* Asset-truth composition (W6) — one honest total: managed + held-away.
+            The common case (held-away accounts exist) is a clean composition, not a
+            warning. Only the genuine error case (managed > reported total) nudges. */}
         {(() => {
-          const rec = reconcileAssets?.(viewingClient.aum, ctx.investedOnFile);
-          if (!rec?.diverges) return null;
-          const exceeds = rec.direction === 'aum-exceeds';
-          return (
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
-              background: 'var(--surface)', border: '1px solid var(--border)',
-              borderLeft: '3px solid var(--gold)', borderRadius: 'var(--radius-lg)',
-              padding: '12px 16px', margin: '4px 0 12px', fontSize: 12.5, color: 'var(--ink-mute)', lineHeight: 1.5,
-            }}>
-              <span style={{ color: 'var(--gold)', display: 'flex', flexShrink: 0 }}><Icons.AlertCircle size={16} /></span>
-              <span style={{ flex: 1, minWidth: 200 }}>
-                {exceeds
-                  ? <>Your managed assets ({fmt$(viewingClient.aum, { short: true })}) are higher than the invested balances on file ({fmt$(ctx.investedOnFile, { short: true })}). Your numbers may be out of date.</>
-                  : <>The invested balances on file ({fmt$(ctx.investedOnFile, { short: true })}) exceed managed assets ({fmt$(viewingClient.aum, { short: true })}) — likely held-away accounts your advisor doesn't yet manage.</>}
-              </span>
-              {exceeds && (
+          const comp = ctx.assetComposition?.(viewingClient.aum);
+          if (!comp || comp.total <= 0) return null;
+          if (comp.stale) {
+            return (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+                background: 'var(--surface)', border: '1px solid var(--border)',
+                borderLeft: '3px solid var(--gold)', borderRadius: 'var(--radius-lg)',
+                padding: '12px 16px', margin: '4px 0 12px', fontSize: 12.5, color: 'var(--ink-mute)', lineHeight: 1.5,
+              }}>
+                <span style={{ color: 'var(--gold)', display: 'flex', flexShrink: 0 }}><Icons.AlertCircle size={16} /></span>
+                <span style={{ flex: 1, minWidth: 200 }}>
+                  Your managed assets ({fmt$(comp.managed, { short: true })}) are higher than the invested balances on file. Updating your numbers keeps the full picture accurate.
+                </span>
                 <button className="px-btn px-btn-sm px-btn-ghost" style={{ flexShrink: 0 }} onClick={onOpenNumbers}>
                   <Icons.Edit size={11} /> Update numbers
                 </button>
-              )}
+              </div>
+            );
+          }
+          if (!comp.hasHeldAway) return null;   // fully managed — nothing to compose
+          return (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
+              background: 'var(--surface)', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-lg)', padding: '12px 16px', margin: '4px 0 12px',
+            }} aria-label="Invested assets composition">
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.05em' }}>Invested assets</span>
+              <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6, fontSize: 13, color: 'var(--ink-mute)' }}>
+                <span style={{ color: 'var(--forest)', fontWeight: 600 }}>{fmt$(comp.managed, { short: true })}</span> managed
+              </span>
+              <span style={{ color: 'var(--border-2)' }}>+</span>
+              <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6, fontSize: 13, color: 'var(--ink-mute)' }}>
+                <span style={{ color: 'var(--ink)', fontWeight: 600 }}>{fmt$(comp.heldAway, { short: true })}</span> held away
+              </span>
+              <span style={{ color: 'var(--border-2)' }}>=</span>
+              <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6, fontSize: 13, color: 'var(--ink)' }}>
+                <span style={{ fontWeight: 700 }}>{fmt$(comp.total, { short: true })}</span> total
+              </span>
             </div>
           );
         })()}
