@@ -29,6 +29,11 @@ jobs:
     if: ${{ github.event.inputs.confirm == 'deploy' }}
     runs-on: ubuntu-latest
     environment: production
+    # Disable the CLI's PostHog telemetry: in CI it can't reach PostHog and the
+    # shutdown flush times out, returning exit 1 even after the command itself
+    # succeeded (e.g. "Finished supabase link." then a non-zero exit).
+    env:
+      DO_NOT_TRACK: "1"
     steps:
       - uses: actions/checkout@v6
       - uses: supabase/setup-cli@v2
