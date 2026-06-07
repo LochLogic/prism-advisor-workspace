@@ -60,9 +60,9 @@ The unlock gate. Mostly **not code**.
 | Compliance language de-risked to "designed-around" capability framing | ✅ Done |
 | Wedge reframe in marketing copy (landing leads with roadmap + collaboration) | ✅ Done |
 | Pricing model set to household-tier, no metering | ✅ Done |
-| Name/form the legal entity; fill legal placeholders (mailing address, governing-law state) | ⬜ **Human** |
-| Stand up privacy@ / legal@ / security@ inboxes | ⬜ **Human** |
-| Counsel review of the legal drafts before live customers | ⬜ **Human** |
+| Name/form the legal entity; fill legal placeholders (mailing address, governing-law state) | ✅ Done — *LeMay Ventures LLC* (CO) |
+| Stand up privacy@ / legal@ / security@ inboxes (built + round-trip tested) | ✅ Done |
+| Counsel review of the legal drafts before live customers | ✅ Done (v1) |
 | Infra → production grade: Supabase Pro (PITR/backups), rotate Supabase token + Stripe/CRON secrets, decide live Stripe/Plaid keys | ⬜ **Human — #1 hard blocker** |
 
 ### Phase 1 — Design partners
@@ -129,18 +129,19 @@ better at the client-facing layer, and (3) retire at least one paid tool.
 ### Tier A — Adoption unlocks (without these, RIAs won't move)
 | Item | Why it's switch-critical |
 |---|---|
-| **Bulk client import + migration** (CSV + Wealthbox/Redtail/Orion mappers) | #1 blocker to a "yes" — nobody hand-keys 150 households. |
-| **White-label branding** (firm logo, accent color, custom subdomain) | Table stakes for a client-facing tool; makes "no second portal" literally true. |
+| ~~**Bulk client import** (CSV + Wealthbox/Redtail/Orion mappers)~~ — ✅ shipped 2026-06-07 (`BulkImportModal`; sample at `docs/samples/`) | #1 blocker to a "yes" — nobody hand-keys 150 households. |
+| **White-label branding** (firm logo, accent color, custom subdomain) | Table stakes for a client-facing tool; makes "no second portal" literally true. *Scoped: big-but-not-drastic; schema (`firms.brand_color`/`logo_url`) already exists. See TODO C3.* |
 | **Prospect / proposal mode** (run a prospect through a sample roadmap pre-signing) | Turns the wedge into a closing tool — the most direct "why switch." |
+| **Client connect / invite flow** | *Gap surfaced 2026-06-07:* advisor-created client rows have no `auth_user_id` link, so clients can't yet reach their own portal. Tier-A for any client-facing launch. See TODO C3. |
 | **Core integrations** (Google/Outlook calendar, real e-sign, Zapier/API) | Each removes a rip-and-replace objection. |
 
 ### Tier B — Wedge deepeners (visible client value; retire a tool)
 | Item | Notes |
 |---|---|
-| **Probability-of-success on the client roadmap** | Surface the existing `calc-core.monteCarlo` as a confidence band on the retirement horizon. Low effort, high expectation-match. |
+| ~~**Probability-of-success on the client roadmap**~~ — ✅ shipped 2026-06-07 | Monte Carlo confidence band on the retirement-readiness card (success % + bear/median/bull). |
+| ~~**Risk questionnaire → auto-drafted IPS**~~ — ✅ shipped 2026-06-07 | `riskProfile` calc → client questionnaire → strategic allocation; advisor "Draft IPS" (e-sign) + "Print IPS". |
+| ~~**One-click review packet (QBR generator)**~~ — ✅ shipped 2026-06-07 | `printQBRReport`: roadmap + readiness + net-of-fee performance + goals + protection, from existing data. |
 | **Tax-return insight (Holistiplan-lite)** | "Drop the 1040 → planning observations in the roadmap + portal." High willingness-to-pay; differentiating inside a client portal. |
-| **Risk questionnaire → auto-drafted IPS** | Client-facing risk profiling feeds the roadmap and drops a draft IPS into the vault for e-sign (vault + acknowledgements already exist). |
-| **One-click review packet (QBR generator)** | Auto-assemble a client-ready review (roadmap + net-of-fee performance + goals + protection) from existing data. Saves hours of prep. |
 | **AI relationship assistant (Opus)** | Draft replies, summarize a household, generate review talking points, flag "who needs attention." Rides on the messaging + CRM already shipped. |
 
 ### Tier C — Reach & retention

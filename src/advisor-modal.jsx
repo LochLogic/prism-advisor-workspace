@@ -126,6 +126,330 @@ const NewClientModal = ({ isOpen, onClose, advisorId, firmId, onCreated }) => {
   );
 };
 
+/* ─── Bulk client import (C3) ─────────────────────────────────────────
+   CSV importer + column mapper. Dependency-free parser (handles quoted fields
+   and embedded commas/newlines), auto-detected mapping with vendor presets
+   (Wealthbox / Redtail / Orion), a preview, then a create loop that reuses the
+   same createClient + saveProfile paths as the single-add flow. Live-only — the
+   DB layer no-ops without real UUIDs, so the roster only shows this in live mode. */
+
+// Target fields the CSV maps onto. `numeric` fields are currency-cleaned on import.
+const IMPORT_FIELDS = [
+  { key: 'household_name',    label: 'Household name', required: true },
+  { key: 'short_name',        label: 'Short name' },
+  { key: 'household_tag',     label: 'Tag / segment' },
+  { key: 'aum',               label: 'Managed assets (AUM)', numeric: true },
+  { key: 'monthlyTakehome',   label: 'Monthly take-home',    numeric: true },
+  { key: 'emergency',         label: 'Cash / emergency',     numeric: true },
+  { key: 'taxableBalance',    label: 'Investment assets',    numeric: true },
+  { key: 'retirementBalance', label: 'Retirement assets',    numeric: true },
+];
+
+// Normalized header → field synonyms for auto-detection.
+const IMPORT_SYNONYMS = {
+  household_name:    ['householdname', 'household', 'fullname', 'name', 'clientname', 'accountname', 'primaryname', 'primarycontact', 'registration'],
+  short_name:        ['shortname', 'nickname', 'displayname', 'preferredname'],
+  household_tag:     ['tag', 'tags', 'segment', 'category', 'status', 'contacttype', 'type', 'classification', 'tier'],
+  aum:               ['aum', 'managedassets', 'marketvalue', 'value', 'totalvalue', 'portfoliovalue', 'assets', 'balance', 'currentvalue'],
+  monthlyTakehome:   ['monthlytakehome', 'takehome', 'monthlyincome', 'netincome', 'income'],
+  emergency:         ['emergency', 'emergencyfund', 'cash', 'reserve', 'cashreserve', 'savings'],
+  taxableBalance:    ['taxable', 'taxablebalance', 'brokerage', 'investmentassets', 'nonqualified'],
+  retirementBalance: ['retirement', 'retirementassets', '401k', 'ira', 'qualified', 'rothira'],
+};
+
+// Vendor presets bias detection toward each export's known column names.
+const IMPORT_PRESETS = [
+  { id: 'generic',   label: 'Auto-detect', extra: {} },
+  { id: 'wealthbox', label: 'Wealthbox',   extra: { household_name: ['lastname'], household_tag: ['contacttype', 'tags'] } },
+  { id: 'redtail',   label: 'Redtail',     extra: { household_name: ['fullname', 'lastname'], household_tag: ['category', 'status', 'source'] } },
+  { id: 'orion',     label: 'Orion',       extra: { household_name: ['accountname', 'registration'], aum: ['value', 'marketvalue'], household_tag: ['registration'] } },
+];
+
+const _normHeader = (h) => String(h || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+function parseCSV(text) {
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else inQuotes = false; }
+      else field += c;
+    } else if (c === '"') inQuotes = true;
+    else if (c === ',') { row.push(field); field = ''; }
+    else if (c === '\r') { /* ignore */ }
+    else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+    else field += c;
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row); }
+  return rows.filter(r => r.some(c => String(c).trim() !== ''));
+}
+
+function detectMapping(headers, extra = {}) {
+  const norm = headers.map(_normHeader);
+  const map = {};
+  for (const f of IMPORT_FIELDS) {
+    const syns = [...(extra[f.key] || []), ...IMPORT_SYNONYMS[f.key]];
+    let idx = norm.findIndex(h => syns.includes(h));
+    if (idx < 0) idx = norm.findIndex(h => h && syns.some(s => h.includes(s)));
+    map[f.key] = idx >= 0 ? idx : '';
+  }
+  return map;
+}
+
+const BulkImportModal = ({ isOpen, onClose, advisorId, firmId, onImported }) => {
+  const { showToast } = useView();
+  const [step, setStep]       = useStateAdv('pick');  // pick | map | importing | done
+  const [headers, setHeaders] = useStateAdv([]);
+  const [rows, setRows]       = useStateAdv([]);
+  const [mapping, setMapping] = useStateAdv({});
+  const [preset, setPreset]   = useStateAdv('generic');
+  const [nameParts, setNameParts] = useStateAdv({ first: -1, last: -1 });
+  const [progress, setProgress]   = useStateAdv(0);
+  const [result, setResult]   = useStateAdv(null);
+  const [error, setError]     = useStateAdv('');
+  const fileRef = React.useRef(null);
+
+  const reset = () => {
+    setStep('pick'); setHeaders([]); setRows([]); setMapping({});
+    setPreset('generic'); setNameParts({ first: -1, last: -1 });
+    setProgress(0); setResult(null); setError('');
+    if (fileRef.current) fileRef.current.value = '';
+  };
+
+  const close = () => { reset(); onClose(); };
+
+  const onFile = (e) => {
+    const f = e.target.files?.[0]; if (!f) return;
+    setError('');
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = parseCSV(String(reader.result || ''));
+        if (parsed.length < 2) { setError('That file has no data rows below the header.'); return; }
+        const hdr = parsed[0].map(h => String(h).trim());
+        const data = parsed.slice(1);
+        const norm = hdr.map(_normHeader);
+        setHeaders(hdr);
+        setRows(data);
+        setMapping(detectMapping(hdr));
+        setNameParts({
+          first: norm.findIndex(h => h.includes('first')),
+          last:  norm.findIndex(h => h.includes('last')),
+        });
+        setPreset('generic');
+        setStep('map');
+      } catch (err) { setError('Could not read that CSV — please check the format.'); }
+    };
+    reader.readAsText(f);
+  };
+
+  const applyPreset = (id) => {
+    setPreset(id);
+    const p = IMPORT_PRESETS.find(x => x.id === id);
+    setMapping(detectMapping(headers, p?.extra || {}));
+  };
+
+  // Build one client's fields from a CSV row using the current mapping.
+  const buildRow = (r) => {
+    const get = (i) => (i === '' || i < 0) ? '' : String(r[i] ?? '').trim();
+    const num = (i) => { if (i === '' || i < 0) return undefined; const v = get(i).replace(/[$,\s]/g, ''); const n = parseFloat(v); return isFinite(n) ? n : undefined; };
+    const { first, last } = nameParts;
+    let name = get(mapping.household_name);
+    if (first >= 0 && last >= 0 && (!name || mapping.household_name === first || mapping.household_name === last)) {
+      name = `${get(first)} ${get(last)}`.trim();
+    }
+    return {
+      household_name: name,
+      short_name:     get(mapping.short_name),
+      household_tag:  get(mapping.household_tag),
+      aum:            num(mapping.aum),
+      monthlyTakehome:   num(mapping.monthlyTakehome),
+      emergency:         num(mapping.emergency),
+      taxableBalance:    num(mapping.taxableBalance),
+      retirementBalance: num(mapping.retirementBalance),
+    };
+  };
+
+  const validCount = React.useMemo(
+    () => rows.reduce((n, r) => n + (buildRow(r).household_name ? 1 : 0), 0),
+    [rows, mapping, nameParts]);
+
+  const doImport = async () => {
+    if (!advisorId || !firmId) { setError('Importing needs a live session.'); return; }
+    setStep('importing'); setProgress(0);
+    const created = [], errors = [];
+    for (let i = 0; i < rows.length; i++) {
+      const f = buildRow(rows[i]);
+      setProgress(i + 1);
+      if (!f.household_name) { errors.push('Skipped a row with no household name'); continue; }
+      const row = await window.db.createClient(advisorId, firmId,
+        { household_name: f.household_name, short_name: f.short_name || '', household_tag: f.household_tag || '' });
+      if (!row) { errors.push(`Failed: ${f.household_name}`); continue; }
+      const partial = {};
+      if (f.monthlyTakehome   != null) partial.income     = { monthlyTakehome: f.monthlyTakehome };
+      if (f.emergency         != null) partial.savings    = { emergency: f.emergency };
+      if (f.taxableBalance    != null) partial.taxable    = { balance: f.taxableBalance };
+      if (f.retirementBalance != null) partial.retirement = { fourohonekBalance: f.retirementBalance };
+      if (Object.keys(partial).length && window.mergeProfile) {
+        try { await window.db.saveProfile(row.id, window.mergeProfile(window.emptyProfile, partial)); } catch {}
+      }
+      let mapped = window.db.mapClient(row);
+      if (f.aum != null && f.aum > 0) {
+        try {
+          await window.db.upsertAccount({ client_id: row.id, type: 'taxable', custodian: 'Imported — update', balance: f.aum, cash: 0 });
+          const totals = await window.db.syncClientTotals(row.id);
+          if (totals) mapped = { ...mapped, aum: totals.aum, uninvestedCash: totals.uninvested_cash };
+        } catch {}
+      }
+      created.push(mapped);
+    }
+    if (created.length) onImported(created);
+    setResult({ created: created.length, failed: errors.length, errors: errors.slice(0, 8) });
+    setStep('done');
+  };
+
+  if (!isOpen) return null;
+  const preview = rows.slice(0, 6);
+
+  return (
+    <Modal isOpen={isOpen} onClose={close}>
+      <div style={{ padding: 28, minWidth: 460, maxWidth: 720 }}>
+        <h2 style={{ fontFamily: 'var(--serif)', fontSize: 20, fontWeight: 500, margin: '0 0 6px', color: 'var(--ink)' }}>
+          Import clients from CSV
+        </h2>
+        <p style={{ fontSize: 12.5, color: 'var(--ink-mute)', lineHeight: 1.5, margin: '0 0 18px' }}>
+          Bring your book over from Wealthbox, Redtail, Orion, or any spreadsheet. We'll map the
+          columns — you confirm before anything is created.
+        </p>
+
+        {error && <div style={{ fontSize: 12, color: 'var(--brick)', marginBottom: 12, padding: '6px 10px', background: 'rgba(140,61,61,.07)', borderRadius: 6 }}>{error}</div>}
+
+        {/* Step 1 — pick a file */}
+        {step === 'pick' && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '28px 0', border: '1px dashed var(--border-2)', borderRadius: 10 }}>
+            <Icons.Upload size={22} style={{ color: 'var(--gold)' }} />
+            <label className="px-btn px-btn-primary" style={{ cursor: 'pointer' }}>
+              <Icons.FileText size={13} /> Choose a CSV file
+              <input ref={fileRef} type="file" accept=".csv,text/csv" onChange={onFile} style={{ display: 'none' }} />
+            </label>
+            <div style={{ fontSize: 11.5, color: 'var(--ink-faint)' }}>The first row should be column headers.</div>
+          </div>
+        )}
+
+        {/* Step 2 — map columns + preview */}
+        {step === 'map' && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.05em' }}>Source preset</span>
+              {IMPORT_PRESETS.map(p => (
+                <button key={p.id} className={`px-btn px-btn-sm ${preset === p.id ? 'px-btn-primary' : 'px-btn-ghost'}`}
+                  onClick={() => applyPreset(p.id)}>{p.label}</button>
+              ))}
+              <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--ink-mute)' }}>
+                {rows.length} row{rows.length !== 1 ? 's' : ''} · <b style={{ color: validCount ? 'var(--forest)' : 'var(--brick)' }}>{validCount}</b> with a name
+              </span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+              {IMPORT_FIELDS.map(f => (
+                <label key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <span style={{ fontSize: 11, color: 'var(--ink-mute)' }}>
+                    {f.label}{f.required && <span style={{ color: 'var(--brick)' }}> *</span>}
+                  </span>
+                  <select className="px-select" value={mapping[f.key] === '' ? '' : String(mapping[f.key])}
+                    onChange={e => setMapping(m => ({ ...m, [f.key]: e.target.value === '' ? '' : Number(e.target.value) }))}>
+                    <option value="">— not mapped —</option>
+                    {headers.map((h, i) => <option key={i} value={i}>{h || `Column ${i + 1}`}</option>)}
+                  </select>
+                </label>
+              ))}
+            </div>
+
+            {mapping.household_name === '' && nameParts.first >= 0 && nameParts.last >= 0 && (
+              <div style={{ fontSize: 11.5, color: 'var(--ink-mute)', marginBottom: 12, fontStyle: 'italic' }}>
+                No single name column — we'll combine <b>{headers[nameParts.first]}</b> + <b>{headers[nameParts.last]}</b> into the household name.
+              </div>
+            )}
+
+            {/* Preview */}
+            <div style={{ ...LABEL_STYLE, marginBottom: 6 }}>Preview</div>
+            <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 6, marginBottom: 16 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ background: 'var(--bg-elev)' }}>
+                    {IMPORT_FIELDS.filter(f => mapping[f.key] !== '' || (f.key === 'household_name' && nameParts.first >= 0)).map(f => (
+                      <th key={f.key} style={{ textAlign: 'left', padding: '6px 9px', color: 'var(--ink-mute)', fontWeight: 600, whiteSpace: 'nowrap' }}>{f.label}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {preview.map((r, ri) => {
+                    const b = buildRow(r);
+                    return (
+                      <tr key={ri} style={{ borderTop: '1px solid var(--border)' }}>
+                        {IMPORT_FIELDS.filter(f => mapping[f.key] !== '' || (f.key === 'household_name' && nameParts.first >= 0)).map(f => (
+                          <td key={f.key} style={{ padding: '6px 9px', color: b[f.key] != null && b[f.key] !== '' ? 'var(--ink)' : 'var(--ink-faint)', whiteSpace: 'nowrap' }}>
+                            {f.numeric ? (b[f.key] != null ? fmt$(b[f.key], { short: true }) : '—') : (b[f.key] || '—')}
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button className="px-btn px-btn-ghost" onClick={reset}>Choose another file</button>
+              <button className="px-btn px-btn-primary" onClick={doImport} disabled={!validCount}>
+                Import {validCount} client{validCount !== 1 ? 's' : ''}
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Step 3 — importing */}
+        {step === 'importing' && (
+          <div style={{ padding: '28px 0', textAlign: 'center' }}>
+            <div style={{ fontSize: 14, color: 'var(--ink)', marginBottom: 12 }}>Importing… {progress} / {rows.length}</div>
+            <div style={{ height: 8, background: 'var(--bg-elev)', borderRadius: 4, overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${rows.length ? (progress / rows.length) * 100 : 0}%`, background: 'var(--gold)', transition: 'width .2s' }} />
+            </div>
+          </div>
+        )}
+
+        {/* Step 4 — done */}
+        {step === 'done' && result && (
+          <div style={{ padding: '12px 0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <Icons.CheckCircle size={20} style={{ color: 'var(--forest)' }} />
+              <div style={{ fontFamily: 'var(--serif)', fontSize: 17, color: 'var(--ink)' }}>
+                {result.created} client{result.created !== 1 ? 's' : ''} imported
+              </div>
+            </div>
+            {result.failed > 0 && (
+              <div style={{ fontSize: 12.5, color: 'var(--ink-mute)', marginBottom: 8 }}>
+                {result.failed} row{result.failed !== 1 ? 's' : ''} skipped or failed:
+                <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+                  {result.errors.map((e, i) => <li key={i} style={{ color: 'var(--brick)', marginBottom: 2 }}>{e}</li>)}
+                </ul>
+              </div>
+            )}
+            <div style={{ fontSize: 11.5, color: 'var(--ink-faint)', marginBottom: 16, lineHeight: 1.5 }}>
+              Imported AUM was recorded as a single placeholder account — open each client to refine accounts, link via Plaid, or fill in the full profile.
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button className="px-btn px-btn-ghost" onClick={reset}>Import another file</button>
+              <button className="px-btn px-btn-primary" onClick={close}>Done</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+};
+
 /* ─── Client preview modal ───────────────────────────────────────── */
 const TAB_STYLE = (active) => ({
   padding: '8px 16px', fontSize: 12,
@@ -537,6 +861,101 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     window.printComplianceReport?.(client, audit || [], meetings || [], (versions || []).length);
   };
 
+  /* QBR packet (C4) — assemble a client-ready review from data already on file */
+  const generateQBR = async () => {
+    showToast('Assembling review packet…');
+    const C = window.PrismCalc || {};
+    const pd = profileData || {};
+    let ts = {};
+    if (isLiveClient) ts = (await window.db.getTaskStates(client.id)) || {};
+
+    // Performance — reuse loaded data, else fetch (live) / generate (demo)
+    let series = perfSeries, periods = perfStats, flows = perfFlows;
+    if (perfBal === undefined) {
+      if (isLiveClient) {
+        const [bal, fl] = await Promise.all([window.db.getBalanceHistory(client.id), window.db.getCashFlows(client.id)]);
+        flows = fl || []; series = buildValueSeries(bal || []); periods = perfPeriods(series, flows);
+      } else {
+        flows = demoCashFlows(); series = buildValueSeries(demoBalanceHistory(client.aum || 0)); periods = perfPeriods(series, flows);
+      }
+    }
+
+    // Derived household figures (mirrors store.jsx; QBR is a snapshot renderer)
+    const mm = Array.isArray(pd.members) ? pd.members : [];
+    const primary = mm.find(x => x.role === 'primary') || mm[0];
+    const age = advMemberAge(primary) || Number(pd.goals?.age || 0);
+    const retireAt = Number(pd.goals?.retireAt) || 65;
+    const r = pd.retirement || {};
+    const invested = (Number(r.hsaBalance) || 0) + (Number(r.iraBalance) || 0) + (Number(r.fourohonekBalance) || 0) + (Number(pd.taxable?.balance) || 0);
+    const annualExpenses = Object.values(pd.expenses || {}).reduce((a, b) => a + (Number(b) || 0), 0) * 12;
+    const contrib = (Number(pd.taxable?.monthlyContrib) || 0) * 12 + (Number(r.hsaContrib) || 0) + (Number(r.iraContributed) || 0) + (Number(r.fourohonekContributed) || 0);
+    let readiness = null, successBand = null;
+    if (age || invested || annualExpenses) {
+      readiness = C.retirementReadiness?.({ currentAge: age, retireAt, currentInvested: invested, annualContribution: contrib, annualExpenses, streams: pd.incomeStreams || [] });
+      if (invested > 0 && annualExpenses > 0) {
+        const seed = client.id.split('').reduce((s, c) => s + c.charCodeAt(0), 0) || 42;
+        successBand = C.monteCarlo?.({ principal: invested, years: Math.max(20, retireAt - age + 25), withdrawal: Math.round(annualExpenses / 1000) * 1000, seed, runs: 600, mean: 0.07, sd: 0.16 });
+      }
+    }
+    const emergency = Number(pd.savings?.emergency) || 0;
+    const totalDebt = (Array.isArray(pd.debts) ? pd.debts : []).reduce((s, d) => s + (Number(d.balance) || 0), 0);
+    const homeEquity = pd.housing?.type === 'own' ? (Number(pd.housing?.homeValue || 0) - Number(pd.housing?.mortgageBalance || 0)) : 0;
+    const propsEquity = (Array.isArray(pd.properties) ? pd.properties : []).reduce((s, p) => s + (Number(p.value || 0) - Number(p.mortgageBalance || 0)), 0);
+    const netWorth = invested + emergency - totalDebt + homeEquity + propsEquity;
+    const goals = (Array.isArray(pd.goals?.items) ? pd.goals.items : []).map(g => {
+      const f = C.goalFunding?.(g) || {};
+      return { label: g.label || 'Goal', pct: g.targetAmount > 0 ? Math.min(100, Math.round((g.currentFunding / g.targetAmount) * 100)) : 0, status: f.status || '—' };
+    });
+    const insurance = Array.isArray(pd.insurance) ? pd.insurance : [];
+    const lifeCoverage = insurance.filter(i => i.type === 'life').reduce((s, i) => s + (Number(i.coverageAmount) || 0), 0);
+    const grossAnnual = (Array.isArray(pd.income?.sources) ? pd.income.sources : []).reduce((s, x) => s + (Number(x.monthlyGross) || 0), 0) * 12 || (Number(pd.income?.monthlyTakehome) || 0) * 12;
+    const cg = C.lifeCoverageGap?.({ annualIncome: grossAnnual, incomeMultiple: 10, liabilities: totalDebt, existingCoverage: lifeCoverage, liquidAssets: emergency }) || {};
+    const estate = pd.estate && typeof pd.estate === 'object' ? pd.estate : {};
+    const estateKeys = ['will', 'trust', 'poa', 'healthcareDirective', 'beneficiaries'];
+    const estateComplete = estateKeys.filter(k => estate[k]?.status === 'complete').length;
+    const risk = C.riskProfile?.({ answers: pd.risk?.answers || [], horizonYears: Math.max(0, retireAt - age) });
+    const phasesProgress = phasesData.map(p => {
+      const completed = isLiveClient
+        ? p.tasks.filter(t => ts[p.id]?.[t.id]).length
+        : (p.id < client.phase ? p.tasks.length : p.id === client.phase ? Math.round((client.phaseProgress || 0) * p.tasks.length) : 0);
+      return { num: p.num, title: p.title, completed, total: p.tasks.length };
+    });
+
+    window.printQBRReport?.({
+      client, phase, netWorth, aum: client.aum, invested, uninvestedCash: client.uninvestedCash,
+      phases: phasesProgress, readiness, successBand, goals,
+      protection: { lifeCoverage, recommended: cg.recommended || 0, gap: cg.gap || 0, estateComplete, estateTotal: estateKeys.length },
+      risk, series, periods, flows,
+      advisorName: authUser?.full_name, advisorFirm: authUser?.firms?.name,
+    });
+  };
+
+  /* Draft IPS (C4) — derive from the client's risk profile; prefill an
+     acknowledgement for e-sign, with a full printable draft for the vault */
+  const _ipsRisk = () => {
+    const pd = profileData || {};
+    const mm = Array.isArray(pd.members) ? pd.members : [];
+    const primary = mm.find(x => x.role === 'primary') || mm[0];
+    const age = advMemberAge(primary) || Number(pd.goals?.age || 0);
+    const retireAt = Number(pd.goals?.retireAt) || 65;
+    const rp = (window.PrismCalc || {}).riskProfile?.({ answers: pd.risk?.answers || [], horizonYears: Math.max(0, retireAt - age) });
+    return { rp, age, retireAt };
+  };
+  const draftIPS = () => {
+    const { rp } = _ipsRisk();
+    const a = rp?.allocation;
+    const body = rp
+      ? `Risk profile: ${rp.band} (${rp.score}/100). Target strategic allocation — Equity ${a.equity}%, Fixed income ${a.fixedIncome}%, Cash ${a.cash}%. Reviewed at least annually and rebalanced at ±5% drift. By signing, you acknowledge you have reviewed and agree to this Investment Policy Statement as the basis for ongoing management.`
+      : `Draft Investment Policy Statement. Ask the client to complete the risk questionnaire in their portal to populate the recommended allocation, then review and send for signature.`;
+    setAckForm({ title: 'Investment Policy Statement (draft)', body });
+    showToast(rp ? 'IPS draft prefilled from risk profile — review & send' : 'No risk profile yet — added a blank IPS draft');
+  };
+  const printIPS = () => {
+    const { rp, age, retireAt } = _ipsRisk();
+    window.printIPSReport?.({ client, risk: rp, planningAge: age, retireAt,
+      advisorName: authUser?.full_name, advisorFirm: authUser?.firms?.name });
+  };
+
   /* edit client */
   const setEdit = (k, v) => setEditForm(f => ({ ...f, [k]: v }));
 
@@ -578,6 +997,11 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
             </div>
           </div>
           <div style={{ display: 'flex', gap: 6 }}>
+            <button className="px-btn px-btn-sm px-btn-ghost"
+              aria-label="Generate quarterly review packet"
+              onClick={generateQBR}>
+              <Icons.FileText size={12} /> QBR packet
+            </button>
             {isLiveClient && (
               <button className="px-btn px-btn-sm px-btn-ghost"
                 aria-label="Export compliance record"
@@ -657,6 +1081,23 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--ink-mute)' }}>
                     {Math.round(rr.fundedRatio * 100)}% funded
                     <span style={{ fontWeight: 600, color: tone, border: `1px solid ${tone}`, borderRadius: 20, padding: '1px 9px' }}>{rr.verdict}</span>
+                  </span>
+                </div>
+              );
+            })()}
+
+            {/* Risk profile (live clients who completed the questionnaire) */}
+            {(() => {
+              const rp = (window.PrismCalc || {}).riskProfile?.({ answers: profileData?.risk?.answers || [] });
+              if (!rp) return null;
+              const tone = { Conservative: 'var(--forest)', Moderate: 'var(--forest)', Balanced: 'var(--gold)', Growth: 'var(--gold)', Aggressive: 'var(--brick)' }[rp.band];
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 16,
+                  padding: '10px 12px', background: 'var(--bg-elev)', borderRadius: 6 }}>
+                  <span style={LABEL_STYLE}>Risk profile</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--ink-mute)' }}>
+                    {rp.allocation.equity}/{rp.allocation.fixedIncome}/{rp.allocation.cash} eq·fi·cash
+                    <span style={{ fontWeight: 600, color: tone, border: `1px solid ${tone}`, borderRadius: 20, padding: '1px 9px' }}>{rp.band}</span>
                   </span>
                 </div>
               );
@@ -812,9 +1253,17 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                   <span style={LABEL_STYLE}>Acknowledgements</span>
                   {!ackForm && (
-                    <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => setAckForm({ title: '', body: '' })}>
-                      <Icons.Plus size={10} /> Request
-                    </button>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button className="px-btn px-btn-sm px-btn-ghost" onClick={draftIPS} title="Draft an IPS from the client's risk profile">
+                        <Icons.FileText size={10} /> Draft IPS
+                      </button>
+                      <button className="px-btn px-btn-sm px-btn-ghost" onClick={printIPS} title="Print the full draft IPS for the vault">
+                        <Icons.Download size={10} /> Print IPS
+                      </button>
+                      <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => setAckForm({ title: '', body: '' })}>
+                        <Icons.Plus size={10} /> Request
+                      </button>
+                    </div>
                   )}
                 </div>
                 {ackForm && (

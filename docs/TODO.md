@@ -13,9 +13,12 @@
 ---
 
 ## ✅ Just shipped — verify, then delete this block
-- **DOB dropdowns on newly-added members** — fixed in [numbers-panel.jsx](../src/numbers-panel.jsx) (`DobSelects` now holds partial Month/Day/Year picks in local state instead of discarding them until complete). Verified in demo: a 3rd member's DOB now persists.
-- **Double tooltip on field hints** — fixed in [numbers-panel.jsx](../src/numbers-panel.jsx) (`FieldHint` no longer sets a native `title`; the styled bubble + `aria-label` remain). Verified: no `.px-hint` carries a `title`.
-- *Not yet committed/pushed.* When you're happy with both, that's the only thing left before deleting this block.
+Sprint C3/C4 (frontend only — no migrations/secrets/money). See [sprint-log](sprint-log.md).
+- **Bulk CSV client import** (C3) — `BulkImportModal` + Wealthbox/Redtail/Orion presets; roster + empty-state buttons. Sample at `docs/samples/sample-clients.csv`. *Live-only — needs a real signed-in firm to exercise end-to-end.*
+- **Probability-of-success band** (C4) — Monte Carlo confidence band on the client retirement card.
+- **Risk questionnaire → draft IPS** (C4) — client questionnaire → strategic allocation; advisor "Draft IPS" (e-sign) + "Print IPS".
+- **One-click QBR packet** (C4) — `printQBRReport` from the client modal header.
+- *Not yet committed/pushed.* Build + lint + calc tests green. When you're happy, commit/PR and delete this block.
 
 ---
 
@@ -24,15 +27,13 @@
 Sequenced to the roadmap's goal — *onboard a first paying advisor* — pre-live hardening first, then the adoption unlocks that turn a demo into a "yes," then depth and polish. Each sprint is independently shippable.
 
 ### C3 — Adoption unlocks (Tier A — without these, RIAs won't move)
-- [ ] **Bulk client import** — CSV importer + column mapper UI, plus preset mappers for Wealthbox / Redtail / Orion exports. The #1 blocker to a "yes." *Cheaper if you drop a real sample export into `/docs/samples/` — see H5.*
 - [ ] **White-label branding** — firm logo + accent color + optional "powered by Prism", driven off a `firms` settings row; client portal reads it. Custom-subdomain rendering is code; the DNS half is H5. *↔ blocked-by-you (subdomain only).*
+  *Scoped 2026-06-07: **big but not drastic** — the schema already carries `firms.brand_color` + `firms.logo_url` (migration 001). The work is (1) load the firm brand at auth and expose it on a context, (2) drive `--gold`/`--ink` CSS vars + a logo slot from it (the app already themes via CSS vars), (3) a firm-admin settings form + logo upload to Storage. ~1 focused sprint; no migration needed. Per-firm subdomains are a separate, smaller follow-on once `*.prismaw.com` DNS exists (H5).*
 - [ ] **Prospect / proposal mode** — run an unsaved prospect through a sample seven-horizon roadmap before they sign; "convert to client" promotes it. Turns the wedge into a closing tool.
+- [ ] **Client connect / invite flow** — *gap surfaced 2026-06-07.* An advisor-created `clients` row has a null `auth_user_id`; nothing currently links a client's sign-in to their household, so the client portal is only reachable via the advisor's "Client view." Need an invite (email magic-link / claim code) that sets `clients.auth_user_id = auth.uid()` on first sign-in (mirror of `px_provision_firm`). Tier-A for any real client-facing launch.
 
 ### C4 — Wedge deepeners (Tier B — retire a paid tool)
-- [ ] **Probability-of-success band** — surface the existing `calc-core.monteCarlo` as a confidence band on the retirement horizon. Low effort, high expectation-match.
-- [ ] **One-click QBR packet** — assemble roadmap + net-of-fee performance + goals + protection into a client-ready PDF from data already in the system. Builds on the existing `print*Report` generators.
 - [ ] **Tax-return insight (Holistiplan-lite)** — upload a 1040 → planning observations into the roadmap + portal. High willingness-to-pay.
-- [ ] **Risk questionnaire → draft IPS** — client-facing risk profiling feeds the roadmap and drops a draft IPS into the vault for e-sign (vault + acknowledgements already exist).
 - [ ] **AI relationship assistant (Opus)** — draft replies, household summaries, review talking points, "who needs attention." Rides on the shipped messaging + CRM. *↔ blocked-by-you: needs the Anthropic API key in H5.*
 
 ### C5 — Perf, InfoSec & UX polish
@@ -53,11 +54,6 @@ Sequenced to the roadmap's goal — *onboard a first paying advisor* — pre-liv
 # 🧑 Your queue
 
 These are the things I genuinely can't do — they cost money, need your identity/credentials, or live in dashboards I can't reach. I've written each with enough depth to act cold. **Bold = the hard blockers gating any live client.**
-
-### H1 — Legal & entity unlock *(Phase 0 — nearly closed)*
-- [x] Entity formed — *LeMay Ventures LLC*, in good standing in Colorado.
-- [x] V1 counsel review done (you plan a second pass — apply any wording deltas to `terms.html` / `privacy.html` / `dpa.html` / `security.html` / `sla.html` when you have them; flag me and I'll edit).
-- [ ] **Test the inboxes.** `privacy@` / `legal@` / `security@prismaw.com` are built but unverified — send a round-trip test to each (and confirm they're actually monitored) before a customer reads those addresses in the legal pages.
 
 ### H2 — **Infrastructure to production grade** *(the #1 hard blocker — nothing live until this is done)*
 1. **Upgrade Supabase to Pro.** Free tier has no PITR, no real backups, no connection headroom. In the Supabase dashboard → Settings → Billing → upgrade the project. Then enable **PITR / daily backups** (Database → Backups).

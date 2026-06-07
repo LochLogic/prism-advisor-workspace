@@ -6,6 +6,43 @@
 
 ---
 
+## 2026-06-07 — Sprint C3/C4: CSV import + wedge deepeners
+
+Frontend only — no migrations, no secrets, no money. Live via Cloudflare on merge.
+
+Shipped:
+- **Bulk CSV client import** (C3, advisor) — `BulkImportModal` in `advisor-modal.jsx`:
+  dependency-free CSV parser (quoted fields, embedded commas/newlines), auto-detected
+  column mapping with **Wealthbox / Redtail / Orion** presets + a generic auto-detect,
+  a live preview, then a create loop that reuses `createClient` + `saveProfile` (+ a
+  placeholder account when AUM is mapped, via `upsertAccount`/`syncClientTotals`).
+  Live-only (DB layer no-ops without real UUIDs). Buttons on the roster header and the
+  empty-roster state. Sample export at `docs/samples/sample-clients.csv`.
+- **Probability-of-success band** (C4, client) — surfaces the existing seeded
+  `calc-core.monteCarlo` as a confidence band on the retirement-readiness card
+  (success % + bear/median/bull range). Derived in `store.jsx` (`successBand`),
+  rendered in `client-portal.jsx`. Per-client seed → stable figure.
+- **Risk questionnaire → recommended mix + draft IPS** (C4) — new
+  `calc-core.riskProfile` (score → band → strategic allocation; unit-tested).
+  Client takes a 6-question questionnaire (`RiskProfileCard`, stored in
+  `profile.risk.answers`); the band + equity/FI/cash mix feed the portal and the
+  advisor Overview. Advisor "Draft IPS" prefills an acknowledgement for e-sign and
+  "Print IPS" renders a full draft via `printIPSReport` for the vault.
+- **One-click QBR packet** (C4, advisor) — `printQBRReport` assembles roadmap
+  progress + retirement readiness + probability band + goals + protection +
+  net-of-fee performance into a client-ready PDF. "QBR packet" button in the client
+  modal header; gathers task states + performance on demand.
+
+Verified: `npm run build` + `npm run lint` + `npm run test:calc` (incl. new
+riskProfile tests) all green; client portal + advisor modal smoke-checked in the
+demo (probability band, risk card, QBR generate, no console errors).
+
+**Human hand-off:** none for these features. Standing pre-live blockers unchanged
+(H2 Supabase Pro + secret rotation; H3 repo/host settings). White-label branding
+(C3) was scoped this round but **not built** — see TODO C3 note.
+
+---
+
 ## 2026-06-07 — Sprint C2: CI quality gates
 **PR:** [#16](https://github.com/LochLogic/prism-advisor-workspace/pull/16) · **Branch:** `feat/c2-ci-quality-gates`
 

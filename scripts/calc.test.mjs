@@ -297,6 +297,35 @@ console.log('calc-core unit tests\n');
     'assetComposition: empty inputs → zeros');
 }
 
+// ── riskProfile (C4) ────────────────────────────────────────────────────────
+{
+  assert(C.riskProfile({ answers: [] }) === null, 'riskProfile: empty questionnaire → null');
+
+  // All-low answers → Conservative, capital-preservation allocation.
+  const low = C.riskProfile({ answers: [0, 0, 0, 0, 0, 0] });
+  assert(low.band === 'Conservative' && low.score === 0 && low.allocation.equity === 30,
+    'riskProfile: all-low → Conservative');
+
+  // All-high answers → Aggressive, equity-heavy.
+  const high = C.riskProfile({ answers: [4, 4, 4, 4, 4, 4] });
+  assert(high.band === 'Aggressive' && high.score === 100 && high.allocation.equity === 90,
+    'riskProfile: all-high → Aggressive');
+
+  // Mid answers land in the middle bands.
+  const mid = C.riskProfile({ answers: [2, 2, 2, 2, 2, 2] });
+  assert(mid.score === 50 && mid.band === 'Balanced', 'riskProfile: mid → Balanced (50)');
+
+  // Allocations always sum to 100% across every band.
+  for (const b of Object.values(C.RISK_ALLOCATIONS)) {
+    assert(b.equity + b.fixedIncome + b.cash === 100, 'riskProfile: allocation sums to 100%');
+  }
+
+  // Long horizon nudges tolerance up; short horizon nudges it down.
+  const up = C.riskProfile({ answers: [2, 2, 2, 2, 2, 2], horizonYears: 30 });
+  const dn = C.riskProfile({ answers: [2, 2, 2, 2, 2, 2], horizonYears: 3 });
+  assert(up.score === 56 && dn.score === 40, 'riskProfile: horizon nudges score (±)');
+}
+
 console.log('');
 if (failures) { console.error(`FAILED: ${failures} test(s)`); process.exit(1); }
 console.log('All calc-core tests passed.');

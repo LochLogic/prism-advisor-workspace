@@ -371,7 +371,7 @@ const PipelineBoard = ({ clients, onOpen, onMove }) => (
   </div>
 );
 
-const RosterTable = ({ onOpenClient, clients, onAddClient, isLiveMode, onExportCSV, view, onView, onMoveStage }) => {
+const RosterTable = ({ onOpenClient, clients, onAddClient, onImport, isLiveMode, onExportCSV, view, onView, onMoveStage }) => {
   const [q, setQ] = useStateAdv('');
   const [sort, setSort] = useStateAdv('aum');
   const filtered = useMemoAdv(() => {
@@ -411,6 +411,12 @@ const RosterTable = ({ onOpenClient, clients, onAddClient, isLiveMode, onExportC
             <button className="px-btn px-btn-sm px-btn-ghost" onClick={onExportCSV}
               title="Download roster as CSV">
               <Icons.Download size={11} /> CSV
+            </button>
+          )}
+          {isLiveMode && onImport && (
+            <button className="px-btn px-btn-sm px-btn-ghost" onClick={onImport}
+              title="Import clients from a CSV export">
+              <Icons.Upload size={11} /> Import
             </button>
           )}
           {isLiveMode && onAddClient && (
@@ -484,7 +490,7 @@ const RosterSkeleton = () => (
 );
 
 /* ─── Empty roster state ─────────────────────────────────────────── */
-const EmptyRoster = ({ onAddClient, onAddSample, sampling }) => (
+const EmptyRoster = ({ onAddClient, onAddSample, onImport, sampling }) => (
   <div style={{ padding: '48px 24px', textAlign: 'center', borderRadius: 12, border: '1px dashed var(--border-2)', marginTop: 8 }}>
     <div style={{ width: 46, height: 46, background: 'var(--gold-soft)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
       <Icons.Users size={19} style={{ color: 'var(--gold)' }} />
@@ -498,6 +504,11 @@ const EmptyRoster = ({ onAddClient, onAddSample, sampling }) => (
       <button className="px-btn px-btn-primary" onClick={onAddClient}>
         <Icons.Plus size={12} /> Add your first client
       </button>
+      {onImport && (
+        <button className="px-btn px-btn-ghost" onClick={onImport}>
+          <Icons.Upload size={12} /> Import from CSV
+        </button>
+      )}
       {onAddSample && (
         <button className="px-btn px-btn-ghost" onClick={onAddSample} disabled={sampling}>
           <Icons.Sparkles size={12} /> {sampling ? 'Adding…' : 'Load a sample household'}
@@ -527,6 +538,7 @@ const AdvisorDashboard = () => {
   const { openClientPortal, showToast } = useView();
   const [previewClient, setPreviewClient] = useStateAdv(null);
   const [addingClient, setAddingClient] = useStateAdv(false);
+  const [importing, setImporting] = useStateAdv(false);
   const [snoozed, setSnoozed] = useStateAdv(new Set());
   const [dismissedQs, setDismissedQs] = useStateAdv(new Set());
   const [rosterView, setRosterView] = useStateAdv('table');
@@ -655,6 +667,12 @@ const AdvisorDashboard = () => {
 
   const handleClientCreated = (newClient) => {
     setDbClients(prev => [...(prev || []), newClient]);
+  };
+
+  const handleClientsImported = (newClients) => {
+    setDbClients(prev => [...(prev || []), ...newClients]);
+    setDbClientTotal(t => t + newClients.length);
+    showToast(`${newClients.length} client${newClients.length !== 1 ? 's' : ''} imported`);
   };
 
   // Onboarding: create a fully-populated sample household so a brand-new advisor
@@ -824,6 +842,13 @@ const AdvisorDashboard = () => {
         firmId={authUser?.firm_id}
         onCreated={handleClientCreated}
       />
+      <BulkImportModal
+        isOpen={importing}
+        onClose={() => setImporting(false)}
+        advisorId={authUser?.id}
+        firmId={authUser?.firm_id}
+        onImported={handleClientsImported}
+      />
 
       <div className="px-adv-main">
         {/* Greeting */}
@@ -864,6 +889,7 @@ const AdvisorDashboard = () => {
           <>
             <div className="px-section-head"><h2>Client roster</h2></div>
             <EmptyRoster onAddClient={() => setAddingClient(true)}
+              onImport={isLiveMode ? () => setImporting(true) : undefined}
               onAddSample={isLiveMode ? handleAddSample : undefined} sampling={sampling} />
           </>
         ) : (
@@ -871,6 +897,7 @@ const AdvisorDashboard = () => {
             onOpenClient={setPreviewClient}
             clients={boardClients}
             onAddClient={() => setAddingClient(true)}
+            onImport={isLiveMode ? () => setImporting(true) : null}
             isLiveMode={isLiveMode}
             onExportCSV={isLiveMode ? exportCSV : null}
             view={rosterView}
