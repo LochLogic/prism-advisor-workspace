@@ -500,7 +500,7 @@ const EmptyRoster = ({ onAddClient, onAddSample, onImport, sampling }) => (
 /* ─── Main Advisor Dashboard ─────────────────────────────────────── */
 const AdvisorDashboard = () => {
   const { authUser, isDemo } = useAuth();
-  const { openClientPortal, showToast } = useView();
+  const { openClientPortal, showToast, activeClientId, activeClient, setActiveClient } = useView();
   const [previewClient, setPreviewClient] = useStateAdv(null);
   const [addingClient, setAddingClient] = useStateAdv(false);
   const [importing, setImporting] = useStateAdv(false);
@@ -551,6 +551,16 @@ const AdvisorDashboard = () => {
 
   const activeClients   = isLiveMode ? dbClients   : clientsData;
   const activeAlerts    = isLiveMode ? (dbAlerts    || []) : alertsData;
+
+  // Resolve the active client's display object from a deep-linked id (#/client/<id>)
+  // once the roster is loaded — data already keys off activeClientId; this fills in
+  // the name/initials the portal header reads when arriving via a shared/bookmarked link.
+  React.useEffect(() => {
+    if (!activeClientId) return;
+    if (activeClient?.id === activeClientId) return;
+    const match = (activeClients || []).find(c => c.id === activeClientId);
+    if (match) setActiveClient(match);
+  }, [activeClientId, activeClient, activeClients, setActiveClient]);
 
   // Book AUM trend (sparkline): real balance history when live; summed demo
   // histories across the roster otherwise.

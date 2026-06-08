@@ -499,18 +499,73 @@ const useTasks = () => useContext(TaskContext);
 /* ─── View switcher (advisor / client) ────────────────────────────── */
 const ViewContext = createContext(null);
 
+// ── Deep-linkable routing ─────────────────────────────────────────────
+// The advisor/admin app reflects nav state in the URL hash so any view is
+// bookmarkable / shareable / support-linkable:
+//   #/advisor · #/admin · #/client · #/client/<uuid> · #/client/<uuid>/p<phaseId>
+// The slim client portal is single-view, so hash routing is advisor-app only.
+const HASH_ROUTING = typeof window !== 'undefined' && !window.__pxIsPortal;
+
+function parseHashRoute() {
+  try {
+    const h = (window.location.hash || '').replace(/^#\/?/, '');
+    if (!h) return null;
+    const [v, id, ph] = h.split('/');
+    const view = (v === 'advisor' || v === 'admin' || v === 'client') ? v : null;
+    if (!view) return null;
+    const clientId = id || null;
+    const pendingPhaseId = (ph && /^p\d+$/.test(ph)) ? parseInt(ph.slice(1), 10) : null;
+    return { view, clientId, pendingPhaseId };
+  } catch { return null; }
+}
+
+function buildHashRoute(view, clientId, pendingPhaseId) {
+  let h = '#/' + view;
+  if (view === 'client' && clientId) {
+    h += '/' + clientId;
+    if (pendingPhaseId != null) h += '/p' + pendingPhaseId;
+  }
+  return h;
+}
+
 function ViewProvider({ children }) {
+  const initialRoute = HASH_ROUTING ? parseHashRoute() : null;
+
   const [view, setView] = useState(() => {
+    if (initialRoute?.view) return initialRoute.view;
     try { return localStorage.getItem('px_view') || 'advisor'; }
     catch { return 'advisor'; }
   });
-  const [activeClientId,  setActiveClientId]  = useState(currentClientId);
+  const [activeClientId,  setActiveClientId]  = useState(initialRoute?.clientId || currentClientId);
   const [activeClient,    setActiveClient]    = useState(null);
-  const [pendingPhaseId,  setPendingPhaseId]  = useState(null);
+  const [pendingPhaseId,  setPendingPhaseId]  = useState(initialRoute?.pendingPhaseId ?? null);
   const [toast, setToast] = useState(null);
   const [numbersOpen, setNumbersOpen] = useState(false);
 
   useEffect(() => { try { localStorage.setItem('px_view', view); } catch {} }, [view]);
+
+  // Mirror nav state → URL hash (replaceState: shareable URL without history spam).
+  useEffect(() => {
+    if (!HASH_ROUTING) return;
+    const next = buildHashRoute(view, activeClientId, pendingPhaseId);
+    if (next !== window.location.hash) {
+      try { window.history.replaceState(null, '', next); } catch {}
+    }
+  }, [view, activeClientId, pendingPhaseId]);
+
+  // URL hash → nav state (a pasted/edited deep link in the same tab).
+  useEffect(() => {
+    if (!HASH_ROUTING) return;
+    const onHash = () => {
+      const r = parseHashRoute();
+      if (!r) return;
+      setView(r.view);
+      if (r.clientId) setActiveClientId(r.clientId);
+      if (r.pendingPhaseId != null) setPendingPhaseId(r.pendingPhaseId);
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
 
   const showToast = (text) => {
     setToast(text);
