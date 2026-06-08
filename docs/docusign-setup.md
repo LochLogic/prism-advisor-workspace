@@ -76,6 +76,8 @@ DocuSign Admin → **Connect** → add a custom configuration:
 - **Format:** JSON (Aggregate)
 - **Trigger events:** envelope *Completed* (Delivered/Declined/Voided optional —
   the handler maps them to `envelope_status`).
+- **Include:** check **Recipients** so the webhook carries the signer's name
+  (it populates "Signed by …"; without it the row still flips to Signed, just unnamed).
 - **HMAC:** enable and copy the key into `DOCUSIGN_CONNECT_HMAC_KEY` (step 2).
 
 ## 6 · Smoke test
