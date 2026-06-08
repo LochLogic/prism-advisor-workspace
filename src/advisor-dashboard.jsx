@@ -101,7 +101,13 @@ const RosterRow = ({ client, onOpen }) => {
             </div>
             <div className="px-client-tag" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               {client.tag}
-              {client.pipelineStage && client.pipelineStage !== 'active' && <StagePill stage={client.pipelineStage} />}
+              {client.isProspect ? (
+                <span style={{
+                  display: 'inline-block', fontSize: 10, fontWeight: 600, letterSpacing: '.03em',
+                  color: 'var(--gold)', background: 'var(--gold-soft)', borderRadius: 20,
+                  padding: '1px 8px', textTransform: 'uppercase', whiteSpace: 'nowrap',
+                }}>Prospect</span>
+              ) : (client.pipelineStage && client.pipelineStage !== 'active' && <StagePill stage={client.pipelineStage} />)}
             </div>
           </div>
         </div>
@@ -346,7 +352,7 @@ const PipelineBoard = ({ clients, onOpen, onMove }) => (
   </div>
 );
 
-const RosterTable = ({ onOpenClient, clients, onAddClient, onImport, isLiveMode, onExportCSV, view, onView, onMoveStage }) => {
+const RosterTable = ({ onOpenClient, clients, onAddClient, onAddProspect, onImport, isLiveMode, onExportCSV, view, onView, onMoveStage }) => {
   const [q, setQ] = useStateAdv('');
   const [sort, setSort] = useStateAdv('aum');
   const filtered = useMemoAdv(() => {
@@ -392,6 +398,12 @@ const RosterTable = ({ onOpenClient, clients, onAddClient, onImport, isLiveMode,
             <button className="px-btn px-btn-sm px-btn-ghost" onClick={onImport}
               title="Import clients from a CSV export">
               <Icons.Upload size={11} /> Import
+            </button>
+          )}
+          {onAddProspect && (
+            <button className="px-btn px-btn-sm px-btn-ghost" onClick={onAddProspect}
+              title="Run a prospect through the roadmap before they sign">
+              <Icons.Sparkles size={11} /> New prospect
             </button>
           )}
           {isLiveMode && onAddClient && (
@@ -465,7 +477,7 @@ const RosterSkeleton = () => (
 );
 
 /* ─── Empty roster state ─────────────────────────────────────────── */
-const EmptyRoster = ({ onAddClient, onAddSample, onImport, sampling }) => (
+const EmptyRoster = ({ onAddClient, onAddProspect, onAddSample, onImport, sampling }) => (
   <div style={{ padding: '48px 24px', textAlign: 'center', borderRadius: 12, border: '1px dashed var(--border-2)', marginTop: 8 }}>
     <div style={{ width: 46, height: 46, background: 'var(--gold-soft)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
       <Icons.Users size={19} style={{ color: 'var(--gold)' }} />
@@ -479,6 +491,11 @@ const EmptyRoster = ({ onAddClient, onAddSample, onImport, sampling }) => (
       <button className="px-btn px-btn-primary" onClick={onAddClient}>
         <Icons.Plus size={12} /> Add your first client
       </button>
+      {onAddProspect && (
+        <button className="px-btn px-btn-ghost" onClick={onAddProspect}>
+          <Icons.Sparkles size={12} /> Start a prospect
+        </button>
+      )}
       {onImport && (
         <button className="px-btn px-btn-ghost" onClick={onImport}>
           <Icons.Upload size={12} /> Import from CSV
@@ -501,8 +518,10 @@ const EmptyRoster = ({ onAddClient, onAddSample, onImport, sampling }) => (
 const AdvisorDashboard = () => {
   const { authUser, isDemo } = useAuth();
   const { openClientPortal, showToast, activeClientId, activeClient, setActiveClient } = useView();
+  const { prospects = [], onConvert } = useProspects() || {};
   const [previewClient, setPreviewClient] = useStateAdv(null);
   const [addingClient, setAddingClient] = useStateAdv(false);
+  const [addingProspect, setAddingProspect] = useStateAdv(false);
   const [importing, setImporting] = useStateAdv(false);
   const [snoozed, setSnoozed] = useStateAdv(new Set());
   const [dismissedQs, setDismissedQs] = useStateAdv(new Set());
@@ -618,6 +637,10 @@ const AdvisorDashboard = () => {
     }),
     [activeClients, stageOverride, unreadIds]);
 
+  // Prospects ride at the top of the roster (newest first) but stay out of the
+  // book KPIs (they aren't clients yet — see `kpis`, which keys off activeClients).
+  const rosterClients = useMemoAdv(() => [...prospects, ...boardClients], [prospects, boardClients]);
+
   const moveStage = async (c, stage) => {
     if (isLiveMode) {
       const row = await window.db.updateClient(c.id, { pipeline_stage: stage });
@@ -645,6 +668,16 @@ const AdvisorDashboard = () => {
   const handleClientCreated = (newClient) => {
     setDbClients(prev => [...(prev || []), newClient]);
   };
+
+  // When a prospect is converted, splice the now-real client into the live
+  // roster so it appears immediately without a refetch.
+  React.useEffect(() => {
+    if (!onConvert) return;
+    return onConvert((mapped) => {
+      setDbClients(prev => prev === undefined ? prev : [mapped, ...prev]);
+      setDbClientTotal(t => t + 1);
+    });
+  }, [onConvert]);
 
   const handleClientsImported = (newClients) => {
     setDbClients(prev => [...(prev || []), ...newClients]);
@@ -830,6 +863,10 @@ const AdvisorDashboard = () => {
         firmId={authUser?.firm_id}
         onImported={handleClientsImported}
       />
+      <NewProspectModal
+        isOpen={addingProspect}
+        onClose={() => setAddingProspect(false)}
+      />
 
       <div className="px-adv-main">
         {/* Greeting */}
@@ -866,18 +903,20 @@ const AdvisorDashboard = () => {
             </div>
             <RosterSkeleton />
           </>
-        ) : activeClients.length === 0 ? (
+        ) : rosterClients.length === 0 ? (
           <>
             <div className="px-section-head"><h2>Client roster</h2></div>
             <EmptyRoster onAddClient={() => setAddingClient(true)}
+              onAddProspect={() => setAddingProspect(true)}
               onImport={isLiveMode ? () => setImporting(true) : undefined}
               onAddSample={isLiveMode ? handleAddSample : undefined} sampling={sampling} />
           </>
         ) : (
           <RosterTable
-            onOpenClient={setPreviewClient}
-            clients={boardClients}
+            onOpenClient={(c) => c.isProspect ? openClientPortal(c) : setPreviewClient(c)}
+            clients={rosterClients}
             onAddClient={() => setAddingClient(true)}
+            onAddProspect={() => setAddingProspect(true)}
             onImport={isLiveMode ? () => setImporting(true) : null}
             isLiveMode={isLiveMode}
             onExportCSV={isLiveMode ? exportCSV : null}

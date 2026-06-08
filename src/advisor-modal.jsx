@@ -126,6 +126,114 @@ const NewClientModal = ({ isOpen, onClose, advisorId, firmId, onCreated }) => {
   );
 };
 
+/* ─── New Prospect modal (C3 · proposal mode) ─────────────────────────
+   Spins up an UNSAVED household and drops the advisor straight into its
+   seven-horizon roadmap — the wedge as a closing tool. No DB write happens
+   here; the prospect lives in localStorage until "Convert to client" (in the
+   portal banner) promotes it. Mirrors NewClientModal's fields, but the
+   starting numbers are front-and-centre (a proposal is only persuasive with
+   real figures) with a one-tap sample fill for a cold walkthrough. */
+const NewProspectModal = ({ isOpen, onClose }) => {
+  const { showToast, openClientPortal } = useView();
+  const { createProspect } = useProspects() || {};
+  const [form, setForm] = useStateAdv({ household_name: '', short_name: '', household_tag: '', current_phase: 0 });
+  const [fin, setFin] = useStateAdv({ monthlyTakehome: '', emergency: '', taxableBalance: '', retirementBalance: '' });
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const setF = (k, v) => setFin(f => ({ ...f, [k]: v }));
+
+  const resetAll = () => {
+    setForm({ household_name: '', short_name: '', household_tag: '', current_phase: 0 });
+    setFin({ monthlyTakehome: '', emergency: '', taxableBalance: '', retirementBalance: '' });
+  };
+
+  const useSample = () => setFin({
+    monthlyTakehome:   String(SAMPLE_PROSPECT_NUMBERS.monthlyTakehome),
+    emergency:         String(SAMPLE_PROSPECT_NUMBERS.emergency),
+    taxableBalance:    String(SAMPLE_PROSPECT_NUMBERS.taxableBalance),
+    retirementBalance: String(SAMPLE_PROSPECT_NUMBERS.retirementBalance),
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!form.household_name.trim() || !createProspect) return;
+    const p = createProspect(form, fin);
+    showToast(`${p.shortName} added as a prospect — walk them through the roadmap`);
+    resetAll();
+    onClose();
+    openClientPortal(p);
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose}>
+      <div style={{ padding: 28, minWidth: 380, maxWidth: 460 }}>
+        <h2 style={{ fontFamily: 'var(--serif)', fontSize: 20, fontWeight: 500, margin: '0 0 6px', color: 'var(--ink)' }}>
+          New prospect
+        </h2>
+        <p style={{ fontSize: 12.5, color: 'var(--ink-mute)', lineHeight: 1.5, margin: '0 0 18px' }}>
+          Build a live seven-horizon roadmap to show a prospect what working together looks like —
+          <b> nothing is saved</b> until you convert them to a client.
+        </p>
+        <form onSubmit={handleSubmit}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <span style={LABEL_STYLE}>Household name *</span>
+              <input className="px-input" placeholder="e.g. Prospective — the Reyes family" required
+                value={form.household_name} onChange={e => set('household_name', e.target.value)} />
+            </label>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <span style={LABEL_STYLE}>Short name</span>
+              <input className="px-input" placeholder="e.g. Reyes (shown in compact views)"
+                value={form.short_name} onChange={e => set('short_name', e.target.value)} />
+            </label>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <span style={LABEL_STYLE}>Starting horizon</span>
+              <select className="px-select" value={form.current_phase}
+                onChange={e => set('current_phase', Number(e.target.value))}>
+                {PHASES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+              </select>
+            </label>
+
+            <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 14, background: 'var(--bg-elev)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <span style={LABEL_STYLE}>Starting financials</span>
+                <button type="button" className="px-btn px-btn-sm px-btn-ghost" onClick={useSample}>
+                  <Icons.Sparkles size={11} /> Use sample numbers
+                </button>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                {[
+                  ['monthlyTakehome',  'Monthly take-home'],
+                  ['emergency',        'Cash / emergency'],
+                  ['taxableBalance',   'Investment assets'],
+                  ['retirementBalance','Retirement assets'],
+                ].map(([k, label]) => (
+                  <label key={k} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span style={{ fontSize: 10.5, color: 'var(--ink-mute)' }}>{label}</span>
+                    <div className="px-input-affix">
+                      <span className="px-affix">$</span>
+                      <input type="number" min="0" placeholder="0" value={fin[k]}
+                        onChange={e => setF(k, e.target.value)} />
+                    </div>
+                  </label>
+                ))}
+              </div>
+              <div style={{ fontSize: 10.5, color: 'var(--ink-faint)', marginTop: 8, fontStyle: 'italic' }}>
+                Optional — the more you enter, the richer the roadmap. Refine anything live from “Your numbers”.
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 22 }}>
+            <button type="button" className="px-btn px-btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="submit" className="px-btn px-btn-primary">
+              <Icons.ArrowRight size={12} /> Start proposal
+            </button>
+          </div>
+        </form>
+      </div>
+    </Modal>
+  );
+};
+
 /* ─── Bulk client import (C3) ─────────────────────────────────────────
    CSV importer + column mapper. Dependency-free parser (handles quoted fields
    and embedded commas/newlines), auto-detected mapping with vendor presets

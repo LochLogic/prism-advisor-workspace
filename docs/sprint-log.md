@@ -6,6 +6,50 @@
 
 ---
 
+## 2026-06-08 — C3: Prospect / proposal mode
+
+Tier-A adoption unlock — the wedge turned into a closing tool. An advisor can run
+an **unsaved** household through the full seven-horizon roadmap before they sign,
+then one-click **Convert to client**. Static-only: no migration, no secrets, no
+new tables — it rides entirely on the existing non-UUID client machinery (the
+roadmap, calculators, retirement readiness, and Monte Carlo already render for any
+mock/demo client whose profile + horizon progress live in `localStorage`).
+
+**`ProspectProvider`** (`src/store.jsx`, mounted in `app.jsx` inside `ViewProvider`):
+- In-memory + `localStorage`-persisted prospect list, namespaced per advisor
+  (`px_prospects:<advisorId|demo>`). A prospect id is `prospect-<ts>` (non-UUID),
+  so every existing `isUUID`-gated DB call no-ops and the profile/task state route
+  through the same `localStorage` paths used by demo clients.
+- `createProspect(fields, numbers)` builds a roster-shaped object (mapClient-compatible,
+  `isProspect:true`, `pipelineStage:'lead'`) and seeds `px_profile:<id>` from
+  `mergeProfile(emptyProfile, …)` so the roadmap shows **their** figures (blank
+  fields stay blank — no inherited Marsh demo defaults).
+- `convertProspect(prospect, profileOverride)` — **live session only**: `createClient`
+  → `saveProfile` (live in-context profile, else the seed) → replays completed
+  milestones via `upsertTask` → cleans up the prospect's `localStorage` keys → fires
+  registered `onConvert` subscribers (the dashboard splices the now-real client into
+  its live roster) → opens the real client. Gated with a toast when there's no session.
+- `discardProspect(id)` removes it and clears its `px_profile/px_tasks/px_open/px_flagged` keys.
+
+**Surfaces:**
+- `NewProspectModal` (`src/advisor-modal.jsx`) — name + starting horizon + starting
+  financials with a one-tap **Use sample numbers** fill; submit drops straight into
+  the roadmap.
+- Roster (`src/advisor-dashboard.jsx`) — a **New prospect** button (both live + demo)
+  and a "Start a prospect" affordance in the empty state; prospects merge into the
+  roster list (kept **out** of book KPIs) with a gold **PROSPECT** badge; clicking a
+  prospect row jumps straight to the roadmap (the closing surface).
+- Proposal banner (`src/client-portal.jsx`) — advisor-only (the slim portal bundle
+  never mounts `ProspectProvider`, so `useProspects()` is null there): "Proposal mode
+  — this is a prospect", with **Convert to client** + **Discard**.
+
+**Verified in-browser** (demo): New prospect → roadmap shows seeded numbers ($530k
+managed = 210k taxable + 320k retirement, $575k net worth incl. $45k cash) with
+auto-seeded horizon progress (4/7) for a believable sample; banner + convert render;
+convert is gated in demo with a toast; roster shows the PROSPECT badge; discard
+returns to the advisor view and cleans up. No console errors. Build + lint +
+`check.mjs` + calc + e2e (3/3) all green. No human hand-off.
+
 ## 2026-06-08 — C5: minify `styles.css` + ⌘K command palette
 
 Two C5 polish items, both static (no migration, no secrets, no deploy gating).

@@ -606,6 +606,152 @@ function ViewProvider({ children }) {
 }
 const useView = () => useContext(ViewContext);
 
+/* ─── Prospect / proposal mode (C3) ───────────────────────────────────
+   A prospect is an UNSAVED household an advisor runs through the full
+   seven-horizon roadmap before they sign — the wedge turned into a closing
+   tool. It reuses the entire non-UUID client machinery: the roadmap,
+   calculators, retirement readiness, and Monte Carlo already render for any
+   mock/demo client whose profile + horizon progress live in localStorage. A
+   prospect is exactly that, surfaced in the roster with a "Prospect" badge
+   plus a one-click "Convert to client" that promotes it to a real DB row
+   (profile + horizon progress carried over). Nothing touches Supabase until
+   conversion, so a prospect costs nothing and leaves no trace if it never
+   closes. */
+const ProspectContext = createContext(null);
+
+// Representative starting numbers for the "Use sample numbers" shortcut, so a
+// cold prospect roadmap is substantive without hand-entry.
+const SAMPLE_PROSPECT_NUMBERS = {
+  monthlyTakehome: 14000, emergency: 45000, taxableBalance: 210000, retirementBalance: 320000,
+};
+
+const isProspectId = (id) => typeof id === 'string' && id.startsWith('prospect-');
+
+function ProspectProvider({ children }) {
+  const { authUser } = window.useAuth?.() || {};
+  const { openClientPortal, showToast } = useView();
+  const scope = authUser?.id || 'demo';
+  const storeKey = `px_prospects:${scope}`;
+
+  const [prospects, setProspects] = useState([]);
+
+  // (Re)load the list whenever the signed-in advisor resolves (login is async).
+  useEffect(() => {
+    try { setProspects(JSON.parse(localStorage.getItem(storeKey)) || []); }
+    catch { setProspects([]); }
+  }, [storeKey]);
+
+  const persist = (list) => {
+    setProspects(list);
+    try { localStorage.setItem(storeKey, JSON.stringify(list)); } catch {}
+  };
+
+  const isProspect = useCallback((id) => isProspectId(id), []);
+
+  // Convert subscribers let the dashboard splice a freshly-converted client
+  // into its live roster without this provider owning that state.
+  const convertHandlers = React.useRef(new Set());
+  const onConvert = useCallback((fn) => {
+    convertHandlers.current.add(fn);
+    return () => convertHandlers.current.delete(fn);
+  }, []);
+
+  // Build a roster-shaped (mapClient-compatible) prospect object.
+  const buildProspect = (fields, numbers) => {
+    const id = `prospect-${Date.now()}`;
+    const name = fields.household_name.trim();
+    const initials = name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+    const aum = (Number(numbers.taxableBalance) || 0) + (Number(numbers.retirementBalance) || 0);
+    return {
+      id, name,
+      shortName: fields.short_name?.trim() || name,
+      tag: fields.household_tag?.trim() || '—',
+      initials, aum,
+      phase: Number(fields.current_phase) || 0, phaseProgress: 0,
+      lastActivity: 'just now', recent: true,
+      uninvestedCash: 0, monthlyOutflow: 0,
+      accentHue: (name.charCodeAt(0) * 47 + (name.charCodeAt(1) || 0) * 19) % 360,
+      notes: '', pipelineStage: 'lead', isProspect: true,
+      createdAt: new Date().toISOString(),
+    };
+  };
+
+  // Seed the prospect's localStorage profile from the entered numbers so the
+  // roadmap renders THEIR figures. Built on emptyProfile (not the demo sample)
+  // so blank fields stay blank instead of inheriting the Marsh defaults.
+  const createProspect = (fields, numbers = {}) => {
+    const p = buildProspect(fields, numbers);
+    const num = (v) => (v === '' || v == null ? undefined : Number(v));
+    const partial = {};
+    if (num(numbers.monthlyTakehome)   != null) partial.income     = { monthlyTakehome: num(numbers.monthlyTakehome) };
+    if (num(numbers.emergency)         != null) partial.savings    = { emergency: num(numbers.emergency) };
+    if (num(numbers.taxableBalance)    != null) partial.taxable    = { balance: num(numbers.taxableBalance) };
+    if (num(numbers.retirementBalance) != null) partial.retirement = { fourohonekBalance: num(numbers.retirementBalance) };
+    const seeded = mergeProfile(emptyProfile, partial);
+    try { localStorage.setItem(`px_profile:${p.id}`, JSON.stringify(seeded)); } catch {}
+    persist([p, ...prospects]);
+    return p;
+  };
+
+  const discardProspect = (id) => {
+    persist(prospects.filter(p => p.id !== id));
+    ['px_profile', 'px_tasks', 'px_open', 'px_flagged'].forEach(k => {
+      try { localStorage.removeItem(`${k}:${id}`); } catch {}
+    });
+  };
+
+  // Promote a prospect to a real client: create the DB row, carry over the
+  // profile + horizon progress, clean up the in-memory prospect, then open the
+  // now-real client. Live session only — nothing to write to without it.
+  const convertProspect = async (prospect, profileOverride) => {
+    if (!prospect || !window.db?.isUUID(authUser?.id) || !window.db?.isUUID(authUser?.firm_id)) {
+      showToast?.('Sign in to convert a prospect into a client');
+      return null;
+    }
+    const row = await window.db.createClient(authUser.id, authUser.firm_id, {
+      household_name: prospect.name,
+      short_name:     prospect.shortName,
+      household_tag:  (prospect.tag === 'Prospect' || prospect.tag === '—') ? '' : prospect.tag,
+      current_phase:  prospect.phase,
+    });
+    if (!row) { showToast?.('Could not convert — check console'); return null; }
+
+    // Profile — prefer the live in-context profile, else the localStorage seed.
+    let profile = profileOverride;
+    if (!profile) { try { profile = JSON.parse(localStorage.getItem(`px_profile:${prospect.id}`)); } catch {} }
+    if (profile) { try { await window.db.saveProfile(row.id, profile); } catch {} }
+
+    // Horizon progress — replay the prospect's completed milestones onto the row.
+    let states = null;
+    try { states = JSON.parse(localStorage.getItem(`px_tasks:${prospect.id}`)); } catch {}
+    if (states && typeof states === 'object') {
+      for (const phaseId of Object.keys(states)) {
+        for (const taskId of Object.keys(states[phaseId] || {})) {
+          if (states[phaseId][taskId]) {
+            try { await window.db.upsertTask(row.id, Number(phaseId), taskId, true); } catch {}
+          }
+        }
+      }
+    }
+
+    const mapped = window.db.mapClient(row);
+    discardProspect(prospect.id);
+    convertHandlers.current.forEach(fn => { try { fn(mapped); } catch {} });
+    showToast?.(`${mapped.shortName} converted to a client`);
+    openClientPortal?.(mapped);
+    return mapped;
+  };
+
+  return (
+    <ProspectContext.Provider value={{
+      prospects, isProspect, createProspect, convertProspect, discardProspect, onConvert,
+    }}>
+      {children}
+    </ProspectContext.Provider>
+  );
+}
+const useProspects = () => useContext(ProspectContext);
+
 /* ─── Formatters ──────────────────────────────────────────────────── */
 const fmt$ = (n, opts = {}) => {
   if (!isFinite(n) || n === null) return '—';

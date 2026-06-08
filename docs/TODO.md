@@ -13,9 +13,8 @@
 ---
 
 ## ✅ Just shipped — verify, then delete this block
-Sprint **C5 — minify CSS + ⌘K command palette** (see [sprint-log](sprint-log.md)). Build + lint + check + calc tests green; palette verified in a browser (open/filter/jump-to-client/action/Escape, no console errors). **Static-only — no migration, no secrets, no deploy gating.**
-- **Minify `styles.css` — ✅** — `build.mjs` now runs `styles.css` + `print.css` through esbuild's CSS minifier (same engine as the JS) before writing them into `_site`; the cache-bust hash covers the *minified* bytes. `styles.css` 53.5 KB → 37.4 KB (~30%). CSP `style-src` unaffected (served via `/src/styles.css` under `'self'`).
-- **`⌘K` command palette — ✅** — `CommandPalette` in `src/app.jsx` (advisor/admin bundle only), mounted in `AppInner`. ⌘K / Ctrl-K toggles a launcher: fuzzy jump-to-client (pages the whole book in live mode; `window.clientsData` in demo) + role-aware actions (view switch, update numbers, theme, sign out). ↑/↓ + ↵ + Esc. Styles under `.px-cmdk-*` in `styles.css`.
+Sprint **C3 — Prospect / proposal mode** (see [sprint-log](sprint-log.md)). Build + lint + check + calc + e2e (3/3) green; verified in a browser (new prospect → roadmap shows seeded numbers + auto horizon progress; banner Convert/Discard; convert gated in demo with a toast; roster PROSPECT badge; discard cleans up; no console errors). **Static-only — no migration, no secrets, no deploy gating.**
+- **Prospect / proposal mode — ✅** — `ProspectProvider` (`src/store.jsx`, mounted in `app.jsx`) manages unsaved `prospect-<ts>` households entirely on the existing non-UUID client machinery (profile + horizon progress in `localStorage`, namespaced `px_prospects:<advisorId|demo>`). `NewProspectModal` (`advisor-modal.jsx`) with a "Use sample numbers" fill; roster **New prospect** button + gold PROSPECT badge (prospects excluded from book KPIs); advisor-only proposal banner in `client-portal.jsx` with **Convert to client** (live-only: `createClient`+`saveProfile`+replay milestones, then splices into the live roster) and **Discard**.
 
 ---
 
@@ -31,7 +30,6 @@ From the full architecture+granular code review (2026-06-07). **Batches 1 & 2 sh
 ### C3 — Adoption unlocks (Tier A — without these, RIAs won't move)
 - [ ] **White-label branding** — firm logo + accent color + optional "powered by Prism", driven off a `firms` settings row; client portal reads it. Custom-subdomain rendering is code; the DNS half is H5. *↔ blocked-by-you (subdomain only).*
   *Scoped 2026-06-07: **big but not drastic** — the schema already carries `firms.brand_color` + `firms.logo_url` (migration 001). The work is (1) load the firm brand at auth and expose it on a context, (2) drive `--gold`/`--ink` CSS vars + a logo slot from it (the app already themes via CSS vars), (3) a firm-admin settings form + logo upload to Storage. ~1 focused sprint; no migration needed. Per-firm subdomains are a separate, smaller follow-on once `*.prismaw.com` DNS exists (H5).*
-- [ ] **Prospect / proposal mode** — run an unsaved prospect through a sample seven-horizon roadmap before they sign; "convert to client" promotes it. Turns the wedge into a closing tool.
 
 ### C4 — Wedge deepeners (Tier B — retire a paid tool)
 - [ ] **Tax-return insight (Holistiplan-lite)** — upload a 1040 → planning observations into the roadmap + portal. High willingness-to-pay.
