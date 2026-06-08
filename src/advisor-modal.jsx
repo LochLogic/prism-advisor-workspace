@@ -2,7 +2,10 @@
 // Extracted from advisor-dashboard.jsx; shares the global bundle scope (no imports/exports).
 
 /* ─── New Client modal ───────────────────────────────────────────── */
-const PHASES = phasesData.map(p => ({ value: p.id, label: `Phase ${p.num} — ${p.title}` }));
+// Computed at call time, not module load: phasesData is replaced in place after the
+// DB phase fetch (auth.jsx) and can differ per firm (white-label), so a frozen
+// module-level constant would show stale labels.
+const phaseOptions = () => phasesData.map(p => ({ value: p.id, label: `Phase ${p.num} — ${p.title}` }));
 
 const NewClientModal = ({ isOpen, onClose, advisorId, firmId, onCreated }) => {
   const { showToast } = useView();
@@ -76,7 +79,7 @@ const NewClientModal = ({ isOpen, onClose, advisorId, firmId, onCreated }) => {
               <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.05em' }}>Starting horizon</span>
               <select className="px-select" value={form.current_phase}
                 onChange={e => set('current_phase', Number(e.target.value))}>
-                {PHASES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+                {phaseOptions().map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
               </select>
             </label>
 
@@ -189,7 +192,7 @@ const NewProspectModal = ({ isOpen, onClose }) => {
               <span style={LABEL_STYLE}>Starting horizon</span>
               <select className="px-select" value={form.current_phase}
                 onChange={e => set('current_phase', Number(e.target.value))}>
-                {PHASES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+                {phaseOptions().map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
               </select>
             </label>
 
@@ -1024,7 +1027,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     const retireAt = Number(pd.goals?.retireAt) || 65;
     const r = pd.retirement || {};
     const invested = (Number(r.hsaBalance) || 0) + (Number(r.iraBalance) || 0) + (Number(r.fourohonekBalance) || 0) + (Number(pd.taxable?.balance) || 0);
-    const annualExpenses = Object.values(pd.expenses || {}).reduce((a, b) => a + (Number(b) || 0), 0) * 12;
+    const annualExpenses = (C.monthlyExpenseTotal?.(pd.expenses) || 0) * 12;
     const contrib = (Number(pd.taxable?.monthlyContrib) || 0) * 12 + (Number(r.hsaContrib) || 0) + (Number(r.iraContributed) || 0) + (Number(r.fourohonekContributed) || 0);
     let readiness = null, successBand = null;
     if (age || invested || annualExpenses) {
@@ -1232,7 +1235,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
               const r = profileData.retirement || {};
               const invested = (Number(r.hsaBalance) || 0) + (Number(r.iraBalance) || 0)
                 + (Number(r.fourohonekBalance) || 0) + (Number(profileData.taxable?.balance) || 0);
-              const expenses = Object.values(profileData.expenses || {}).reduce((a, b) => a + (Number(b) || 0), 0) * 12;
+              const expenses = ((window.PrismCalc || {}).monthlyExpenseTotal?.(profileData.expenses) || 0) * 12;
               const contrib = (Number(profileData.taxable?.monthlyContrib) || 0) * 12
                 + (Number(r.hsaContrib) || 0) + (Number(r.iraContributed) || 0) + (Number(r.fourohonekContributed) || 0);
               if (!age && !invested && !expenses) return null;
@@ -2049,7 +2052,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                   <span style={LABEL_STYLE}>Horizon</span>
                   <select className="px-select" value={editForm.current_phase ?? client.phase}
                     onChange={e => setEdit('current_phase', Number(e.target.value))}>
-                    {PHASES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+                    {phaseOptions().map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
                   </select>
                 </label>
                 <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>

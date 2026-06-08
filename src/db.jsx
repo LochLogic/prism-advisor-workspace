@@ -25,25 +25,26 @@ const AUDIT_ACTION_LABELS = {
 
 /* ─── Audit trail (SEC 17a-3 / FINRA) ────────────────────────────────
    Append-only. dbAudit() is fire-and-forget: callers never await it and
-   a failure never blocks the user action. Actor identity comes from
-   window.__pxAuthActor, set by auth.jsx after role detection. */
+   a failure never blocks the user action.
+
+   Writes go through the px_audit() SECURITY DEFINER RPC (migration 028), which
+   stamps actor_id / actor_role / actor_email / firm_id from the SESSION — never
+   from the browser — and drops any client_id outside the caller's firm. The old
+   direct insert let a client forge those columns (incl. another firm's id); the
+   RPC closes that. window.__pxAuthActor is still used only to skip in demo. */
 async function dbAudit(action, opts = {}) {
   const sb = _sb();
   const actor = window.__pxAuthActor;
   if (!sb || !actor?.id) return; // demo mode / no session — nothing to record
   try {
-    await sb.from('audit_log').insert({
-      actor_id:    actor.id,
-      actor_role:  actor.role  || null,
-      actor_email: actor.email || null,
-      firm_id:     actor.firm_id || null,
-      action,
-      entity_type: opts.entityType || null,
-      entity_id:   opts.entityId != null ? String(opts.entityId) : null,
-      client_id:   isUUID(opts.clientId) ? opts.clientId : null,
-      summary:     opts.summary || null,
-      metadata:    opts.metadata || {},
-      user_agent:  typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 400) : null,
+    await sb.rpc('px_audit', {
+      p_action:      action,
+      p_entity_type: opts.entityType || null,
+      p_entity_id:   opts.entityId != null ? String(opts.entityId) : null,
+      p_client_id:   isUUID(opts.clientId) ? opts.clientId : null,
+      p_summary:     opts.summary || null,
+      p_metadata:    opts.metadata || {},
+      p_user_agent:  typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 400) : null,
     });
   } catch (e) { console.warn('[db] audit:', e.message); }
 }
@@ -580,6 +581,7 @@ function mapFlaggedQuestion(q) {
   const task  = phase?.tasks.find(t => t.id === q.task_id);
   return {
     id:       q.id,
+    _dbId:    q.id,   // the FlaggedQuestion reply thread loads/sends keyed on this
     clientId: q.client_id,
     timeAgo:  timeAgo(q.created_at),
     quote:    q.question_text || '(question flagged)',

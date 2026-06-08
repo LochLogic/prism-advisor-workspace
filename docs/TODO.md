@@ -12,6 +12,18 @@
 
 ---
 
+## 🚢 Just shipped — needs your deploy steps (then delete this block)
+Sprint **Clean-room hardening — C1–C2 + M1–M5** (PR via `harden/critical-major-2026-06-08`;
+full detail + hand-off in [sprint-log](sprint-log.md)). Frontend auto-deploys on merge.
+**Your steps, in order — and tell Claude when 1 is done so it can trigger the edge deploy:**
+1. **Run migrations** in the Supabase SQL editor, in order: `028_audit_rpc.sql`,
+   `029_phase_whitelabel_rebuild.sql`, `030_plaid_token_vault.sql`. *(029 drops the
+   unused 001 `phase_library_platform`/`phase_library_firm` — intentional.)*
+2. Confirm `DOCUSIGN_CONNECT_HMAC_KEY` is still set; do **not** set `DOCUSIGN_ALLOW_UNVERIFIED`.
+3. *(Claude)* trigger the gated **Deploy (manual)** workflow for the edge functions — after step 1.
+4. **Verify Realtime RLS** scopes `messages` (and `alerts`/`flagged_questions`/`meetings`/`flag_messages`)
+   per-subscriber — the M4 backstop limits but doesn't replace it.
+
 ## ✅ Just shipped — verify, then delete this block
 Sprint **C3 — Prospect / proposal mode** (see [sprint-log](sprint-log.md)). Build + lint + check + calc + e2e (3/3) green; verified in a browser (new prospect → roadmap shows seeded numbers + auto horizon progress; banner Convert/Discard; convert gated in demo with a toast; roster PROSPECT badge; discard cleans up; no console errors). **Static-only — no migration, no secrets, no deploy gating.**
 - **Prospect / proposal mode — ✅** — `ProspectProvider` (`src/store.jsx`, mounted in `app.jsx`) manages unsaved `prospect-<ts>` households entirely on the existing non-UUID client machinery (profile + horizon progress in `localStorage`, namespaced `px_prospects:<advisorId|demo>`). `NewProspectModal` (`advisor-modal.jsx`) with a "Use sample numbers" fill; roster **New prospect** button + gold PROSPECT badge (prospects excluded from book KPIs); advisor-only proposal banner in `client-portal.jsx` with **Convert to client** (live-only: `createClient`+`saveProfile`+replay milestones, then splices into the live roster) and **Discard**.

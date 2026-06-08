@@ -184,6 +184,37 @@ begin
   end if;
 end $$;
 
+-- ── 8 · Audit trail is not client-forgeable (migration 028) ─────────────────
+do $$
+declare affected int; n int;
+begin
+  if to_regprocedure('public.px_audit(text,text,text,uuid,text,jsonb,text)') is null then
+    raise notice 'SKIP 8 · px_audit not present (run migration 028)';
+  else
+    perform pg_temp.act_as('aaaa2222-0000-4000-8000-000000000001');  -- Advisor A
+    -- 8a · the permissive direct-insert policy is gone → a forged row is rejected.
+    begin
+      insert into audit_log (actor_id, actor_role, firm_id, action)
+        values ('aaaa2222-0000-4000-8000-000000000001', 'admin',
+                'bbbb0000-0000-4000-8000-000000000002', 'forged.event');
+      get diagnostics affected = row_count;
+      if affected <> 0 then raise exception 'FAIL 8a: advisor inserted an audit row directly (forgeable trail)'; end if;
+    exception
+      when insufficient_privilege then null;  -- RLS rejection is the pass path
+    end;
+    -- 8b · px_audit stamps the caller's REAL firm and drops a cross-firm client_id,
+    --      so an audit row tagged to Firm B can never be produced by Advisor A.
+    perform px_audit('client.update', 'client', null,
+                     'bbbb3333-0000-4000-8000-000000000002'::uuid, 'attempt cross-firm', '{}'::jsonb, null);
+    select count(*) into n from audit_log
+      where actor_id = 'aaaa2222-0000-4000-8000-000000000001'
+        and (firm_id = 'bbbb0000-0000-4000-8000-000000000002'
+             or client_id = 'bbbb3333-0000-4000-8000-000000000002');
+    if n <> 0 then raise exception 'FAIL 8b: px_audit accepted a foreign firm_id/client_id'; end if;
+    raise notice 'PASS 8 · audit trail is not client-forgeable';
+  end if;
+end $$;
+
 reset role;
 
 do $$ begin raise notice '──────────────  RLS ISOLATION: ALL CHECKS PASSED  ──────────────'; end $$;

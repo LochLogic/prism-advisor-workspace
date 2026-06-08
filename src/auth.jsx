@@ -21,8 +21,12 @@ function AuthProvider({ children }) {
         .from('phase_library_resolved')
         .select('*');
       if (data && data.length) {
-        // phasesData is a `let` in the same bundle scope (data.jsx)
-        phasesData = data; // eslint-disable-line no-undef
+        // Mutate the existing array IN PLACE rather than rebinding `phasesData`.
+        // Rebinding would leave `window.phasesData` (data.jsx) and any module-load
+        // derivations pointing at the stale original array; an in-place splice keeps
+        // every holder of the reference current — which matters now that phases can
+        // differ per firm (white-label, migration 029).
+        phasesData.splice(0, phasesData.length, ...data); // eslint-disable-line no-undef
       }
     } catch (e) {
       console.warn('[auth] mergePhasesWithDB:', e.message);
