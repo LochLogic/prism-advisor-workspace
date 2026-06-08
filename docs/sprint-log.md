@@ -44,10 +44,15 @@ being blocked.
   `https://cloudflareinsights.com` to `connect-src` (the RUM collection endpoint).
 - Verified in `_site/_headers` after build; `npm run lint` + `node build.mjs` green.
 
-**PR:** #30 (pending). **Ships live:** the CSP fix deploys with the static site on merge
-(Cloudflare Workers Builds). **DocuSign stays inert** until the operator runs migration 027,
-sets the `DOCUSIGN_*` secrets, grants JWT consent, deploys the two functions (manual
-`deploy.yml`), and configures Connect — see `docs/docusign-setup.md` (now tracked in TODO H5).
+**PRs:** #30 + #31 (merged). **CSP fix** deployed with the static site (confirmed live on
+prismaw.com — header carries `static.cloudflareinsights.com`).
+
+**Activation (done by user, same day):** ✅ **DocuSign fully activated 2026-06-08** on the
+**demo** account — migration 027 run, `DOCUSIGN_*` secrets set (incl. `DOCUSIGN_CONNECT_HMAC_KEY`),
+JWT consent granted, both functions deployed, DocuSign Connect webhook configured (REST v2.1 ·
+Send Individual Messages · Envelope Signed/Completed + Recipients data · HMAC). Advisors can now
+send legally-binding envelopes from the client modal. Production promotion (when going live with
+real signatures) is a checklist at the bottom of `docs/docusign-setup.md`, sequenced with H2.3.
 
 ---
 
