@@ -11,24 +11,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { safeEqual } from "../_shared/auth.ts";
+import { annualFee } from "../_shared/fees.ts";
 
 function json(o: unknown, s = 200) {
   return new Response(JSON.stringify(o), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-}
-
-// Tiered annual fee in dollars for a given AUM
-function annualFee(tiers: any[], aum: number): number {
-  const list = Array.isArray(tiers) ? tiers : [];
-  if (!list.length) return 0;
-  let fee = 0, prev = 0;
-  for (const t of list) {
-    const cap = (t.up_to == null || t.up_to === "") ? Infinity : Number(t.up_to);
-    const band = Math.max(0, Math.min(aum, cap) - prev);
-    fee += band * (Number(t.annual_bps) || 0) / 10000;
-    prev = cap;
-    if (aum <= cap) break;
-  }
-  return fee;
 }
 
 // Portfolio value per snapshot date (sum of each account's latest balance ≤ date)

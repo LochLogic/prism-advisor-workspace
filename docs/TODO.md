@@ -13,12 +13,11 @@
 ---
 
 ## ✅ Just shipped — verify, then delete this block
-Sprint C3/C4 (frontend only — no migrations/secrets/money). See [sprint-log](sprint-log.md).
-- **Bulk CSV client import** (C3) — `BulkImportModal` + Wealthbox/Redtail/Orion presets; roster + empty-state buttons. Sample at `docs/samples/sample-clients.csv`. *Live-only — needs a real signed-in firm to exercise end-to-end.*
-- **Probability-of-success band** (C4) — Monte Carlo confidence band on the client retirement card.
-- **Risk questionnaire → draft IPS** (C4) — client questionnaire → strategic allocation; advisor "Draft IPS" (e-sign) + "Print IPS".
-- **One-click QBR packet** (C4) — `printQBRReport` from the client modal header.
-- *Not yet committed/pushed.* Build + lint + calc tests green. When you're happy, commit/PR and delete this block.
+Sprint C0/C3/C5 (see [sprint-log](sprint-log.md)). Build + lint + calc + check green; demo + portal smoke-checked.
+- **C0 cleanups** — shared `_shared/fees.ts`; single `AUDIT_ACTION_LABELS` in `db.jsx`; Monte Carlo RNG note; fuller `ProfileProvider` memoization.
+- **C3 client connect / invite flow** — migration **024**, advisor invite link + client claim, real client-role portal binding.
+- **C5 client portal bundle split** — `dist/portal.js` at `/portal` (~365KB→~236KB, no advisor code in client browser).
+- **⚙️ Human deploy:** **run migration 024** to activate invite/claim (until then the invite button errors & clients can't claim). No secrets/money.
 
 ---
 
@@ -27,18 +26,14 @@ Sprint C3/C4 (frontend only — no migrations/secrets/money). See [sprint-log](s
 Sequenced to the roadmap's goal — *onboard a first paying advisor* — pre-live hardening first, then the adoption unlocks that turn a demo into a "yes," then depth and polish. Each sprint is independently shippable.
 
 ### C0 — Code-review fixes (2026-06-07) — **FIRST IN LINE, ahead of C3+**
-From the full architecture+granular code review (2026-06-07). **Batches 1 & 2 shipped** (PRs #24, #25 — see [sprint-log](sprint-log.md)): alert-priority, Monte-Carlo memo, dead-code, demo-flows memo, post-checkout redirect, save-on-switch flush, book-wide KPI totals. Only these remain:
+From the full architecture+granular code review (2026-06-07). **Batches 1 & 2 shipped** (PRs #24, #25): alert-priority, Monte-Carlo memo, dead-code, demo-flows memo, post-checkout redirect, save-on-switch flush, book-wide KPI totals. **Batch 3 shipped** (fee/label dedup → `_shared/fees.ts` + single `AUDIT_ACTION_LABELS`, RNG note, fuller `ProfileProvider` memoization). See [sprint-log](sprint-log.md). Only this remains:
 
 - [ ] **Stripe webhook retries on permanent errors.** `stripe-webhook/index.ts:76-78` returns HTTP 400 for *any* exception → Stripe retries ~3 days even for unrecoverable cases (e.g. unknown firm). Return 200 for permanent/unprocessable, 4xx/5xx only for retryable; log a `checkout.session.completed` with no resolvable `firmId`. *↔ money-adjacent — **deferred 2026-06-07 by decision**; needs the gated `stripe-webhook` edge redeploy (H4) with a human go. Repo is intentionally left in sync with what's deployed.*
-- [ ] **De-duplicate drift-prone logic** (🟢 cleanup, no user impact). Tiered-fee math exists twice (`calc-core.annualFeeForAum` ↔ `generate-invoices/index.ts:annualFee`) and the audit-action label map exists 3× (`store.jsx`, `advisor-dashboard.jsx:AUDIT_ACTION_LABELS`, `db.jsx`). A shared `_shared/fees.ts` + a single label map would stop the drift. (Fee dup is already comment-flagged; the edge function can't import the `.cjs`.)
-- [ ] **`monteCarlo` RNG quality note** (`calc-core.cjs:109`) — tiny LCG (period 233,280), fine for an illustrative band but don't back a "precise" figure with it. No action unless a number is presented as exact.
-- [ ] *(backlog, see C5)* Fuller `ProfileProvider` memoization — `retirementReadiness`, `goalsFunding`, `riskProfile`, and the context `value` object still recompute each render (the expensive Monte Carlo is already memoized).
 
 ### C3 — Adoption unlocks (Tier A — without these, RIAs won't move)
 - [ ] **White-label branding** — firm logo + accent color + optional "powered by Prism", driven off a `firms` settings row; client portal reads it. Custom-subdomain rendering is code; the DNS half is H5. *↔ blocked-by-you (subdomain only).*
   *Scoped 2026-06-07: **big but not drastic** — the schema already carries `firms.brand_color` + `firms.logo_url` (migration 001). The work is (1) load the firm brand at auth and expose it on a context, (2) drive `--gold`/`--ink` CSS vars + a logo slot from it (the app already themes via CSS vars), (3) a firm-admin settings form + logo upload to Storage. ~1 focused sprint; no migration needed. Per-firm subdomains are a separate, smaller follow-on once `*.prismaw.com` DNS exists (H5).*
 - [ ] **Prospect / proposal mode** — run an unsaved prospect through a sample seven-horizon roadmap before they sign; "convert to client" promotes it. Turns the wedge into a closing tool.
-- [ ] **Client connect / invite flow** — *gap surfaced 2026-06-07.* An advisor-created `clients` row has a null `auth_user_id`; nothing currently links a client's sign-in to their household, so the client portal is only reachable via the advisor's "Client view." Need an invite (email magic-link / claim code) that sets `clients.auth_user_id = auth.uid()` on first sign-in (mirror of `px_provision_firm`). Tier-A for any real client-facing launch.
 
 ### C4 — Wedge deepeners (Tier B — retire a paid tool)
 - [ ] **Tax-return insight (Holistiplan-lite)** — upload a 1040 → planning observations into the roadmap + portal. High willingness-to-pay.
@@ -46,7 +41,6 @@ From the full architecture+granular code review (2026-06-07). **Batches 1 & 2 sh
 
 ### C5 — Perf, InfoSec & UX polish
 - [ ] **Close `style-src 'unsafe-inline'`** — migrate pervasive inline `style={{…}}` → utility classes / CSS vars, then drop `'unsafe-inline'` from `style-src` and let `check.mjs` enforce it (last CSP hole).
-- [ ] **Split the client portal into its own bundle entry** — cuts the client payload *and* the attack surface a client browser sees. esbuild multi-entry.
 - [ ] **Retention / partitioning migrations** — `audit`, `client_errors`, `balance_history` only grow; add a retention/rollup policy (partition by month) before a firm with history loads in.
 - [ ] **Minify `styles.css`** (esbuild, free win) + **audit RLS-predicate index coverage** (`advisor_id`/`firm_id`/`client_id`, esp. the firm-admin cross-firm read).
 - [ ] **Deep-linkable in-app routing** — `/app#/client/:id/tab` over the current React-state/sessionStorage nav; unlocks bookmark/share/support links.

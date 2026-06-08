@@ -78,32 +78,7 @@ const BENCHMARKS = [
 ];
 
 // Compact portfolio-value area chart
-const PerfChart = ({ series, height = 96 }) => {
-  if (!series || series.length < 2) {
-    return (
-      <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: 'var(--ink-faint)', fontSize: 12, fontStyle: 'italic',
-        border: '1px dashed var(--border)', borderRadius: 8 }}>
-        Not enough history yet — the curve fills in as balances update.
-      </div>
-    );
-  }
-  const W = 380, H = height;
-  const vals = series.map(p => p.value);
-  const min = Math.min(...vals), max = Math.max(...vals), range = (max - min) || 1, n = series.length;
-  const x = i => (i / (n - 1)) * W;
-  const y = v => H - ((v - min) / range) * (H - 10) - 5;
-  const line = series.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`).join(' ');
-  const area = `${line} L${W},${H} L0,${H} Z`;
-  const up = vals[n - 1] >= vals[0];
-  const color = up ? 'var(--forest)' : 'var(--brick)';
-  return (
-    <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: 'block' }} aria-hidden="true">
-      <path d={area} fill={color} opacity="0.09" />
-      <path d={line} fill="none" stroke={color} strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
-    </svg>
-  );
-};
+// PerfChart now lives in src/components.jsx (shared by the advisor + client bundles).
 
 // annualFeeForAum now lives in src/calc-core.cjs (single source of truth, tested);
 // it's in the shared bundle scope, referenced by bare name below.
@@ -519,17 +494,7 @@ const EmptyRoster = ({ onAddClient, onAddSample, onImport, sampling }) => (
 );
 
 /* ─── Firm Admin Dashboard ───────────────────────────────────────── */
-const AUDIT_ACTION_LABELS = {
-  'client.create': 'Client created', 'client.update': 'Client updated',
-  'client.archive': 'Client archived', 'client.notes': 'Notes updated',
-  'account.create': 'Account added', 'account.update': 'Account updated',
-  'account.archive': 'Account archived', 'meeting.create': 'Meeting logged',
-  'meeting.archive': 'Meeting archived', 'profile.save': 'Profile saved',
-  'auth.signin': 'Signed in', 'auth.signout': 'Signed out',
-  'mfa.enroll': '2FA enabled', 'mfa.unenroll': '2FA disabled',
-  'message.create': 'Message sent', 'message.send': 'Message sent', 'task.create': 'Task created',
-  'task.complete': 'Task completed', 'task.reopen': 'Task reopened', 'task.delete': 'Task deleted',
-};
+// AUDIT_ACTION_LABELS now lives in db.jsx (single source of truth, shared scope).
 
 
 /* ─── Main Advisor Dashboard ─────────────────────────────────────── */

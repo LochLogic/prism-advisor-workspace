@@ -6,23 +6,29 @@ import * as esbuild from 'esbuild';
 import { readFileSync, writeFileSync, unlinkSync, mkdirSync, rmSync, copyFileSync } from 'fs';
 import { createHash } from 'crypto';
 import { publishedPages, renderPage } from './content/pages.mjs';
-import { sourceFiles as files } from './build-files.mjs';
+import { sourceFiles, portalFiles } from './build-files.mjs';
 
-const combined = files.map(f => readFileSync(f, 'utf8')).join('\n\n');
-const tmp = 'src/_entry.jsx';
-writeFileSync(tmp, combined);
+// Two entries share one source pool (concatenated, not module-bundled): the
+// advisor/admin app and the slim client portal. Each gets its own temp entry.
+const entries = [
+  { files: sourceFiles, tmp: 'src/_entry.jsx',        out: 'dist/bundle.js' },
+  { files: portalFiles, tmp: 'src/_entry-portal.jsx', out: 'dist/portal.js' },
+];
+for (const e of entries) writeFileSync(e.tmp, e.files.map(f => readFileSync(f, 'utf8')).join('\n\n'));
 
 try {
   mkdirSync('dist', { recursive: true });
-  await esbuild.build({
-    entryPoints: [tmp],
-    bundle: false,
-    outfile: 'dist/bundle.js',
-    jsxFactory: 'React.createElement',
-    jsxFragment: 'React.Fragment',
-    minify: true,
-  });
-  console.log('✓ dist/bundle.js built');
+  for (const e of entries) {
+    await esbuild.build({
+      entryPoints: [e.tmp],
+      bundle: false,
+      outfile: e.out,
+      jsxFactory: 'React.createElement',
+      jsxFragment: 'React.Fragment',
+      minify: true,
+    });
+    console.log(`✓ ${e.out} built`);
+  }
 
   // ── Assemble a clean deploy directory (_site) ──────────────────────
   // Hosts like Cloudflare upload the *entire* output dir, so we copy ONLY
@@ -35,27 +41,33 @@ try {
   // refreshes the lot (CSS-only edits bust too, not just JS).
   const hash = createHash('sha256')
     .update(readFileSync('dist/bundle.js'))
+    .update(readFileSync('dist/portal.js'))
     .update(readFileSync('src/styles.css'))
     .update(readFileSync('src/supabase-client.js'))
     .digest('hex').slice(0, 8);
   const bust = (html) => readFileSync(html, 'utf8')
     .replace(/dist\/bundle\.js(\?v=[^"']*)?/g,         `dist/bundle.js?v=${hash}`)
+    .replace(/dist\/portal\.js(\?v=[^"']*)?/g,         `dist/portal.js?v=${hash}`)
     .replace(/src\/styles\.css(\?v=[^"']*)?/g,         `src/styles.css?v=${hash}`)
     .replace(/src\/supabase-client\.js(\?v=[^"']*)?/g, `src/supabase-client.js?v=${hash}`);
-  // Routing: marketing (landing.html) is served at / ; the app (index.html) lives at /app.
-  // login/signup stay at the root. The app's asset refs are absolute (/dist, /src, /vendor)
-  // so they resolve correctly from the /app path.
+  // Routing: marketing (landing.html) is served at / ; the app (index.html) lives at /app ;
+  // the slim client portal (portal.html → dist/portal.js) lives at /portal.
+  // login/signup stay at the root. Asset refs are absolute (/dist, /src, /vendor)
+  // so they resolve correctly from any path.
   mkdirSync('_site/app', { recursive: true });
-  writeFileSync('_site/index.html',     bust('landing.html'));
-  writeFileSync('_site/app/index.html', bust('index.html'));
-  writeFileSync('_site/login.html',     bust('login.html'));
-  writeFileSync('_site/signup.html',    bust('signup.html'));
+  mkdirSync('_site/portal', { recursive: true });
+  writeFileSync('_site/index.html',        bust('landing.html'));
+  writeFileSync('_site/app/index.html',    bust('index.html'));
+  writeFileSync('_site/portal/index.html', bust('portal.html'));
+  writeFileSync('_site/login.html',        bust('login.html'));
+  writeFileSync('_site/signup.html',       bust('signup.html'));
 
   // Static legal + security pages (no bundle refs — plain copy).
   for (const p of ['privacy.html', 'terms.html', 'dpa.html', 'security.html']) {
     copyFileSync(p, `_site/${p}`);
   }
   copyFileSync('dist/bundle.js',          '_site/dist/bundle.js');
+  copyFileSync('dist/portal.js',          '_site/dist/portal.js');
   copyFileSync('src/styles.css',          '_site/src/styles.css');
   copyFileSync('src/supabase-client.js',  '_site/src/supabase-client.js');
 
@@ -75,7 +87,7 @@ try {
   // style-src KEEPS 'unsafe-inline': React renders inline style attributes and many
   //   components use them; removing it needs nonces or a large move-to-classes pass.
   const inlineHashes = new Set();
-  for (const html of [bust('landing.html'), bust('index.html'), bust('login.html'), bust('signup.html')]) {
+  for (const html of [bust('landing.html'), bust('index.html'), bust('portal.html'), bust('login.html'), bust('signup.html')]) {
     const re = /<script>([\s\S]*?)<\/script>/g;   // bare <script> only — skips src= and application/ld+json
     let m;
     while ((m = re.exec(html)) !== null) {
@@ -130,5 +142,5 @@ ${urls.map(u => `  <url><loc>${u.loc}</loc><lastmod>${today}</lastmod><changefre
 
   console.log('✓ _site/ assembled for static hosting');
 } finally {
-  unlinkSync(tmp);
+  for (const e of entries) { try { unlinkSync(e.tmp); } catch {} }
 }

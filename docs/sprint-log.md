@@ -6,6 +6,67 @@
 
 ---
 
+## 2026-06-07 — C0 close-out + C3 client invite + C5 portal bundle split
+
+Closed the remaining actionable **§C0** code-review items, shipped the **C3 client
+connect / invite flow**, and split the **client portal into its own bundle** (C5).
+
+**C0 — remaining code-review fixes:**
+- **De-duplicated drift-prone logic.** Tiered-fee math extracted to
+  `supabase/functions/_shared/fees.ts` (imported by `generate-invoices`; kept
+  byte-equivalent to `calc-core.annualFeeForAum`, the frontend source of truth).
+  The audit-action label map is now a single `AUDIT_ACTION_LABELS` in `db.jsx`,
+  referenced by both the firm-admin feed (`advisor-dashboard.jsx`) and the printed
+  compliance report (`store.jsx`) — was duplicated.
+- **Monte Carlo RNG note.** Added an explicit comment at the LCG in `calc-core.cjs`:
+  fine for an illustrative band, must not back an "exact" figure (swap to mulberry32
+  if ever surfaced as precise).
+- **Fuller `ProfileProvider` memoization** (the C5-backlog item). `retirementReadiness`,
+  `goalsFunding`, `riskProfile`, and the context **value object** are now memoized
+  (keyed on profile/activeClientId) so they don't recompute on unrelated parent renders.
+
+**C3 — client connect / invite flow (closes the "no client portal access" gap):**
+- **Migration 024** (`024_client_invite.sql`): invite columns on `clients`
+  (`invite_code`/`invite_email`/`invited_at`/`claimed_at`, partial-unique index) +
+  two SECURITY DEFINER RPCs mirroring `px_provision_firm`: `px_create_client_invite`
+  (advisor/firm-admin generates a single-use code) and `px_claim_client` (client
+  redeems it → binds `clients.auth_user_id = auth.uid()`, consumes the code).
+- Advisor UI: an invite banner in the client modal Overview (live clients) — generates
+  a `/login.html?claim=<code>` link, copies it, shows connection state.
+- Client flow: `login.html` stashes the `claim` code through the magic-link round trip;
+  a freshly-authenticated user with no DB record redeems it (`ClaimInvite` in `app.jsx`),
+  then lands on the portal. `db.createClientInvite` / `db.claimClient` added.
+- Bonus correctness: the portal now binds a signed-in client's `activeClientId` to
+  their own household (the first real client-role path; previously only the advisor's
+  "Client view" reached the portal).
+
+**C5 — client portal as its own bundle entry:**
+- Second esbuild entry `dist/portal.js` (served at `/portal` via `portal.html`), built
+  from a client-only source subset — **excludes** advisor-dashboard, firm-admin,
+  advisor-modal, bulk-import. **~365KB → ~236KB** for a client (~35% smaller) and no
+  advisor/admin code in a client browser (attack-surface win). Portal page also drops
+  the Plaid CDN `<script>` (unused there).
+- Refactor to enable it: `PerfChart` → `components.jsx`; shared shell
+  (`LoadingScreen`, `NotificationBell`, `AccountChip`, `SecurityModal`, `ErrorBoundary`)
+  → new `shell.jsx`; new slim `portal-app.jsx` shell. `build-files.mjs` now exports
+  `sourceFiles` + `portalFiles` + `allFiles` (lint union); `build.mjs` builds both;
+  `app.jsx` routes real (non-demo) clients to `/portal`.
+
+Verified: `npm run build` (both bundles) + `npm run lint` + `npm run test:calc` +
+`npm run check` all green; advisor demo (advisor + client views + client modal) and the
+portal bundle smoke-checked in preview (no console errors). e2e left to CI (clean port).
+
+**Human deploy hand-off:**
+- **⚙️ Run migration 024** (`024_client_invite.sql`) in the Supabase SQL editor to
+  activate the invite/claim flow — until then the advisor "Invite to portal" button
+  errors and clients can't claim. No secrets/money involved.
+- `generate-invoices` was edited (now imports `_shared/fees.ts`, no behavior change) —
+  picks up on the next gated function deploy (TODO H4); not urgent (logic identical).
+- Stripe webhook retry-storm hardening (🟢) — still **deferred by decision** (needs a
+  money-adjacent `stripe-webhook` edge redeploy). Repo intentionally left in sync.
+
+---
+
 ## 2026-06-07 — Code review + C0 fixes (batches 1 & 2)
 
 Full architecture + granular code review of the whole codebase (all 16 src modules,
