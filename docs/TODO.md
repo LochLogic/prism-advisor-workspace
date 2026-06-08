@@ -13,10 +13,9 @@
 ---
 
 ## ✅ Just shipped — verify, then delete this block
-Sprint **DocuSign + CSP fix** (see [sprint-log](sprint-log.md)). Build + lint green. **DocuSign fully activated 2026-06-08** (migration 027 run · `DOCUSIGN_*` secrets set · JWT consent granted · functions deployed · Connect webhook + HMAC configured).
-- **DocuSign real e-sign — ✅ LIVE** — acknowledgements gain a second provider (`docusign`): advisor escalates a pending ack to a legally-binding envelope (**DocuSign** button in the client modal), client signs via DocuSign email, `docusign-connect` webhook marks it Signed. Demo account (`account-d.docusign.com` / `demo.docusign.net`); promote to production when ready for live signatures (sequence with H2.3 live-keys decision). *Verify: send a real envelope to a live client and confirm the webhook flips the row to Signed.*
-- **Cloudflare Web Analytics CSP — ✅ LIVE** — `static.cloudflareinsights.com` added to `script-src`, `cloudflareinsights.com` to `connect-src` (`build.mjs`). Confirmed live on prismaw.com (header carries the beacon host).
-- **⚙️ Human deploy — migrations** — ✅ **025 + 026 + 027 all run** (027 = DocuSign, 2026-06-08).
+Sprint **C5 — minify CSS + ⌘K command palette** (see [sprint-log](sprint-log.md)). Build + lint + check + calc tests green; palette verified in a browser (open/filter/jump-to-client/action/Escape, no console errors). **Static-only — no migration, no secrets, no deploy gating.**
+- **Minify `styles.css` — ✅** — `build.mjs` now runs `styles.css` + `print.css` through esbuild's CSS minifier (same engine as the JS) before writing them into `_site`; the cache-bust hash covers the *minified* bytes. `styles.css` 53.5 KB → 37.4 KB (~30%). CSP `style-src` unaffected (served via `/src/styles.css` under `'self'`).
+- **`⌘K` command palette — ✅** — `CommandPalette` in `src/app.jsx` (advisor/admin bundle only), mounted in `AppInner`. ⌘K / Ctrl-K toggles a launcher: fuzzy jump-to-client (pages the whole book in live mode; `window.clientsData` in demo) + role-aware actions (view switch, update numbers, theme, sign out). ↑/↓ + ↵ + Esc. Styles under `.px-cmdk-*` in `styles.css`.
 
 ---
 
@@ -39,8 +38,7 @@ From the full architecture+granular code review (2026-06-07). **Batches 1 & 2 sh
 - [ ] **AI relationship assistant (Gemini)** — draft replies, household summaries, review talking points, "who needs attention." Rides on the shipped messaging + CRM. Runs server-side (Edge Function) so the key never reaches the browser. *Gemini API key received 2026-06-07 (H5); build deferred by your call until we pick this up — set `GEMINI_API_KEY` in Supabase secrets when we start.*
 
 ### C5 — Perf, InfoSec & UX polish
-- [ ] **Minify `styles.css`** (esbuild, free win) + **audit RLS-predicate index coverage** (`advisor_id`/`firm_id`/`client_id`, esp. the firm-admin cross-firm read).
-- [ ] **`⌘K` command palette** — jump-to-client + actions; highest-leverage advisor-UX add at 150 households.
+- [ ] **Audit RLS-predicate index coverage** (`advisor_id`/`firm_id`/`client_id`, esp. the firm-admin cross-firm read). *(Was bundled with "minify `styles.css`", which shipped 2026-06-08.)*
 - [ ] **Product analytics events** — first-party activation events (login, invite, message, plan-update, report) into a small events table; answers "is the design partner actually using it."
 - [ ] **Advisor MFA (TOTP)** — enforce in the advisor auth path (Supabase Auth supports it). *↔ may need a Supabase Auth setting toggle (H2).*
 - [ ] **Exam-ready compliance export** — one-click books-&-records packet (audit log + acknowledgements + WORM).

@@ -6,6 +6,41 @@
 
 ---
 
+## 2026-06-08 — C5: minify `styles.css` + ⌘K command palette
+
+Two C5 polish items, both static (no migration, no secrets, no deploy gating).
+
+**Minify CSS** (`build.mjs`):
+- The hand-authored stylesheets are now run through esbuild's CSS minifier (same
+  engine already used for the JS) before being written into `_site`: a small
+  `minifyCss()` helper transforms `src/styles.css` + `src/print.css`, and the
+  served files are the minified output (via `writeFileSync`), never the source copy.
+- The cache-bust content hash now hashes the **minified** bytes, so the bust stays
+  correct even if only the minifier changes.
+- `styles.css` 53.5 KB → 37.4 KB (~30%); `print.css` 3.4 KB → 2.5 KB.
+- CSP unchanged: the stylesheet is linked at `/src/styles.css` (covered by
+  `style-src 'self'`), not inlined — `check.mjs` style-src assertions stay green.
+
+**⌘K command palette** (`src/app.jsx`, `src/styles.css`):
+- New `CommandPalette` component mounted in `AppInner` — advisor/admin surface only
+  (`app.jsx` is not in the slim portal bundle, so a client browser never ships it).
+- ⌘K / Ctrl-K (global keydown) toggles a launcher with a search box, a role-aware
+  **Actions** section (go to Advisor / Client / Firm admin, update household numbers,
+  toggle theme, sign out) and a **Clients** section. Live mode pages the whole book
+  via `db.getClients` (100/page) so any household is reachable, not just the first
+  roster page; demo mode reads `window.clientsData`.
+- Keyboard-first: ↑/↓ move a single selection index across the flattened list,
+  ↵ runs the row (jump-to-client sets `activeClientId`/`activeClient` + `view='client'`,
+  reflected in the hash route), Esc / backdrop-click closes. Selected row scrolls into view.
+- Styles: `.px-cmdk-*` block in `styles.css` (backdrop, search, list, section headers,
+  item rows + avatars, keyboard-hint footer); added to the print-hide list.
+- **Verified in-browser** (demo mode): open via Ctrl-K, filter "okon" → 1 client,
+  ↵ jumps to `#/client/c002`, theme action flips light→dark, Esc closes. No console errors.
+
+Build + lint + `check.mjs` (CSP) + calc tests all green. No human hand-off.
+
+---
+
 ## 2026-06-08 — DocuSign real e-sign + Cloudflare Analytics CSP fix
 
 Two items: legally-binding e-signature on top of acknowledgements (Tier-A "real e-sign"

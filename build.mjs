@@ -37,13 +37,21 @@ try {
   mkdirSync('_site/dist', { recursive: true });
   mkdirSync('_site/src',  { recursive: true });
 
+  // Minify the hand-authored CSS (esbuild, same engine as the JS) → the served
+  // stylesheet is the minified output, never the source. Hashing the minified
+  // bytes (below) keeps the cache-bust correct even if only the minifier changes.
+  const minifyCss = async (file) =>
+    (await esbuild.transform(readFileSync(file, 'utf8'), { loader: 'css', minify: true })).code;
+  const stylesCssMin = await minifyCss('src/styles.css');
+  const printCssMin  = await minifyCss('src/print.css');
+
   // Content hash over all cache-busted assets → any change to any of them
   // refreshes the lot (CSS-only edits bust too, not just JS).
   const hash = createHash('sha256')
     .update(readFileSync('dist/bundle.js'))
     .update(readFileSync('dist/portal.js'))
-    .update(readFileSync('src/styles.css'))
-    .update(readFileSync('src/print.css'))
+    .update(stylesCssMin)
+    .update(printCssMin)
     .update(readFileSync('src/supabase-client.js'))
     .digest('hex').slice(0, 8);
   const bust = (html) => readFileSync(html, 'utf8')
@@ -69,8 +77,8 @@ try {
   }
   copyFileSync('dist/bundle.js',          '_site/dist/bundle.js');
   copyFileSync('dist/portal.js',          '_site/dist/portal.js');
-  copyFileSync('src/styles.css',          '_site/src/styles.css');
-  copyFileSync('src/print.css',           '_site/src/print.css');
+  writeFileSync('_site/src/styles.css',   stylesCssMin);
+  writeFileSync('_site/src/print.css',    printCssMin);
   copyFileSync('src/supabase-client.js',  '_site/src/supabase-client.js');
 
   // Self-hosted libs (no runtime CDN dependency except Plaid, which requires its CDN)

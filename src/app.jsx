@@ -210,6 +210,193 @@ function ClaimInvite({ code }) {
   );
 }
 
+/* ─── ⌘K command palette (C5) ─────────────────────────────────────────
+   Global advisor-UX accelerator: ⌘K / Ctrl-K opens a fuzzy launcher to jump
+   to any client in the book and run the common view/account actions without
+   reaching for the mouse — the highest-leverage add once a book runs to 150+
+   households. Mounted in AppInner (advisor/admin surface only; the slim client
+   portal never bundles this file). */
+function CommandPalette() {
+  const { view, setView, setActiveClientId, setActiveClient, openNumbers } = useView();
+  const { role, isDemo, signOut } = useAuth();
+  const { dark, toggleTheme } = useTheme();
+
+  const [open, setOpen]   = React.useState(false);
+  const [query, setQuery] = React.useState('');
+  const [sel, setSel]     = React.useState(0);
+  const [clients, setClients] = React.useState(null); // null until first load
+  const inputRef = React.useRef(null);
+  const listRef  = React.useRef(null);
+
+  // ⌘K / Ctrl-K toggles the palette from anywhere in the app.
+  React.useEffect(() => {
+    const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        setOpen(v => !v);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // Reset transient state each time it opens, and lazy-load the book once.
+  React.useEffect(() => {
+    if (!open) return;
+    setQuery(''); setSel(0);
+    const raf = requestAnimationFrame(() => inputRef.current?.focus());
+    if (clients === null) {
+      if (isDemo || !window.db?.getClients) {
+        setClients((window.clientsData || []));
+      } else {
+        const { authUser } = window.useAuth?.() || {};
+        const advisorId = authUser?.id;
+        if (!advisorId) { setClients([]); }
+        else {
+          // Page through the whole book so any household is reachable, not just
+          // the dashboard's first roster page.
+          (async () => {
+            const all = [];
+            for (let page = 0; page < 40; page++) {
+              const res = await window.db.getClients(advisorId, { page, pageSize: 100 });
+              const rows = res?.rows || [];
+              all.push(...rows.map(window.db.mapClient));
+              if (rows.length < 100) break;
+            }
+            setClients(all);
+          })();
+        }
+      }
+    }
+    return () => cancelAnimationFrame(raf);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const close = React.useCallback(() => setOpen(false), []);
+
+  const jumpToClient = React.useCallback((c) => {
+    setActiveClientId(c.id);
+    setActiveClient(c);
+    setView('client');
+    close();
+  }, [setActiveClientId, setActiveClient, setView, close]);
+
+  // Actions are role-aware; each is a flat launcher row with its own runner.
+  const actions = React.useMemo(() => {
+    const a = [];
+    if ((role === 'advisor' || role === 'admin') && view !== 'advisor')
+      a.push({ key: 'view-advisor', icon: 'TableCol', label: 'Go to Advisor dashboard', run: () => { setView('advisor'); close(); } });
+    if (view !== 'client')
+      a.push({ key: 'view-client', icon: 'Layers', label: 'Go to Client view', run: () => { setView('client'); close(); } });
+    if (role === 'admin' && view !== 'admin')
+      a.push({ key: 'view-admin', icon: 'Building', label: 'Go to Firm admin', run: () => { setView('admin'); close(); } });
+    a.push({ key: 'numbers', icon: 'Calculator', label: 'Update household numbers', run: () => { openNumbers(); close(); } });
+    a.push({ key: 'theme', icon: dark ? 'Sun' : 'Moon', label: dark ? 'Switch to light mode' : 'Switch to dark mode', run: () => { toggleTheme(); close(); } });
+    a.push({ key: 'signout', icon: 'ArrowRight', label: isDemo ? 'Back to sign-in' : 'Sign out', run: () => { close(); signOut(); } });
+    return a;
+  }, [role, view, dark, isDemo, setView, openNumbers, toggleTheme, signOut, close]);
+
+  // Filter both pools by a case-insensitive substring, then flatten so a single
+  // selection index can walk the whole list with ↑/↓.
+  const q = query.trim().toLowerCase();
+  const matchedClients = React.useMemo(() => {
+    const list = clients || [];
+    const f = q ? list.filter(c =>
+      (c.name || '').toLowerCase().includes(q) ||
+      (c.shortName || '').toLowerCase().includes(q) ||
+      (c.tag || '').toLowerCase().includes(q)) : list;
+    return f.slice(0, q ? 12 : 6); // cap the list; empty query shows a recent slice
+  }, [clients, q]);
+  const matchedActions = React.useMemo(
+    () => q ? actions.filter(a => a.label.toLowerCase().includes(q)) : actions,
+    [actions, q]);
+
+  const flat = React.useMemo(() => [
+    ...matchedActions.map(a => ({ ...a, kind: 'action' })),
+    ...matchedClients.map(c => ({ kind: 'client', key: `c:${c.id}`, client: c })),
+  ], [matchedActions, matchedClients]);
+
+  React.useEffect(() => { setSel(s => Math.min(s, Math.max(0, flat.length - 1))); }, [flat.length]);
+
+  const onKeyDown = (e) => {
+    if (e.key === 'Escape')      { e.preventDefault(); close(); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); setSel(s => Math.min(s + 1, flat.length - 1)); }
+    else if (e.key === 'ArrowUp')   { e.preventDefault(); setSel(s => Math.max(s - 1, 0)); }
+    else if (e.key === 'Enter')  {
+      e.preventDefault();
+      const item = flat[sel];
+      if (!item) return;
+      if (item.kind === 'action') item.run();
+      else jumpToClient(item.client);
+    }
+  };
+
+  // Keep the selected row scrolled into view as the user arrows through.
+  React.useEffect(() => {
+    if (!open || !listRef.current) return;
+    const el = listRef.current.querySelector('.px-cmdk-item.is-sel');
+    el?.scrollIntoView({ block: 'nearest' });
+  }, [sel, open]);
+
+  if (!open) return null;
+
+  let idx = -1;
+  return (
+    <div className="px-cmdk-backdrop" onClick={close}>
+      <div className="px-cmdk" role="dialog" aria-modal="true" aria-label="Command palette"
+           onClick={e => e.stopPropagation()}>
+        <div className="px-cmdk-search">
+          <Icons.Search size={15} />
+          <input ref={inputRef} className="px-cmdk-input" value={query} onKeyDown={onKeyDown}
+                 onChange={e => { setQuery(e.target.value); setSel(0); }}
+                 placeholder="Jump to a client or run a command…"
+                 aria-label="Search clients and commands" autoComplete="off" spellCheck={false} />
+        </div>
+
+        <div className="px-cmdk-list" ref={listRef}>
+          {flat.length === 0 && (
+            <div className="px-cmdk-empty">
+              {clients === null ? 'Loading your book…' : 'No matches'}
+            </div>
+          )}
+
+          {matchedActions.length > 0 && <div className="px-cmdk-section">Actions</div>}
+          {matchedActions.map(a => {
+            idx++; const i = idx; const I = Icons[a.icon] || Icons.ArrowRight;
+            return (
+              <div key={a.key} className={`px-cmdk-item ${i === sel ? 'is-sel' : ''}`}
+                   onMouseEnter={() => setSel(i)} onClick={a.run} role="button">
+                <span className="px-cmdk-item-icon"><I size={14} /></span>
+                <span className="px-cmdk-item-label">{a.label}</span>
+              </div>
+            );
+          })}
+
+          {matchedClients.length > 0 && (
+            <div className="px-cmdk-section">{q ? 'Clients' : 'Recent clients'}</div>
+          )}
+          {matchedClients.map(c => {
+            idx++; const i = idx;
+            return (
+              <div key={`c:${c.id}`} className={`px-cmdk-item ${i === sel ? 'is-sel' : ''}`}
+                   onMouseEnter={() => setSel(i)} onClick={() => jumpToClient(c)} role="button">
+                <span className="px-cmdk-item-avatar">{c.initials || (c.name || '?').slice(0, 1)}</span>
+                <span className="px-cmdk-item-label">{c.name}</span>
+                {c.tag && c.tag !== '—' && <span className="px-cmdk-item-sub">{c.tag}</span>}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="px-cmdk-hint">
+          <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+          <span><kbd>↵</kbd> select</span>
+          <span><kbd>esc</kbd> close</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── App inner (all providers are already mounted above) ─────────── */
 function AppInner() {
   const { view, setView, numbersOpen, openNumbers, closeNumbers } = useView();
@@ -249,6 +436,7 @@ function AppInner() {
   return (
     <div className="px-app">
       <Topbar onOpenNumbers={openNumbers} dark={dark} toggleTheme={toggleTheme} />
+      <CommandPalette />
       {view === 'admin'   ? <FirmAdminDashboard />
        : view === 'advisor' ? <AdvisorDashboard />
        : <ClientPortal onOpenNumbers={openNumbers} />}
