@@ -91,6 +91,15 @@
   .footer{text-align:center;margin-top:18px;font-size:11px;color:var(--ink-faint);line-height:1.6;}
   .footer a{color:var(--gold);text-decoration:none;cursor:pointer;}
   .footer a:hover{text-decoration:underline;}
+
+  /* C5 utility classes */
+  .btn-google{display:flex;align-items:center;justify-content:center;gap:9px;margin-bottom:10px;}
+  .is-hidden{display:none;}
+  .tac{text-align:center;}
+  .card-p{font-size:13px;color:var(--ink-mute);margin-top:8px;line-height:1.55;}
+  .mt20{margin-top:20px;}
+  .mt12{margin-top:12px;}
+  .fs11{font-size:11px;}
 </style>
 </head>
 <body>
@@ -125,8 +134,7 @@
 
     <div class="divider">or</div>
 
-    <button class="btn-ghost" id="google-btn"
-      style="display:flex;align-items:center;justify-content:center;gap:9px;margin-bottom:10px;">
+    <button class="btn-ghost btn-google" id="google-btn">
       <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/><path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/></svg>
       Continue with Google
     </button>
@@ -139,20 +147,20 @@
   </div>
 
   <!-- Magic-link sent card -->
-  <div class="card magic-card" id="magic-card" style="display:none">
+  <div class="card magic-card is-hidden" id="magic-card">
     <div class="magic-icon">✉️</div>
-    <div class="card-title" style="text-align:center">Check your inbox</div>
-    <p style="font-size:13px;color:var(--ink-mute);margin-top:8px;line-height:1.55;">
+    <div class="card-title tac">Check your inbox</div>
+    <p class="card-p">
       A sign-in link was sent to <strong id="sent-to"></strong>.
       Click it to continue — the link expires in 1 hour.
     </p>
-    <button class="btn-ghost" id="usepw-btn" style="margin-top:20px">
+    <button class="btn-ghost mt20" id="usepw-btn">
       Use password instead
     </button>
   </div>
 
   <!-- Two-factor challenge card -->
-  <div class="card" id="mfa-card" style="display:none">
+  <div class="card is-hidden" id="mfa-card">
     <div class="card-title">Two-factor verification</div>
     <div class="card-sub">Enter the 6-digit code from your authenticator app to finish signing in.</div>
     <div class="field">
@@ -162,7 +170,7 @@
     </div>
     <button class="btn-primary" id="mfa-btn">Verify &amp; continue</button>
     <div class="msg" id="mfa-msg"></div>
-    <button class="btn-ghost" id="cancel-mfa-btn" style="margin-top:12px">Cancel</button>
+    <button class="btn-ghost mt12" id="cancel-mfa-btn">Cancel</button>
   </div>
 
   <div class="footer">
@@ -170,7 +178,7 @@
     &ensp;·&ensp;
     <a id="demo-link" role="button" tabindex="0">Continue in demo mode</a>
     <br/>
-    <a href="/" style="font-size:11px;">← Back to overview</a>
+    <a href="/" class="fs11">← Back to overview</a>
   </div>
 
 </div>

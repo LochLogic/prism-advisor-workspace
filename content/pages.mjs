@@ -497,6 +497,9 @@ const head = ({ title, description, keywords, canonical }) => `<!DOCTYPE html>
   footer.site { border-top:1px solid var(--line); margin-top:40px; }
   footer.site .wrap { padding:26px 22px; font-size:13px; color:var(--ink3); }
   footer.site a { color:var(--gold); text-decoration:none; }
+
+  .cta-foot{margin-top:10px;padding-top:10px;border-top:1px solid var(--line);color:var(--ink3);}
+  .cta-head{font-family:var(--serif);font-size:19px;color:var(--ink);}
 </style>`;
 
 const siteHeader = `<header class="site"><div class="wrap">
@@ -510,7 +513,7 @@ const siteHeader = `<header class="site"><div class="wrap">
 const siteFooter = `<footer class="site"><div class="wrap">
   <a href="${SITE}/">Overview</a> &middot; <a href="${SITE}/signup.html">Sign up</a> &middot; <a href="${SITE}/login.html">Sign in</a><br/>
   Secured by row-level security &middot; Audit trail designed around SEC 17a-3/17a-4 principles
-  <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line);color:var(--ink3);">
+  <div class="cta-foot">
     &copy; 2026 Prism Advisor Workspace &middot; A product of LeMay Ventures LLC &nbsp;&middot;&nbsp;
     <a href="${SITE}/privacy.html">Privacy</a> &middot;
     <a href="${SITE}/terms.html">Terms</a> &middot;
@@ -553,7 +556,7 @@ ${siteHeader}
     </dl>
   </div>
   <div class="cta">
-    <strong style="font-family:var(--serif);font-size:19px;color:var(--ink);">See it before you sign up.</strong>
+    <strong class="cta-head">See it before you sign up.</strong>
     <div>Open a fully populated demo workspace — no account required.</div>
     <div class="btns">
       <a class="primary" href="${SITE}/app">Explore the live demo</a>

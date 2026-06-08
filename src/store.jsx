@@ -810,31 +810,24 @@ const escapeHtml = (s) => {
 const sanitizeHtml = (s) => escapeHtml(s)
   .replace(/&lt;(\/?)(b|i|em|strong|br)\s*\/?&gt;/gi, '<$1$2>');
 
-const _printStyles = `
-  body{font-family:Georgia,serif;color:#1c2e4a;padding:44px;max-width:720px;margin:0 auto;font-size:13px;}
-  h1{font-size:22px;font-weight:500;margin:0 0 3px;}
-  .sub{color:#5d7a8e;font-size:12px;margin-bottom:22px;}
-  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:22px;}
-  .stat{border:1px solid #e4dfd0;border-radius:6px;padding:11px;}
-  .stat-lbl{font-size:10px;color:#5d7a8e;text-transform:uppercase;letter-spacing:.06em;}
-  .stat-val{font-size:17px;font-weight:500;margin-top:4px;}
-  .section-lbl{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5d7a8e;margin:20px 0 8px;}
-  .task{padding:5px 0;border-bottom:1px solid #e4dfd0;display:flex;gap:8px;font-size:12px;}
-  .check{color:#3d5a4a;font-weight:700;}
-  .mtg{padding:7px 0;border-bottom:1px solid #e4dfd0;}
-  .mtg-date{font-weight:600;font-size:12px;}
-  .mtg-notes{color:#5d7a8e;font-size:12px;margin-top:2px;}
-  .note-block{border-left:2px solid #a98c4b;padding-left:12px;font-style:italic;color:#5d7a8e;font-size:13px;}
-  .footer{margin-top:36px;padding-top:14px;border-top:1px solid #e4dfd0;font-size:10px;color:#8da3b6;}
-  @media print{body{padding:20px;}}
-`;
-
+// Report styling lives in the same-origin /src/print.css. The popup opened below
+// inherits the app's CSP, which (since C5) no longer carries style-src 'unsafe-inline',
+// so the report can no longer use an inline <style> block or style="" attributes —
+// it links the external sheet ('self' allows it) and uses classes only.
 function _openPrint(title, bodyHtml) {
   const win = window.open('', '_blank');
   if (!win) { console.warn('[print] popup blocked — allow popups for this site'); return; }
-  win.document.write(`<!DOCTYPE html><html><head><title>${title}</title><style>${_printStyles}</style></head><body>${bodyHtml}</body></html>`);
+  const href = `${location.origin}/src/print.css`;
+  win.document.write(`<!DOCTYPE html><html><head><title>${title}</title><link rel="stylesheet" href="${href}"></head><body>${bodyHtml}</body></html>`);
   win.document.close();
-  setTimeout(() => win.print(), 450);
+  // Print once the stylesheet has loaded so the report is styled; fall back on a
+  // timer in case load/error never fires. CSP forbids inline onload= handlers in
+  // the popup, so the listener is attached here from the opener context.
+  let printed = false;
+  const doPrint = () => { if (printed) return; printed = true; try { win.focus(); win.print(); } catch (e) { /* popup closed */ } };
+  const link = win.document.querySelector('link[rel="stylesheet"]');
+  if (link) { link.addEventListener('load', doPrint); link.addEventListener('error', doPrint); }
+  setTimeout(doPrint, 800);
 }
 
 // Client overview report — called from ClientPreviewModal "Print report" button
@@ -856,14 +849,14 @@ function printClientReport(client, phase, meetings) {
     : '';
 
   _openPrint(`Client Report — ${escapeHtml(client.name)}`, `
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
+    <div class="rpt-head">
       <div><h1>${escapeHtml(client.name)}</h1><div class="sub">${escapeHtml(client.tag)} &middot; Generated ${date}</div></div>
-      <div style="font-size:10px;color:#8da3b6;text-align:right">Prism Advisor Workspace<br/>Confidential</div>
+      <div class="rpt-meta">Prism Advisor Workspace<br/>Confidential</div>
     </div>
     <div class="grid">
       <div class="stat"><div class="stat-lbl">AUM</div><div class="stat-val">${fmt$(client.aum, { short: true })}</div></div>
-      <div class="stat"><div class="stat-lbl">Current Horizon</div><div class="stat-val" style="font-size:13px;margin-top:6px">Phase ${escapeHtml(phase.num)} &middot; ${escapeHtml(phase.title)}</div></div>
-      <div class="stat"><div class="stat-lbl">Uninvested cash</div><div class="stat-val" style="color:${client.uninvestedCash > 80000 ? '#8c3d3d' : 'inherit'}">${fmt$(client.uninvestedCash, { short: true })}</div></div>
+      <div class="stat"><div class="stat-lbl">Current Horizon</div><div class="stat-val sv13">Phase ${escapeHtml(phase.num)} &middot; ${escapeHtml(phase.title)}</div></div>
+      <div class="stat"><div class="stat-lbl">Uninvested cash</div><div class="stat-val ${client.uninvestedCash > 80000 ? 'bad' : ''}">${fmt$(client.uninvestedCash, { short: true })}</div></div>
     </div>
     ${meetingsHtml}
     ${notesHtml}
@@ -882,25 +875,25 @@ function printMilestoneReport(phase, taskStates, advisorName, advisorFirm, numbe
     <div class="grid">
       <div class="stat"><div class="stat-lbl">Net worth</div><div class="stat-val">${fmt$(n.netWorth, { short: true })}</div></div>
       <div class="stat"><div class="stat-lbl">Invested assets</div><div class="stat-val">${fmt$(n.invested, { short: true })}</div></div>
-      <div class="stat"><div class="stat-lbl">Liquidity reserve</div><div class="stat-val" style="font-size:15px;margin-top:6px">${fmt$(n.reserve, { short: true })} <span style="font-size:11px;color:#8da3b6">/ ${fmt$(n.reserveTarget, { short: true })}</span></div></div>
+      <div class="stat"><div class="stat-lbl">Liquidity reserve</div><div class="stat-val sv15">${fmt$(n.reserve, { short: true })} <span class="sv-sub">/ ${fmt$(n.reserveTarget, { short: true })}</span></div></div>
       <div class="stat"><div class="stat-lbl">Retirement assets</div><div class="stat-val">${fmt$(n.retirementAssets, { short: true })}</div></div>
       <div class="stat"><div class="stat-lbl">Taxable assets</div><div class="stat-val">${fmt$(n.taxableBalance, { short: true })}</div></div>
-      <div class="stat"><div class="stat-lbl">Monthly surplus</div><div class="stat-val" style="color:${(n.surplus || 0) < 0 ? '#8c3d3d' : '#3d5a4a'}">${fmt$(n.surplus)}</div></div>
+      <div class="stat"><div class="stat-lbl">Monthly surplus</div><div class="stat-val ${(n.surplus || 0) < 0 ? 'bad' : 'ok'}">${fmt$(n.surplus)}</div></div>
     </div>` : '';
 
   _openPrint(`Milestone Report — Phase ${escapeHtml(phase.num)}`, `
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
+    <div class="rpt-head">
       <div>
-        <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5d7a8e;margin-bottom:4px">Milestone Achieved &middot; Phase ${escapeHtml(phase.num)}</div>
+        <div class="ms-tag">Milestone Achieved &middot; Phase ${escapeHtml(phase.num)}</div>
         <h1>${escapeHtml(phase.title)}</h1>
         <div class="sub">Reviewed ${date} &middot; ${escapeHtml(advisorName)}${advisorFirm ? ', ' + escapeHtml(advisorFirm) : ''}</div>
       </div>
-      <div style="font-size:10px;color:#8da3b6;text-align:right">Prism Advisor Workspace<br/>Confidential</div>
+      <div class="rpt-meta">Prism Advisor Workspace<br/>Confidential</div>
     </div>
     <div class="grid">
       <div class="stat"><div class="stat-lbl">Tasks completed</div><div class="stat-val">${completed.length} / ${phase.tasks.length}</div></div>
       <div class="stat"><div class="stat-lbl">Phase</div><div class="stat-val">${escapeHtml(phase.num)}</div></div>
-      <div class="stat"><div class="stat-lbl">Status</div><div class="stat-val" style="font-size:14px;color:#3d5a4a;margin-top:5px">&#10003; Complete</div></div>
+      <div class="stat"><div class="stat-lbl">Status</div><div class="stat-val sv14 ok">&#10003; Complete</div></div>
     </div>
     ${reviewHtml}
     <div class="section-lbl">Milestones completed in this phase</div>
@@ -920,24 +913,24 @@ function printComplianceReport(client, auditEntries, meetings, versionCount) {
   const auditRows = (auditEntries || []).length
     ? (auditEntries || []).map(e => `
         <div class="task">
-          <span style="color:#5d7a8e;font-size:11px;white-space:nowrap">${new Date(e.occurred_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-          <span style="flex:0 0 140px">${escapeHtml(AUDIT_ACTION_LABELS[e.action] || e.action)}</span>
-          <span style="color:#5d7a8e">${escapeHtml(e.actor_email || '')}</span>
+          <span class="mut fs11 nw">${new Date(e.occurred_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+          <span class="f140">${escapeHtml(AUDIT_ACTION_LABELS[e.action] || e.action)}</span>
+          <span class="mut">${escapeHtml(e.actor_email || '')}</span>
           <span>${escapeHtml(e.summary || '')}</span>
         </div>`).join('')
-    : '<div class="task" style="color:#8da3b6">No recorded actions for this client.</div>';
+    : '<div class="task mut2">No recorded actions for this client.</div>';
   const meetingsHtml = (meetings || []).length
     ? `<div class="section-lbl">Meeting record</div>${(meetings || []).map(m => `
         <div class="mtg"><div class="mtg-date">${new Date(m.met_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}${m.duration_min ? ` &middot; ${Number(m.duration_min)} min` : ''}</div>${m.notes ? `<div class="mtg-notes">${escapeHtml(m.notes)}</div>` : ''}</div>`).join('')}`
     : '';
 
   _openPrint(`Compliance Record — ${escapeHtml(client.name)}`, `
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
+    <div class="rpt-head">
       <div><h1>${escapeHtml(client.name)}</h1><div class="sub">Compliance & audit record &middot; Generated ${date}</div></div>
-      <div style="font-size:10px;color:#8da3b6;text-align:right">Prism Advisor Workspace<br/>Confidential &middot; SEC 17a-3 / 17a-4</div>
+      <div class="rpt-meta">Prism Advisor Workspace<br/>Confidential &middot; SEC 17a-3 / 17a-4</div>
     </div>
     <div class="grid">
-      <div class="stat"><div class="stat-lbl">Household tag</div><div class="stat-val" style="font-size:13px;margin-top:6px">${escapeHtml(client.tag || '—')}</div></div>
+      <div class="stat"><div class="stat-lbl">Household tag</div><div class="stat-val sv13">${escapeHtml(client.tag || '—')}</div></div>
       <div class="stat"><div class="stat-lbl">Audited actions</div><div class="stat-val">${(auditEntries || []).length}</div></div>
       <div class="stat"><div class="stat-lbl">Profile versions</div><div class="stat-val">${Number(versionCount) || 0}</div></div>
     </div>
@@ -956,7 +949,7 @@ function printPerformanceReport(opts) {
   const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const cur = series.length ? series[series.length - 1].value : 0;
 
-  let chartHtml = '<div style="color:#8da3b6;font-style:italic;font-size:12px;padding:8px 0">Not enough history to chart yet.</div>';
+  let chartHtml = '<div class="chart-empty">Not enough history to chart yet.</div>';
   if (series.length >= 2) {
     const W = 640, H = 170;
     const vals = series.map(p => p.value);
@@ -965,14 +958,14 @@ function printPerformanceReport(opts) {
     const y = v => H - ((v - min) / range) * (H - 20) - 10;
     const line = series.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`).join(' ');
     const up = vals[n - 1] >= vals[0], color = up ? '#3d5a4a' : '#8c3d3d';
-    chartHtml = `<svg width="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="border:1px solid #e4dfd0;border-radius:6px;background:#fff">
+    chartHtml = `<svg width="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="rpt-svg">
       <path d="${line} L${W},${H} L0,${H} Z" fill="${color}" opacity="0.08"/>
       <path d="${line}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round"/></svg>`;
   }
 
   const periodCells = (periods || []).map(s => {
     const has = s.pct != null && isFinite(s.pct), pos = (s.pct || 0) >= 0;
-    return `<div class="stat"><div class="stat-lbl">${escapeHtml(s.label)}</div><div class="stat-val" style="color:${!has ? '#8da3b6' : pos ? '#3d5a4a' : '#8c3d3d'}">${has ? `${pos ? '+' : ''}${s.pct.toFixed(1)}%` : '—'}</div></div>`;
+    return `<div class="stat"><div class="stat-lbl">${escapeHtml(s.label)}</div><div class="stat-val ${!has ? 'mut2' : pos ? 'ok' : 'bad'}">${has ? `${pos ? '+' : ''}${s.pct.toFixed(1)}%` : '—'}</div></div>`;
   }).join('');
 
   const capital = (flows || []).filter(f => f.kind !== 'fee');
@@ -982,21 +975,21 @@ function printPerformanceReport(opts) {
   const netOfFees = fees > 0;
 
   _openPrint(`Performance Report — ${escapeHtml(client.name)}`, `
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
+    <div class="rpt-head">
       <div><h1>${escapeHtml(client.name)}</h1><div class="sub">Performance report &middot; ${date}</div></div>
-      <div style="font-size:10px;color:#8da3b6;text-align:right">${escapeHtml(advisorFirm || 'Prism Advisor Workspace')}${advisorName ? `<br/>Prepared by ${escapeHtml(advisorName)}` : ''}</div>
+      <div class="rpt-meta">${escapeHtml(advisorFirm || 'Prism Advisor Workspace')}${advisorName ? `<br/>Prepared by ${escapeHtml(advisorName)}` : ''}</div>
     </div>
     <div class="grid">
       <div class="stat"><div class="stat-lbl">Portfolio value</div><div class="stat-val">${fmt$(cur, { short: true })}</div></div>
-      <div class="stat"><div class="stat-lbl">Net contributions</div><div class="stat-val" style="font-size:15px;margin-top:6px">${fmt$(contrib - withdr, { short: true })}</div></div>
-      <div class="stat"><div class="stat-lbl">As of</div><div class="stat-val" style="font-size:13px;margin-top:7px">${date}</div></div>
+      <div class="stat"><div class="stat-lbl">Net contributions</div><div class="stat-val sv15">${fmt$(contrib - withdr, { short: true })}</div></div>
+      <div class="stat"><div class="stat-lbl">As of</div><div class="stat-val sv13">${date}</div></div>
     </div>
     <div class="section-lbl">Portfolio value over time</div>
     ${chartHtml}
-    <div class="section-lbl" style="margin-top:22px">Time-weighted return${netOfFees ? ' &middot; net of advisory fees' : ''}</div>
-    <div class="grid" style="grid-template-columns:repeat(5,1fr)">${periodCells}</div>
-    <div class="section-lbl" style="margin-top:22px">Cash flow summary</div>
-    <div style="font-size:12px;color:#2d4258">Contributions: <b>${fmt$(contrib, { short: true })}</b> &nbsp;&middot;&nbsp; Withdrawals: <b>${fmt$(withdr, { short: true })}</b>${netOfFees ? ` &nbsp;&middot;&nbsp; Advisory fees: <b>${fmt$(fees, { short: true })}</b>` : ''}</div>
+    <div class="section-lbl mt22">Time-weighted return${netOfFees ? ' &middot; net of advisory fees' : ''}</div>
+    <div class="grid grid5">${periodCells}</div>
+    <div class="section-lbl mt22">Cash flow summary</div>
+    <div class="rpt-p">Contributions: <b>${fmt$(contrib, { short: true })}</b> &nbsp;&middot;&nbsp; Withdrawals: <b>${fmt$(withdr, { short: true })}</b>${netOfFees ? ` &nbsp;&middot;&nbsp; Advisory fees: <b>${fmt$(fees, { short: true })}</b>` : ''}</div>
     <div class="footer">Returns are time-weighted (Modified Dietz). ${netOfFees ? 'Returns are shown <b>net of advisory fees</b> debited from the account over the period.' : 'No advisory-fee debits were recorded for this period, so returns are shown <b>before advisory fees</b>.'} Returns reflect account value change where transaction-level cash flows have not been recorded. Past performance is not indicative of future results; this report is informational and is not investment advice. Prism Advisor Workspace${advisorFirm ? ' &middot; ' + escapeHtml(advisorFirm) : ''}.</div>
   `);
 }
@@ -1013,9 +1006,9 @@ function printQBRReport(opts) {
   // Roadmap progress strip
   const phaseRows = (o.phases || []).map(p => {
     const pct = p.total ? Math.round((p.completed / p.total) * 100) : 0;
-    const tone = pct === 100 ? '#3d5a4a' : pct > 0 ? '#a98c4b' : '#8da3b6';
-    return `<div class="task"><span style="flex:1">Phase ${escapeHtml(p.num)} · ${escapeHtml(p.title)}</span>
-      <span style="color:${tone};font-weight:600">${p.completed}/${p.total} · ${pct}%</span></div>`;
+    const tone = pct === 100 ? 'ok' : pct > 0 ? 'warn' : 'mut2';
+    return `<div class="task"><span class="f1">Phase ${escapeHtml(p.num)} · ${escapeHtml(p.title)}</span>
+      <span class="${tone} b6">${p.completed}/${p.total} · ${pct}%</span></div>`;
   }).join('');
 
   // Retirement readiness + probability band
@@ -1027,13 +1020,13 @@ function printQBRReport(opts) {
       ? ` &middot; Monte Carlo success ${Math.round(o.successBand.successPct)}% (bear ${fmt$(o.successBand.p10, { short: true })} · median ${fmt$(o.successBand.medianFinal, { short: true })} · bull ${fmt$(o.successBand.p90, { short: true })})`
       : '';
     readinessHtml = `<div class="section-lbl">Retirement readiness</div>
-      <div style="font-size:12.5px;color:#2d4258">${pct}% funded &middot; <b>${escapeHtml(r.verdict)}</b>${r.lasts ? ' — plan funded through age 95' : (r.depletionAge ? ` — projected to age ${r.depletionAge}` : '')}${band}</div>`;
+      <div class="rpt-p">${pct}% funded &middot; <b>${escapeHtml(r.verdict)}</b>${r.lasts ? ' — plan funded through age 95' : (r.depletionAge ? ` — projected to age ${r.depletionAge}` : '')}${band}</div>`;
   }
 
   // Goals
   const goalsHtml = (o.goals || []).length
     ? `<div class="section-lbl">Goals</div>${o.goals.map(g => `
-        <div class="task"><span style="flex:1">${escapeHtml(g.label)}</span><span style="color:#5d7a8e">${g.pct}% · ${escapeHtml(g.status)}</span></div>`).join('')}`
+        <div class="task"><span class="f1">${escapeHtml(g.label)}</span><span class="mut">${g.pct}% · ${escapeHtml(g.status)}</span></div>`).join('')}`
     : '';
 
   // Protection
@@ -1041,7 +1034,7 @@ function printQBRReport(opts) {
   if (o.protection) {
     const p = o.protection;
     protHtml = `<div class="section-lbl">Protection &amp; estate</div>
-      <div style="font-size:12.5px;color:#2d4258">Life coverage ${fmt$(p.lifeCoverage, { short: true })}${p.recommended > 0 ? ` of ${fmt$(p.recommended, { short: true })} guideline` : ''}${p.gap > 0 ? ` &middot; gap ${fmt$(p.gap, { short: true })}` : ' &middot; well covered'} &middot; estate ${p.estateComplete}/${p.estateTotal} in place</div>`;
+      <div class="rpt-p">Life coverage ${fmt$(p.lifeCoverage, { short: true })}${p.recommended > 0 ? ` of ${fmt$(p.recommended, { short: true })} guideline` : ''}${p.gap > 0 ? ` &middot; gap ${fmt$(p.gap, { short: true })}` : ' &middot; well covered'} &middot; estate ${p.estateComplete}/${p.estateTotal} in place</div>`;
   }
 
   // Performance chart + period returns
@@ -1054,36 +1047,36 @@ function printQBRReport(opts) {
     const x = i => (i / (n - 1)) * W, y = v => H - ((v - min) / range) * (H - 20) - 10;
     const line = series.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`).join(' ');
     const up = vals[n - 1] >= vals[0], color = up ? '#3d5a4a' : '#8c3d3d';
-    chartHtml = `<svg width="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="border:1px solid #e4dfd0;border-radius:6px;background:#fff">
+    chartHtml = `<svg width="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="rpt-svg">
       <path d="${line} L${W},${H} L0,${H} Z" fill="${color}" opacity="0.08"/>
       <path d="${line}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round"/></svg>`;
   }
   const netOfFees = (flows || []).some(f => f.kind === 'fee');
   const periodCells = periods.map(s => {
     const has = s.pct != null && isFinite(s.pct), pos = (s.pct || 0) >= 0;
-    return `<div class="stat"><div class="stat-lbl">${escapeHtml(s.label)}</div><div class="stat-val" style="color:${!has ? '#8da3b6' : pos ? '#3d5a4a' : '#8c3d3d'}">${has ? `${pos ? '+' : ''}${s.pct.toFixed(1)}%` : '—'}</div></div>`;
+    return `<div class="stat"><div class="stat-lbl">${escapeHtml(s.label)}</div><div class="stat-val ${!has ? 'mut2' : pos ? 'ok' : 'bad'}">${has ? `${pos ? '+' : ''}${s.pct.toFixed(1)}%` : '—'}</div></div>`;
   }).join('');
   const perfHtml = series.length >= 2
     ? `<div class="section-lbl">Performance — portfolio value</div>${chartHtml}
-       <div class="section-lbl" style="margin-top:18px">Time-weighted return${netOfFees ? ' &middot; net of advisory fees' : ''}</div>
-       <div class="grid" style="grid-template-columns:repeat(5,1fr)">${periodCells}</div>`
+       <div class="section-lbl mt18">Time-weighted return${netOfFees ? ' &middot; net of advisory fees' : ''}</div>
+       <div class="grid grid5">${periodCells}</div>`
     : '';
 
   // Risk allocation
   const allocHtml = (o.risk && o.risk.allocation)
     ? `<div class="section-lbl">Strategic allocation (${escapeHtml(o.risk.band)})</div>
-       <div style="font-size:12.5px;color:#2d4258">Equity ${o.risk.allocation.equity}% &middot; Fixed income ${o.risk.allocation.fixedIncome}% &middot; Cash ${o.risk.allocation.cash}%</div>`
+       <div class="rpt-p">Equity ${o.risk.allocation.equity}% &middot; Fixed income ${o.risk.allocation.fixedIncome}% &middot; Cash ${o.risk.allocation.cash}%</div>`
     : '';
 
   _openPrint(`Quarterly Review — ${escapeHtml(client.name)}`, `
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
+    <div class="rpt-head">
       <div><h1>Quarterly Business Review</h1><div class="sub">${escapeHtml(client.name)} &middot; ${date}</div></div>
-      <div style="font-size:10px;color:#8da3b6;text-align:right">${escapeHtml(o.advisorFirm || 'Prism Advisor Workspace')}${o.advisorName ? `<br/>Prepared by ${escapeHtml(o.advisorName)}` : ''}<br/>Confidential</div>
+      <div class="rpt-meta">${escapeHtml(o.advisorFirm || 'Prism Advisor Workspace')}${o.advisorName ? `<br/>Prepared by ${escapeHtml(o.advisorName)}` : ''}<br/>Confidential</div>
     </div>
     <div class="grid">
       <div class="stat"><div class="stat-lbl">Net worth</div><div class="stat-val">${fmt$(o.netWorth, { short: true })}</div></div>
       <div class="stat"><div class="stat-lbl">Managed assets</div><div class="stat-val">${fmt$(o.aum, { short: true })}</div></div>
-      <div class="stat"><div class="stat-lbl">Current horizon</div><div class="stat-val" style="font-size:13px;margin-top:6px">Phase ${escapeHtml(o.phase?.num || '—')} · ${escapeHtml(o.phase?.title || '')}</div></div>
+      <div class="stat"><div class="stat-lbl">Current horizon</div><div class="stat-val sv13">Phase ${escapeHtml(o.phase?.num || '—')} · ${escapeHtml(o.phase?.title || '')}</div></div>
     </div>
     <div class="section-lbl">Plan progress</div>
     ${phaseRows}
@@ -1110,32 +1103,32 @@ function printIPSReport(opts) {
     ['Fixed income / bonds', a.fixedIncome],
     ['Cash & equivalents', a.cash],
   ].map(([label, pct]) => `
-    <div class="task"><span style="flex:1">${escapeHtml(label)}</span><span style="font-weight:600">${pct}%</span></div>`).join('');
+    <div class="task"><span class="f1">${escapeHtml(label)}</span><span class="b6">${pct}%</span></div>`).join('');
 
   _openPrint(`Investment Policy Statement — ${escapeHtml(client.name)}`, `
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
+    <div class="rpt-head">
       <div><h1>Investment Policy Statement</h1><div class="sub">${escapeHtml(client.name)} &middot; Draft ${date}</div></div>
-      <div style="font-size:10px;color:#8da3b6;text-align:right">${escapeHtml(advisorFirm || 'Prism Advisor Workspace')}${advisorName ? `<br/>Prepared by ${escapeHtml(advisorName)}` : ''}<br/>DRAFT — for review</div>
+      <div class="rpt-meta">${escapeHtml(advisorFirm || 'Prism Advisor Workspace')}${advisorName ? `<br/>Prepared by ${escapeHtml(advisorName)}` : ''}<br/>DRAFT — for review</div>
     </div>
     <div class="grid">
-      <div class="stat"><div class="stat-lbl">Risk profile</div><div class="stat-val" style="font-size:15px;margin-top:6px">${escapeHtml(risk?.band || '—')}</div></div>
+      <div class="stat"><div class="stat-lbl">Risk profile</div><div class="stat-val sv15">${escapeHtml(risk?.band || '—')}</div></div>
       <div class="stat"><div class="stat-lbl">Risk score</div><div class="stat-val">${risk?.score != null ? risk.score + ' / 100' : '—'}</div></div>
-      <div class="stat"><div class="stat-lbl">Time horizon</div><div class="stat-val" style="font-size:15px;margin-top:6px">${horizon != null ? `${horizon} yrs to retirement` : 'Long-term'}</div></div>
+      <div class="stat"><div class="stat-lbl">Time horizon</div><div class="stat-val sv15">${horizon != null ? `${horizon} yrs to retirement` : 'Long-term'}</div></div>
     </div>
     <div class="section-lbl">1 · Purpose</div>
-    <div style="font-size:12.5px;line-height:1.6;color:#2d4258">This Investment Policy Statement sets the objectives, risk tolerance, and target asset allocation for the assets managed on behalf of ${escapeHtml(client.name)}. It is a working framework reviewed with the advisor and updated as circumstances change.</div>
+    <div class="rpt-p">This Investment Policy Statement sets the objectives, risk tolerance, and target asset allocation for the assets managed on behalf of ${escapeHtml(client.name)}. It is a working framework reviewed with the advisor and updated as circumstances change.</div>
     <div class="section-lbl">2 · Investment objective &amp; risk tolerance</div>
-    <div style="font-size:12.5px;line-height:1.6;color:#2d4258">Based on a completed risk questionnaire, the household's tolerance is assessed as <b>${escapeHtml(risk?.band || 'Balanced')}</b>. The portfolio is constructed to pursue long-term growth consistent with this tolerance${horizon != null ? ` over an approximately ${horizon}-year horizon to retirement` : ''}, accepting the interim volatility this allocation implies.</div>
+    <div class="rpt-p">Based on a completed risk questionnaire, the household's tolerance is assessed as <b>${escapeHtml(risk?.band || 'Balanced')}</b>. The portfolio is constructed to pursue long-term growth consistent with this tolerance${horizon != null ? ` over an approximately ${horizon}-year horizon to retirement` : ''}, accepting the interim volatility this allocation implies.</div>
     <div class="section-lbl">3 · Target strategic asset allocation</div>
-    <div class="task" style="font-weight:600;color:#5d7a8e;font-size:11px;text-transform:uppercase;letter-spacing:.04em"><span style="flex:1">Asset class</span><span>Target</span></div>
+    <div class="task task-head"><span class="f1">Asset class</span><span>Target</span></div>
     ${allocRows}
     <div class="section-lbl">4 · Rebalancing</div>
-    <div style="font-size:12.5px;line-height:1.6;color:#2d4258">Allocations are reviewed at least annually and rebalanced when any asset class drifts more than ±5% from its target, or upon a material change in the household's circumstances.</div>
+    <div class="rpt-p">Allocations are reviewed at least annually and rebalanced when any asset class drifts more than ±5% from its target, or upon a material change in the household's circumstances.</div>
     <div class="section-lbl">5 · Review &amp; acknowledgement</div>
-    <div style="font-size:12.5px;line-height:1.6;color:#2d4258">This statement is reviewed at each periodic meeting. By signing, the client acknowledges they have reviewed and agree to this policy as a basis for ongoing management.</div>
-    <div style="display:flex;gap:40px;margin-top:34px">
-      <div style="flex:1;border-top:1px solid #1c2e4a;padding-top:6px;font-size:11px;color:#5d7a8e">Client signature &amp; date</div>
-      <div style="flex:1;border-top:1px solid #1c2e4a;padding-top:6px;font-size:11px;color:#5d7a8e">Advisor signature &amp; date</div>
+    <div class="rpt-p">This statement is reviewed at each periodic meeting. By signing, the client acknowledges they have reviewed and agree to this policy as a basis for ongoing management.</div>
+    <div class="sig-row">
+      <div class="sig">Client signature &amp; date</div>
+      <div class="sig">Advisor signature &amp; date</div>
     </div>
     <div class="footer">Draft Investment Policy Statement generated by Prism Advisor Workspace${advisorFirm ? ' &middot; ' + escapeHtml(advisorFirm) : ''}. This draft is informational, is not investment advice, and is finalized only upon signature by both parties.</div>
   `);
@@ -1146,26 +1139,26 @@ function printInvoiceReport(invoice, clientName, advisorFirm) {
   const fmtD = (d) => new Date(d).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const num = ('INV-' + String(invoice.id).replace(/-/g, '').slice(0, 8)).toUpperCase();
   _openPrint(`Invoice ${num}`, `
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px">
+    <div class="rpt-head mb24">
       <div><h1>Invoice</h1><div class="sub">${num} &middot; Issued ${fmtD(invoice.created_at || new Date())}</div></div>
-      <div style="font-size:11px;color:#5d7a8e;text-align:right">${escapeHtml(advisorFirm || 'Prism Advisor Workspace')}<br/>Advisory fee statement</div>
+      <div class="rpt-meta2">${escapeHtml(advisorFirm || 'Prism Advisor Workspace')}<br/>Advisory fee statement</div>
     </div>
     <div class="grid">
-      <div class="stat"><div class="stat-lbl">Bill to</div><div class="stat-val" style="font-size:14px;margin-top:6px">${escapeHtml(clientName || 'Client')}</div></div>
-      <div class="stat"><div class="stat-lbl">Billing period</div><div class="stat-val" style="font-size:13px;margin-top:7px">${fmtD(invoice.period_start)} – ${fmtD(invoice.period_end)}</div></div>
-      <div class="stat"><div class="stat-lbl">Status</div><div class="stat-val" style="font-size:14px;margin-top:6px;text-transform:capitalize">${escapeHtml(invoice.status || 'draft')}</div></div>
+      <div class="stat"><div class="stat-lbl">Bill to</div><div class="stat-val sv14">${escapeHtml(clientName || 'Client')}</div></div>
+      <div class="stat"><div class="stat-lbl">Billing period</div><div class="stat-val sv13">${fmtD(invoice.period_start)} – ${fmtD(invoice.period_end)}</div></div>
+      <div class="stat"><div class="stat-lbl">Status</div><div class="stat-val sv14 sv-cap">${escapeHtml(invoice.status || 'draft')}</div></div>
     </div>
     <div class="section-lbl">Detail</div>
-    <div class="task" style="font-weight:600;color:#5d7a8e;font-size:11px;text-transform:uppercase;letter-spacing:.04em">
-      <span style="flex:1">Description</span><span>Amount</span>
+    <div class="task task-head">
+      <span class="f1">Description</span><span>Amount</span>
     </div>
     <div class="task">
-      <span style="flex:1">Advisory fee on billing assets of ${fmt$(invoice.basis_amount, { short: true })}</span>
-      <span style="font-weight:600">${fmt$(invoice.fee_amount)}</span>
+      <span class="f1">Advisory fee on billing assets of ${fmt$(invoice.basis_amount, { short: true })}</span>
+      <span class="b6">${fmt$(invoice.fee_amount)}</span>
     </div>
-    <div class="task" style="border-bottom:none;padding-top:12px">
-      <span style="flex:1;font-weight:700;font-size:14px">Total due</span>
-      <span style="font-weight:700;font-size:16px">${fmt$(invoice.fee_amount)}</span>
+    <div class="task task-total">
+      <span class="f1 b7 fs14">Total due</span>
+      <span class="b7 fs16">${fmt$(invoice.fee_amount)}</span>
     </div>
     <div class="footer">Advisory fees are calculated per your firm's fee schedule. Questions? Contact your advisor. Prism Advisor Workspace${advisorFirm ? ' &middot; ' + escapeHtml(advisorFirm) : ''}.</div>
   `);
