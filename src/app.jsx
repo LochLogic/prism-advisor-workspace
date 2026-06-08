@@ -453,13 +453,15 @@ function App() {
     <ErrorBoundary>
       <AuthProvider>
         <ViewProvider>
-          <NotificationProvider>
-            <ProfileProvider>
-              <TaskProvider>
-                <AppInner />
-              </TaskProvider>
-            </ProfileProvider>
-          </NotificationProvider>
+          <ProspectProvider>
+            <NotificationProvider>
+              <ProfileProvider>
+                <TaskProvider>
+                  <AppInner />
+                </TaskProvider>
+              </ProfileProvider>
+            </NotificationProvider>
+          </ProspectProvider>
         </ViewProvider>
       </AuthProvider>
     </ErrorBoundary>

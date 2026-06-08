@@ -326,8 +326,12 @@ const RiskProfileCard = ({ advisorName }) => {
 const ClientPortal = ({ onOpenNumbers }) => {
   const ctx = useProfile();
   const { overallPct, completedCount, totalTasks, activePhase, taskStates, setOpenPhases } = useTasks();
-  const { activeClientId, activeClient, showToast, pendingPhaseId, setPendingPhaseId } = useView();
+  const { activeClientId, activeClient, showToast, pendingPhaseId, setPendingPhaseId, setView } = useView();
   const { authUser } = useAuth();
+  // Prospect / proposal mode (C3): present only in the advisor bundle (the slim
+  // client portal never mounts ProspectProvider, so this is null there).
+  const prospectsCtx = useProspects();
+  const [converting, setConverting] = React.useState(false);
 
   // Deep-link: when a notification sends us here with a target phase, auto-open it
   React.useEffect(() => {
@@ -386,6 +390,26 @@ const ClientPortal = ({ onOpenNumbers }) => {
   const activePhaseObj = phasesData.find(p => p.id === activePhase) || phasesData[0];
   // Use the real client object from ViewContext; fall back to mock only in demo mode
   const viewingClient = activeClient || clientsData.find(c => c.id === activeClientId) || clientsData[0];
+
+  // Prospect banner — shown when the advisor is walking an unsaved prospect
+  // through the roadmap. "Convert" promotes it to a real client (carrying the
+  // live profile + horizon progress); "Discard" drops it with no trace.
+  const isProspectView = !!prospectsCtx?.isProspect?.(activeClientId);
+  const prospectObj = isProspectView
+    ? (prospectsCtx.prospects.find(p => p.id === activeClientId) || viewingClient)
+    : null;
+  const convertProspect = async () => {
+    if (converting) return;
+    setConverting(true);
+    const mapped = await prospectsCtx.convertProspect(prospectObj, ctx.profile);
+    setConverting(false);
+    if (!mapped) return; // convertProspect already toasts on failure / no session
+  };
+  const discardProspect = () => {
+    prospectsCtx.discardProspect(activeClientId);
+    showToast('Prospect discarded');
+    setView('advisor');
+  };
 
   // Build advisor display info from auth (real) or mock fallback (demo)
   const advisorDisplay = {
@@ -476,6 +500,32 @@ const ClientPortal = ({ onOpenNumbers }) => {
           </button>
         </div>
         <div style={{ clear: 'both' }}></div>
+
+        {/* Prospect / proposal banner (C3) — advisor-only closing tool */}
+        {isProspectView && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
+            background: 'var(--gold-soft)', border: '1px solid var(--gold)',
+            borderRadius: 'var(--radius-lg)', padding: '14px 18px', margin: '12px 0 4px',
+          }}>
+            <span style={{ color: 'var(--gold)', display: 'flex', flexShrink: 0 }}><Icons.Sparkles size={18} /></span>
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <div style={{ fontFamily: 'var(--serif)', fontSize: 16, color: 'var(--ink)', marginBottom: 2 }}>
+                Proposal mode — this is a prospect
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--ink-mute)', lineHeight: 1.5 }}>
+                Nothing here is saved yet. Walk {prospectObj?.shortName || 'them'} through the roadmap, then
+                convert to a client to keep it.
+              </div>
+            </div>
+            <button className="px-btn px-btn-ghost px-btn-sm" onClick={discardProspect} disabled={converting}>
+              Discard
+            </button>
+            <button className="px-btn px-btn-primary px-btn-sm" onClick={convertProspect} disabled={converting}>
+              <Icons.Users size={12} /> {converting ? 'Converting…' : 'Convert to client'}
+            </button>
+          </div>
+        )}
 
         {/* Blank-slate nudge — new household with no numbers entered yet */}
         {isBlankSlate && (
