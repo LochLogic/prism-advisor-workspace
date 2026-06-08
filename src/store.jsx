@@ -129,9 +129,22 @@ function ProfileProvider({ children }) {
   const { activeClientId } = useView();
   const dbSaveTimer = React.useRef(null);
   const isLoading   = React.useRef(false);
+  // Tracks the latest debounced-but-not-yet-written save: { clientId, profile }.
+  // Lets us FLUSH it before a client switch (or unmount) so the last <1.5s of
+  // edits aren't dropped when the load effect cancels the pending timer.
+  const pendingSave = React.useRef(null);
 
-  // On client switch: clear state then load from the right source
+  const flushPendingSave = () => {
+    const p = pendingSave.current;
+    pendingSave.current = null;
+    if (p && window.db?.isUUID(p.clientId)) window.db.saveProfile(p.clientId, p.profile);
+  };
+  // Flush any pending save on unmount (e.g. sign-out / app teardown).
+  useEffect(() => () => flushPendingSave(), []);
+
+  // On client switch: flush the previous client's pending save, then load the new one
   useEffect(() => {
+    flushPendingSave();
     clearTimeout(dbSaveTimer.current);
     if (window.db?.isUUID(activeClientId)) {
       // Real client — reset to a blank shape, then merge in whatever the DB has.
@@ -160,8 +173,10 @@ function ProfileProvider({ children }) {
     if (isLoading.current) return;
     if (window.db?.isUUID(activeClientId)) {
       clearTimeout(dbSaveTimer.current);
+      pendingSave.current = { clientId: activeClientId, profile };
       dbSaveTimer.current = setTimeout(() => {
         window.db.saveProfile(activeClientId, profile);
+        pendingSave.current = null;
       }, 1500);
     } else {
       try { localStorage.setItem(`px_profile:${activeClientId}`, JSON.stringify(profile)); } catch {}

@@ -89,8 +89,12 @@ const FirmAdminDashboard = () => {
     if (!window.__sb) return;
     setCheckoutBusy(true);
     try {
+      // The app is served under /app/ (build.mjs routes / → marketing, /app → app).
+      // The edge function appends the return path to this origin, so include /app
+      // or Stripe sends the advisor back to the marketing page (and the billing
+      // toast handler below, which lives in the app, never runs).
       const { data, error } = await window.__sb.functions.invoke('create-checkout-session',
-        { body: { origin: window.location.origin } });
+        { body: { origin: window.location.origin + '/app' } });
       if (error || !data?.url) throw new Error(error?.message || 'No checkout URL returned');
       window.location.href = data.url;
     } catch (e) { showToast('Could not start checkout — check console'); console.warn(e); setCheckoutBusy(false); }

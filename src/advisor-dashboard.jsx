@@ -551,11 +551,13 @@ const AdvisorDashboard = () => {
   const [dbAlerts,      setDbAlerts]      = useStateAdv(undefined);
   const [dbQuestions,   setDbQuestions]   = useStateAdv(undefined);
   const [dbTasks,       setDbTasks]       = useStateAdv(undefined);
+  const [dbTotals,      setDbTotals]      = useStateAdv(null);
 
   // Fetch from Supabase when advisor auth record is available
   React.useEffect(() => {
     if (!authUser?.id || !window.db) return;
     const id = authUser.id;
+    window.db.getBookTotals(id).then(t => setDbTotals(t));
     window.db.getClients(id, { page: 0 }).then(result => {
       setDbClients(result?.rows ? result.rows.map(window.db.mapClient) : []);
       setDbClientTotal(result?.total ?? 0);
@@ -815,6 +817,10 @@ const AdvisorDashboard = () => {
   };
 
   const kpis = useMemoAdv(() => {
+    // Live: use book-wide totals so KPIs reflect the WHOLE book, not just the
+    // loaded roster page. Falls back to the loaded slice if the totals query is
+    // unavailable (and for demo mode, which has no pagination).
+    if (isLiveMode && dbTotals) return dbTotals;
     const list = activeClients;
     return {
       totalAUM:      list.reduce((a, c) => a + c.aum, 0),
@@ -822,7 +828,7 @@ const AdvisorDashboard = () => {
       activeCount:   list.length,
       inLateHorizon: list.filter(c => c.phase >= 5).length,
     };
-  }, [activeClients]);
+  }, [activeClients, isLiveMode, dbTotals]);
 
   return (
     <div className="px-adv">
@@ -859,7 +865,7 @@ const AdvisorDashboard = () => {
           <h1>Good {greetTime}, <em>{greetName}</em>.</h1>
           <p className="px-greet-sub">
             {isLiveMode
-              ? `${activeClients.length} client${activeClients.length !== 1 ? 's' : ''} in your book · ${visibleAlerts.filter(a => a.priority === 'high').length} action item${visibleAlerts.filter(a => a.priority === 'high').length !== 1 ? 's' : ''} · ${visibleQs.length} question${visibleQs.length !== 1 ? 's' : ''} pending`
+              ? `${kpis.activeCount} client${kpis.activeCount !== 1 ? 's' : ''} in your book · ${visibleAlerts.filter(a => a.priority === 'high').length} action item${visibleAlerts.filter(a => a.priority === 'high').length !== 1 ? 's' : ''} · ${visibleQs.length} question${visibleQs.length !== 1 ? 's' : ''} pending`
               : `${visibleAlerts.filter(a => a.priority === 'high').length} action items this ${greetTime} and ${visibleQs.length} client questions awaiting reply.`
             }
           </p>
