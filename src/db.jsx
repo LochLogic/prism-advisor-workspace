@@ -209,7 +209,7 @@ async function dbUpdateInvoiceStatus(id, status, clientId) {
 const fmtMoney = (n) => '$' + (Number(n) || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
 
 /* ─── Acknowledgements / e-sign (migration 017) ──────────────────── */
-const ACK_COLS = 'id, client_id, advisor_id, title, body, status, requested_at, acknowledged_at, signer_name, document_id';
+const ACK_COLS = 'id, client_id, advisor_id, title, body, status, requested_at, acknowledged_at, signer_name, document_id, provider, envelope_id, envelope_status, sent_at';
 
 async function dbGetAcknowledgements(clientId) {
   if (!_sb() || !isUUID(clientId)) return null;
@@ -248,6 +248,20 @@ async function dbSignAcknowledgement(id, signerName) {
       summary: `Acknowledged: ${row.title}` });
     return row;
   } catch (e) { console.warn('[db] signAcknowledgement:', e.message); return null; }
+}
+
+// Escalate a pending acknowledgement to a legally-binding DocuSign envelope.
+// The edge function creates + sends the envelope and stamps the row with the
+// envelope id/status; the docusign-connect webhook completes it on signing.
+async function dbSendDocusignEnvelope(ackId) {
+  if (!window.__sb || !isUUID(ackId)) return null;
+  try {
+    const { data, error } = await window.__sb.functions.invoke('docusign-envelope',
+      { body: { acknowledgementId: ackId } });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    return data; // { ok, envelopeId, acknowledgement }
+  } catch (e) { console.warn('[db] sendDocusignEnvelope:', e.message); return { error: e.message }; }
 }
 
 // Map a DB clients row to the shape the UI components expect
@@ -1177,6 +1191,7 @@ window.db = {
   getAcknowledgements:   dbGetAcknowledgements,
   createAcknowledgement: dbCreateAcknowledgement,
   signAcknowledgement:   dbSignAcknowledgement,
+  sendDocusignEnvelope:  dbSendDocusignEnvelope,
   getMessages:         dbGetMessages,
   sendMessage:         dbSendMessage,
   markMessagesRead:    dbMarkMessagesRead,

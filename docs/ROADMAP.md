@@ -154,7 +154,7 @@ better at the client-facing layer, and (3) retire at least one paid tool.
 | **White-label branding** (firm logo, accent color, custom subdomain) | Table stakes for a client-facing tool; makes "no second portal" literally true. *Scoped: big-but-not-drastic; schema (`firms.brand_color`/`logo_url`) already exists. See TODO C3.* |
 | **Prospect / proposal mode** (run a prospect through a sample roadmap pre-signing) | Turns the wedge into a closing tool — the most direct "why switch." |
 | ~~**Client connect / invite flow**~~ — ✅ shipped 2026-06-07 | Migration 024: `px_create_client_invite` / `px_claim_client` (mirror of `px_provision_firm`); advisor invite link + client claim on first sign-in binds `clients.auth_user_id`. **⚙️ Run migration 024 to activate.** |
-| **Core integrations** (Google/Outlook calendar, real e-sign, Zapier/API) | Each removes a rip-and-replace objection. |
+| **Core integrations** (Google/Outlook calendar, ~~real e-sign~~, Zapier/API) | Each removes a rip-and-replace objection. **Real e-sign ✅ shipped 2026-06-08** — DocuSign envelopes on acknowledgements (migration 027 + `docusign-envelope`/`docusign-connect`); activation steps in [`docusign-setup.md`](docusign-setup.md). Calendar + Zapier/API still open. |
 
 ### Tier B — Wedge deepeners (visible client value; retire a tool)
 | Item | Notes |

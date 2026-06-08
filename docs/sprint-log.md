@@ -6,6 +6,51 @@
 
 ---
 
+## 2026-06-08 — DocuSign real e-sign + Cloudflare Analytics CSP fix
+
+Two items: legally-binding e-signature on top of acknowledgements (Tier-A "real e-sign"
+integration), and a CSP fix so Cloudflare's auto-injected Web Analytics beacon stops
+being blocked.
+
+**DocuSign e-sign** (extends migration-017 acknowledgements with a second provider):
+- **Migration 027** (`027_docusign_envelope.sql`): adds `provider` (`prism|docusign`,
+  default `prism`), `envelope_id`, `envelope_status`, `sent_at` to `acknowledgements`;
+  unique partial index on `envelope_id`; provider CHECK constraint. No new RLS — the
+  existing select policies cover the new columns; all writes are by service-role functions.
+- **`_shared/docusign.ts`**: JWT-grant auth (RS256 over the integration's RSA key via
+  `npm:jsonwebtoken`), token exchange, and REST base resolution from `/oauth/userinfo`.
+- **`docusign-envelope`** edge function (JWT-verified, advisor-triggered): confirms the
+  caller may touch the ack via an RLS-scoped read, resolves the signer email
+  (`clients.invite_email` → claimed auth user email), creates + sends an HTML-document
+  envelope with a `/sig1/` anchor signature tab (email ceremony, not embedded), and
+  stamps `provider/envelope_id/envelope_status/sent_at`. Audit: `ack.docusign_sent`.
+- **`docusign-connect`** edge function (public, HMAC-verified over the raw body via
+  `DOCUSIGN_CONNECT_HMAC_KEY`): DocuSign Connect webhook → on envelope `completed`, flips
+  the ack to `acknowledged` (+ `signer_name` from the recipient). Audit: `ack.docusign_completed`.
+- **Frontend**: `db.sendDocusignEnvelope(ackId)`; advisor modal gains a **DocuSign** button
+  on pending acks (shows *Sent · awaiting signature* / *Viewed* / *Signed*); client portal
+  shows a "check your email" note for DocuSign-provider acks instead of the type-name box.
+- **config.toml + deploy.yml**: both functions registered (`docusign-envelope` verify_jwt=true,
+  `docusign-connect` verify_jwt=false) and added to the manual deploy loop.
+- **Security**: credentials (integration key, user/account ids, RSA private key) live **only**
+  as Supabase Function secrets — never in the repo. `docs/DocuSign.txt` is git-ignored.
+  Operator activation steps in **`docs/docusign-setup.md`** (migration → secrets → JWT consent
+  → deploy → Connect webhook → smoke test).
+
+**Cloudflare Web Analytics CSP fix** (`build.mjs`):
+- Cloudflare's zone-injected beacon (`static.cloudflareinsights.com`) was blocked by the
+  host-locked `script-src`. Added `https://static.cloudflareinsights.com` to `script-src`
+  (host-allow-listed, not hashed — Cloudflare versions that script) and
+  `https://cloudflareinsights.com` to `connect-src` (the RUM collection endpoint).
+- Verified in `_site/_headers` after build; `npm run lint` + `node build.mjs` green.
+
+**PR:** #30 (pending). **Ships live:** the CSP fix deploys with the static site on merge
+(Cloudflare Workers Builds). **DocuSign stays inert** until the operator runs migration 027,
+sets the `DOCUSIGN_*` secrets, grants JWT consent, deploys the two functions (manual
+`deploy.yml`), and configures Connect — see `docs/docusign-setup.md` (now tracked in TODO H5).
+
+---
+
 ## 2026-06-08 — C5 batch: deep-link routing + client uploads + retention/rollup
 
 Three independently-shippable **§C5** items, plus the user's secret rotations recorded.
