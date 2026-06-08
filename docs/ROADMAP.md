@@ -196,9 +196,9 @@ The product is mature; these close the gaps that bite the day a design partner i
 | ~~Split the client portal into its own bundle entry~~ — ✅ done 2026-06-07 (`dist/portal.js` at `/portal`, ~35% smaller, no advisor code in a client browser) | 🟡 | Frontend / Code-Opt / InfoSec |
 | ~~Verify invoice-generation idempotency (no double-billing on cron retry)~~ — ✅ done 2026-06-07 (confirmed `unique(client,period)` constraint; `generate-invoices` now distinguishes a 23505 duplicate-skip from a real failure). | 🟢 | Backend |
 | ~~Deep-linkable in-app routing (`/app#/client/:id/tab`)~~ — ✅ done 2026-06-08 (hash routing in `ViewProvider`: `#/advisor`/`#/admin`/`#/client/<id>/p<phase>`, advisor app only; verified in preview). | 🟡 | Click-pathing |
-| `⌘K` client + action command palette | 🟢 | UX |
+| ~~`⌘K` client + action command palette~~ — ✅ done 2026-06-08 (`CommandPalette` in `app.jsx`, advisor/admin bundle only; ⌘K/Ctrl-K → fuzzy jump-to-client over the whole book + role-aware actions; ↑/↓/↵/Esc; verified in-browser). | 🟢 | UX |
 | ~~Retention/partitioning for audit / `client_errors` / `balance_history`~~ — ✅ done 2026-06-08 (migration 026: 7-yr audit prune + balance_history monthly rollup + monthly cron; `client_errors` already pruned in 021). Chose retention/rollup over an unverifiable in-place partition rebuild. | 🟡 | Database |
-| Minify `styles.css`; verify RLS-predicate index coverage | 🟢 | Code-Opt / Database |
+| ~~Minify `styles.css`~~ — ✅ done 2026-06-08 (`build.mjs` runs `styles.css`+`print.css` through esbuild's CSS minifier into `_site`; ~30% smaller, cache-bust hashes the minified bytes); **still to do:** verify RLS-predicate index coverage | 🟢 | Code-Opt / Database |
 | ~~Close `style-src 'unsafe-inline'`~~ — ✅ done 2026-06-08 (sprint C5-CSP). React `style={{}}` is CSSOM (CSP-exempt, verified); the real surface was 8 static `<style>` blocks (now build-hashed), ~90 `style=` attributes → classes, and the print popup → external same-origin `src/print.css`. Also fixed a latent CRLF script-hash bug. 0 violations across 10 pages + e2e green under enforced CSP. | 🟡 | InfoSec / UI |
 
 ---

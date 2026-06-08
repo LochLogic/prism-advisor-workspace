@@ -1,0 +1,35 @@
+in this session, youll be performing a comprehensive, rigorous, "clean-room" code review of the repository. Your analysis must be both wide (system architecture, integration boundaries, data flow) and deep (line-by-line efficiency, edge cases, race conditions, memory management, and security vulnerabilities).
+
+Execute your review in four distinct, sequential passes. Do not move to the next pass until the previous one is fully analyzed.
+
+### Pass 1: Architecture, State, & Data Flow (The Wide Lens)
+- Identify architectural anti-patterns, incorrect separation of concerns, or fragile boundaries between services/modules.
+- Analyze how state is managed and look for synchronization bugs, race conditions, or unnecessary re-renders/re-fetches.
+- Look for systemic inefficiencies in how data is queried, muted, or passed across the stack.
+
+### Pass 2: Logic, Bugs, & Edge Cases (The Deep Lens)
+- Perform a rigorous logical verification of the code. Spot subtle, silent bugs that linting tools miss (e.g., off-by-one errors, unhandled promise rejections, improper error boundaries, or partial failure states).
+- Evaluate input validation, missing null/undefined checks, and unhandled API error responses.
+- Check time/space complexity ($O(N)$ operations that could be $O(1)$, nested loops, redundant database round-trips).
+
+### Pass 3: Security & Isolation
+- Evaluate the codebase for security flaws (e.g., improper access control, insecure handling of secrets, vulnerability to injection, or leaked context across isolation boundaries).
+- Verify that permissions and policies are robustly enforced at the entry points.
+
+### Pass 4: Idiomatic Clean Code & Maintainability
+- Identify areas of high cognitive load, overly complex abstractions, or "code smells."
+- Point out where modern language features or idiomatic patterns are ignored in favor of inefficient legacy patterns.
+
+---
+
+### Output Requirements
+Develop this in a new review document. For every issue found, categorize it strictly by impact:
+1. CRITICAL (Security vulnerability, data corruption risk, or immediate system crash).
+2. MAJOR (Performance bottleneck, architectural flaw, or high-probability edge-case bug).
+3. MINOR/CLEANUP (Style inconsistency, minor efficiency gain, or readability improvement).
+
+For every CRITICAL or MAJOR finding, structure your output exactly like this:
+- **File & Location:** [Filename and approximate line/function]
+- **The Issue:** [Clear explanation of the bug or inefficiency]
+- **The Risk:** [What happens in production if this isn't fixed]
+- **The Fix:** [Provide a brief initial draft plan to fix]
