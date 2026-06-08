@@ -320,11 +320,13 @@ const _fmtBytes = (b) => {
 };
 const _fmtDocDate = (t) => new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
-// `role` is the viewer ('advisor' | 'client'). Advisors upload + delete; clients
-// review + download. Live clients hit Storage; demo/mock clients use demoSeed.
+// `role` is the viewer ('advisor' | 'client'). Both can upload + download; only
+// advisors can delete (clients can't remove advisor-shared files). Live clients
+// hit Storage; demo/mock clients use demoSeed.
 const DocumentVault = ({ clientId, role, firmId, advisorId, demoSeed = [], emptyHint }) => {
   const isLive = window.db?.isUUID(clientId);
   const canManage = role === 'advisor';
+  const canUpload = role === 'advisor' || role === 'client';
   const [docs, setDocs] = React.useState(isLive ? undefined : demoSeed);
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState('');
@@ -347,7 +349,8 @@ const DocumentVault = ({ clientId, role, firmId, advisorId, demoSeed = [], empty
     if (!isLive) { setErr('Uploads are available on live clients.'); return; }
     setBusy(true); setErr('');
     const row = await window.db.uploadDocument(clientId, firmId, advisorId, form.file,
-      { title: form.title?.trim() || form.file.name, category: form.category });
+      { title: form.title?.trim() || form.file.name, category: form.category,
+        uploadedByRole: role === 'client' ? 'client' : 'advisor' });
     setBusy(false);
     if (row) { setDocs(prev => [row, ...(prev || [])]); setForm(null); if (fileRef.current) fileRef.current.value = ''; }
     else setErr('Upload failed — please try again.');
@@ -366,11 +369,11 @@ const DocumentVault = ({ clientId, role, firmId, advisorId, demoSeed = [], empty
 
   return (
     <div className="px-docs">
-      {canManage && (
+      {canUpload && (
         <div style={{ marginBottom: 12 }}>
           {!form && (
             <label className="px-btn px-btn-sm px-btn-ghost" style={{ cursor: 'pointer' }}>
-              <Icons.Upload size={12} /> Upload document
+              <Icons.Upload size={12} /> {role === 'client' ? 'Upload a document' : 'Upload document'}
               <input ref={fileRef} type="file" onChange={pickFile} style={{ display: 'none' }} />
             </label>
           )}

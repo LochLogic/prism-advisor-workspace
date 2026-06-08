@@ -780,8 +780,10 @@ const ClientPortal = ({ onOpenNumbers }) => {
           <DocumentVault
             clientId={activeClientId}
             role="client"
+            firmId={authUser?.firm_id || authUser?.firms?.id || null}
+            advisorId={authUser?.advisor_id || null}
             demoSeed={window.demoDocuments ? window.demoDocuments() : []}
-            emptyHint={`When ${advisorDisplay.name} shares a statement, IPS, or disclosure, it will appear here to review and download.`}
+            emptyHint={`Shared statements, your IPS, or disclosures will appear here to review and download — and you can upload documents for ${advisorDisplay.name} too.`}
           />
         </div>
 

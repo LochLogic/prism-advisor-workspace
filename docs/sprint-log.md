@@ -6,6 +6,61 @@
 
 ---
 
+## 2026-06-08 — C5 batch: deep-link routing + client uploads + retention/rollup
+
+Three independently-shippable **§C5** items, plus the user's secret rotations recorded.
+
+**Deep-linkable in-app routing** (closes the React-state-only nav gap):
+- `ViewProvider` (`src/store.jsx`) now mirrors nav state ↔ URL hash on the advisor/admin
+  app: `#/advisor` · `#/admin` · `#/client` · `#/client/<uuid>` · `#/client/<uuid>/p<phaseId>`.
+  Initial state reads the hash (falls back to `localStorage`/default); a `replaceState`
+  effect writes it (shareable URL, no history spam); a `hashchange` listener restores
+  state from a pasted/edited link. Scoped off `window.__pxIsPortal` — the slim client
+  portal is single-view, so routing is advisor-app only.
+- `app.jsx`: a module-level `__pxHadDeepLink` capture stops the role-based view-homing
+  effect from clobbering an explicit deep link on first load.
+- `advisor-dashboard.jsx`: resolves the active client's *display* object from a deep-linked
+  id once the roster loads (data already keys off `activeClientId`).
+- Verified in browser preview: hash↔view sync both directions, `#/client/c001/p3` opens the
+  client + consumes the phase, no console errors.
+
+**Client-initiated uploads** (§C5):
+- The portal document vault now lets **clients upload** (advisor-only **delete** preserved —
+  advisor-shared files live under the same `<client_id>/` storage prefix, so clients get no
+  delete). `db.uploadDocument` takes an `uploadedByRole` option; `DocumentVault` gates on a
+  new `canUpload`; client-portal passes `firmId`/`advisorId`.
+- **Migration 025** (`025_client_document_upload.sql`): adds the missing client **INSERT**
+  policies on both `documents` and `storage.objects` (scoped to own `client_id` /
+  `uploaded_by_role='client'`). *Correction:* the `documents` table had **no** client-insert
+  policy — only the `uploaded_by_role` check value allowed 'client', so the prior
+  "already-allowed path" assumption was wrong; uploads were impossible until this.
+
+**Retention / rollup** (§C5 — bound the only-grow tables before a firm with history loads):
+- **Migration 026** (`026_retention_rollup.sql`): `px_prune_audit_log()` deletes audit rows
+  > **7 years** (margin over SEC 17a-4's 6-yr books-&-records floor); `px_rollup_balance_history()`
+  keeps daily points for 24 months then collapses older history to one month-end row per
+  account; monthly `pg_cron` job `prism-retention-rollup` (04:20 UTC, 1st). (`client_errors`
+  already had 30-day retention from migration 021.)
+- **Decision:** retention/rollup over native monthly partitioning. Partitioning is the textbook
+  answer but a live-table rebuild-and-swap can't be exercised without a real Postgres and is
+  risky to apply blind; the retention/rollup achieves the actual goal (bounded growth) in plain,
+  reviewable SQL. Native partitioning noted as a future optimization if volumes demand it.
+
+**Security rotations (done by user, recorded here):**
+- Supabase **service-role key**, **access/personal token**, and **`CRON_SECRET`** rotated.
+  ⚠️ Open verification: confirm the new `CRON_SECRET` was stored in **Supabase Vault**
+  (`select vault.create_secret('<new>', 'cron_secret');`) — both cron jobs read it from Vault,
+  so a skipped Vault step fails them silently. Stripe + Plaid keys still pending (TODO H2.2).
+- **CI gating:** `rls-isolation` + `e2e` promoted to required checks on `main` (TODO H3 item closed).
+
+**Decisions logged:** C4 AI assistant + H5 will target the **Gemini** API (not Anthropic) — user
+already holds a Gemini key; nothing was built against a provider yet. E-sign provider = **DocuSign**.
+
+**Human deploy:** run migrations **025** + **026** (and **024** if not yet applied). No
+secrets/money in the migrations.
+
+---
+
 ## 2026-06-07 — C0 close-out + C3 client invite + C5 portal bundle split
 
 Closed the remaining actionable **§C0** code-review items, shipped the **C3 client

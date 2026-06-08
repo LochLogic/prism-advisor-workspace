@@ -170,7 +170,7 @@ better at the client-facing layer, and (3) retire at least one paid tool.
 |---|---|
 | **Client PWA + push** | Clients live on mobile; push on new message/task/document. |
 | **Exam-ready compliance export** | One-click books-&-records packet (audit log + acknowledgements + WORM) for SEC/state exams. |
-| **Client-initiated uploads** | `documents.uploaded_by_role` already allows `'client'`. |
+| ~~**Client-initiated uploads**~~ — ✅ done 2026-06-08 (portal vault now lets clients upload, advisor-only delete; migration 025 added the client INSERT RLS — the table's check value allowed `'client'` but no policy did, so it was impossible before). |
 
 **If forced to pick five:** bulk import · white-label · prospect mode · tax-return insight · AI assistant.
 
@@ -195,9 +195,9 @@ The product is mature; these close the gaps that bite the day a design partner i
 | ~~Playwright e2e over the protected high-value paths~~ — ✅ done 2026-06-07 (`e2e/demo.spec.ts`: 1-click demo, mobile render, DOB-fix regression guard; non-required `e2e` CI job — promote to required once proven, TODO H3). | 🟢 | QA |
 | ~~Split the client portal into its own bundle entry~~ — ✅ done 2026-06-07 (`dist/portal.js` at `/portal`, ~35% smaller, no advisor code in a client browser) | 🟡 | Frontend / Code-Opt / InfoSec |
 | ~~Verify invoice-generation idempotency (no double-billing on cron retry)~~ — ✅ done 2026-06-07 (confirmed `unique(client,period)` constraint; `generate-invoices` now distinguishes a 23505 duplicate-skip from a real failure). | 🟢 | Backend |
-| Deep-linkable in-app routing (`/app#/client/:id/tab`) | 🟡 | Click-pathing |
+| ~~Deep-linkable in-app routing (`/app#/client/:id/tab`)~~ — ✅ done 2026-06-08 (hash routing in `ViewProvider`: `#/advisor`/`#/admin`/`#/client/<id>/p<phase>`, advisor app only; verified in preview). | 🟡 | Click-pathing |
 | `⌘K` client + action command palette | 🟢 | UX |
-| Retention/partitioning for audit / `client_errors` / `balance_history` | 🟡 | Database |
+| ~~Retention/partitioning for audit / `client_errors` / `balance_history`~~ — ✅ done 2026-06-08 (migration 026: 7-yr audit prune + balance_history monthly rollup + monthly cron; `client_errors` already pruned in 021). Chose retention/rollup over an unverifiable in-place partition rebuild. | 🟡 | Database |
 | Minify `styles.css`; verify RLS-predicate index coverage | 🟢 | Code-Opt / Database |
 | Close `style-src 'unsafe-inline'` via inline-styles → classes migration | 🟡 | InfoSec / UI |
 

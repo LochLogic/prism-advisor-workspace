@@ -1,5 +1,10 @@
 // Prism — App shell. Auth gate, topbar, view switch, account chip, notification bell.
 
+// Captured once at load (before React rewrites the hash): did the user arrive on
+// an explicit deep link? If so, role-based view-homing must not override it.
+const __pxHadDeepLink = typeof window !== 'undefined'
+  && /^#\/(advisor|admin|client)/.test(window.location.hash || '');
+
 /* LoadingScreen, NotificationBell, SecurityModal, AccountChip now live in
    src/shell.jsx (shared by the advisor app and the client portal). */
 
@@ -214,7 +219,9 @@ function AppInner() {
   // Route users to their natural home view on first load.
   // Demo opens on the wedge — the client lifecycle roadmap — not the admin grid,
   // so visitors and prospective design partners see the differentiator first.
+  // An explicit deep-link hash (#/client/<id>…) wins — don't clobber a shared link.
   React.useEffect(() => {
+    if (__pxHadDeepLink) return;
     if (role === 'client')      setView('client');
     else if (role === 'admin')  setView('admin');
     else if (isDemo)            setView('client');

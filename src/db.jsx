@@ -1080,10 +1080,13 @@ async function dbGetDocuments(clientId) {
   } catch (e) { console.warn('[db] getDocuments:', e.message); return null; }
 }
 
-// Advisor uploads a file: store the binary under <client_id>/<uuid>-<name>, then
-// write the metadata row. Returns the row (or null on failure).
-async function dbUploadDocument(clientId, firmId, advisorId, file, { title, category } = {}) {
+// Upload a file: store the binary under <client_id>/<uuid>-<name>, then write the
+// metadata row. `uploadedByRole` is 'advisor' (default) or 'client' — a client
+// uploading for their advisor; RLS (migration 025) scopes each role to its own
+// rows. Returns the row (or null on failure).
+async function dbUploadDocument(clientId, firmId, advisorId, file, { title, category, uploadedByRole = 'advisor' } = {}) {
   if (!_sb() || !isUUID(clientId) || !file) return null;
+  const byRole = uploadedByRole === 'client' ? 'client' : 'advisor';
   try {
     const safeName = String(file.name || 'document').replace(/[^\w.\-]+/g, '_').slice(0, 120);
     const uid = (crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`);
@@ -1097,7 +1100,7 @@ async function dbUploadDocument(clientId, firmId, advisorId, file, { title, cate
                 category: category || 'other', title: (title || safeName).slice(0, 200),
                 file_name: file.name || safeName, storage_path: path,
                 mime_type: file.type || null, size_bytes: file.size || null,
-                uploaded_by_role: 'advisor' })
+                uploaded_by_role: byRole })
       .select(DOC_COLS).single();
     if (error) {
       // Roll back the orphaned object so storage doesn't drift from metadata.
