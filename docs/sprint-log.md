@@ -6,6 +6,51 @@
 
 ---
 
+## 2026-06-07 — Code review + C0 fixes (batches 1 & 2)
+
+Full architecture + granular code review of the whole codebase (all 16 src modules,
+10 edge functions, build pipeline, RLS migrations). Findings logged as **§C0 in
+`TODO.md`** (first in line, ahead of C3+) and in the **ROADMAP "Code-review findings"
+table**. Two batches of low-risk, frontend-only fixes shipped (no migrations/secrets/
+money). Live via Cloudflare on merge.
+
+**Batch 1 (PR #24):**
+- Generated alerts used `priority:'medium'` vs the app's `'med'` → rendered "FYI"
+  instead of "Watch" + dead `is-medium` class. (`advisor-dashboard.jsx`)
+- Memoized the 600-run Monte Carlo `successBand` — was unmemoized in the
+  `ProfileProvider` render body, re-running on every keystroke in the Numbers drawer.
+  (`store.jsx`)
+- Removed dead `reconcileAssets` (superseded by `assetComposition`). (`store.jsx`)
+- Memoized demo cash-flows so `perfPeriodsData` doesn't bust each render.
+  (`client-portal.jsx`)
+
+**Batch 2 (PR #25):**
+- **Post-checkout redirect (High)** — Stripe `success/cancel_url` returned to
+  `/index.html` (marketing) after the `/app/` routing split, so the in-app billing
+  toast handler never ran. `firm-admin.jsx` now passes `origin + '/app'` (fixed
+  frontend-side to avoid a money-adjacent edge redeploy).
+- **Save-on-switch data loss (Med)** — the load effect cancelled the 1.5s debounced
+  profile save on client switch, dropping the last <1.5s of live-client edits.
+  `store.jsx` now flushes the pending save before switch + on unmount.
+- **KPI under-count on large books (Med)** — Book AUM / cash drag / counts were
+  computed over the loaded 50-row roster page only. New `db.getBookTotals()`
+  aggregates across all active clients (fallback to the loaded slice / demo).
+  (`db.jsx`, `advisor-dashboard.jsx`)
+
+Verified: `npm run build` + `npm run lint` + `npm run test:calc` green on both;
+demo client portal + advisor KPIs smoke-checked in preview (no console errors).
+
+**Still open in §C0 (next session):**
+- Stripe webhook retry-storm hardening (🟢) — **deferred by decision; needs a
+  money-adjacent `stripe-webhook` edge redeploy.** Repo intentionally left in sync
+  with what's deployed.
+- De-dup fee math (`calc-core` ↔ `generate-invoices`) + the audit-label map ×3 (🟢).
+
+**Human hand-off:** none for what shipped. The webhook fix, when picked up, needs
+the gated edge-function deploy (`deploy.yml`) with your go.
+
+---
+
 ## 2026-06-07 — Sprint C3/C4: CSV import + wedge deepeners
 
 Frontend only — no migrations, no secrets, no money. Live via Cloudflare on merge.

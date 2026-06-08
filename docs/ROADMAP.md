@@ -8,18 +8,18 @@
 
 ## Code-review findings (2026-06-07) — **first in line, ahead of all feature work**
 
-From a full architecture + granular code review. These are sequenced ahead of C3/C4/C5; live working items are tracked in [`TODO.md`](TODO.md) §C0. Frontend-only fixes are shippable immediately; the checkout/webhook items touch the billing flow (edge-function redeploy + money-adjacent — confirm before deploy).
+From a full architecture + granular code review. Sequenced ahead of C3/C4/C5; remaining live items tracked in [`TODO.md`](TODO.md) §C0. **Batches 1 & 2 shipped 2026-06-07** (PRs #24, #25; details in [`sprint-log.md`](sprint-log.md)).
 
 | Finding | Sev | Status |
 |---|---|---|
-| Post-checkout `success_url` → `/index.html` (marketing) instead of `/app/`; billing toast handler never runs | 🔴 High | ⬜ TODO C0 |
-| Debounced profile save cancelled on client switch → last <1.5s of edits lost (`store.jsx:151-186`) | 🟡 Med | ⬜ TODO C0 |
-| KPI / Book-AUM totals computed over the 50-row first page only → under-count for big books (`advisor-dashboard.jsx:817`) | 🟡 Med | ⬜ TODO C0 |
-| Monte Carlo (`runs:600`) ran unmemoized in `ProfileProvider` → fired every keystroke | 🟡 Med | ✅ 2026-06-07 (`useMemo`) |
-| Generated-alert `priority:'medium'` vs app's `'med'` → mislabeled "FYI", dead CSS class | 🟢 Low | ✅ 2026-06-07 |
-| Stripe webhook returns 400 on permanent errors → ~3-day retry storm | 🟢 Low | ⬜ TODO C0 |
-| Demo cash-flows array identity busts `perfPeriodsData` memo each render | 🟢 Low | ✅ 2026-06-07 |
-| Dead code `reconcileAssets` (superseded by `assetComposition`) | 🟢 Low | ✅ 2026-06-07 (removed) |
+| Post-checkout `success_url` → `/index.html` (marketing) instead of `/app/`; billing toast handler never runs | 🔴 High | ✅ 2026-06-07 (PR #25, frontend `origin + '/app'`) |
+| Debounced profile save cancelled on client switch → last <1.5s of edits lost (`store.jsx`) | 🟡 Med | ✅ 2026-06-07 (PR #25, flush-on-switch/unmount) |
+| KPI / Book-AUM totals computed over the 50-row first page only → under-count for big books | 🟡 Med | ✅ 2026-06-07 (PR #25, `db.getBookTotals`) |
+| Monte Carlo (`runs:600`) ran unmemoized in `ProfileProvider` → fired every keystroke | 🟡 Med | ✅ 2026-06-07 (PR #24, `useMemo`) |
+| Generated-alert `priority:'medium'` vs app's `'med'` → mislabeled "FYI", dead CSS class | 🟢 Low | ✅ 2026-06-07 (PR #24) |
+| Demo cash-flows array identity busts `perfPeriodsData` memo each render | 🟢 Low | ✅ 2026-06-07 (PR #24) |
+| Dead code `reconcileAssets` (superseded by `assetComposition`) | 🟢 Low | ✅ 2026-06-07 (PR #24, removed) |
+| Stripe webhook returns 400 on permanent errors → ~3-day retry storm | 🟢 Low | ⬜ TODO C0 — **deferred; money-adjacent edge redeploy** |
 | Drift-prone duplication: fee math (calc-core ↔ generate-invoices) + audit-label map ×3 | 🟢 Low | ⬜ TODO C0 |
 | Fuller `ProfileProvider` memoization (readiness/goals/risk + context value) | 🟢 Low | ⬜ C5 |
 
