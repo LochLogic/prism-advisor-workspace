@@ -1,5 +1,12 @@
 # DocuSign e-sign — operator setup
 
+> **Status: ✅ ACTIVATED 2026-06-08 (demo account).** All steps below are done —
+> migration 027 run, `DOCUSIGN_*` secrets set (incl. `DOCUSIGN_CONNECT_HMAC_KEY`),
+> JWT consent granted, both functions deployed, Connect webhook + HMAC configured.
+> This doc is now the reference for how it's wired + the go-to-production checklist
+> (bottom). Connect config in use: REST v2.1 · Send Individual Messages (SIM) ·
+> Envelope *Signed/Completed* (+ Delivered/Declined/Voided) · Include **Recipients**.
+
 Prism's acknowledgements (migration 017) support two signing providers:
 
 - **`prism`** — the client types their name in the portal (in-app acknowledgement).
@@ -90,6 +97,25 @@ DocuSign Admin → **Connect** → add a custom configuration:
 3. Sign as the client in DocuSign. Within seconds the Connect webhook flips the
    row to **Signed** (advisor view + client portal), with an `ack.docusign_completed`
    audit entry.
+
+---
+
+## Go-to-production checklist (when switching off the demo account)
+
+The integration runs against the DocuSign **demo** environment today. To send real,
+legally-binding signatures:
+
+1. Promote the DocuSign account to **production** and **go-live** the integration key
+   (DocuSign's review/promotion flow).
+2. Re-grant **JWT consent** against the production OAuth host.
+3. Update secrets: `DOCUSIGN_OAUTH_BASE=account.docusign.com` and set
+   `DOCUSIGN_REST_BASE` to the production base (or unset it to resolve via
+   `/oauth/userinfo`); refresh `DOCUSIGN_USER_ID`/`DOCUSIGN_ACCOUNT_ID`/integration
+   key if they differ in prod.
+4. Recreate the **Connect** webhook + HMAC key in the production account and update
+   `DOCUSIGN_CONNECT_HMAC_KEY`.
+5. Sequence with the H2.3 live-keys decision (Stripe/Plaid) so all "go-live" flips
+   happen together.
 
 ---
 
