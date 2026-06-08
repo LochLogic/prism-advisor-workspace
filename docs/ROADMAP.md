@@ -20,8 +20,8 @@ From a full architecture + granular code review. Sequenced ahead of C3/C4/C5; re
 | Demo cash-flows array identity busts `perfPeriodsData` memo each render | 🟢 Low | ✅ 2026-06-07 (PR #24) |
 | Dead code `reconcileAssets` (superseded by `assetComposition`) | 🟢 Low | ✅ 2026-06-07 (PR #24, removed) |
 | Stripe webhook returns 400 on permanent errors → ~3-day retry storm | 🟢 Low | ⬜ TODO C0 — **deferred; money-adjacent edge redeploy** |
-| Drift-prone duplication: fee math (calc-core ↔ generate-invoices) + audit-label map ×3 | 🟢 Low | ⬜ TODO C0 |
-| Fuller `ProfileProvider` memoization (readiness/goals/risk + context value) | 🟢 Low | ⬜ C5 |
+| Drift-prone duplication: fee math (calc-core ↔ generate-invoices) + audit-label map ×3 | 🟢 Low | ✅ 2026-06-07 (`_shared/fees.ts` + single `AUDIT_ACTION_LABELS`) |
+| Fuller `ProfileProvider` memoization (readiness/goals/risk + context value) | 🟢 Low | ✅ 2026-06-07 |
 
 **What the review found healthy:** report layer escapes all interpolated user content; `sanitizeHtml` is escape-then-allowlist; build emits per-file SHA-256 CSP hashes with no script `unsafe-inline`; RLS is tenant-scoped per firm/advisor; soft-deletes preserve the 17a-4 trail; audit/error writes are fire-and-forget. Security posture is the strongest part of the codebase.
 
@@ -153,7 +153,7 @@ better at the client-facing layer, and (3) retire at least one paid tool.
 | ~~**Bulk client import** (CSV + Wealthbox/Redtail/Orion mappers)~~ — ✅ shipped 2026-06-07 (`BulkImportModal`; sample at `docs/samples/`) | #1 blocker to a "yes" — nobody hand-keys 150 households. |
 | **White-label branding** (firm logo, accent color, custom subdomain) | Table stakes for a client-facing tool; makes "no second portal" literally true. *Scoped: big-but-not-drastic; schema (`firms.brand_color`/`logo_url`) already exists. See TODO C3.* |
 | **Prospect / proposal mode** (run a prospect through a sample roadmap pre-signing) | Turns the wedge into a closing tool — the most direct "why switch." |
-| **Client connect / invite flow** | *Gap surfaced 2026-06-07:* advisor-created client rows have no `auth_user_id` link, so clients can't yet reach their own portal. Tier-A for any client-facing launch. See TODO C3. |
+| ~~**Client connect / invite flow**~~ — ✅ shipped 2026-06-07 | Migration 024: `px_create_client_invite` / `px_claim_client` (mirror of `px_provision_firm`); advisor invite link + client claim on first sign-in binds `clients.auth_user_id`. **⚙️ Run migration 024 to activate.** |
 | **Core integrations** (Google/Outlook calendar, real e-sign, Zapier/API) | Each removes a rip-and-replace objection. |
 
 ### Tier B — Wedge deepeners (visible client value; retire a tool)
@@ -193,7 +193,7 @@ The product is mature; these close the gaps that bite the day a design partner i
 | Privacy-respecting product analytics (activation events: login, invite, message, plan-update, report) | 🟡 | Monitoring |
 | Uptime monitor on `health` + app | 🟡 | Monitoring |
 | ~~Playwright e2e over the protected high-value paths~~ — ✅ done 2026-06-07 (`e2e/demo.spec.ts`: 1-click demo, mobile render, DOB-fix regression guard; non-required `e2e` CI job — promote to required once proven, TODO H3). | 🟢 | QA |
-| Split the client portal into its own bundle entry (payload + attack surface) | 🟡 | Frontend / Code-Opt / InfoSec |
+| ~~Split the client portal into its own bundle entry~~ — ✅ done 2026-06-07 (`dist/portal.js` at `/portal`, ~35% smaller, no advisor code in a client browser) | 🟡 | Frontend / Code-Opt / InfoSec |
 | ~~Verify invoice-generation idempotency (no double-billing on cron retry)~~ — ✅ done 2026-06-07 (confirmed `unique(client,period)` constraint; `generate-invoices` now distinguishes a 23505 duplicate-skip from a real failure). | 🟢 | Backend |
 | Deep-linkable in-app routing (`/app#/client/:id/tab`) | 🟡 | Click-pathing |
 | `⌘K` client + action command palette | 🟢 | UX |

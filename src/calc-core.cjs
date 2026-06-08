@@ -106,6 +106,11 @@ function hsaProjection(balance, contrib, rate = 0.07, years = 25) {
 // for a given seed so each client sees stable-but-distinct results.
 function monteCarlo({ principal, years, withdrawal, seed = 42, runs = 800, mean = 0.07, sd = 0.16 }) {
   let s = seed;
+  // RNG-quality note: this is a tiny LCG (period 233,280) — adequate for an
+  // *illustrative* confidence band (stable, deterministic, dependency-free), but
+  // its short period means it must NOT back a figure presented to a client as a
+  // precise/exact probability. If we ever surface an exact number, swap in a
+  // longer-period generator (e.g. mulberry32) here.
   const rand = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
   const gauss = () => { let u = 0, v = 0; while (!u) u = rand(); while (!v) v = rand(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
   let success = 0;

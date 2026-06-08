@@ -293,15 +293,18 @@ function ProfileProvider({ children }) {
     + (Number(profile.retirement.iraContributed) || 0)
     + (Number(profile.retirement.fourohonekContributed) || 0);
   const _calc = (typeof PrismCalc !== 'undefined' ? PrismCalc : window.PrismCalc);
-  const retirementReadiness = _calc.retirementReadiness({
+  // Memoized: these are pure functions of profile-derived inputs and otherwise
+  // recompute on every ProfileProvider render (including parent-provider renders
+  // unrelated to the profile). Keyed on their actual inputs.
+  const retirementReadiness = useMemo(() => _calc.retirementReadiness({
     currentAge: planningAge, retireAt: profile.goals.retireAt,
     currentInvested: totalInvested, annualContribution: annualRetirementContribution,
     annualExpenses, streams: incomeStreams,
-  });
+  }), [planningAge, profile.goals.retireAt, totalInvested, annualRetirementContribution, annualExpenses, incomeStreams]);
 
   // ── Funding goals (education / home / custom) ───────────────────
   const goalItems   = Array.isArray(profile.goals?.items) ? profile.goals.items : [];
-  const goalsFunding = goalItems.map(g => ({ goal: g, ...(_calc.goalFunding(g)) }));
+  const goalsFunding = useMemo(() => goalItems.map(g => ({ goal: g, ...(_calc.goalFunding(g)) })), [goalItems]);
 
   // ── Protection & estate (W5) ────────────────────────────────────
   const insurance     = Array.isArray(profile.insurance) ? profile.insurance : [];
@@ -322,7 +325,8 @@ function ProfileProvider({ children }) {
   const riskAnswers = Array.isArray(profile.risk?.answers) ? profile.risk.answers : [];
   const riskComplete = riskAnswers.filter(x => x != null && x !== '').length;
   const yearsToRetire = Math.max(0, (Number(profile.goals?.retireAt) || 65) - planningAge);
-  const riskProfile = _calc.riskProfile({ answers: riskAnswers, horizonYears: yearsToRetire });
+  const riskProfile = useMemo(() => _calc.riskProfile({ answers: riskAnswers, horizonYears: yearsToRetire }),
+    [riskAnswers, yearsToRetire]);
 
   // ── Monte Carlo probability-of-success band (C4) ────────────────
   // Surfaces the existing seeded simulation as a confidence band on the
@@ -359,8 +363,15 @@ function ProfileProvider({ children }) {
   // client record); expose the helper so portal/modal compose one honest total.
   metrics.assetComposition = (managedAum) => _calc.assetComposition({ managedAum, investedOnFile });
 
+  // Stabilize the context value identity. Every metric above is a pure function
+  // of `profile` + `activeClientId` (the latter only via the Monte Carlo seed), so
+  // keying on those two prevents a new value object — and a re-render of every
+  // profile consumer — when a parent provider re-renders without a profile change.
+  const value = useMemo(() => ({ profile, setProfile, update, ...metrics }),
+    [profile, activeClientId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
-    <ProfileContext.Provider value={{ profile, setProfile, update, ...metrics }}>
+    <ProfileContext.Provider value={value}>
       {children}
     </ProfileContext.Provider>
   );
@@ -850,20 +861,12 @@ function printMilestoneReport(phase, taskStates, advisorName, advisorFirm, numbe
 // Compliance export — full audit trail + records for one client (SEC 17a-3/17a-4)
 function printComplianceReport(client, auditEntries, meetings, versionCount) {
   const date = new Date().toLocaleString('en-US', { dateStyle: 'long', timeStyle: 'short' });
-  const ACTION_LABELS = {
-    'client.create': 'Client created', 'client.update': 'Client updated',
-    'client.archive': 'Client archived', 'client.notes': 'Notes updated',
-    'account.create': 'Account added', 'account.update': 'Account updated',
-    'account.archive': 'Account archived', 'meeting.create': 'Meeting logged',
-    'meeting.archive': 'Meeting archived', 'profile.save': 'Profile saved',
-    'message.create': 'Message sent', 'task.create': 'Task created',
-    'task.complete': 'Task completed', 'task.reopen': 'Task reopened', 'task.delete': 'Task deleted',
-  };
+  // ACTION labels: shared map from db.jsx (single source of truth, bare-name global).
   const auditRows = (auditEntries || []).length
     ? (auditEntries || []).map(e => `
         <div class="task">
           <span style="color:#5d7a8e;font-size:11px;white-space:nowrap">${new Date(e.occurred_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-          <span style="flex:0 0 140px">${escapeHtml(ACTION_LABELS[e.action] || e.action)}</span>
+          <span style="flex:0 0 140px">${escapeHtml(AUDIT_ACTION_LABELS[e.action] || e.action)}</span>
           <span style="color:#5d7a8e">${escapeHtml(e.actor_email || '')}</span>
           <span>${escapeHtml(e.summary || '')}</span>
         </div>`).join('')

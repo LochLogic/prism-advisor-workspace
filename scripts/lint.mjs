@@ -9,9 +9,9 @@
 import { ESLint } from 'eslint';
 import * as esbuild from 'esbuild';
 import { readFileSync } from 'fs';
-import { sourceFiles } from '../build-files.mjs';
+import { allFiles } from '../build-files.mjs';
 
-const combined = sourceFiles
+const combined = allFiles
   .map(f => `/* ==== ${f} ==== */\n` + readFileSync(f, 'utf8'))
   .join('\n\n');
 

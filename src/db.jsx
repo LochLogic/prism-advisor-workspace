@@ -6,6 +6,23 @@ const _sb = () => window.__sb;
 
 const isUUID = (s) => typeof s === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(s);
 
+/* ─── Audit-action → human label (single source of truth) ─────────────
+   Referenced by bare name from the firm-admin audit feed and the printed
+   compliance report (store.jsx). Keep new audit actions registered here so
+   they read consistently everywhere. */
+const AUDIT_ACTION_LABELS = {
+  'client.create': 'Client created', 'client.update': 'Client updated',
+  'client.archive': 'Client archived', 'client.notes': 'Notes updated',
+  'client.invite': 'Client invited', 'client.claim': 'Portal access claimed',
+  'account.create': 'Account added', 'account.update': 'Account updated',
+  'account.archive': 'Account archived', 'meeting.create': 'Meeting logged',
+  'meeting.archive': 'Meeting archived', 'profile.save': 'Profile saved',
+  'auth.signin': 'Signed in', 'auth.signout': 'Signed out',
+  'mfa.enroll': '2FA enabled', 'mfa.unenroll': '2FA disabled',
+  'message.create': 'Message sent', 'message.send': 'Message sent', 'task.create': 'Task created',
+  'task.complete': 'Task completed', 'task.reopen': 'Task reopened', 'task.delete': 'Task deleted',
+};
+
 /* ─── Audit trail (SEC 17a-3 / FINRA) ────────────────────────────────
    Append-only. dbAudit() is fire-and-forget: callers never await it and
    a failure never blocks the user action. Actor identity comes from
@@ -56,7 +73,7 @@ const timeAgo = (iso) => {
 };
 
 /* ─── Client roster ──────────────────────────────────────────────── */
-const CLIENT_COLS = 'id, household_name, short_name, household_tag, current_phase, notes, active, updated_at, last_meeting_at, aum, uninvested_cash, pipeline_stage, fee_schedule_id';
+const CLIENT_COLS = 'id, household_name, short_name, household_tag, current_phase, notes, active, updated_at, last_meeting_at, aum, uninvested_cash, pipeline_stage, fee_schedule_id, auth_user_id, invited_at, claimed_at';
 
 async function dbGetClients(advisorId, { page = 0, pageSize = 50 } = {}) {
   if (!_sb() || !isUUID(advisorId)) return null;
@@ -256,6 +273,10 @@ function mapClient(c) {
     notes:          c.notes || '',
     pipelineStage:  c.pipeline_stage || 'active',
     feeScheduleId:  c.fee_schedule_id || '',
+    // Portal-connection state (C3 invite flow): connected once the client claims.
+    connected:      !!c.auth_user_id,
+    invitedAt:      c.invited_at || null,
+    claimedAt:      c.claimed_at || null,
   };
 }
 
@@ -332,6 +353,35 @@ async function dbUpdateClientNotes(clientId, notes) {
     dbAudit('client.notes', { entityType: 'client', entityId: clientId, clientId,
       summary: 'Updated advisor notes' });
   } catch (e) { console.warn('[db] updateClientNotes:', e.message); }
+}
+
+/* ─── Client portal invite / claim (C3) ──────────────────────────────
+   The advisor generates a single-use claim code (px_create_client_invite);
+   the client redeems it on first sign-in (px_claim_client) to bind their
+   auth user to the household. See migration 024. */
+async function dbCreateClientInvite(clientId, email = null) {
+  if (!_sb() || !isUUID(clientId)) return { code: null, error: 'No active session.' };
+  try {
+    const { data, error } = await _sb().rpc('px_create_client_invite',
+      { p_client_id: clientId, p_email: email || null });
+    if (error) throw error;
+    return { code: data, error: null };
+  } catch (e) {
+    console.warn('[db] createClientInvite:', e.message);
+    return { code: null, error: e.message || 'Could not create invite.' };
+  }
+}
+
+async function dbClaimClient(code) {
+  if (!_sb() || !code) return { clientId: null, error: 'Missing invite code.' };
+  try {
+    const { data, error } = await _sb().rpc('px_claim_client', { p_code: String(code).trim() });
+    if (error) throw error;
+    return { clientId: data, error: null };
+  } catch (e) {
+    console.warn('[db] claimClient:', e.message);
+    return { clientId: null, error: e.message || 'Could not redeem this invite.' };
+  }
 }
 
 /* ─── Accounts ───────────────────────────────────────────────────── */
@@ -1090,6 +1140,8 @@ window.db = {
   updateClient:        dbUpdateClient,
   archiveClient:       dbArchiveClient,
   updateClientNotes:   dbUpdateClientNotes,
+  createClientInvite:  dbCreateClientInvite,
+  claimClient:         dbClaimClient,
   getAccounts:         dbGetAccounts,
   upsertAccount:       dbUpsertAccount,
   deleteAccount:       dbDeleteAccount,

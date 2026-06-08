@@ -175,6 +175,21 @@
 
 </div>
 <script>
+  // Client portal invite (C3): a claim link is /login.html?claim=<code>. Persist
+  // the code so it survives the magic-link round trip, and thread it onto the
+  // post-auth destination so the app can redeem it on first sign-in.
+  (function captureClaim(){
+    try {
+      const c = new URLSearchParams(location.search).get('claim');
+      if (c) localStorage.setItem('px_claim', c);
+    } catch (e) {}
+  })();
+  function appDest() {
+    let claim = null;
+    try { claim = localStorage.getItem('px_claim'); } catch (e) {}
+    return claim ? ('/app?claim=' + encodeURIComponent(claim)) : '/app';
+  }
+
   // If already signed in, finish the journey (may require an MFA challenge)
   (async () => {
     if (!window.__sb) return;
@@ -219,7 +234,7 @@
       if (!totp) { showMfaMsg('No authenticator is enrolled on this account.'); reset(); return; }
       const { error } = await window.__sb.auth.mfa.challengeAndVerify({ factorId: totp.id, code });
       if (error) { showMfaMsg(error.message); reset(); return; }
-      window.location.href = '/app';
+      window.location.href = appDest();
     } catch (e) { showMfaMsg(e.message || 'Verification failed.'); reset(); }
   }
 
@@ -269,7 +284,7 @@
 
   async function signInGoogle() {
     if (!window.__sb) { enterDemo(); return; }
-    const redirectTo = new URL('/app', window.location.href).href;
+    const redirectTo = new URL(appDest(), window.location.href).href;
     const { error } = await window.__sb.auth.signInWithOAuth({
       provider: 'google', options: { redirectTo },
     });
@@ -281,7 +296,7 @@
     const email = document.getElementById('email').value.trim();
     if (!email) { showMsg('Enter your email address first.'); return; }
     setLoading(true);
-    const redirectTo = new URL('/app', window.location.href).href;
+    const redirectTo = new URL(appDest(), window.location.href).href;
     const { error } = await window.__sb.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } });
     setLoading(false);
     if (error) { showMsg(error.message); return; }

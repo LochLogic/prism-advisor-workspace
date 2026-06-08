@@ -524,6 +524,9 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
   // Household profile (for members + asset reconciliation in Overview)
   const [profileData, setProfileData] = useStateAdv(null);
 
+  // Client portal invite (C3): { busy, link, copied, error }
+  const [invite, setInvite] = useStateAdv(null);
+
   // Performance state
   const [perfBal,   setPerfBal]   = useStateAdv(undefined);
   const [perfFlows, setPerfFlows] = useStateAdv([]);
@@ -569,6 +572,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
       setPerfBal(undefined);
       setPerfFlows([]);
       setFlowForm(null);
+      setInvite(null);
     }
   }, [client?.id]);
 
@@ -644,6 +648,16 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
   const phase = phaseLabel(client.phase);
   const isLiveClient = window.db?.isUUID(client.id);
   const openRoadmap = () => { openClientPortal(client); onClose(); };
+
+  /* client portal invite (C3) — generate a single-use claim link to share */
+  const generateInvite = async () => {
+    setInvite({ busy: true });
+    const { code, error } = await window.db.createClientInvite(client.id, client.inviteEmail || null);
+    if (error || !code) { setInvite({ error: error || 'Could not create invite.' }); return; }
+    const link = `${window.location.origin}/login.html?claim=${code}`;
+    setInvite({ link });
+    try { await navigator.clipboard?.writeText(link); setInvite({ link, copied: true }); } catch { /* clipboard blocked — link still shown */ }
+  };
 
   /* notes */
   const requestAck = async () => {
@@ -1041,6 +1055,38 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
         {/* ── Overview ── */}
         {tab === 'overview' && (
           <>
+            {/* Client portal connection (C3 invite flow) — live clients only */}
+            {isLiveClient && (
+              client.connected ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px',
+                  background: 'var(--forest-soft)', borderRadius: 6, marginBottom: 14, fontSize: 12.5, color: 'var(--forest)' }}>
+                  <Icons.CheckCircle size={14} /> Portal connected — {client.shortName} can sign in to their own household.
+                </div>
+              ) : (
+                <div style={{ padding: '11px 13px', background: 'var(--bg-elev)', borderRadius: 6, marginBottom: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--ink-mute)' }}>
+                      <Icons.Layers size={14} />
+                      {client.invitedAt ? 'Invite sent — not yet connected.' : 'This household has no client-portal access yet.'}
+                    </div>
+                    <button className="px-btn px-btn-sm px-btn-primary" onClick={generateInvite}
+                      disabled={invite?.busy} aria-label="Create a client portal invite link">
+                      <Icons.ArrowRight size={11} /> {invite?.busy ? 'Creating…' : (client.invitedAt ? 'New invite link' : 'Invite to portal')}
+                    </button>
+                  </div>
+                  {invite?.error && <div style={{ fontSize: 12, color: 'var(--brick)', marginTop: 8 }}>{invite.error}</div>}
+                  {invite?.link && (
+                    <div style={{ marginTop: 9 }}>
+                      <div style={{ fontSize: 11, color: 'var(--ink-faint)', marginBottom: 4 }}>
+                        {invite.copied ? 'Copied to clipboard — ' : ''}Share this single-use link with {client.shortName}:
+                      </div>
+                      <input className="px-input" readOnly value={invite.link} onFocus={e => e.target.select()}
+                        style={{ fontSize: 11.5, fontFamily: 'var(--mono)' }} />
+                    </div>
+                  )}
+                </div>
+              )
+            )}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
               {[
                 { label: 'AUM', value: client.aum ? fmt$(client.aum, { short: true }) : '—', color: 'var(--ink)' },
