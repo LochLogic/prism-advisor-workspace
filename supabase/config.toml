@@ -18,6 +18,10 @@ verify_jwt = true
 [functions.plaid-exchange-token]
 verify_jwt = true
 
+# Advisor-triggered: send a pending acknowledgement as a DocuSign envelope.
+[functions.docusign-envelope]
+verify_jwt = true
+
 # Public/system/cron functions. NOTE: generate-invoices and worm-export accept
 # BOTH a pg_cron call (x-cron-secret, no JWT) and an admin call (validated in
 # code via supa.auth.getUser), so the platform gate must be OFF or the cron path
@@ -39,4 +43,9 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.worm-export]
+verify_jwt = false
+
+# DocuSign Connect webhook — DocuSign is not a Supabase user; the function
+# self-authenticates via an HMAC over the raw body (DOCUSIGN_CONNECT_HMAC_KEY).
+[functions.docusign-connect]
 verify_jwt = false

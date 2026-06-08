@@ -103,7 +103,12 @@ try {
       inlineHashes.add(`'sha256-${createHash('sha256').update(m[1].replace(/\r\n?/g, '\n'), 'utf8').digest('base64')}'`);
     }
   }
-  const scriptSrc = `'self' ${[...inlineHashes].join(' ')} https://cdn.plaid.com`.replace(/\s+/g, ' ');
+  // Cloudflare auto-injects its Web Analytics beacon (static.cloudflareinsights.com)
+  // when the zone has Web Analytics enabled. Allow-list the beacon host (and its
+  // RUM collection endpoint in connect-src below) so it isn't blocked by our
+  // host-locked script-src. The beacon is host-allow-listed, not hashed — Cloudflare
+  // controls and versions that script, so a pinned hash would break on their updates.
+  const scriptSrc = `'self' ${[...inlineHashes].join(' ')} https://cdn.plaid.com https://static.cloudflareinsights.com`.replace(/\s+/g, ' ');
 
   // ── B2B content/intent pages (static, crawlable) — rendered below, hashed here ──
   const livePages = publishedPages();
@@ -132,7 +137,7 @@ try {
   Referrer-Policy: strict-origin-when-cross-origin
   Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
   Permissions-Policy: geolocation=(), microphone=(), camera=()
-  Content-Security-Policy: default-src 'self'; script-src ${scriptSrc}; style-src ${styleSrc}; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' ${SB} wss://phabxcijbbphfxvjedfj.supabase.co; frame-src https://cdn.plaid.com https://*.plaid.com; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; object-src 'none'
+  Content-Security-Policy: default-src 'self'; script-src ${scriptSrc}; style-src ${styleSrc}; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' ${SB} wss://phabxcijbbphfxvjedfj.supabase.co https://cloudflareinsights.com; frame-src https://cdn.plaid.com https://*.plaid.com; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; object-src 'none'
 `);
 
   // ── SEO: robots, sitemap, share image ──────────────────────────────

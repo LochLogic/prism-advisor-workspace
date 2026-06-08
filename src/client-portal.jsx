@@ -806,6 +806,11 @@ const ClientPortal = ({ onOpenNumbers }) => {
                 {a.body && <div style={{ fontSize: 12.5, color: 'var(--ink-mute)', marginTop: 6, lineHeight: 1.55 }}>{a.body}</div>}
                 {a.status === 'acknowledged' ? (
                   a.signer_name && <div style={{ fontSize: 11, color: 'var(--ink-faint)', marginTop: 5 }}>Signed by {a.signer_name}</div>
+                ) : a.provider === 'docusign' ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, fontSize: 12.5, color: 'var(--ink-mute)' }}>
+                    <Icons.Message size={13} />
+                    We've emailed you a secure DocuSign envelope to review and sign. Check your inbox{a.envelope_status === 'delivered' ? ' — it looks like you opened it but haven’t finished signing yet.' : '.'}
+                  </div>
                 ) : (
                   <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
                     <input className="px-input" placeholder="Type your full name to sign" value={signName}

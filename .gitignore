@@ -4,6 +4,11 @@
 .env*.local
 *.env
 
+# Raw credential drops — never commit. DocuSign integration secrets are set as
+# Supabase Function secrets (see docs/docusign-setup.md), not stored in the repo.
+docs/DocuSign.txt
+docs/*.secrets.txt
+
 # OS
 .DS_Store
 Thumbs.db

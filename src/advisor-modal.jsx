@@ -489,6 +489,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
   const [notes, setNotes] = useStateAdv('');
   const [acks, setAcks] = useStateAdv(undefined);
   const [ackForm, setAckForm] = useStateAdv(null);
+  const [dsSendingId, setDsSendingId] = useStateAdv(null);
 
   // Accounts state
   const [accounts, setAccounts] = useStateAdv(undefined);
@@ -666,6 +667,20 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
       { title: ackForm.title.trim(), body: ackForm.body?.trim() || null });
     if (row) { setAcks(prev => [row, ...(prev || [])]); setAckForm(null); showToast('Acknowledgement requested'); }
     else showToast('Could not create — check console');
+  };
+
+  // Escalate a pending acknowledgement to a legally-binding DocuSign envelope.
+  // The client receives a DocuSign email; the webhook marks it signed on completion.
+  const sendDocusign = async (ack) => {
+    setDsSendingId(ack.id);
+    const res = await window.db.sendDocusignEnvelope(ack.id);
+    setDsSendingId(null);
+    if (res && res.ok) {
+      setAcks(prev => (prev || []).map(a => a.id === ack.id ? { ...a, ...(res.acknowledgement || {}), provider: 'docusign' } : a));
+      showToast('DocuSign envelope sent to the client');
+    } else {
+      showToast(res?.error ? `DocuSign: ${res.error}` : 'Could not send DocuSign envelope');
+    }
   };
 
   const saveNotes = () => {
@@ -1331,13 +1346,28 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                 )}
                 {Array.isArray(acks) && acks.map(a => (
                   <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '7px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
-                    <span style={{ color: 'var(--ink)' }}>{a.title}</span>
+                    <span style={{ color: 'var(--ink)' }}>
+                      {a.title}
+                      {a.provider === 'docusign' && (
+                        <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--ink-faint)', marginLeft: 6 }}>· DocuSign</span>
+                      )}
+                    </span>
                     {a.status === 'acknowledged' ? (
                       <span style={{ fontSize: 11, color: 'var(--forest)', display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
                         <Icons.CheckCircle size={12} /> Signed{a.signer_name ? ` · ${a.signer_name}` : ''}
                       </span>
+                    ) : a.provider === 'docusign' ? (
+                      <span style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--gold)', whiteSpace: 'nowrap' }}>
+                        {a.envelope_status === 'delivered' ? 'Viewed' : 'Sent · awaiting signature'}
+                      </span>
                     ) : (
-                      <span style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--gold)' }}>Pending</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
+                        <button className="px-btn px-btn-sm px-btn-ghost" disabled={dsSendingId === a.id}
+                          onClick={() => sendDocusign(a)} title="Send a legally-binding DocuSign envelope to the client">
+                          <Icons.ExternalLink size={10} /> {dsSendingId === a.id ? 'Sending…' : 'DocuSign'}
+                        </button>
+                        <span style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--gold)' }}>Pending</span>
+                      </span>
                     )}
                   </div>
                 ))}
