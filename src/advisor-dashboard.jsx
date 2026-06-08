@@ -211,7 +211,8 @@ const FlaggedQuestion = ({ q, onDismiss, clients, authUser, onOpenClient }) => {
   const replyRef = React.useRef(null);
 
   const loadMessages = React.useCallback(async () => {
-    if (!q._dbId || !window.db) return;
+    // Demo/mock question (no DB row) → an empty local thread, not a perpetual spinner.
+    if (!q._dbId || !window.db) { setMessages([]); return; }
     const msgs = await window.db.getFlagMessages(q._dbId);
     setMessages(msgs || []);
   }, [q._dbId]);
@@ -225,9 +226,17 @@ const FlaggedQuestion = ({ q, onDismiss, clients, authUser, onOpenClient }) => {
   }, [expanded, loadMessages]);
 
   const sendReply = async () => {
-    if (!replyText.trim() || !authUser?.id || !q._dbId) return;
+    const body = replyText.trim();
+    if (!body) return;
+    // Demo/mock question (no DB row) — keep the thread usable with local state.
+    if (!q._dbId || !window.db) {
+      setMessages(prev => [...(prev || []), { id: 'demo-' + Date.now(), author_role: 'advisor', body, created_at: new Date().toISOString() }]);
+      setReplyText('');
+      return;
+    }
+    if (!authUser?.id) return;
     setSending(true);
-    const msg = await window.db.addFlagMessage(q._dbId, authUser.id, 'advisor', replyText);
+    const msg = await window.db.addFlagMessage(q._dbId, authUser.id, 'advisor', body);
     setSending(false);
     if (msg) {
       setMessages(prev => [...(prev || []), msg]);
@@ -613,13 +622,26 @@ const AdvisorDashboard = () => {
     window.db.getUnreadMessageClients().then(ids => setUnreadIds(new Set(ids || [])));
   }, [isLiveMode, previewClient]);
 
+  // Defense-in-depth for the realtime stream (clean-room M4). subscribeAllMessages
+  // receives EVERY message insert and relies on Supabase Realtime RLS to scope the
+  // feed to this advisor's book. As a backstop against a Realtime-RLS misconfig,
+  // keep a live set of the client ids we already know (RLS-scoped roster/unread
+  // fetches) and ignore any payload outside it — so a misconfiguration degrades to
+  // "no dot" instead of this browser processing another tenant's message.
+  const knownClientIds = React.useRef(new Set());
+  React.useEffect(() => {
+    const ids = new Set((activeClients || []).map(c => c.id));
+    for (const id of unreadIds) ids.add(id);   // ids from the RLS-scoped unread fetch
+    knownClientIds.current = ids;
+  }, [activeClients, unreadIds]);
+
   // Passive realtime (W4): light the roster unread dot the moment a client messages —
   // no modal needed. RLS scopes the stream to this advisor's book. Complements the
   // fetch above (which paints the initial state + clears on modal close).
   React.useEffect(() => {
     if (!isLiveMode || !window.db?.subscribeAllMessages) return;
     const unsub = window.db.subscribeAllMessages((m) => {
-      if (m?.author_role === 'client' && m.client_id) {
+      if (m?.author_role === 'client' && m.client_id && knownClientIds.current.has(m.client_id)) {
         setUnreadIds(prev => prev.has(m.client_id) ? prev : new Set(prev).add(m.client_id));
       }
     });

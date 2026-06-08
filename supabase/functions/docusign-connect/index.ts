@@ -21,13 +21,22 @@ function json(obj: unknown, status = 200) {
 }
 
 // DocuSign signs the raw request body with HMAC-SHA256 (base64) and sends it in
-// X-DocuSign-Signature-1. Verify in constant time. If no key is configured we
-// log and accept (demo) — the setup doc flags configuring this for production.
+// X-DocuSign-Signature-1. Verify in constant time.
+//
+// FAIL CLOSED: this endpoint is the ONLY unauthenticated way to flip an
+// acknowledgement to "signed" (a legally-meaningful state). With no HMAC key we
+// cannot prove a request is really from DocuSign, so an unset key must REJECT the
+// webhook — not accept it. The unverified path is gated behind an explicit,
+// non-default DOCUSIGN_ALLOW_UNVERIFIED=1 opt-in for local/demo use only.
 async function verifyHmac(raw: string, header: string | null): Promise<boolean> {
   const key = Deno.env.get("DOCUSIGN_CONNECT_HMAC_KEY");
   if (!key) {
-    console.warn("[docusign-connect] DOCUSIGN_CONNECT_HMAC_KEY unset — skipping signature check");
-    return true;
+    if (Deno.env.get("DOCUSIGN_ALLOW_UNVERIFIED") === "1") {
+      console.warn("[docusign-connect] DOCUSIGN_ALLOW_UNVERIFIED=1 — accepting an UNVERIFIED webhook (demo only; do NOT use in production)");
+      return true;
+    }
+    console.error("[docusign-connect] DOCUSIGN_CONNECT_HMAC_KEY unset — rejecting webhook (fail closed). Set the key, or DOCUSIGN_ALLOW_UNVERIFIED=1 for demo.");
+    return false;
   }
   if (!header) return false;
   const enc = new TextEncoder();

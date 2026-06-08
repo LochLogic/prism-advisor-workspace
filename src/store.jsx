@@ -234,10 +234,9 @@ function ProfileProvider({ children }) {
   // Expenses = the fixed categories + any custom outflow boxes the user added.
   const _exp = profile.expenses || {};
   const customExpenses = Array.isArray(_exp.custom) ? _exp.custom : [];
-  const totalExpenses =
-      ['housing', 'food', 'transport', 'utilities', 'healthcare', 'other']
-        .reduce((a, k) => a + Number(_exp[k] || 0), 0)
-    + customExpenses.reduce((a, c) => a + Number(c.amount || 0), 0);
+  const _calc = (typeof PrismCalc !== 'undefined' ? PrismCalc : window.PrismCalc);
+  // Single source of truth (calc-core) — same total the advisor QBR/overview use.
+  const totalExpenses = _calc.monthlyExpenseTotal(_exp);
   const totalDebt     = profile.debts.reduce((a, d) => a + Number(d.balance || 0), 0);
   const toxicDebt     = profile.debts.filter(d => Number(d.apr) > 6).reduce((a, d) => a + Number(d.balance || 0), 0);
   const surplus       = effectiveTakehome - totalExpenses;
@@ -292,7 +291,6 @@ function ProfileProvider({ children }) {
     + (Number(profile.retirement.hsaContrib) || 0)
     + (Number(profile.retirement.iraContributed) || 0)
     + (Number(profile.retirement.fourohonekContributed) || 0);
-  const _calc = (typeof PrismCalc !== 'undefined' ? PrismCalc : window.PrismCalc);
   // Memoized: these are pure functions of profile-derived inputs and otherwise
   // recompute on every ProfileProvider render (including parent-provider renders
   // unrelated to the profile). Keyed on their actual inputs.

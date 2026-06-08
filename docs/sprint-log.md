@@ -6,6 +6,84 @@
 
 ---
 
+## 2026-06-08 — Clean-room hardening (C1–C2 critical, M1–M5 major)
+
+Fixes for the whole CRITICAL + MAJOR set from
+[`clean-room-review-2026-06-08.md`](clean-room-review-2026-06-08.md). Branch
+`harden/critical-major-2026-06-08`. Build · lint · check · calc all green.
+
+**What shipped**
+- **C1 — DocuSign webhook fails closed.** `supabase/functions/docusign-connect/index.ts`:
+  `verifyHmac` now REJECTS when `DOCUSIGN_CONNECT_HMAC_KEY` is unset (was: silently
+  accepted, letting anyone who knows an envelope id forge a "signed" acknowledgement).
+  The unverified path is gated behind an explicit `DOCUSIGN_ALLOW_UNVERIFIED=1`
+  demo-only flag.
+- **C2 — Audit log no longer client-forgeable.** New migration `028_audit_rpc.sql`
+  adds `px_audit()` (SECURITY DEFINER) that stamps `actor_id/role/email/firm_id`
+  from the session and drops any cross-firm `client_id`, and DROPS the permissive
+  `audit_insert_self` policy. `src/db.jsx` `dbAudit()` now calls the RPC instead of
+  a direct insert. New RLS-isolation check 8 proves a forged direct insert is
+  rejected and `px_audit` can't stamp a foreign firm.
+- **M1 — Flagged-question reply thread fixed.** `mapFlaggedQuestion` (`db.jsx`) was
+  missing `_dbId`, which the reply UI keys off entirely → thread stuck on "Loading…"
+  and replies silently no-op for live clients. Added `_dbId`; also made the demo
+  thread work locally.
+- **M2 — Per-firm phase white-label rebuilt.** New migration `029_phase_whitelabel_rebuild.sql`:
+  a `phase_overrides` table (RLS: firm reads own, admin writes own) + `phase_library_resolved`
+  rebuilt to COALESCE firm overrides over the global 005 defaults; the orphaned 001
+  tables (`phase_library_platform`/`phase_library_firm`) are dropped. App-side, `auth.jsx`
+  now splices `phasesData` IN PLACE (so `window.phasesData` + module derivations stay
+  fresh) and `advisor-modal` computes phase options at render (`phaseOptions()`), not at
+  module load — required now that phases can differ per firm. *(Backend capability +
+  correct resolution; the firm-admin editing UI is still the C3 white-label item.)*
+- **M3 — Plaid token encrypted at rest.** New migration `030_plaid_token_vault.sql`:
+  `px_vault_store_token()` (service-role only) + `aggregation_items.access_token_secret_id`.
+  `plaid-exchange-token` stores the token in Supabase Vault and keeps only the secret
+  id — never plaintext. (No read-back path exists yet, so write-path only.)
+- **M4 — Realtime defense-in-depth.** `advisor-dashboard.jsx` `subscribeAllMessages`
+  now ignores payloads whose `client_id` isn't in the advisor's known (RLS-scoped)
+  set, so a Realtime-RLS misconfiguration degrades to "no dot" instead of processing
+  another tenant's message. *(The authoritative fix is verifying Realtime RLS — see
+  hand-off.)*
+- **M5 — One expense total everywhere.** `calc-core.monthlyExpenseTotal()` is the
+  single source of truth (fixed categories + `custom[]` line items); wired into
+  `store.jsx`, the advisor QBR, and the Overview readiness block. Previously the
+  advisor side used `Object.values(expenses)`, which dropped every custom line item
+  → the client QBR PDF could show a different readiness verdict than the portal.
+  New calc test guards it.
+
+**🧑 Human deploy hand-off — REQUIRED, in this order:**
+1. **Run migrations in the Supabase SQL editor, in order:** `028_audit_rpc.sql`,
+   `029_phase_whitelabel_rebuild.sql`, `030_plaid_token_vault.sql`.
+   - ⚠️ `029` **drops** `phase_library_platform` + `phase_library_firm`. They were
+     unused (orphaned by migration 005), so this is intentional cleanup — but if you
+     ever hand-entered firm overrides there, copy them into `phase_overrides` first.
+   - `030` needs the `supabase_vault` extension (already enabled for `CRON_SECRET`).
+2. **Confirm `DOCUSIGN_CONNECT_HMAC_KEY` is still set** (it is, per the DocuSign
+   activation). Do **NOT** set `DOCUSIGN_ALLOW_UNVERIFIED` in production.
+3. **Deploy edge functions** (`docusign-connect` for C1, `plaid-exchange-token` for
+   M3) via the gated **Deploy (manual)** workflow — **only after step 1**, or a Plaid
+   link would hit the missing `px_vault_store_token`. *Claude triggers this via `gh`
+   once you confirm the migrations are applied.*
+4. **Verify Realtime RLS (M4).** Confirm Supabase Realtime "Postgres Changes"
+   enforces RLS on `messages` (and `alerts`/`flagged_questions`/`meetings`/`flag_messages`):
+   subscribe as advisor A, insert a message for advisor B's client via the service
+   role, confirm A receives nothing. If it leaks, enable Realtime authorization for
+   the publication. (The code backstop limits exposure but is not the boundary.)
+
+Transient note: the frontend auto-deploys on merge; until migration `028` is applied,
+`dbAudit` calls a missing RPC and audit writes silently no-op (fire-and-forget, no
+crash) — run `028` promptly.
+
+**Files:** `supabase/functions/docusign-connect/index.ts`,
+`supabase/functions/plaid-exchange-token/index.ts`, `src/db.jsx`, `src/store.jsx`,
+`src/auth.jsx`, `src/advisor-dashboard.jsx`, `src/advisor-modal.jsx`, `src/calc-core.cjs`,
+`supabase/migrations/028_audit_rpc.sql`, `029_phase_whitelabel_rebuild.sql`,
+`030_plaid_token_vault.sql`, `supabase/tests/rls_isolation.sql`, `scripts/calc.test.mjs`,
+`docs/clean-room-review-2026-06-08.md`.
+
+---
+
 ## 2026-06-08 — C3: Prospect / proposal mode
 
 Tier-A adoption unlock — the wedge turned into a closing tool. An advisor can run

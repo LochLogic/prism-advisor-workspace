@@ -79,6 +79,21 @@ function perfPeriods(series, flows) {
   return defs.map(([label, start]) => ({ label, start, end, ...(modifiedDietz(series, flows, start, end) || {}) }));
 }
 
+/* ─── Household aggregates ───────────────────────────────────────────── */
+
+// Total monthly household expenses = the fixed categories + any custom outflow
+// line items. SINGLE SOURCE OF TRUTH so the portal, advisor QBR, and overview
+// readiness can't drift: a naive `Object.values(expenses).reduce(…)` folds the
+// `custom` *array* in as NaN→0 and silently drops every custom line item.
+function monthlyExpenseTotal(expenses) {
+  const e = expenses || {};
+  const fixed = ['housing', 'food', 'transport', 'utilities', 'healthcare', 'other']
+    .reduce((a, k) => a + (Number(e[k]) || 0), 0);
+  const custom = (Array.isArray(e.custom) ? e.custom : [])
+    .reduce((a, c) => a + (Number(c && c.amount) || 0), 0);
+  return fixed + custom;
+}
+
 /* ─── Planning calculators ───────────────────────────────────────────── */
 
 // Months to pay off a balance compounding at a weighted APR with a fixed
@@ -350,6 +365,7 @@ function riskProfile({ answers = [], horizonYears = null } = {}) {
 }
 
 const PrismCalc = {
+  monthlyExpenseTotal,
   buildValueSeries, modifiedDietz, perfPeriods,
   debtPayoffMonths, hsaProjection, monteCarlo, rothLadder, estateProjection, tlh,
   retirementReadiness, goalFunding, annualFeeForAum, lifeCoverageGap, assetComposition,

@@ -27,6 +27,18 @@ console.log('calc-core unit tests\n');
   assert(C.buildValueSeries([]).length === 0, 'buildValueSeries: empty input → empty');
 }
 
+/* ── monthlyExpenseTotal ──────────────────────────────────────────── */
+{
+  const exp = { housing: 2000, food: 800, transport: 400, utilities: 300,
+                healthcare: 200, other: 500, custom: [{ amount: 250 }, { amount: 150 }] };
+  // Fixed (4200) + custom (400). The bug this guards: Object.values folds `custom`
+  // (an array) in as NaN→0 and drops the line items — so this MUST be 4600, not 4200.
+  assert(C.monthlyExpenseTotal(exp) === 4600, 'monthlyExpenseTotal: fixed + custom line items');
+  assert(C.monthlyExpenseTotal({ housing: 1000 }) === 1000, 'monthlyExpenseTotal: missing keys → 0');
+  assert(C.monthlyExpenseTotal({}) === 0 && C.monthlyExpenseTotal(null) === 0, 'monthlyExpenseTotal: empty/null → 0');
+  assert(C.monthlyExpenseTotal({ food: 'x', custom: [{ amount: 'y' }] }) === 0, 'monthlyExpenseTotal: non-numeric → 0, no NaN');
+}
+
 /* ── modifiedDietz ────────────────────────────────────────────────── */
 {
   const series = [

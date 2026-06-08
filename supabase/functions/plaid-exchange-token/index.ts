@@ -74,10 +74,25 @@ Deno.serve(async (req) => {
     const accessToken = ex.access_token;
     const itemId = ex.item_id;
 
-    // 2. Store the item (backend-only table)
+    // 2. Store the item. The Plaid access_token is a long-lived credential — never
+    // persist it in plaintext. Stash it in Supabase Vault and keep only the secret id
+    // (migration 030). Balances are pulled below from the in-memory token regardless,
+    // and there's no read-back path yet, so on a Vault failure we omit the stored
+    // token rather than ever falling back to plaintext.
+    let secretId: string | null = null;
+    try {
+      const { data: sid, error: vErr } = await admin.rpc("px_vault_store_token", {
+        p_secret: accessToken,
+        p_label: `plaid:${itemId}`,
+      });
+      if (vErr) throw vErr;
+      secretId = (sid as string) ?? null;
+    } catch (e) {
+      console.error("[plaid-exchange-token] vault store failed:", (e as Error).message);
+    }
     await admin.from("aggregation_items").insert({
       client_id: clientId, provider: "plaid", item_id: itemId,
-      access_token: accessToken, institution_name: institutionName || null,
+      access_token_secret_id: secretId, institution_name: institutionName || null,
     });
 
     // 3. Pull balances and import accounts
