@@ -75,6 +75,29 @@ async function dbGetClients(advisorId, { page = 0, pageSize = 50 } = {}) {
   } catch (e) { console.warn('[db] getClients:', e.message); return null; }
 }
 
+// Book-wide KPI totals for the advisor (AUM, cash drag, counts) computed across
+// ALL active clients — not just the paginated first roster page, which would
+// under-count the headline KPIs for books > one page. Two small numeric columns
+// per row; RLS scopes to the advisor's own book.
+async function dbGetBookTotals(advisorId) {
+  if (!_sb() || !isUUID(advisorId)) return null;
+  try {
+    const { data, error } = await _sb()
+      .from('clients')
+      .select('aum, uninvested_cash, current_phase')
+      .eq('advisor_id', advisorId)
+      .eq('active', true);
+    if (error) throw error;
+    const rows = data || [];
+    return {
+      totalAUM:      rows.reduce((s, c) => s + (Number(c.aum) || 0), 0),
+      totalCashDrag: rows.reduce((s, c) => s + (Number(c.uninvested_cash) || 0), 0),
+      activeCount:   rows.length,
+      inLateHorizon: rows.filter(c => (Number(c.current_phase) || 0) >= 5).length,
+    };
+  } catch (e) { console.warn('[db] getBookTotals:', e.message); return null; }
+}
+
 // For firm admins: all advisors in the caller's firm (RLS filters automatically)
 async function dbGetAdvisors() {
   if (!_sb()) return null;
@@ -1061,6 +1084,7 @@ async function dbDeleteDocument(id, storagePath, clientId) {
 
 window.db = {
   getClients:          dbGetClients,
+  getBookTotals:       dbGetBookTotals,
   mapClient,
   createClient:        dbCreateClient,
   updateClient:        dbUpdateClient,
