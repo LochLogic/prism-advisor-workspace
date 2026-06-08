@@ -52,6 +52,17 @@ const scriptSrc = (headers.match(/script-src[^;]*/) || [''])[0];
 assert(!/'unsafe-inline'/.test(scriptSrc), "CSP script-src has no 'unsafe-inline'");
 assert(/'sha256-[A-Za-z0-9+/=]{40,}'/.test(scriptSrc), 'CSP script-src allow-lists inline scripts by hash');
 
+// 8b. CSP style-src is hardened too (C5): no 'unsafe-inline'. Inline <style> blocks
+//     are hashed; inline style="" attributes were migrated to classes; React's
+//     style={{}} sets properties via the CSSOM, which CSP does not gate.
+const styleSrc = (headers.match(/style-src[^;]*/) || [''])[0];
+assert(!/'unsafe-inline'/.test(styleSrc), "CSP style-src has no 'unsafe-inline'");
+assert(/'sha256-[A-Za-z0-9+/=]{40,}'/.test(styleSrc), 'CSP style-src allow-lists inline styles by hash');
+// No inline style="" attributes survive in any served page (style-src-attr has no allowance).
+for (const f of ['_site/index.html', '_site/login.html', '_site/signup.html', '_site/security.html', '_site/app/index.html', '_site/portal/index.html']) {
+  assert(!/\sstyle="/.test(read(f)), `no inline style="" attribute in ${f}`);
+}
+
 // 9. W4 — document vault surface is wired into the bundle + migration present
 for (const sym of ['DocumentVault', 'getDocuments', 'uploadDocument', 'getDocumentUrl', 'subscribeAllMessages']) {
   assert(bundle.includes(sym), `bundle wires W4 symbol ${sym}`);

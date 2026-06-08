@@ -263,3 +263,66 @@ not yet redeployed** — see C2 PR's H4 hand-off):
 
 **Outstanding human items:** TODO H1 (test the `@prismaw.com` inboxes), H2 (Supabase Pro +
 secret rotation — the #1 blocker), and the C1 function deploys (folded into H4).
+
+---
+
+## 2026-06-07 — Human infra items closed (no code)
+- **`ALERT_WEBHOOK_URL` set** (Supabase Edge Function secret → Discord webhook). C1 error alerting is now wired; `error-digest` flushes its backlog on first hourly run. *Caveat: Discord requires the `…/slack` URL variant to accept the `{text}` payload.*
+- **Per-PR Cloudflare preview deploys enabled** — "Builds for non-production branches" checked on the Worker (confirmed by screenshot). Branches now get a Preview URL + PR comment.
+- **Migrations 025 + 026 run** on live (client document uploads + retention/rollup cron).
+- **Gemini API key received** for C4 AI assistant — recorded in Claude memory (outside repo); build deferred, not yet in Supabase secrets.
+
+## 2026-06-07 — More human infra items closed (no code)
+- **`GEMINI_API_KEY` stored** in Supabase Edge Function secrets (build still deferred). Unblocks C4 AI assistant.
+- **Wildcard DNS `*.prismaw.com` live** — proxied CNAME `*` → `prismaw.com` + Worker route `*.prismaw.com/*`. Unblocks the custom-subdomain half of C3 white-label.
+- **Microsoft OAuth instructions revised** — personal gmail Microsoft account has no Entra tenant and "create app outside a directory" is deprecated; H5 now routes through M365 Dev Program / free Azure tenant first.
+
+---
+
+## 2026-06-08 — Sprint C5-CSP: close `style-src 'unsafe-inline'`
+The last CSP hole. **The roadmap/TODO premise was wrong** — it assumed dropping
+`style-src 'unsafe-inline'` required migrating ~777 React `style={{}}` props. It did
+not: React's `style={{}}` sets properties via the **CSSOM** (`el.style.x = y` /
+`setProperty`), and **CSP does not gate CSSOM** — only `<style>` elements
+(`style-src-elem`) and parsed `style=""` attributes / `setAttribute('style')`
+(`style-src-attr`) are gated. Verified empirically with Playwright before touching app
+code (CSSOM applied under `style-src 'self'`; only `setAttribute('style')` was blocked).
+
+**The actual blocked surface (all fixed):**
+- **8 static inline `<style>` blocks** (landing/login/signup/security/privacy/terms/dpa
+  + the content-page template) → now **SHA-256-hashed at build time**, exactly like the
+  inline-script hashes already were. `build.mjs` gained a parallel `<style>`-hash pass.
+- **~90 inline `style=""` attributes** (31 in static HTML + content, ~60 in `store.jsx`'s
+  print-report template literals) → **migrated to classes**. Print-report styles became a
+  small fixed vocabulary in the new **`src/print.css`** plus utility classes; static-page
+  attrs became per-page utility classes appended to each page's existing `<style>` block.
+- **Print popup** (`store.jsx _openPrint`, a `window.open('')` + `document.write`) inherits
+  the opener's CSP (verified), so its old inline `<style>` would have broken. Now it **links
+  the same-origin `/src/print.css`** (`'self'` covers it) and prints on stylesheet `load`
+  (CSP forbids an inline `onload=`, so the listener is attached from the opener).
+- **Latent CRLF bug fixed:** the inline-hash passes hashed raw bytes, but the HTML parser
+  normalizes CRLF→LF before the browser hashes — so on a CRLF checkout (Windows) every hash
+  mismatched and the whole CSP broke. Hashes are now computed over LF-normalized bytes
+  (no-op on the LF checkouts CI uses; correct on CRLF). This also hardened the pre-existing
+  *script* hashing.
+
+**CSP now:** `style-src 'self' <sha256 per inline style block> https://fonts.googleapis.com`
+— no `'unsafe-inline'`. Both `script-src` and `style-src` are now hash-hardened.
+
+**Guards added:** `check.mjs` asserts `style-src` has no `'unsafe-inline'`, allow-lists
+inline styles by hash, and that **no served page contains a `style=""` attribute**.
+`scripts/serve.mjs` (preview + e2e server) now applies the real `_headers` CSP, so e2e runs
+under the production policy.
+
+**Verification:** custom CSP-applying server + Playwright → **0 CSP violations across 10
+served pages** (landing, login, signup, security, app, portal, a content page, privacy,
+terms, dpa) and a **working print popup** (`print.css` loads, classes apply). `npm test`
+(build + check + calc) green; lint clean; **e2e 3/3 green under the enforced CSP**. Visual
+spot-check of landing + login screenshots = intact.
+
+**Files:** `build.mjs` (style-hash pass, LF-normalize, copy + hash `print.css`, drop
+`'unsafe-inline'`), `scripts/check.mjs` (style-src guards), `scripts/serve.mjs` (apply CSP),
+`src/print.css` (new), `src/store.jsx` (print reports → classes + external sheet),
+`landing.html`, `login.html`, `signup.html`, `security.html`, `content/pages.mjs`.
+
+**Not touched:** the ~777 React `style={{}}` props (intentionally — CSSOM, CSP-exempt).

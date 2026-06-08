@@ -94,7 +94,7 @@ The unlock gate. Mostly **not code**.
 | Make the demo open onto a populated roadmap | ✅ Done (lands on client roadmap) |
 | RLS tenant-isolation tests in a DB-enabled CI job (harness shipped: `npm run test:rls`) | ◐ Harness done; wire to CI |
 | Calculator unit tests | ✅ Done (`npm run test:calc`, 39 tests) |
-| Tighten CSP — remove `'unsafe-inline'` (externalize inline handlers + React styles → nonces/hashes) | ⬜ |
+| Tighten CSP — remove `'unsafe-inline'` (externalize inline handlers + React styles → nonces/hashes) | ✅ Done — both `script-src` (hashed) and `style-src` (hashed + inline attrs → classes) carry no `'unsafe-inline'` (2026-06-08) |
 
 ### UX refinements backlog (from the 2026-06 click-path review)
 Quick wins #1–#3 shipped (edit-numbers from the client modal, new-advisor onboarding + sample household, "Quick view" modal labeling). Remaining:
@@ -199,7 +199,7 @@ The product is mature; these close the gaps that bite the day a design partner i
 | `⌘K` client + action command palette | 🟢 | UX |
 | ~~Retention/partitioning for audit / `client_errors` / `balance_history`~~ — ✅ done 2026-06-08 (migration 026: 7-yr audit prune + balance_history monthly rollup + monthly cron; `client_errors` already pruned in 021). Chose retention/rollup over an unverifiable in-place partition rebuild. | 🟡 | Database |
 | Minify `styles.css`; verify RLS-predicate index coverage | 🟢 | Code-Opt / Database |
-| Close `style-src 'unsafe-inline'` via inline-styles → classes migration | 🟡 | InfoSec / UI |
+| ~~Close `style-src 'unsafe-inline'`~~ — ✅ done 2026-06-08 (sprint C5-CSP). React `style={{}}` is CSSOM (CSP-exempt, verified); the real surface was 8 static `<style>` blocks (now build-hashed), ~90 `style=` attributes → classes, and the print popup → external same-origin `src/print.css`. Also fixed a latent CRLF script-hash bug. 0 violations across 10 pages + e2e green under enforced CSP. | 🟡 | InfoSec / UI |
 
 ---
 

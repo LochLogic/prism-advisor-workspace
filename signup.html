@@ -49,6 +49,14 @@
   .footer a{color:var(--gold);text-decoration:none;cursor:pointer;}
   .footer a:hover{text-decoration:underline;}
   .legal{font-size:11px;color:var(--ink-faint);margin-top:14px;line-height:1.5;text-align:center;}
+
+  /* C5 utility classes */
+  .divider-flex{display:flex;align-items:center;gap:10px;margin:16px 0;font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.07em;}
+  .btn-google{width:100%;height:40px;background:none;color:var(--ink);border:1px solid var(--border-2);border-radius:6px;font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;}
+  .is-hidden{display:none;}
+  .tac{text-align:center;}
+  .card-p{font-size:13px;color:var(--ink-mute);margin-top:8px;line-height:1.55;}
+  .mt10-sm{margin-top:10px;font-size:11.5px;}
 </style>
 </head>
 <body>
@@ -89,10 +97,9 @@
 
     <button class="btn-primary" id="signup-btn">Create account</button>
 
-    <div class="divider" style="display:flex;align-items:center;gap:10px;margin:16px 0;font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.07em;">or</div>
+    <div class="divider divider-flex">or</div>
 
-    <button class="btn-ghost" id="google-btn"
-      style="width:100%;height:40px;background:none;color:var(--ink);border:1px solid var(--border-2);border-radius:6px;font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;">
+    <button class="btn-ghost btn-google" id="google-btn">
       <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/><path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/></svg>
       Continue with Google
     </button>
@@ -102,10 +109,10 @@
   </div>
 
   <!-- Confirmation-sent card -->
-  <div class="card magic-card" id="sent-card" style="display:none">
+  <div class="card magic-card is-hidden" id="sent-card">
     <div class="magic-icon">✉️</div>
-    <div class="card-title" style="text-align:center">Confirm your email</div>
-    <p style="font-size:13px;color:var(--ink-mute);margin-top:8px;line-height:1.55;">
+    <div class="card-title tac">Confirm your email</div>
+    <p class="card-p">
       We sent a confirmation link to <strong id="sent-to"></strong>.
       Click it to verify your address, then you'll finish setting up your workspace.
     </p>
@@ -115,7 +122,7 @@
     Already have an account? <a href="login.html">Sign in</a>
     &ensp;·&ensp;
     <a href="/">Back to overview</a>
-    <div style="margin-top:10px;font-size:11.5px;">
+    <div class="mt10-sm">
       By creating a workspace you agree to our
       <a href="/terms.html">Terms</a> and <a href="/privacy.html">Privacy Policy</a>.
     </div>

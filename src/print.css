@@ -1,0 +1,65 @@
+/* Prism print/report stylesheet — loaded by the popup that store.jsx's _openPrint()
+   opens via window.open(''). That popup inherits the app's CSP, which (since C5)
+   no longer carries style-src 'unsafe-inline', so the report cannot use an inline
+   <style> block or inline style="" attributes. It is served same-origin and linked
+   here, which 'self' in style-src allows. Keep this file class-only — no inline
+   styles anywhere in the generated report HTML. */
+
+body{font-family:Georgia,serif;color:#1c2e4a;padding:44px;max-width:720px;margin:0 auto;font-size:13px;}
+h1{font-size:22px;font-weight:500;margin:0 0 3px;}
+.sub{color:#5d7a8e;font-size:12px;margin-bottom:22px;}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:22px;}
+.stat{border:1px solid #e4dfd0;border-radius:6px;padding:11px;}
+.stat-lbl{font-size:10px;color:#5d7a8e;text-transform:uppercase;letter-spacing:.06em;}
+.stat-val{font-size:17px;font-weight:500;margin-top:4px;}
+.section-lbl{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5d7a8e;margin:20px 0 8px;}
+.task{padding:5px 0;border-bottom:1px solid #e4dfd0;display:flex;gap:8px;font-size:12px;}
+.check{color:#3d5a4a;font-weight:700;}
+.mtg{padding:7px 0;border-bottom:1px solid #e4dfd0;}
+.mtg-date{font-weight:600;font-size:12px;}
+.mtg-notes{color:#5d7a8e;font-size:12px;margin-top:2px;}
+.note-block{border-left:2px solid #a98c4b;padding-left:12px;font-style:italic;color:#5d7a8e;font-size:13px;}
+.footer{margin-top:36px;padding-top:14px;border-top:1px solid #e4dfd0;font-size:10px;color:#8da3b6;}
+@media print{body{padding:20px;}}
+
+/* ── C5 utility/semantic classes (replace former inline style="" attributes) ── */
+/* layout */
+.rpt-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;}
+.rpt-head.mb24{margin-bottom:24px;}
+.rpt-meta{font-size:10px;color:#8da3b6;text-align:right;}
+.rpt-meta2{font-size:11px;color:#5d7a8e;text-align:right;}
+.grid5{grid-template-columns:repeat(5,1fr);}
+.mt22{margin-top:22px;}
+.mt18{margin-top:18px;}
+/* stat-val size variants */
+.sv13{font-size:13px;margin-top:6px;}
+.sv14{font-size:14px;margin-top:6px;}
+.sv15{font-size:15px;margin-top:6px;}
+.sv-cap{text-transform:capitalize;}
+/* colour tones (the former dynamic colour palette) */
+.ok{color:#3d5a4a;}
+.bad{color:#8c3d3d;}
+.warn{color:#a98c4b;}
+.mut{color:#5d7a8e;}
+.mut2{color:#8da3b6;}
+.ink{color:#2d4258;}
+/* text utilities */
+.b6{font-weight:600;}
+.b7{font-weight:700;}
+.fs11{font-size:11px;}
+.fs14{font-size:14px;}
+.fs16{font-size:16px;}
+.f1{flex:1;}
+.f140{flex:0 0 140px;}
+.nw{white-space:nowrap;}
+/* report paragraph */
+.rpt-p{font-size:12.5px;line-height:1.6;color:#2d4258;}
+/* svg + misc */
+.rpt-svg{border:1px solid #e4dfd0;border-radius:6px;background:#fff;}
+.chart-empty{color:#8da3b6;font-style:italic;font-size:12px;padding:8px 0;}
+.task-head{font-weight:600;color:#5d7a8e;font-size:11px;text-transform:uppercase;letter-spacing:.04em;}
+.task-total{border-bottom:none;padding-top:12px;}
+.sig-row{display:flex;gap:40px;margin-top:34px;}
+.sig{flex:1;border-top:1px solid #1c2e4a;padding-top:6px;font-size:11px;color:#5d7a8e;}
+.ms-tag{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5d7a8e;margin-bottom:4px;}
+.sv-sub{font-size:11px;color:#8da3b6;}
