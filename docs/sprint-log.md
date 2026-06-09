@@ -12,6 +12,62 @@
 
 ---
 
+## 2026-06-09 (round 5) — Code-quality pass + front-phase parity finish
+
+Closes the four 2026-06-09 architecture-inefficiency items and the whole
+"Front-phase parity — finish the symmetry & wire the new tools through" TODO block.
+Build · lint · calc · check green; new calc engines unit-tested. No migration.
+**Carries an edge redeploy** (`generate-invoices` batch fix) via the gated deploy
+workflow.
+
+**Code-quality (all four 2026-06-09 items):**
+- **Sign-in boot parallelized** (`auth.jsx`): `mergePhasesWithDB()` now starts before
+  the advisors/clients role queries and is awaited only once a role is confirmed —
+  one DB round-trip saved on every sign-in.
+- **`generate-invoices` N+1 fixed**: balance_history is fetched in chunked
+  (`in (client_ids)`, 25/chunk) + paginated (1000/page) batches up front, grouped by
+  client, then filtered per client's own period end. Fee math untouched.
+- **Pre-auth pages brand-themed**: new standalone `src/brand-boot.js` (login, signup,
+  landing — loaded `defer` after the supabase client; copied + cache-busted by
+  `build.mjs`). Paints cached → subdomain-slug brand as CSS vars; swaps the login/
+  signup brand mark, name, and "Powered by Prism" sub via `data-brand-*` hooks; the
+  pages' primary button / focus ring / mark now key off `var(--brand, var(--ink))`.
+- **Brand cache trust closed**: both `store.jsx applyFirmBrand()` and `brand-boot.js`
+  now whitelist-sanitize every brand input (cache, anon RPC, firm row): `#rrggbb`
+  color only, `data:image/` logo ≤ 300 KB, length-capped name/slug, boolean-coerced
+  attribution. Tampered localStorage can no longer inject arbitrary values.
+
+**Front-phase parity (round 4 of the client-utility track):**
+- **P01 · Net-worth trajectory** (`netWorthTrajectory` + `NetWorthTrajectoryTool`,
+  key `networth`): year-by-year projection at today's pace, 5/10/20-yr stats, a real
+  Sparkline, the "+1% saved" lever, and an honest rule — a negative net worth is not
+  compounded at the investment return (digging out is linear; compounding starts at
+  zero), with the crossing year surfaced.
+- **P02 · Income runway** (`incomeRunway` + `IncomeRunwayTool`, key `incomerunway`):
+  if income paused, months the reserve carries essentials; disability benefit
+  (~60% default when a policy is on file) + elimination period modeled; client-safe
+  tone ("Building · time on your side", never red).
+- **Task hooks**: P03 gains "Model extra principal in the mortgage payoff
+  accelerator" (p2t6), P06 gains "Review concentrated equity in the equity-comp
+  planner" (p5t6) — the checklists now point at the round-3 tools.
+- **SS loop closed** (`SSClaimingTool`): "Set the plan to claim at 62/67/70" buttons
+  write the chosen age back into the Social Security income stream(s) —
+  `startAge` = claim age, `monthlyAmount` = PIA × claiming factor, PIA back-filled
+  for idempotent re-applies; creates the stream if none exists. Retirement readiness
+  now reflects the claiming call.
+- **Advisor reports**: QBR gains a "Plan flags" section (largest concentrated
+  equity-comp position with tax-to-trim, projected first RMD); the IPS gains a
+  conditional "Concentrated positions & distributions" section. Both fed by a shared
+  `advPlanFlags()` in `advisor-modal.jsx`.
+
+Calc-core: `netWorthTrajectory`, `incomeRunway` added + 13 unit tests. Phases 1–3
+now carry 3 interactive tools each — full symmetry with 5–7.
+
+**Human hand-off:** none new — migration 032 (round 4) is still the open item in
+your queue. The `generate-invoices` redeploy rides the gated workflow with this ship.
+
+---
+
 ## 2026-06-09 (round 4) — White-label branding + AI relationship assistant (Gemini)
 
 Closes the top two items in Claude's TODO queue. Build · lint · calc · check green.

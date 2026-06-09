@@ -106,6 +106,73 @@ const FreedomDateTool = () => {
   );
 };
 
+/* Phase 01 · Net-worth trajectory — what today's savings pace builds (client utility) */
+const NetWorthTrajectoryTool = () => {
+  const { surplus, netWorth, savingsRate, effectiveTakehome } = useProfile();
+  const [annualSavings, setAnnualSavings] = useStateC(Math.round(Math.max(0, surplus * 12)));
+  const [years, setYears] = useStateC(20);
+
+  const traj = useMemoC(
+    () => netWorthTrajectory({ startNetWorth: netWorth, annualSavings, realReturn: 0.05, years }),
+    [netWorth, annualSavings, years]);
+  // The lever: one more percent of take-home, saved — what it adds at the horizon.
+  const onePct = Math.max(0, effectiveTakehome) * 12 * 0.01;
+  const trajMore = useMemoC(
+    () => netWorthTrajectory({ startNetWorth: netWorth, annualSavings: annualSavings + onePct, realReturn: 0.05, years }),
+    [netWorth, annualSavings, onePct, years]);
+  const liftAtHorizon = Math.max(0, trajMore.final - traj.final);
+
+  const digging = netWorth < 0;
+  return (
+    <ToolShell title="Net-worth trajectory" hint="Where today's pace leads, year by year">
+      <div className="px-tool-grid">
+        <StatCell label="Net worth today" value={fmt$(netWorth, { short: true })}
+          tone={digging ? null : 'good'}
+          foot={digging ? 'building — every payment counts' : `saving ${fmtPct(savingsRate)} of take-home`} />
+        <StatCell label="In 5 years" value={fmt$(traj.at5, { short: true })} />
+        <StatCell label="In 10 years" value={fmt$(traj.at10, { short: true })} />
+        <StatCell label={`In ${traj.years} years`} value={fmt$(traj.final, { short: true })} big tone="good" />
+      </div>
+      <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <Sparkline data={traj.series.map(p => p.value)} width={220} height={36} color="var(--forest)" />
+        {digging && traj.crossesZeroYear != null && traj.crossesZeroYear > 0 && (
+          <span style={{ fontSize: 11, color: 'var(--ink-mute)' }}>
+            crosses zero in ≈ {traj.crossesZeroYear} yr — compounding starts working for you there
+          </span>
+        )}
+      </div>
+      {liftAtHorizon > 0 && (
+        <div style={{ marginTop: 12, padding: '10px 12px', background: 'var(--bg-elev)', borderLeft: '3px solid var(--gold)',
+          borderRadius: 6, fontSize: 12, color: 'var(--ink)', lineHeight: 1.5 }}>
+          Saving <b>1% more</b> of take-home ({fmt$(onePct / 12)}/mo) adds about
+          <b> {fmt$(liftAtHorizon, { short: true })}</b> to the {traj.years}-year picture.
+        </div>
+      )}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 14 }}>
+        <label className="px-field">
+          <span className="px-field-label">Annual amount saved</span>
+          <div className="px-input-affix">
+            <span className="px-affix">$</span>
+            <input type="number" value={annualSavings} step="1000" onChange={(e) => setAnnualSavings(parseFloat(e.target.value) || 0)} />
+          </div>
+        </label>
+        <label className="px-field">
+          <span className="px-field-label">Horizon</span>
+          <div className="px-input-affix">
+            <input type="number" value={years} min="1" max="60" step="1" onChange={(e) => setYears(parseInt(e.target.value) || 20)} />
+            <span className="px-affix px-affix-r">yr</span>
+          </div>
+        </label>
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 10, lineHeight: 1.5 }}>
+        Illustrative at a 5% real (after-inflation) return on the positive balance; paying down debt
+        counts the same as saving here. The shape of the curve is the point — early dollars do
+        decades of work. Your advisor can tune the assumptions with you.
+      </div>
+    </ToolShell>
+  );
+};
+
 /* Phase 02 · Reserve */
 const ReserveTool = () => {
   const { totalExpenses, profile, reserveTarget, reservePct } = useProfile();
@@ -188,6 +255,80 @@ const CoverageGapTool = () => {
         Guideline ≈ income × {multiple} + debts to retire, less the liquidity reserve. The premium is a
         rough illustration, not a quote — actual cost depends on age, health, and term. A short
         conversation with your advisor sizes the right policy.
+      </div>
+    </ToolShell>
+  );
+};
+
+/* Phase 02 · Income runway — if income stopped, how long does the reserve carry you? */
+const IncomeRunwayTool = () => {
+  const { profile, totalExpenses, grossMonthlyIncome } = useProfile();
+  const reserve = profile.savings?.emergency || 0;
+  const hasDisabilityPolicy = (Array.isArray(profile.insurance) ? profile.insurance : [])
+    .some(i => i.type === 'disability');
+  // LTD policies typically replace ~60% of gross income after an elimination period.
+  const [benefit, setBenefit] = useStateC(hasDisabilityPolicy ? Math.round((grossMonthlyIncome || 0) * 0.6) : 0);
+  const [waitMonths, setWaitMonths] = useStateC(3);
+
+  const run = useMemoC(
+    () => incomeRunway({ liquidReserve: reserve, monthlyEssentials: totalExpenses,
+      monthlyBenefit: benefit, benefitWaitMonths: waitMonths }),
+    [reserve, totalExpenses, benefit, waitMonths]);
+  const bare = useMemoC(
+    () => incomeRunway({ liquidReserve: reserve, monthlyEssentials: totalExpenses }),
+    [reserve, totalExpenses]);
+
+  // Constructive client tone: forest at 6+ months, gold "building" below — no red.
+  const strong = run.indefinite || run.months >= 6;
+  const tone = strong ? 'var(--forest)' : 'var(--gold)';
+  const label = run.indefinite ? 'Fully covered' : strong ? 'Solid runway' : 'Building · time on your side';
+  const runwayPct = run.indefinite ? 100 : Math.min(100, (run.months / 12) * 100);
+
+  return (
+    <ToolShell title="Income runway" hint="If income paused, how long essentials stay covered">
+      <div className="px-tool-grid">
+        <StatCell label="Runway with benefits"
+          value={run.indefinite ? 'Ongoing' : `${run.months} mo`}
+          tone={strong ? 'good' : null}
+          foot={run.indefinite ? 'benefit covers essentials' : 'reserve + disability benefit'} big />
+        <StatCell label="Reserve alone" value={bare.indefinite ? 'Ongoing' : `${bare.months} mo`}
+          foot="no benefit counted" />
+        <StatCell label="Benefit coverage" value={`${Math.round(run.coveragePct)}%`}
+          foot="of essential outflow" />
+        <StatCell label="Monthly gap"
+          value={run.burnAfterBenefit > 0 ? fmt$(run.burnAfterBenefit) : '—'}
+          foot={run.burnAfterBenefit > 0 ? 'drawn from reserve once benefit starts' : 'no draw needed'} />
+      </div>
+      <div style={{ marginTop: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+          <span className="px-eyebrow">Runway vs. 12-month benchmark</span>
+          <span style={{ fontFamily: 'var(--serif)', fontSize: 13, fontWeight: 600, color: tone }}>{label}</span>
+        </div>
+        <div style={{ height: 6, background: 'var(--bg-elev)', borderRadius: 3, overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${runwayPct}%`, background: tone, transition: 'width .4s' }} />
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 14 }}>
+        <label className="px-field">
+          <span className="px-field-label">Monthly disability benefit</span>
+          <div className="px-input-affix">
+            <span className="px-affix">$</span>
+            <input type="number" value={benefit} step="250" onChange={(e) => setBenefit(parseFloat(e.target.value) || 0)} />
+          </div>
+        </label>
+        <label className="px-field">
+          <span className="px-field-label">Waiting period</span>
+          <div className="px-input-affix">
+            <input type="number" value={waitMonths} min="0" step="1" onChange={(e) => setWaitMonths(parseInt(e.target.value) || 0)} />
+            <span className="px-affix px-affix-r">mo</span>
+          </div>
+        </label>
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 10, lineHeight: 1.5 }}>
+        Long-term disability cover typically replaces ~60% of gross income after a waiting period the
+        reserve must bridge alone. {hasDisabilityPolicy
+          ? 'A disability policy is on file — confirm the actual benefit and elimination period match above.'
+          : 'No disability policy is on file yet — worth a conversation with your advisor; it pairs with the coverage-gap review.'}
       </div>
     </ToolShell>
   );
@@ -1288,7 +1429,7 @@ const RMDProjectionTool = () => {
 
 /* Phase 07 · Social Security claiming-age optimizer (62 / 67 / 70 break-even) */
 const SSClaimingTool = () => {
-  const { incomeStreams } = useProfile();
+  const { incomeStreams, setProfile } = useProfile();
   const ssStreams = (incomeStreams || []).filter(s => s.type === 'social_security');
   // PIA = benefit at full retirement age. Prefer a captured `pia`; fall back to the
   // largest stream's monthly amount (assumes it was entered at FRA).
@@ -1296,6 +1437,30 @@ const SSClaimingTool = () => {
   const [pia, setPia] = useStateC(Math.round(defaultPia) || 3000);
   const [longevity, setLongevity] = useStateC(90);
   const [discount, setDiscount] = useStateC(0);
+  const [appliedAge, setAppliedAge] = useStateC(null);
+
+  // Close the loop: feed the chosen claiming age back into the plan's Social
+  // Security income stream(s), so retirement readiness reflects the call. Each
+  // stream is rescaled from its own PIA (the at-FRA benefit); the PIA is written
+  // back when missing so a re-apply at another age stays idempotent. With no SS
+  // stream on file yet, applying creates one from the PIA entered here.
+  const applyClaimAge = (claimAge) => {
+    const factor = ssBenefitFactor(claimAge, 67);
+    setProfile(p => {
+      const streams = Array.isArray(p.incomeStreams) ? p.incomeStreams : [];
+      const hasSS = streams.some(s => s.type === 'social_security');
+      const next = hasSS
+        ? streams.map(s => {
+            if (s.type !== 'social_security') return s;
+            const piaVal = Number(s.pia) || Number(s.monthlyAmount) || 0;
+            return { ...s, pia: piaVal, startAge: claimAge, monthlyAmount: Math.round(piaVal * factor) };
+          })
+        : [...streams, { id: `is${Date.now()}`, label: 'Social Security', type: 'social_security',
+            pia, startAge: claimAge, monthlyAmount: Math.round(pia * factor), colaPct: 2.5 }];
+      return { ...p, incomeStreams: next };
+    });
+    setAppliedAge(claimAge);
+  };
 
   const result = useMemoC(() => socialSecurityClaiming({
     pia, fra: 67, colaPct: 2.5, longevityAge: longevity, discountRatePct: discount, claimAges: [62, 67, 70],
@@ -1337,6 +1502,21 @@ const SSClaimingTool = () => {
               longevity, other income, and a spouse's benefit drive the call.</>
           : <> At this longevity the earlier claim isn't overtaken — but health, other income, and survivor benefits matter.</>}
       </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+        <span className="px-eyebrow">Set the plan to claim at</span>
+        {result.options.map(o => (
+          <button key={o.claimAge} className="px-btn px-btn-sm" type="button"
+            onClick={() => applyClaimAge(o.claimAge)}
+            style={appliedAge === o.claimAge ? { borderColor: 'var(--forest)', color: 'var(--forest)', fontWeight: 600 } : undefined}>
+            {o.claimAge}{appliedAge === o.claimAge ? ' ✓' : ''}
+          </button>
+        ))}
+        {appliedAge != null && (
+          <span style={{ fontSize: 11, color: 'var(--ink-mute)' }}>
+            Social Security stream updated — retirement readiness now reflects claiming at {appliedAge}.
+          </span>
+        )}
+      </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginTop: 14 }}>
         <label className="px-field">
           <span className="px-field-label">PIA (at 67)</span>
@@ -1369,8 +1549,10 @@ const SSClaimingTool = () => {
 const calculators = {
   cashflow:      CashflowTool,
   freedomdate:   FreedomDateTool,
+  networth:      NetWorthTrajectoryTool,
   reserve:       ReserveTool,
   coveragegap:   CoverageGapTool,
+  incomerunway:  IncomeRunwayTool,
   avalanche:     AvalancheTool,
   debtvinvest:   DebtVsInvestTool,
   mortgagepayoff: MortgagePayoffTool,

@@ -53,12 +53,14 @@ try {
     .update(stylesCssMin)
     .update(printCssMin)
     .update(readFileSync('src/supabase-client.js'))
+    .update(readFileSync('src/brand-boot.js'))
     .digest('hex').slice(0, 8);
   const bust = (html) => readFileSync(html, 'utf8')
     .replace(/dist\/bundle\.js(\?v=[^"']*)?/g,         `dist/bundle.js?v=${hash}`)
     .replace(/dist\/portal\.js(\?v=[^"']*)?/g,         `dist/portal.js?v=${hash}`)
     .replace(/src\/styles\.css(\?v=[^"']*)?/g,         `src/styles.css?v=${hash}`)
-    .replace(/src\/supabase-client\.js(\?v=[^"']*)?/g, `src/supabase-client.js?v=${hash}`);
+    .replace(/src\/supabase-client\.js(\?v=[^"']*)?/g, `src/supabase-client.js?v=${hash}`)
+    .replace(/src\/brand-boot\.js(\?v=[^"']*)?/g,      `src/brand-boot.js?v=${hash}`);
   // Routing: marketing (landing.html) is served at / ; the app (index.html) lives at /app ;
   // the slim client portal (portal.html → dist/portal.js) lives at /portal.
   // login/signup stay at the root. Asset refs are absolute (/dist, /src, /vendor)
@@ -80,6 +82,7 @@ try {
   writeFileSync('_site/src/styles.css',   stylesCssMin);
   writeFileSync('_site/src/print.css',    printCssMin);
   copyFileSync('src/supabase-client.js',  '_site/src/supabase-client.js');
+  copyFileSync('src/brand-boot.js',       '_site/src/brand-boot.js');
 
   // Self-hosted libs (no runtime CDN dependency except Plaid, which requires its CDN)
   mkdirSync('_site/vendor', { recursive: true });

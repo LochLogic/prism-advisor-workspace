@@ -60,6 +60,9 @@ function AuthProvider({ children }) {
       }
     };
     try {
+      // The phase fetch is independent of the role queries — run it in parallel
+      // and only await it once a role is confirmed (one round-trip saved per sign-in).
+      const phasesReady = mergePhasesWithDB();
       const { data: adv } = await window.__sb
         .from('advisors')
         .select('id, full_name, honorific, firm_id, email, role, firms(name)')
@@ -67,7 +70,7 @@ function AuthProvider({ children }) {
         .maybeSingle();
 
       if (adv) {
-        await mergePhasesWithDB();
+        await phasesReady;
         loadBrand();
         // DB role column: 'advisor' | 'admin' | 'analyst'
         const appRole = adv.role === 'admin' ? 'admin' : 'advisor';
@@ -84,7 +87,7 @@ function AuthProvider({ children }) {
         .maybeSingle();
 
       if (cli) {
-        await mergePhasesWithDB();
+        await phasesReady;
         loadBrand();
         window.__pxAuthActor = { id: sess.user.id, role: 'client', email: sess.user.email, firm_id: cli.firm_id };
         auditSignin();
