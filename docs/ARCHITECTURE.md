@@ -2,7 +2,7 @@
 
 > **Purpose:** condensed router for AI/dev work. Tells you *which* file owns a
 > concern and what it exports — not every line. Read the named file for deep logic.
-> **Last synced:** 2026-06-09 round-7 sprint (1040 insights · exam packet · CQ sweep). **Regenerate when:** `build-files.mjs`
+> **Last synced:** 2026-06-09 round-8 sprint (document requests · proposal packet). **Regenerate when:** `build-files.mjs`
 > load order changes, a `src/*` file is added/split, or `window.db`/`PrismCalc` gain methods.
 
 ---
@@ -93,7 +93,7 @@ e2e/demo.spec.ts       Playwright smoke
 - Alerts/meetings: `getAlerts, snoozeAlert, getMeetings, logMeeting, requestMeeting, updateMeetingStatus, deleteMeeting`
 - Firm/billing: `getAdvisors, getFirmClients, getFeeSchedules, createFeeSchedule, getInvoices, updateInvoiceStatus, getSubscription`
 - Compliance: `getAcknowledgements, getFirmAcknowledgements (firm-wide, round 7), createAcknowledgement, signAcknowledgement, sendDocusignEnvelope, audit, getAuditLog ({limit, clientId, since})`
-- Messaging/docs: `getMessages, sendMessage, markMessagesRead, getUnreadMessageClients, getDocuments, uploadDocument, getDocumentUrl, deleteDocument`
+- Messaging/docs: `getMessages, sendMessage, markMessagesRead, getUnreadMessageClients, getDocuments, uploadDocument, getDocumentUrl, deleteDocument, getDocumentRequests, requestDocument, resolveDocumentRequest` (doc requests ride on `messages` via `context='doc-request:<cat>'` / `'doc-request-done:<id>'` — crm_tasks has no client RLS, messages do; zero schema change, audit-logged)
 - Misc: `getPhases, getBalanceHistory, getBookBalanceHistory, getTasks/createTask/updateTask/deleteTask, isUUID, timeAgo`
 - Branding/AI (2026-06-09): `getFirmBrand, updateFirmBrand, getBrandForSlug` (anon RPC
   `px_brand_for_slug`, migration 032), `aiAssist(action, context)` → `ai-assist` edge fn
@@ -133,7 +133,8 @@ mulberry32 (seeded, deterministic). Vault document deletion fires a
 `TaskProvider/useTasks`, `ViewProvider/useView`, `NotificationProvider/useNotifications`,
 `useTheme`; report printers `printClientReport, printMilestoneReport, printComplianceReport, printExamPacket
 (firm books-&-records, round 7), printPerformanceReport, printInvoiceReport,
-printQBRReport, printIPSReport`; helpers
+printQBRReport, printIPSReport, printProposalPacket (prospect close-the-deal print,
+round 8 — button on the portal prospect banner)`; helpers
 `escapeHtml, sanitizeHtml, fmt$, fmtPct, fmtN, emptyProfile, mergeProfile`.
 Also `ProspectProvider/useProspects` — unsaved "prospect-" households → one-click convert.
 Also white-label brand engine: `applyFirmBrand(brand)` (inline `--brand`/`--accent*` CSS vars

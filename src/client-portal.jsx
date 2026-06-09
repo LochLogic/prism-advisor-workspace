@@ -430,6 +430,29 @@ const ClientPortal = ({ onOpenNumbers }) => {
     setView('advisor');
   };
 
+  // Proposal packet — the branded close-the-deal print for proposal mode.
+  // Pulls the snapshot from the live profile context and the fee schedule from
+  // the firm (first active schedule); illustrative default tiers otherwise.
+  const printProposal = async () => {
+    const schedules = (await window.db?.getFeeSchedules?.()) || [];
+    const feeSchedule = schedules[0] || null;
+    window.printProposalPacket?.({
+      client: { name: prospectObj?.name || viewingClient.name },
+      phase: activePhaseObj,
+      phases: phasesData.map(p => ({ num: p.num, title: p.title, total: p.tasks.length })),
+      netWorth: ctx.netWorth, invested: ctx.totalInvested,
+      reserve: Number(ctx.profile?.savings?.emergency) || 0, surplus: ctx.surplus,
+      readiness: ctx.retirementReadiness, successBand: ctx.successBand,
+      risk: ctx.riskComplete > 0 ? ctx.riskProfile : null,
+      feeSchedule: feeSchedule || {
+        name: 'Illustrative',
+        tiers: [{ up_to: 1000000, annual_bps: 100 }, { up_to: 3000000, annual_bps: 75 }, { up_to: null, annual_bps: 50 }],
+      },
+      feeIllustrative: !feeSchedule,
+      advisorName: advisorDisplay.fullName, advisorFirm: advisorDisplay.firm,
+    });
+  };
+
   // Build advisor display info from auth (real) or mock fallback (demo)
   const advisorDisplay = (() => {
     const fullName = authUser?.full_name || advisor.fullName;
@@ -543,6 +566,10 @@ const ClientPortal = ({ onOpenNumbers }) => {
                 convert to a client to keep it.
               </div>
             </div>
+            <button className="px-btn px-btn-ghost px-btn-sm" onClick={printProposal} disabled={converting}
+              title="Print a branded proposal: today's snapshot, the roadmap, fees, and what working together looks like">
+              <Icons.FileText size={12} /> Proposal packet
+            </button>
             <button className="px-btn px-btn-ghost px-btn-sm" onClick={discardProspect} disabled={converting}>
               Discard
             </button>
