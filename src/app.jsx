@@ -416,7 +416,7 @@ function CommandPalette() {
 
 /* ─── App inner (all providers are already mounted above) ─────────── */
 function AppInner() {
-  const { view, setView, numbersOpen, openNumbers, closeNumbers } = useView();
+  const { view, setView, activeClientId, numbersOpen, openNumbers, closeNumbers } = useView();
   const { loading, session, role, isDemo, signOut } = useAuth();
   const { dark, toggleTheme } = useTheme();
 
@@ -430,6 +430,15 @@ function AppInner() {
     else if (role === 'admin')  setView('admin');
     else if (isDemo)            setView('client');
   }, [role, isDemo]);
+
+  // Opening a new page should start at the top. The window/body is the scroller and
+  // the topbar is sticky, so without this a freshly-rendered view inherits the prior
+  // page's scroll position and appears mid-scroll. Always reset on a view switch;
+  // reset on a client switch only while on the portal (so opening a client's Numbers
+  // drawer from the advisor view doesn't jump the roster). A deep-link to a specific
+  // phase re-scrolls itself ~150ms after mount (ClientPortal), which wins over this.
+  React.useEffect(() => { window.scrollTo(0, 0); }, [view]);
+  React.useEffect(() => { if (view === 'client') window.scrollTo(0, 0); }, [activeClientId]);
 
   if (loading) return <LoadingScreen />;
   if (!session && !isDemo) return <LoadingScreen />;

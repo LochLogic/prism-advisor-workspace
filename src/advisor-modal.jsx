@@ -569,7 +569,7 @@ const TAB_STYLE = (active) => ({
   background: 'none', border: 'none',
   borderBottom: active ? '2px solid var(--gold)' : '2px solid transparent',
   cursor: 'pointer', textTransform: 'capitalize',
-  letterSpacing: '.03em', marginBottom: -1,
+  letterSpacing: '.03em', marginBottom: -1, flexShrink: 0,
 });
 
 const LABEL_STYLE = {
@@ -1135,7 +1135,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
   };
 
   return (
-    <Modal isOpen={!!client} onClose={onClose}>
+    <Modal isOpen={!!client} onClose={onClose} className="px-modal-client">
       {/* ── Header ── */}
       <div style={{ padding: '28px 28px 0' }}>
         <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginBottom: 18 }}>
@@ -1148,7 +1148,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
               {meetings?.length > 0 && ` · reviewed ${timeAgo(meetings[0].met_at)} ago`}
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 6 }}>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             <button className="px-btn px-btn-sm px-btn-ghost"
               aria-label="Generate quarterly review packet"
               onClick={generateQBR}>
@@ -1179,7 +1179,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
 
         {/* Tabs — only for live (real UUID) clients */}
         {isLiveClient && (
-          <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', overflowX: 'auto' }}>
             {['overview', 'accounts', 'messages', 'documents', 'tasks', 'timeline', 'performance', 'edit'].map(t => (
               <button key={t} style={TAB_STYLE(tab === t)} onClick={() => setTab(t)}>{t}</button>
             ))}

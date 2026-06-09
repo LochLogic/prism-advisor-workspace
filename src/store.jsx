@@ -34,7 +34,7 @@ const defaultProfile = {
   ],
   savings:  { emergency: 112000 },
   retirement: {
-    hsaBalance: 41200, iraBalance: 318000, fourohonekBalance: 1_240_000,
+    hsaBalance: 41200, iraBalance: 318000, fourohonekBalance: 1_240_000, rothBalance: 280000,
     hsaContrib: 4400, iraContributed: 7000, iraLimit: 7000,
     fourohonekContributed: 23500, fourohonekLimit: 23500, employerMatchPct: 5,
   },
@@ -86,7 +86,7 @@ const emptyProfile = {
   debts: [],
   savings:  { emergency: 0 },
   retirement: {
-    hsaBalance: 0, iraBalance: 0, fourohonekBalance: 0,
+    hsaBalance: 0, iraBalance: 0, fourohonekBalance: 0, rothBalance: 0,
     hsaContrib: 0, iraContributed: 0, iraLimit: 7000,
     fourohonekContributed: 0, fourohonekLimit: 23500, employerMatchPct: 0,
   },
@@ -300,7 +300,8 @@ function ProfileProvider({ children }) {
   const savingsRate   = effectiveTakehome > 0 ? ((surplus + mortgagePrincipalMonthly) / effectiveTakehome) * 100 : 0;
   const retirementAssets = (profile.retirement.hsaBalance || 0)
                          + (profile.retirement.iraBalance || 0)
-                         + (profile.retirement.fourohonekBalance || 0);
+                         + (profile.retirement.fourohonekBalance || 0)
+                         + (profile.retirement.rothBalance || 0);
   const taxableBalance = profile.taxable.balance || 0;
   const totalInvested  = retirementAssets + taxableBalance;
   const investedOnFile = totalInvested;   // alias for asset reconciliation vs. managed AUM
