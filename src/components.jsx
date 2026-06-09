@@ -111,8 +111,13 @@ const Toast = () => {
   );
 };
 
-/* ─── Performance value sparkline (shared: advisor modal + client portal) ─ */
+/* ─── Performance value chart (shared: advisor modal + client portal) ─────
+   An area sparkline with an interactive readout: hover (or move along) the
+   chart to surface a crosshair, a marker on the line, and a tooltip with the
+   exact date + portfolio value at that point. Falls back gracefully on touch
+   (tap-drag fires the same move handler) and announces its range to AT. */
 const PerfChart = ({ series, height = 96 }) => {
+  const [hover, setHover] = React.useState(null);
   if (!series || series.length < 2) {
     return (
       <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -125,17 +130,53 @@ const PerfChart = ({ series, height = 96 }) => {
   const W = 380, H = height;
   const vals = series.map(p => p.value);
   const min = Math.min(...vals), max = Math.max(...vals), range = (max - min) || 1, n = series.length;
-  const x = i => (i / (n - 1)) * W;
-  const y = v => H - ((v - min) / range) * (H - 10) - 5;
-  const line = series.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`).join(' ');
+  // Fractional (0–1) coordinates: the SVG stretches with preserveAspectRatio
+  // "none", so x-fraction = i/(n-1) and y-fraction = y(v)/H map straight onto
+  // the container — letting the HTML overlay (dot + tooltip) sit in %.
+  const xFrac = i => (n > 1 ? i / (n - 1) : 0);
+  const yFrac = v => (H - ((v - min) / range) * (H - 10) - 5) / H;
+  const x = i => xFrac(i) * W;
+  const line = series.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${(yFrac(p.value) * H).toFixed(1)}`).join(' ');
   const area = `${line} L${W},${H} L0,${H} Z`;
   const up = vals[n - 1] >= vals[0];
   const color = up ? 'var(--forest)' : 'var(--brick)';
+  const fmtDate = (d) => { try { return new Date(d).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }); } catch (e) { return d || ''; } };
+
+  const onMove = (e) => {
+    const touch = e.touches && e.touches[0];
+    const clientX = touch ? touch.clientX : e.clientX;
+    const rect = e.currentTarget.getBoundingClientRect();
+    if (!rect.width) return;
+    const f = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    setHover(Math.round(f * (n - 1)));
+  };
+  const hp = hover != null ? series[hover] : null;
+  const tipLeft = hp ? Math.min(92, Math.max(8, xFrac(hover) * 100)) : 0;
+
   return (
-    <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: 'block' }} aria-hidden="true">
-      <path d={area} fill={color} opacity="0.09" />
-      <path d={line} fill="none" stroke={color} strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
-    </svg>
+    <div style={{ position: 'relative', width: '100%', height: H, cursor: 'crosshair' }}
+      onMouseMove={onMove} onMouseLeave={() => setHover(null)}
+      onTouchStart={onMove} onTouchMove={onMove} onTouchEnd={() => setHover(null)}
+      role="img" aria-label={`Portfolio value trend, ${fmt$(vals[0], { short: true })} to ${fmt$(vals[n - 1], { short: true })} over ${n} points`}>
+      <svg width="100%" height="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: 'block' }} aria-hidden="true">
+        <path d={area} fill={color} opacity="0.09" />
+        <path d={line} fill="none" stroke={color} strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
+        {hp && <line x1={x(hover)} y1="0" x2={x(hover)} y2={H} stroke="var(--ink-faint)" strokeWidth="1" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />}
+      </svg>
+      {hp && (
+        <>
+          <div style={{ position: 'absolute', left: `${xFrac(hover) * 100}%`, top: `${yFrac(hp.value) * 100}%`,
+            width: 9, height: 9, borderRadius: '50%', background: color, border: '2px solid var(--surface)',
+            transform: 'translate(-50%, -50%)', pointerEvents: 'none', boxShadow: '0 0 0 1px var(--border)' }} />
+          <div style={{ position: 'absolute', left: `${tipLeft}%`, top: -4, transform: 'translate(-50%, -100%)',
+            background: 'var(--ink)', color: '#fff', fontSize: 10.5, lineHeight: 1.35, padding: '4px 8px',
+            borderRadius: 5, whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 3, boxShadow: '0 2px 8px rgba(0,0,0,.2)' }}>
+            <div style={{ fontWeight: 600 }}>{fmt$(hp.value)}</div>
+            <div style={{ opacity: .75 }}>{fmtDate(hp.date)}</div>
+          </div>
+        </>
+      )}
+    </div>
   );
 };
 

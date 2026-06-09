@@ -412,14 +412,21 @@ const ClientPortal = ({ onOpenNumbers }) => {
   };
 
   // Build advisor display info from auth (real) or mock fallback (demo)
-  const advisorDisplay = {
-    initials: authUser?.full_name
-      ? authUser.full_name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase()
-      : advisor.initials,
-    fullName: authUser?.full_name || advisor.fullName,
-    firm:     authUser?.firms?.name || advisor.firm,
-    name:     authUser?.full_name?.split(' ')[0] || advisor.name,
-  };
+  const advisorDisplay = (() => {
+    const fullName = authUser?.full_name || advisor.fullName;
+    const honorific = authUser ? authUser.honorific : advisor.honorific;
+    return {
+      initials: authUser?.full_name
+        ? authUser.full_name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase()
+        : advisor.initials,
+      fullName,
+      firm: authUser?.firms?.name || advisor.firm,
+      // Client-facing reference. With a display title set → "Ms. Chen";
+      // otherwise the advisor's first name / short name (prior behaviour).
+      name: advisorFormalName({ honorific, fullName,
+        fallback: authUser?.full_name?.split(' ')[0] || advisor.name }),
+    };
+  })();
 
   const completedPhases = phasesData.filter(p => p.tasks.every(t => taskStates[p.id]?.[t.id])).length;
 

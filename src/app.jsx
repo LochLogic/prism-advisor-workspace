@@ -84,6 +84,7 @@ function ProvisionWorkspace() {
   const meta = session?.user?.user_metadata || {};
   const [firmName, setFirmName] = React.useState(meta.firm_name || '');
   const [fullName, setFullName] = React.useState(meta.full_name || '');
+  const [honorific, setHonorific] = React.useState('');
   const [busy, setBusy]   = React.useState(false);
   const [error, setError] = React.useState('');
 
@@ -94,6 +95,12 @@ function ProvisionWorkspace() {
       const { error } = await window.__sb.rpc('px_provision_firm',
         { p_firm_name: firmName.trim(), p_full_name: fullName.trim() });
       if (error) throw error;
+      // Persist the optional client-facing title onto the just-created advisor
+      // row (advisors_update_self RLS permits this). Non-fatal if it fails — the
+      // advisor can set it later from the account menu.
+      if (honorific) {
+        try { await window.__sb.from('advisors').update({ honorific }).eq('auth_user_id', session.user.id); } catch (e) {}
+      }
       window.location.reload(); // re-run role detection — lands as firm admin
     } catch (e) { setError(e.message || 'Could not create workspace.'); setBusy(false); }
   };
@@ -120,6 +127,16 @@ function ProvisionWorkspace() {
           <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.07em' }}>Your name</span>
             <input className="px-input" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Jane Advisor" autoFocus />
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.07em' }}>How clients address you <span style={{ textTransform: 'none', fontWeight: 400, color: 'var(--ink-faint)' }}>· optional</span></span>
+            <select className="px-select" value={honorific} onChange={e => setHonorific(e.target.value)}>
+              <option value="">First name (e.g. {fullName.trim().split(/\s+/)[0] || 'Jane'})</option>
+              {(window.HONORIFIC_OPTIONS || []).map(h => (
+                <option key={h} value={h}>{advisorFormalName({ honorific: h, fullName, fallback: h }) || h}</option>
+              ))}
+            </select>
+            <span style={{ fontSize: 10.5, color: 'var(--ink-faint)' }}>Shown in your clients' portal — e.g. "{advisorFormalName({ honorific: honorific || 'Ms.', fullName: fullName || 'Jane Advisor' })} will tailor this with you."</span>
           </label>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.07em' }}>Firm name</span>

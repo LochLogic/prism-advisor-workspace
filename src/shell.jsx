@@ -268,9 +268,18 @@ const SecurityModal = ({ isOpen, onClose }) => {
 
 /* ─── Account chip + sign-out dropdown ───────────────────────────── */
 const AccountChip = ({ view, activeClient }) => {
-  const { role, signOut, isDemo, authUser } = useAuth();
+  const { role, signOut, isDemo, authUser, setAuthUser } = useAuth();
   const [open, setOpen] = React.useState(false);
   const [securityOpen, setSecurityOpen] = React.useState(false);
+
+  // Persist the advisor's client-facing display title. Scoped to their own
+  // advisors row (advisors_update_self RLS), then mirrored into context so the
+  // change is reflected immediately without a reload.
+  const saveHonorific = async (h) => {
+    if (!authUser?.id) return;
+    try { await window.__sb?.from('advisors').update({ honorific: h || null }).eq('id', authUser.id); } catch (e) {}
+    setAuthUser?.(u => (u ? { ...u, honorific: h || null } : u));
+  };
 
   React.useEffect(() => {
     if (!open) return;
@@ -353,6 +362,21 @@ const AccountChip = ({ view, activeClient }) => {
             >
               <Icons.Lock size={12} /> Security &amp; 2FA
             </button>
+          )}
+
+          {!isDemo && view !== 'client' && authUser && (
+            <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 12, color: 'var(--ink)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Icons.Edit size={12} /> How clients address you
+              </div>
+              <select className="px-select" value={authUser.honorific || ''} style={{ width: '100%' }}
+                onChange={e => saveHonorific(e.target.value)}>
+                <option value="">First name ({(authUser.full_name || '').split(/\s+/)[0] || '—'})</option>
+                {(window.HONORIFIC_OPTIONS || []).map(h => (
+                  <option key={h} value={h}>{advisorFormalName({ honorific: h, fullName: authUser.full_name, fallback: h })}</option>
+                ))}
+              </select>
+            </div>
           )}
 
           <button

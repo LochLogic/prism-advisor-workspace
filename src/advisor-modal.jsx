@@ -1051,8 +1051,17 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     const grossAnnual = (Array.isArray(pd.income?.sources) ? pd.income.sources : []).reduce((s, x) => s + (Number(x.monthlyGross) || 0), 0) * 12 || (Number(pd.income?.monthlyTakehome) || 0) * 12;
     const cg = C.lifeCoverageGap?.({ annualIncome: grossAnnual, incomeMultiple: 10, liabilities: totalDebt, existingCoverage: lifeCoverage, liquidAssets: emergency }) || {};
     const estate = pd.estate && typeof pd.estate === 'object' ? pd.estate : {};
-    const estateKeys = ['will', 'trust', 'poa', 'healthcareDirective', 'beneficiaries'];
-    const estateComplete = estateKeys.filter(k => estate[k]?.status === 'complete').length;
+    const estateDefs = [
+      ['will', 'Will'], ['trust', 'Revocable trust'], ['poa', 'Power of attorney'],
+      ['healthcareDirective', 'Healthcare directive'], ['beneficiaries', 'Beneficiary review'],
+    ];
+    const estateKeys = estateDefs.map(([k]) => k);
+    const estateItems = estateDefs.map(([k, label]) => ({ label, status: estate[k]?.status || 'none' }));
+    const estateComplete = estateItems.filter(i => i.status === 'complete').length;
+    // Other protection lines beyond term/whole life — surfaced so a $0 life
+    // figure isn't read as "no protection at all".
+    const disabilityCount = insurance.filter(i => i.type === 'disability').length;
+    const ltcCount = insurance.filter(i => i.type === 'ltc').length;
     const risk = C.riskProfile?.({ answers: pd.risk?.answers || [], horizonYears: Math.max(0, retireAt - age) });
     const phasesProgress = phasesData.map(p => {
       const completed = isLiveClient
@@ -1064,7 +1073,10 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     window.printQBRReport?.({
       client, phase, netWorth, aum: client.aum, invested, uninvestedCash: client.uninvestedCash,
       phases: phasesProgress, readiness, successBand, goals,
-      protection: { lifeCoverage, recommended: cg.recommended || 0, gap: cg.gap || 0, estateComplete, estateTotal: estateKeys.length },
+      protection: { lifeCoverage, recommended: cg.recommended || 0, gap: cg.gap || 0,
+        covered: !!cg.covered, captured: lifeCoverage > 0 || (cg.recommended || 0) > 0,
+        disabilityCount, ltcCount,
+        estateComplete, estateTotal: estateKeys.length, estateItems },
       risk, series, periods, flows,
       advisorName: authUser?.full_name, advisorFirm: authUser?.firms?.name,
     });

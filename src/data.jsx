@@ -123,10 +123,33 @@ const advisor = {
   id: 'adv_001',
   name: 'M. Chen',
   fullName: 'Madeline Chen, CFP®',
+  honorific: 'Ms.',
   firm: 'Northbridge Wealth',
   initials: 'MC',
   email: 'm.chen@northbridge.example',
 };
+
+/* ─── Advisor display name (client-facing) ────────────────────────────
+   Surname = last whitespace token of the full name, after dropping any
+   trailing credentials ("Madeline Chen, CFP®" → "Chen"). When a display
+   title (honorific) is set, clients are shown "Ms. Chen"; otherwise we fall
+   back to the first name / short name, preserving the prior behaviour. */
+function advisorSurname(fullName) {
+  if (!fullName) return '';
+  const base = String(fullName).split(',')[0].trim();   // drop ", CFP®"
+  const parts = base.split(/\s+/).filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : '';
+}
+function advisorFormalName({ honorific, fullName, fallback } = {}) {
+  const surname = advisorSurname(fullName);
+  if (honorific && surname) return `${honorific} ${surname}`;
+  return fallback || surname || fullName || '';
+}
+if (typeof window !== 'undefined') window.advisorFormalName = advisorFormalName;
+
+// Display-title choices offered to advisors (account setup + account menu).
+const HONORIFIC_OPTIONS = ['Ms.', 'Mrs.', 'Mr.', 'Mx.', 'Dr.'];
+if (typeof window !== 'undefined') window.HONORIFIC_OPTIONS = HONORIFIC_OPTIONS;
 
 /* ─── Mock client roster ──────────────────────────────────────────── */
 // Each client has a current Phase (0-6), AUM, and a derived "uninvested cash"

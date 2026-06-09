@@ -6,6 +6,56 @@
 
 ---
 
+## 2026-06-08 — Site-walkthrough polish (5 notes from the live site)
+
+Five fixes/adjustments from a walkthrough of the demo + portal. Branch
+`polish/site-notes-2026-06-08`. Build · lint · check · calc all green; every item
+verified in a browser preview (demo mode).
+
+**What shipped**
+- **1 · Advisors addressed by title (client-facing).** New optional **honorific**
+  on advisors (migration `031_advisor_honorific.sql`: `alter table advisors add
+  column honorific`). Set at workspace setup (`app.jsx` ProvisionWorkspace) and
+  editable any time from the account menu (`shell.jsx` AccountChip → "How clients
+  address you"); self-update is covered by the existing `advisors_update_self`
+  RLS, so no new policy/RPC. Shared helper `advisorFormalName()` (`data.jsx`)
+  derives the surname (drops trailing credentials) → clients now read
+  "**Ms. Chen** will tailor this with you" instead of "M. Chen". Falls back to the
+  first name when no title is set (prior behaviour). Demo advisor seeded `Ms.`.
+  `authUser` now carries `honorific` (auth select + context `setAuthUser`).
+- **2 · Performance chart is interactive.** `PerfChart` (`components.jsx`) was a
+  static, `aria-hidden` sparkline. Now: hover/touch-drag surfaces a crosshair, a
+  marker on the line, and a tooltip with the exact **date + portfolio value** at
+  that point; `role="img"` + range label for AT. Shared by the client portal and
+  the advisor modal.
+- **3 · Numbers-drawer undo safety net.** A client could click through the whole
+  ledger and not know how to get back. `ProfileProvider` (`store.jsx`) keeps a
+  client-side undo stack (snapshots the profile before each user edit; cleared on
+  client switch; capped). The Numbers drawer (`numbers-panel.jsx`) gains an
+  **Undo** button (header) + a "**N changes this session — nothing is locked in**"
+  bar with **Revert all** (restores the state from when the drawer opened). Edits
+  still auto-save as before — this is a safety net, **not** the formal
+  advisor-approval commit gate (that's a separate roadmap item — see ROADMAP §C5).
+- **4 · "Tasks & next actions" rows are clickable.** Each dashboard task row
+  (`advisor-dashboard.jsx`) now opens that task's client workspace (role=button,
+  keyboard-activatable, chevron affordance, hover style in `styles.css`).
+- **5 · QBR "Protection & estate" no longer contradicts itself.** The Quarterly
+  Review printed "Life coverage $0 · well covered · estate 0/5" — "$0" read as
+  "well covered" because a zero guideline made `gap <= 0`. Rebuilt the section
+  (`store.jsx` `printQBRReport` + richer payload from `advisor-modal.jsx`): three
+  honest states — **not yet captured** (no policies + no guideline), **gap $X**,
+  or **meets the ~10× guideline** — plus an "also in place: N disability / LTC"
+  line and a per-item estate checklist (✓ / … / —, X of 5 in place).
+
+**Your deploy steps (in order):**
+1. **Run migration `031_advisor_honorific.sql`** in the Supabase SQL editor
+   **before** the new frontend goes live — the advisor auth query now selects
+   `honorific`, so the column must exist or advisor sign-in errors. (Additive,
+   nullable; zero data risk.)
+2. Frontend auto-deploys on merge. No secrets, no edge-function redeploy.
+
+---
+
 ## 2026-06-08 — Clean-room hardening (C1–C2 critical, M1–M5 major)
 
 Fixes for the whole CRITICAL + MAJOR set from

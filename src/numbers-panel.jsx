@@ -100,10 +100,19 @@ const NumField = ({ label, path, value, prefix = '$', step = 100, onUpdate, hint
 
 const NumbersDrawer = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
-  const { profile, update, setProfile, totalExpenses, surplus, netWorth,
+  const { profile, update, setProfile, undoEdit, undoDepth, totalExpenses, surplus, netWorth,
           isOwner, homeEquity, mortgagePrincipalMonthly, mortgageInterestMonthly, escrowMonthly,
           propertiesEquity, primaryMember, planningAge, grossMonthlyIncome, effectiveTakehome } = useProfile();
   const hasIncomeSources = (profile.income.sources || []).length > 0;
+
+  // Undo safety net. The drawer remounts each time it opens (the `if (!isOpen)`
+  // guard short-circuits before any hook), so these refs capture the state as of
+  // *this* opening: the snapshot to revert to, and the undo depth to measure
+  // edits made since. `dirtyCount` drives the "revert everything" affordance.
+  const openBaseline = React.useRef(profile);
+  const openDepth    = React.useRef(undoDepth);
+  const dirtyCount   = Math.max(0, undoDepth - openDepth.current);
+  const revertAll    = () => { if (dirtyCount > 0) setProfile(openBaseline.current); };
 
   // ── Household members ──
   const addMember = () => setProfile(p => {
@@ -202,10 +211,27 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
               Your numbers
             </h2>
           </div>
-          <button className="px-icon-btn" onClick={onClose} aria-label="Close">
-            <Icons.X size={15} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button className="px-btn px-btn-sm px-btn-ghost" onClick={undoEdit} disabled={undoDepth === 0}
+              title="Undo the last change" aria-label="Undo the last change"
+              style={{ padding: '4px 9px', opacity: undoDepth === 0 ? 0.4 : 1, cursor: undoDepth === 0 ? 'default' : 'pointer' }}>
+              <Icons.Undo size={13} /> Undo
+            </button>
+            <button className="px-icon-btn" onClick={onClose} aria-label="Close">
+              <Icons.X size={15} />
+            </button>
+          </div>
         </div>
+        {dirtyCount > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+            padding: '8px 16px', background: 'var(--bg-elev)', borderBottom: '1px solid var(--border)',
+            fontSize: 11.5, color: 'var(--ink-mute)' }}>
+            <span><b style={{ color: 'var(--ink)' }}>{dirtyCount}</b> change{dirtyCount === 1 ? '' : 's'} this session — nothing is locked in.</span>
+            <button className="px-btn px-btn-sm px-btn-ghost" onClick={revertAll} style={{ padding: '3px 9px', whiteSpace: 'nowrap' }}>
+              <Icons.Refresh size={11} /> Revert all
+            </button>
+          </div>
+        )}
         <div className="px-drawer-body">
 
           {/* Snapshot */}
@@ -850,7 +876,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
           </section>
 
           <div style={{ padding: 12, background: 'var(--bg-elev)', borderRadius: 6, fontSize: 11, color: 'var(--ink-mute)', lineHeight: 1.5, fontStyle: 'italic', fontFamily: 'var(--serif)' }}>
-            Changes save automatically and are visible to {advisor.name} in real time. Use the <b>Discuss with advisor</b> action on any task to flag questions.
+            Changes save automatically and are visible to {advisor.name} in real time — but nothing is locked in: use <b>Undo</b> (top right) to step back, or <b>Revert all</b> to undo everything since you opened this. Use the <b>Discuss with advisor</b> action on any task to flag questions.
           </div>
         </div>
       </aside>

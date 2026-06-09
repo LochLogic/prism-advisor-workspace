@@ -125,10 +125,38 @@ function mergeProfile(base, data) {
 const ProfileContext = createContext(null);
 
 function ProfileProvider({ children }) {
-  const [profile, setProfile] = useState(defaultProfile);
+  const [profile, _setProfile] = useState(defaultProfile);
   const { activeClientId } = useView();
   const dbSaveTimer = React.useRef(null);
   const isLoading   = React.useRef(false);
+
+  // ── Undo history ────────────────────────────────────────────────
+  // A client experimenting in the Numbers drawer can make a tangle of edits and
+  // not know how to get back. We snapshot the profile *before* each user edit so
+  // they can step back one change at a time (or revert everything in the drawer).
+  // Edits auto-save as before — this is a client-side safety net, not a commit
+  // gate (the formal advisor-approval gate is a separate, larger roadmap item).
+  const history     = React.useRef([]);   // pre-edit snapshots, oldest → newest
+  const profileRef  = React.useRef(profile);
+  const [undoDepth, setUndoDepth] = useState(0);
+  React.useEffect(() => { profileRef.current = profile; }, [profile]);
+
+  // Public setter (used by editing UI) — records the pre-edit snapshot so it can
+  // be undone. Loads/client-switches use the raw _setProfile and never enter the
+  // undo stack.
+  const setProfile = React.useCallback((updater) => {
+    history.current.push(profileRef.current);
+    if (history.current.length > 80) history.current.shift();
+    setUndoDepth(history.current.length);
+    _setProfile(updater);
+  }, []);
+
+  const undoEdit = React.useCallback(() => {
+    if (!history.current.length) return;
+    const prev = history.current.pop();
+    setUndoDepth(history.current.length);
+    _setProfile(prev);   // the pop IS the undo — don't re-record it
+  }, []);
   // Tracks the latest debounced-but-not-yet-written save: { clientId, profile }.
   // Lets us FLUSH it before a client switch (or unmount) so the last <1.5s of
   // edits aren't dropped when the load effect cancels the pending timer.
@@ -146,14 +174,15 @@ function ProfileProvider({ children }) {
   useEffect(() => {
     flushPendingSave();
     clearTimeout(dbSaveTimer.current);
+    history.current = []; setUndoDepth(0);   // undo never crosses a client boundary
     if (window.db?.isUUID(activeClientId)) {
       // Real client — reset to a blank shape, then merge in whatever the DB has.
       // A new client's profile is an empty {}; merging keeps every key present so
       // the roadmap and calculators render instead of crashing on undefined.
       isLoading.current = true;
-      setProfile(emptyProfile);
+      _setProfile(emptyProfile);
       window.db.getProfile(activeClientId).then(data => {
-        setProfile(mergeProfile(emptyProfile, data));
+        _setProfile(mergeProfile(emptyProfile, data));
         isLoading.current = false;
       }).catch(() => { isLoading.current = false; });
     } else {
@@ -163,8 +192,8 @@ function ProfileProvider({ children }) {
       // type would write into an undefined parent and crash.
       try {
         const saved = JSON.parse(localStorage.getItem(`px_profile:${activeClientId}`));
-        setProfile(saved ? mergeProfile(defaultProfile, saved) : defaultProfile);
-      } catch { setProfile(defaultProfile); }
+        _setProfile(saved ? mergeProfile(defaultProfile, saved) : defaultProfile);
+      } catch { _setProfile(defaultProfile); }
     }
   }, [activeClientId]);
 
@@ -365,8 +394,8 @@ function ProfileProvider({ children }) {
   // of `profile` + `activeClientId` (the latter only via the Monte Carlo seed), so
   // keying on those two prevents a new value object — and a re-render of every
   // profile consumer — when a parent provider re-renders without a profile change.
-  const value = useMemo(() => ({ profile, setProfile, update, ...metrics }),
-    [profile, activeClientId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const value = useMemo(() => ({ profile, setProfile, update, undoEdit, undoDepth, ...metrics }),
+    [profile, activeClientId, undoDepth]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <ProfileContext.Provider value={value}>
@@ -1173,12 +1202,38 @@ function printQBRReport(opts) {
         <div class="task"><span class="f1">${escapeHtml(g.label)}</span><span class="mut">${g.pct}% · ${escapeHtml(g.status)}</span></div>`).join('')}`
     : '';
 
-  // Protection
+  // Protection & estate — phrased so a $0 / not-yet-captured figure never reads
+  // as "well covered". Three life-coverage states: not captured, gap, on guideline.
   let protHtml = '';
   if (o.protection) {
     const p = o.protection;
+    let lifeLine;
+    if (!p.captured) {
+      // No life policies recorded and no income guideline to compare against.
+      lifeLine = `<span class="mut">Life coverage — not yet captured.</span> Gather in-force policy details (or confirm none) so the plan reflects how the household is protected.`;
+    } else if (p.gap > 0) {
+      lifeLine = `Life coverage ${fmt$(p.lifeCoverage, { short: true })}${p.recommended > 0 ? ` of ${fmt$(p.recommended, { short: true })} guideline` : ''} &middot; <b>gap ${fmt$(p.gap, { short: true })}</b> — worth reviewing whether to add coverage.`;
+    } else {
+      lifeLine = `Life coverage ${fmt$(p.lifeCoverage, { short: true })}${p.recommended > 0 ? ` &middot; meets the ~10&times; income guideline` : ''}.`;
+    }
+    const other = [];
+    if (p.disabilityCount) other.push(`${p.disabilityCount} disability`);
+    if (p.ltcCount) other.push(`${p.ltcCount} long-term care`);
+    const otherLine = other.length ? `<div class="rpt-p mut2">Also in place: ${other.join(' &middot; ')} cover.</div>` : '';
+    const estItems = Array.isArray(p.estateItems) ? p.estateItems : [];
+    const estList = estItems.length
+      ? `<div class="grid grid5 mt10">${estItems.map(it => {
+          const done = it.status === 'complete', prog = it.status === 'in_progress';
+          const mark = done ? '&#10003;' : prog ? '&hellip;' : '&mdash;';
+          const cls = done ? 'ok' : prog ? '' : 'mut2';
+          return `<div class="stat"><div class="stat-lbl">${escapeHtml(it.label)}</div><div class="stat-val ${cls}" style="font-size:15px">${mark}</div></div>`;
+        }).join('')}</div>`
+      : '';
     protHtml = `<div class="section-lbl">Protection &amp; estate</div>
-      <div class="rpt-p">Life coverage ${fmt$(p.lifeCoverage, { short: true })}${p.recommended > 0 ? ` of ${fmt$(p.recommended, { short: true })} guideline` : ''}${p.gap > 0 ? ` &middot; gap ${fmt$(p.gap, { short: true })}` : ' &middot; well covered'} &middot; estate ${p.estateComplete}/${p.estateTotal} in place</div>`;
+      <div class="rpt-p">${lifeLine}</div>
+      ${otherLine}
+      <div class="section-lbl mt18">Estate readiness &middot; ${p.estateComplete} of ${p.estateTotal} in place</div>
+      ${estList}`;
   }
 
   // Performance chart + period returns

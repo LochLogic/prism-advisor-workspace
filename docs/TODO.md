@@ -13,6 +13,19 @@
 ---
 
 ## 🚢 Just shipped — needs your deploy steps (then delete this block)
+Sprint **Site-walkthrough polish — 5 notes** (PR via `polish/site-notes-2026-06-08`;
+full detail in [sprint-log](sprint-log.md)). Advisor titles · interactive perf chart ·
+numbers-drawer undo · clickable dashboard tasks · QBR protection/estate rebuild.
+Build · lint · check · calc green; all 5 verified in a browser. Frontend auto-deploys on merge.
+**Your steps, in order:**
+1. **Run migration `031_advisor_honorific.sql`** in the Supabase SQL editor **before**
+   the new frontend is live — the advisor auth query now selects `honorific`, so the
+   column must exist or advisor sign-in errors. (Additive, nullable; zero data risk.)
+2. No secrets, no edge redeploy. *(Tell Claude when 1 is done and it can confirm the deploy.)*
+
+---
+
+## 🚢 Just shipped — needs your deploy steps (then delete this block)
 Sprint **Clean-room hardening — C1–C2 + M1–M5** (PR via `harden/critical-major-2026-06-08`;
 full detail + hand-off in [sprint-log](sprint-log.md)). Frontend auto-deploys on merge.
 **Your steps, in order — and tell Claude when 1 is done so it can trigger the edge deploy:**
@@ -53,6 +66,7 @@ From the full architecture+granular code review (2026-06-07). **Batches 1 & 2 sh
 - [ ] **Advisor MFA (TOTP)** — enforce in the advisor auth path (Supabase Auth supports it). *↔ may need a Supabase Auth setting toggle (H2).*
 - [ ] **Exam-ready compliance export** — one-click books-&-records packet (audit log + acknowledgements + WORM).
 - [ ] **Client PWA + push** — installable client portal + push on new message/task/document. *↔ blocked-by-you: VAPID keys (H5).*
+- [ ] **Advisor-approval / commit gate for client ledger edits** *(deferred from the 2026-06-08 polish sprint — a lightweight client-side **undo + revert-all** shipped as the immediate safety net).* Today a client's Numbers-drawer edits auto-save straight to the household profile the advisor sees. For firms that want control, add a **draft → review → approve** flow: client edits stage as *pending changes* (a diff against the live profile), the advisor sees a "N proposed changes" affordance on the client and approves/rejects per-field or wholesale; only approved changes mutate the profile the plan/QBR read from. Needs: a `profile_pending`/changeset store (or a `status` on a profile-versions row — `007_versioning_crm` already versions profiles), a diff/review UI in the advisor modal, and a per-firm toggle (some advisors *want* the frictionless co-edit). Medium sprint; schema-touching. *Recommendation: ship behind a firm setting, default OFF (keep the current frictionless co-editing as the default wedge behaviour).*
 
 ---
 

@@ -31,6 +31,7 @@ h1{font-size:22px;font-weight:500;margin:0 0 3px;}
 .grid5{grid-template-columns:repeat(5,1fr);}
 .mt22{margin-top:22px;}
 .mt18{margin-top:18px;}
+.mt10{margin-top:10px;}
 /* stat-val size variants */
 .sv13{font-size:13px;margin-top:6px;}
 .sv14{font-size:14px;margin-top:6px;}
