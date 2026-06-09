@@ -55,7 +55,7 @@ function AuthProvider({ children }) {
     try {
       const { data: adv } = await window.__sb
         .from('advisors')
-        .select('id, full_name, firm_id, email, role, firms(name)')
+        .select('id, full_name, honorific, firm_id, email, role, firms(name)')
         .eq('auth_user_id', sess.user.id)
         .maybeSingle();
 
@@ -137,7 +137,7 @@ function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, role, authUser, loading, signOut, isDemo: DEMO_MODE }}>
+    <AuthContext.Provider value={{ session, role, authUser, setAuthUser, loading, signOut, isDemo: DEMO_MODE }}>
       {children}
     </AuthContext.Provider>
   );

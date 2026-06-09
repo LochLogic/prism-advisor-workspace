@@ -982,19 +982,31 @@ const AdvisorDashboard = () => {
             </div>
             {activeTasks.slice(0, 8).map(t => {
               const due = dueMeta(t.dueAt);
+              const taskClient = (activeClients || []).find(c => c.id === t.clientId);
+              const openTaskClient = () => { if (taskClient) openClientPortal(taskClient); else showToast?.('No client view linked to this task'); };
               return (
                 <div key={t.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
                   <button onClick={() => completeDashTask(t)} aria-label="Complete task"
                     style={{ marginTop: 1, width: 15, height: 15, flexShrink: 0, borderRadius: 4, cursor: 'pointer',
                       border: '1.5px solid var(--border-2)', background: 'transparent', padding: 0 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.3 }}>
-                      {t.priority === 'high' && <span style={{ color: 'var(--brick)', marginRight: 4 }}>●</span>}
-                      {t.title}
+                  {/* Click the task body to jump to that client's workspace */}
+                  <div role="button" tabIndex={0}
+                    onClick={openTaskClient}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openTaskClient(); } }}
+                    title={taskClient ? `Open ${t.clientName || taskClient.shortName || taskClient.name}` : undefined}
+                    className="px-task-row"
+                    style={{ flex: 1, minWidth: 0, cursor: taskClient ? 'pointer' : 'default',
+                      display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.3 }}>
+                        {t.priority === 'high' && <span style={{ color: 'var(--brick)', marginRight: 4 }}>●</span>}
+                        {t.title}
+                      </div>
+                      <div style={{ fontSize: 11, color: due.tone, marginTop: 2 }}>
+                        {due.label}{t.clientName ? ` · ${t.clientName}` : ''}
+                      </div>
                     </div>
-                    <div style={{ fontSize: 11, color: due.tone, marginTop: 2 }}>
-                      {due.label}{t.clientName ? ` · ${t.clientName}` : ''}
-                    </div>
+                    {taskClient && <Icons.ChevronRight size={13} style={{ flexShrink: 0, marginTop: 2, color: 'var(--ink-faint)' }} />}
                   </div>
                 </div>
               );
