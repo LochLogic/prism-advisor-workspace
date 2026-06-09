@@ -480,6 +480,19 @@ const ClientPortal = ({ onOpenNumbers }) => {
   return (
     <>
       <main className="px-client-app">
+        {/* Advisor chip — sits at the top of the canvas, just below the top bar */}
+        <div className="px-advisor-chip">
+          <div className="px-advisor-avatar">{advisorDisplay.initials}</div>
+          <div className="px-advisor-meta">
+            <div className="px-advisor-name">{advisorDisplay.fullName}</div>
+            <div className="px-advisor-role">{advisorDisplay.firm}</div>
+          </div>
+          <button className="px-advisor-chip-btn" onClick={openScheduler}>
+            <Icons.Calendar size={11} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+            Request meeting
+          </button>
+        </div>
+
         {/* Hero */}
         <section className="px-clienthero">
           <div className="px-eyebrow px-clienthero-eyebrow">
@@ -494,20 +507,6 @@ const ClientPortal = ({ onOpenNumbers }) => {
             Each Horizon phase advances when its milestones are met — together.
           </p>
         </section>
-
-        {/* Advisor chip */}
-        <div className="px-advisor-chip">
-          <div className="px-advisor-avatar">{advisorDisplay.initials}</div>
-          <div className="px-advisor-meta">
-            <div className="px-advisor-name">{advisorDisplay.fullName}</div>
-            <div className="px-advisor-role">{advisorDisplay.firm}</div>
-          </div>
-          <button className="px-advisor-chip-btn" onClick={openScheduler}>
-            <Icons.Calendar size={11} style={{ verticalAlign: 'middle', marginRight: 4 }} />
-            Request meeting
-          </button>
-        </div>
-        <div style={{ clear: 'both' }}></div>
 
         {/* Prospect / proposal banner (C3) — advisor-only closing tool */}
         {isProspectView && (
