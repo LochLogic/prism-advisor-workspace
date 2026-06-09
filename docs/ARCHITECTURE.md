@@ -2,7 +2,7 @@
 
 > **Purpose:** condensed router for AI/dev work. Tells you *which* file owns a
 > concern and what it exports — not every line. Read the named file for deep logic.
-> **Last synced:** commit `7d452da` (2026-06-08). **Regenerate when:** `build-files.mjs`
+> **Last synced:** 2026-06-09 white-label + ai-assist sprint (post-`c34c600`). **Regenerate when:** `build-files.mjs`
 > load order changes, a `src/*` file is added/split, or `window.db`/`PrismCalc` gain methods.
 
 ---
@@ -62,7 +62,7 @@ src/
   styles.css / print.css   hand-authored CSS (print.css = report/invoice print layout)
 
 supabase/
-  migrations/001-031   schema evolution (names are self-describing; 001 = base schema)
+  migrations/001-032   schema evolution (names are self-describing; 001 = base schema)
   functions/           Edge Functions (Deno) — see §6
   functions/_shared/   auth.ts, cors.ts, docusign.ts, fees.ts (canonical BACKEND fee math)
   tests/               integration.sql, rls_isolation.sql (tenant-isolation proofs)
@@ -93,6 +93,8 @@ e2e/demo.spec.ts       Playwright smoke
 - Compliance: `getAcknowledgements, createAcknowledgement, signAcknowledgement, sendDocusignEnvelope, audit, getAuditLog`
 - Messaging/docs: `getMessages, sendMessage, markMessagesRead, getUnreadMessageClients, getDocuments, uploadDocument, getDocumentUrl, deleteDocument`
 - Misc: `getPhases, getBalanceHistory, getBookBalanceHistory, getTasks/createTask/updateTask/deleteTask, isUUID, timeAgo`
+- Branding/AI (2026-06-09): `getFirmBrand, updateFirmBrand, getBrandForSlug` (anon RPC
+  `px_brand_for_slug`, migration 032), `aiAssist(action, context)` → `ai-assist` edge fn
 
 **`window.PrismCalc`** (`src/calc-core.cjs`) — pure financial math (frontend copy; backend
 copy is `functions/_shared/fees.ts`): `monthlyExpenseTotal, buildValueSeries, modifiedDietz,
@@ -119,6 +121,9 @@ income streams; captured in `numbers-panel.jsx`. No migration — profile is a J
 printPerformanceReport, printInvoiceReport, printQBRReport, printIPSReport`; helpers
 `escapeHtml, sanitizeHtml, fmt$, fmtPct, fmtN, emptyProfile, mergeProfile`.
 Also `ProspectProvider/useProspects` — unsaved "prospect-" households → one-click convert.
+Also white-label brand engine: `applyFirmBrand(brand)` (inline `--brand`/`--accent*` CSS vars
+on `<html>` + `window.__pxBrand` + 'px:brand' event), `useFirmBrand()` hook; boot paints
+cached → subdomain-slug → (auth.jsx) authoritative firm row.
 
 **`auth.jsx`**: `AuthProvider, useAuth`. Sets `window.__pxAuthActor = {id, role, email, firm_id}`.
 
@@ -152,6 +157,7 @@ Also `ProspectProvider/useProspects` — unsaved "prospect-" households → one-
 | `docusign-envelope` | Advisor → escalate acknowledgement into DocuSign envelope |
 | `plaid-create-link-token` / `plaid-exchange-token` | Plaid Link → import account balances |
 | `worm-export` | SEC 17a-4 audit-log retention export → private bucket |
+| `ai-assist` | Advisor JWT → Gemini (server-side key): draft_reply / household_summary / talking_points / attention |
 | `log-error` | Public sink for client error reporter |
 | `error-digest` | Cluster new client_errors → Slack alert |
 | `health` | Pipeline liveness probe |
@@ -176,4 +182,9 @@ CI required checks: `ci + Cloudflare Workers Builds + rls-isolation + e2e` [see 
 - `phasesData` is mutated in place after DB fetch (white-label per firm) — don't freeze it at module load; recompute phase options at call time.
 - Frontend `PrismCalc` and backend `_shared/fees.ts` are **parallel** fee implementations — change both together.
 - Portal bundle must never reference advisor-only files (advisor-modal/dashboard/firm-admin) or the `/portal` build breaks.
+- White-label theming = inline CSS custom properties on `<html>` (`--brand`,
+  `--brand-hover`, `--accent`, `--accent-soft`, `--accent-line`) — inline beats every
+  stylesheet rule incl. dark theme. Firm logos are **data URIs** in `firms.logo_url`
+  (≤200 KB; CSP `img-src` allows `data:` but no external hosts — don't switch to a
+  storage URL without a CSP change).
 - Phase → tools: each phase in `data.jsx` carries `calcs: [...]` (preferred, any count) or legacy `calc`/`calc2`, keying into the `calculators` registry; `client-portal.jsx` resolves either form. Add a tool = register it in `calculators` + reference its key from a phase.

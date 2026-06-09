@@ -12,6 +12,7 @@ const __pxHadDeepLink = typeof window !== 'undefined'
 const Topbar = ({ onOpenNumbers, dark, toggleTheme }) => {
   const { view, setView, activeClient, setActiveClient } = useView();
   const { role, isDemo } = useAuth();
+  const brand = useFirmBrand();
 
   // Logo = "home": demo → public landing page; logged in → role's default view
   const goHome = () => {
@@ -26,9 +27,11 @@ const Topbar = ({ onOpenNumbers, dark, toggleTheme }) => {
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goHome(); } }}
         title={isDemo ? 'Back to homepage' : 'Go to dashboard'}
         style={{ cursor: 'pointer' }} aria-label="Home">
-        <div className="px-brand-mark"><Icons.Prism size={15} /></div>
+        {brand?.logo_url
+          ? <img className="px-brand-logo" src={brand.logo_url} alt={brand.name || 'Firm logo'} />
+          : <div className="px-brand-mark"><Icons.Prism size={15} /></div>}
         <div>
-          <div className="px-brand-name">Prism</div>
+          <div className="px-brand-name">{brand?.name || 'Prism'}</div>
           <div className="px-brand-sub">{view === 'client' ? 'Client Portal' : view === 'admin' ? 'Firm Admin' : 'Advisor Workspace'}</div>
         </div>
       </div>

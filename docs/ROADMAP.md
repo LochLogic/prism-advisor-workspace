@@ -94,12 +94,13 @@ Sequenced to the north star: pre-live hardening/activation first (see
 a demo into a "yes," then depth and reach.
 
 ### Tier A — Adoption unlocks (what makes an RIA move)
-- **White-label branding** — firm logo, accent color, optional "powered by Prism,"
-  and per-firm custom subdomain. Makes "no second portal" literally true. *Backend is
-  partway there: the per-firm phase-override resolution was rebuilt (`phase_overrides`
-  + resolved view) and `*.prismaw.com` DNS exists. Remaining: load firm brand at auth
-  → CSS-var theming + logo slot, a firm-admin brand settings/upload form, and
-  per-firm subdomain → brand resolution.*
+- **White-label branding — SHIPPED 2026-06-09** (migration 032 + brand engine).
+  Firm accent color + logo + optional "powered by Prism" attribution, set in a
+  firm-admin Branding section; applied at boot via cached → subdomain-slug
+  (`px_brand_for_slug`, anon) → authoritative firm-row resolution, painted as inline
+  CSS vars (`--brand` et al.) over both bundles. *Open refinement: the static
+  login/landing pages stay Prism-branded pre-auth (theming lives in the app/portal
+  bundles); brand the login page when a partner asks.*
 - **Calendar integration** (Google / Outlook two-way sync, free/busy) — removes a
   rip-and-replace objection. *Needs OAuth apps (human queue).*
 - **Zapier / public API** — connect Prism to the rest of a firm's stack.
@@ -148,10 +149,14 @@ a demo into a "yes," then depth and reach.
 - **Tax-return insight (Holistiplan-lite)** — drop a 1040 → planning observations in
   the roadmap + portal. High willingness-to-pay; differentiating inside a client
   portal. Pairs naturally with the planning-depth track above.
-- **AI relationship assistant (Gemini)** — draft replies, summarize a household,
-  generate review talking points, flag "who needs attention." Rides on the shipped
-  messaging + CRM; runs server-side (edge function) so the key never reaches the
-  browser. *Key already in Supabase secrets.*
+- **AI relationship assistant (Gemini) — SHIPPED 2026-06-09** (`ai-assist` edge fn,
+  advisor-JWT-gated, key server-side only, every call audited). Four surfaces: AI
+  draft in the advisor's message compose, household summary + review talking points
+  in the client quick-view, and "who needs attention?" book triage on the dashboard.
+  Guardrailed prompts (fiduciary back-office tone; no security recommendations or
+  return promises; output is a draft the advisor owns). *Next when wanted:* draft
+  replies on flagged questions, a QBR-narrative generator for the print packet, and
+  cost/latency telemetry once a design partner uses it in anger.
 
 ### Tier C — Reach & retention
 - **Client PWA + push** — installable client portal + push on new
@@ -186,6 +191,18 @@ a demo into a "yes," then depth and reach.
   (~1,300, esp. the print-report renderers) into load-ordered modules.
 
 ### Code-quality backlog (open by design, low priority)
+Added by the 2026-06-09 architecture-inefficiency pass:
+- **Sign-in boot serializes the phase fetch** — `auth.jsx detectRole()` awaits
+  `mergePhasesWithDB()` before resolving role state; the phase fetch and the
+  advisors/clients role queries are independent and could run in parallel (one
+  round-trip saved on every sign-in).
+- **`generate-invoices` N+1** — one `balance_history` query per client per run; fine
+  at ≤150 households, batch into a single `in (client_ids)` query when books grow.
+- **Pre-auth pages aren't brand-themed** — login.html / landing are static and stay
+  Prism-branded even on a firm subdomain (the brand engine lives in the bundles).
+- **Brand cache trust** — the per-host localStorage brand paints before the
+  authoritative firm-row fetch corrects it; harmless (cosmetic-only fields), noted.
+
 From the 2026-06-08 clean-room review — cleanup passes, none blocking:
 - CSV export formula-injection neutralization (prefix `= + - @` cells).
 - `store.jsx update()` — shallow path-copy instead of whole-profile deep clone per

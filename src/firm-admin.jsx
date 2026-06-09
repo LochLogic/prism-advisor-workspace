@@ -13,6 +13,9 @@ const FirmAdminDashboard = () => {
   const [invoices,     setInvoices]     = useStateAdv([]);
   const [schedForm,    setSchedForm]    = useStateAdv(null);
   const [genBusy,      setGenBusy]      = useStateAdv(false);
+  const [brand,        setBrand]        = useStateAdv(null);      // saved row
+  const [brandForm,    setBrandForm]    = useStateAdv(null);      // edit buffer
+  const [brandSaving,  setBrandSaving]  = useStateAdv(false);
 
   React.useEffect(() => {
     if (!authUser?.id || !window.db) return;
@@ -22,7 +25,30 @@ const FirmAdminDashboard = () => {
     window.db.getSubscription().then(setSubscription);
     window.db.getFeeSchedules().then(rows => setFeeSchedules(rows || []));
     window.db.getInvoices({}).then(rows => setInvoices(rows || []));
+    window.db.getFirmBrand?.().then(b => { if (b) setBrand(b); });
   }, [authUser?.id]);
+
+  // ── White-label branding ──
+  const BRAND_LOGO_MAX = 200 * 1024; // data-URI stored in firms.logo_url; CSP img-src allows data:
+  const onLogoFile = (file) => {
+    if (!file) return;
+    if (!/^image\/(png|jpeg|svg\+xml|webp)$/.test(file.type)) { showToast('Use a PNG, JPEG, WebP, or SVG logo'); return; }
+    if (file.size > BRAND_LOGO_MAX) { showToast('Logo must be under 200 KB — try an SVG or a compressed PNG'); return; }
+    const r = new FileReader();
+    r.onload = () => setBrandForm(f => ({ ...f, logo_url: r.result }));
+    r.readAsDataURL(file);
+  };
+  const saveBrand = async () => {
+    if (!brandForm) return;
+    setBrandSaving(true);
+    const row = await window.db.updateFirmBrand(authUser.firm_id, brandForm);
+    setBrandSaving(false);
+    if (row) {
+      setBrand(row); setBrandForm(null);
+      window.applyFirmBrand?.(row);
+      showToast('Branding saved — your portal now carries the firm brand');
+    } else showToast('Could not save branding — check console');
+  };
 
   // Advisory-fee billing — projected annual revenue + realized fees YTD
   const scheduleById = useMemoAdv(() => Object.fromEntries((feeSchedules || []).map(s => [s.id, s])), [feeSchedules]);
@@ -165,6 +191,89 @@ const FirmAdminDashboard = () => {
             </button>
           )}
         </div>
+
+        {/* ── White-label branding ── */}
+        <div className="px-section-head" style={{ marginTop: 8 }}>
+          <h2>Branding <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--ink-mute)', marginLeft: 6 }}>white-label</span></h2>
+          {!brandForm && (
+            <div className="px-section-tools">
+              <button className="px-btn px-btn-sm px-btn-ghost" disabled={!brand}
+                onClick={() => setBrandForm({
+                  brand_color: brand?.brand_color || '#1c2e4a',
+                  logo_url: brand?.logo_url || null,
+                  show_powered_by: brand?.show_powered_by !== false,
+                })}>
+                <Icons.Edit size={11} /> Edit branding
+              </button>
+            </div>
+          )}
+        </div>
+
+        {!brandForm ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', padding: '12px 14px',
+            background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, marginBottom: 24 }}>
+            {brand?.logo_url
+              ? <img className="px-brand-logo" src={brand.logo_url} alt="Firm logo" style={{ width: 36, height: 36 }} />
+              : <div className="px-brand-mark" style={{ width: 36, height: 36, background: brand?.brand_color || 'var(--brand)' }}><Icons.Prism size={18} /></div>}
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{firmName}</div>
+              <div style={{ fontSize: 12, color: 'var(--ink-mute)', marginTop: 2 }}>
+                Accent {brand?.brand_color || '#1c2e4a'} · {brand?.logo_url ? 'custom logo' : 'no logo yet'} ·{' '}
+                {brand?.show_powered_by === false ? 'attribution off' : '"powered by Prism" shown'}
+              </div>
+              {brand?.slug && (
+                <div style={{ fontSize: 11.5, color: 'var(--ink-faint)', marginTop: 3, fontFamily: 'var(--mono)' }}>
+                  Client portal: https://{brand.slug}.prismaw.com/portal
+                </div>
+              )}
+            </div>
+            <span style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+              background: brand?.brand_color || '#1c2e4a', border: '1px solid var(--border-2)' }}
+              title={`Accent color ${brand?.brand_color || '#1c2e4a'}`} />
+          </div>
+        ) : (
+          <div style={{ padding: 14, background: 'var(--bg-elev)', borderRadius: 8, marginBottom: 24 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '10px 14px', alignItems: 'center', maxWidth: 560 }}>
+              <label style={{ fontSize: 12.5, color: 'var(--ink-mute)' }} htmlFor="px-brand-color">Accent color</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input id="px-brand-color" type="color" value={brandForm.brand_color}
+                  onChange={e => setBrandForm(f => ({ ...f, brand_color: e.target.value }))}
+                  style={{ width: 36, height: 28, padding: 0, border: '1px solid var(--border-2)', borderRadius: 5, background: 'transparent', cursor: 'pointer' }} />
+                <input className="px-input" style={{ width: 110, fontFamily: 'var(--mono)' }} value={brandForm.brand_color}
+                  onChange={e => setBrandForm(f => ({ ...f, brand_color: e.target.value }))} aria-label="Accent color hex" />
+                <span style={{ fontSize: 11, color: 'var(--ink-faint)' }}>Pick a dark shade — it carries buttons and headers.</span>
+              </div>
+              <label style={{ fontSize: 12.5, color: 'var(--ink-mute)' }} htmlFor="px-brand-logo-file">Logo</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {brandForm.logo_url && <img className="px-brand-logo" src={brandForm.logo_url} alt="Logo preview" style={{ width: 32, height: 32 }} />}
+                <input id="px-brand-logo-file" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                  onChange={e => onLogoFile(e.target.files?.[0])} style={{ fontSize: 12 }} />
+                {brandForm.logo_url && (
+                  <button className="px-btn px-btn-sm px-btn-ghost" style={{ color: 'var(--brick)' }}
+                    onClick={() => setBrandForm(f => ({ ...f, logo_url: null }))}>
+                    <Icons.X size={10} /> Remove
+                  </button>
+                )}
+              </div>
+              <span style={{ fontSize: 12.5, color: 'var(--ink-mute)' }}>Attribution</span>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--ink)', cursor: 'pointer' }}>
+                <input type="checkbox" checked={brandForm.show_powered_by}
+                  onChange={e => setBrandForm(f => ({ ...f, show_powered_by: e.target.checked }))} />
+                Show "powered by Prism" in the client portal
+              </label>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+              <div style={{ flex: 1, fontSize: 11.5, color: 'var(--ink-faint)', alignSelf: 'center' }}>
+                Applies to the advisor workspace and every client's portal at sign-in.
+              </div>
+              <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => setBrandForm(null)}>Cancel</button>
+              <button className="px-btn px-btn-sm px-btn-primary" onClick={saveBrand}
+                disabled={brandSaving || !/^#[0-9a-fA-F]{6}$/.test(brandForm.brand_color)}>
+                {brandSaving ? 'Saving…' : 'Save branding'}
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="px-section-head">
           <h2>Advisor roster {advisors !== undefined && (

@@ -22,6 +22,10 @@ verify_jwt = true
 [functions.docusign-envelope]
 verify_jwt = true
 
+# Advisor-triggered AI relationship assistant (Gemini, server-side key).
+[functions.ai-assist]
+verify_jwt = true
+
 # Public/system/cron functions. NOTE: generate-invoices and worm-export accept
 # BOTH a pg_cron call (x-cron-secret, no JWT) and an admin call (validated in
 # code via supa.auth.getUser), so the platform gate must be OFF or the cron path

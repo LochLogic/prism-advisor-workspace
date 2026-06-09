@@ -21,6 +21,7 @@ const AUDIT_ACTION_LABELS = {
   'mfa.enroll': '2FA enabled', 'mfa.unenroll': '2FA disabled',
   'message.create': 'Message sent', 'message.send': 'Message sent', 'task.create': 'Task created',
   'task.complete': 'Task completed', 'task.reopen': 'Task reopened', 'task.delete': 'Task deleted',
+  'firm.brand': 'Branding updated', 'ai.assist': 'AI assist',
 };
 
 /* ─── Audit trail (SEC 17a-3 / FINRA) ────────────────────────────────
@@ -1151,6 +1152,57 @@ async function dbDeleteDocument(id, storagePath, clientId) {
   } catch (e) { console.warn('[db] deleteDocument:', e.message); return false; }
 }
 
+/* ─── Firm branding (white-label) ───────────────────────────────────
+   The signed-in user's firm brand (RLS scopes firms to the caller's own), plus
+   an anon-callable slug lookup so {slug}.prismaw.com paints the firm brand
+   before sign-in (px_brand_for_slug, migration 032). */
+const BRAND_COLS = 'id, name, slug, brand_color, logo_url, show_powered_by';
+
+async function dbGetFirmBrand() {
+  if (!_sb()) return null;
+  try {
+    const { data, error } = await _sb().from('firms').select(BRAND_COLS).maybeSingle();
+    if (error) throw error;
+    return data;
+  } catch (e) { console.warn('[db] getFirmBrand:', e.message); return null; }
+}
+
+async function dbUpdateFirmBrand(firmId, patch) {
+  if (!_sb() || !isUUID(firmId)) return null;
+  try {
+    const allowed = {};
+    for (const k of ['brand_color', 'logo_url', 'show_powered_by']) {
+      if (k in patch) allowed[k] = patch[k];
+    }
+    const { data, error } = await _sb().from('firms').update(allowed).eq('id', firmId).select(BRAND_COLS).single();
+    if (error) throw error;
+    dbAudit('firm.brand', { entityType: 'firm', entityId: firmId, summary: 'Firm branding updated' });
+    return data;
+  } catch (e) { console.warn('[db] updateFirmBrand:', e.message); return null; }
+}
+
+async function dbGetBrandForSlug(slug) {
+  if (!_sb() || !slug) return null;
+  try {
+    const { data, error } = await _sb().rpc('px_brand_for_slug', { p_slug: slug });
+    if (error) throw error;
+    return Array.isArray(data) ? (data[0] || null) : data;
+  } catch (e) { console.warn('[db] getBrandForSlug:', e.message); return null; }
+}
+
+/* ─── AI relationship assistant (Gemini, server-side) ────────────────
+   The key never reaches the browser: the ai-assist edge function validates the
+   advisor JWT, builds the prompt, and calls Gemini. `action` is one of
+   draft_reply | household_summary | talking_points | attention. */
+async function dbAiAssist(action, context = {}) {
+  if (!_sb()) return null;
+  try {
+    const { data, error } = await _sb().functions.invoke('ai-assist', { body: { action, context } });
+    if (error || data?.error) throw new Error(error?.message || data?.error);
+    return data?.text || null;
+  } catch (e) { console.warn('[db] aiAssist:', e.message); return null; }
+}
+
 window.db = {
   getClients:          dbGetClients,
   getBookTotals:       dbGetBookTotals,
@@ -1214,6 +1266,10 @@ window.db = {
   addCashFlow:         dbAddCashFlow,
   deleteCashFlow:      dbDeleteCashFlow,
   getSubscription:     dbGetSubscription,
+  getFirmBrand:        dbGetFirmBrand,
+  updateFirmBrand:     dbUpdateFirmBrand,
+  getBrandForSlug:     dbGetBrandForSlug,
+  aiAssist:            dbAiAssist,
   getTasks:            dbGetTasks,
   mapTask,
   createTask:          dbCreateTask,

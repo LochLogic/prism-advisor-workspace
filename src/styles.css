@@ -38,7 +38,12 @@
   --warn:         #a86a1f;
   --bad:          #8c3d3d;
 
-  --accent:       var(--ink);
+  /* White-label brand: firms override --brand/--brand-hover (and the accent
+     trio) via inline custom properties on <html> (store.jsx applyFirmBrand). */
+  --brand:        var(--ink);
+  --brand-hover:  var(--ink-2);
+
+  --accent:       var(--brand);
   --accent-soft:  #e6ebf2;
   --accent-line:  #b9c4d4;
 
@@ -136,8 +141,16 @@ input, select, textarea { font-family: inherit; color: inherit; }
 .px-brand-mark {
   width: 28px; height: 28px;
   display: grid; place-items: center;
-  background: var(--ink); color: var(--surface);
+  background: var(--brand); color: var(--surface);
   border-radius: 4px;
+  overflow: hidden;
+}
+.px-brand-logo {
+  width: 28px; height: 28px;
+  border-radius: 4px;
+  object-fit: contain;
+  background: var(--surface);
+  border: 1px solid var(--border);
 }
 .px-brand-name {
   font-family: var(--serif);
@@ -242,9 +255,9 @@ input, select, textarea { font-family: inherit; color: inherit; }
 }
 .px-btn:hover { background: var(--bg-elev); }
 .px-btn-primary {
-  background: var(--ink); color: var(--surface); border-color: var(--ink);
+  background: var(--brand); color: var(--surface); border-color: var(--brand);
 }
-.px-btn-primary:hover { background: var(--ink-2); }
+.px-btn-primary:hover { background: var(--brand-hover); }
 .px-btn-gold {
   background: var(--gold); color: var(--surface); border-color: var(--gold);
 }

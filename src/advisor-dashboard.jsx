@@ -973,6 +973,37 @@ const AdvisorDashboard = () => {
       </div>
 
       <aside className="px-adv-side">
+        {/* AI assistant — book triage ("who needs attention") */}
+        <div className="px-side-section">
+          <AiAssistCard
+            isLive={isLiveMode}
+            note="AI triage from your live book — a starting point, not a verdict."
+            actions={[{
+              key: 'attention', label: 'Who needs attention?', action: 'attention',
+              context: () => ({
+                clients: (activeClients || []).slice(0, 60).map(c => ({
+                  name: c.shortName || c.name,
+                  phase: c.phase,
+                  aum: c.aum || undefined,
+                  uninvestedCash: c.uninvestedCash || undefined,
+                  lastActivityAgo: c.lastActivity || undefined,
+                  lastReviewAgo: c.lastReview || undefined,
+                  unreadMessages: unreadIds.has(c.id) || undefined,
+                })),
+                openAlerts: (activeAlerts || []).slice(0, 20).map(a => {
+                  const c = (activeClients || []).find(x => x.id === a.clientId);
+                  return { client: c ? (c.shortName || c.name) : undefined, headline: a.headline, ago: a.timeAgo };
+                }),
+                openQuestions: (activeQuestions || []).slice(0, 20).map(q => ({ client: q._clientName, question: (q.quote || '').slice(0, 160), ago: q.timeAgo })),
+                openTasks: (activeTasks || []).slice(0, 20).map(t => ({ client: t.clientName, title: t.title, due: t.dueAt })),
+              }),
+            }]}
+            demoText={{
+              attention: `- The Hartwells — large idle cash balance against an on-track plan; propose an investment schedule this week.\n- The Naylors — an unanswered flagged question is sitting in your inbox; a same-day reply keeps trust high.\n- The Okafors — no meeting logged this quarter; a short check-in call would close the gap.`,
+            }}
+          />
+        </div>
+
         {/* Tasks — next actions across the book (CRM) */}
         {(isLiveMode || isDemo) && (
           <div className="px-side-section">
