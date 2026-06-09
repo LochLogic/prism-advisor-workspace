@@ -16,6 +16,8 @@ const FirmAdminDashboard = () => {
   const [brand,        setBrand]        = useStateAdv(null);      // saved row
   const [brandForm,    setBrandForm]    = useStateAdv(null);      // edit buffer
   const [brandSaving,  setBrandSaving]  = useStateAdv(false);
+  const [packetBusy,   setPacketBusy]   = useStateAdv(false);
+  const [packetDays,   setPacketDays]   = useStateAdv('365');
 
   React.useEffect(() => {
     if (!authUser?.id || !window.db) return;
@@ -124,6 +126,35 @@ const FirmAdminDashboard = () => {
       if (error || !data?.url) throw new Error(error?.message || 'No checkout URL returned');
       window.location.href = data.url;
     } catch (e) { showToast('Could not start checkout — check console'); console.warn(e); setCheckoutBusy(false); }
+  };
+
+  // One-click exam packet — refetch the audit window + firm-wide acknowledgements
+  // fresh (the on-screen log is capped at 100), then hand everything already
+  // loaded for this view to the pure renderer in store.jsx.
+  const AUDIT_CAP = 2000;
+  const exportExamPacket = async () => {
+    setPacketBusy(true);
+    try {
+      const days = Number(packetDays) || 0;
+      const since = days ? new Date(Date.now() - days * 86400000) : null;
+      const [audit, acks] = await Promise.all([
+        window.db.getAuditLog({ limit: AUDIT_CAP, since }),
+        window.db.getFirmAcknowledgements(),
+      ]);
+      window.printExamPacket({
+        firmName,
+        generatedBy: authUser?.email,
+        rangeLabel: days ? `audit window: last ${days} days` : 'audit window: full history',
+        advisors: advisors || [],
+        clients: firmClients || [],
+        feeSchedules: feeSchedules || [],
+        invoices: invoices || [],
+        acknowledgements: acks || [],
+        auditEntries: audit || [],
+        auditTruncated: (audit || []).length >= AUDIT_CAP,
+      });
+    } catch (e) { showToast('Could not assemble the exam packet — check console'); console.warn(e); }
+    finally { setPacketBusy(false); }
   };
 
   const planActive = subscription && ['active', 'trialing'].includes(subscription.status);
@@ -510,6 +541,18 @@ const FirmAdminDashboard = () => {
         {/* ── Compliance audit trail ── */}
         <div className="px-section-head" style={{ marginTop: 32 }}>
           <h2>Compliance audit trail <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--ink-mute)', marginLeft: 6 }}>append-only · SEC 17a-3</span></h2>
+          <div className="px-section-tools" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <select className="px-select" style={{ width: 'auto' }} value={packetDays}
+              onChange={e => setPacketDays(e.target.value)} aria-label="Exam packet audit window">
+              <option value="90">Last 90 days</option>
+              <option value="365">Last 12 months</option>
+              <option value="0">Full history</option>
+            </select>
+            <button className="px-btn px-btn-sm px-btn-primary" onClick={exportExamPacket} disabled={packetBusy}
+              title="One-click books-&-records packet: advisors, clients, fee schedules, invoices, acknowledgements, audit trail">
+              <Icons.Download size={11} /> {packetBusy ? 'Assembling…' : 'Exam packet'}
+            </button>
+          </div>
         </div>
 
         {auditLog === undefined ? (

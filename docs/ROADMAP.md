@@ -158,9 +158,15 @@ a demo into a "yes," then depth and reach.
   retirement readiness reflects the call; (5) **QBR + IPS print renderers** carry the
   concentrated-equity position and the projected first RMD as plan flags. P01–P03 now
   hold 3 tools each, P02 2+runway — full front/back symmetry.
-- **Tax-return insight (Holistiplan-lite)** — drop a 1040 → planning observations in
-  the roadmap + portal. High willingness-to-pay; differentiating inside a client
-  portal. Pairs naturally with the planning-depth track above.
+- **Tax-return insight (Holistiplan-lite) — SHIPPED 2026-06-09 (round 7).** Key
+  1040 lines captured in the Numbers drawer (AGI is the only required line) →
+  `tax1040Insights` (calc-core, unit-tested) → a Phase-04 **Tax-return insights**
+  tool rendering deterministic, line-explainable observations: bracket position +
+  headroom, withholding vs. total tax, standard-vs-itemized bunching, 0% LTCG
+  harvesting room, interest/dividend tax drag, IRMAA proximity, QCD eligibility,
+  SS provisional income. No OCR/upload — keyed lines keep every observation
+  auditable in a client meeting. *Next when wanted:* advisor-facing flags
+  (quick-view + QBR — queued in TODO), a PDF-upload parse, and state tax.
 - **AI relationship assistant (Gemini) — SHIPPED 2026-06-09** (`ai-assist` edge fn,
   advisor-JWT-gated, key server-side only, every call audited). Four surfaces: AI
   draft in the advisor's message compose, household summary + review talking points
@@ -170,11 +176,29 @@ a demo into a "yes," then depth and reach.
   replies on flagged questions, a QBR-narrative generator for the print packet, and
   cost/latency telemetry once a design partner uses it in anger.
 
+### Advisor-workflow review (2026-06-09) — the "so what" gap
+A seat-of-the-advisor walkthrough (prospect → onboard → plan → meet → bill → comply)
+found the product strong on *diagnosis* and thin on *follow-through*. Five findings,
+all queued in TODO: (1) **insight → action hooks** — tools render verdicts but only
+the SS optimizer writes back to the plan; findings should become agenda items/tasks
+in one click; (2) **document-request flow** — the single most common advisor ask
+(send me your statement/trust doc) has no answer; the vault only takes unprompted
+uploads; (3) **advisor-facing 1040 flags** — the new tax insights render client-side
+only; (4) **prospect proposal packet** — prospect mode lacks a branded closing
+output; (5) **portal fee transparency** — approved invoices never reach the client.
+The theme to carry into future builds: every analytic surface should end in a
+trackable next step, not a read-out.
+
 ### Tier C — Reach & retention
 - **Client PWA + push** — installable client portal + push on new
   message/task/document. *Needs a VAPID keypair (human queue).*
-- **Exam-ready compliance export** — one-click books-&-records packet (audit log +
-  acknowledgements + WORM) for SEC/state exams.
+- **Exam-ready compliance export — SHIPPED 2026-06-09 (round 7).** One-click
+  books-&-records packet from the firm-admin compliance section, with a 90-day /
+  12-month / full-history audit window: advisor roster, fee schedules, client
+  inventory + fee assignment, invoices, every acknowledgement with its e-sign
+  state (firm-wide query, new `db.getFirmAcknowledgements`), the append-only
+  audit trail (up to 2,000 entries, truncation flagged), and a retention
+  statement. *Next when wanted:* a CSV companion export and per-client packets.
 
 ### Trust & control
 - **Advisor MFA (TOTP)** — enforce in the advisor auth path (Supabase Auth supports
@@ -209,24 +233,21 @@ a demo into a "yes," then depth and reach.
 (standalone, login/signup/landing); the cache + anon-RPC brand inputs are now
 whitelist-sanitized in both the bundles and the boot script.*
 
-From the 2026-06-08 clean-room review — cleanup passes, none blocking:
-- CSV export formula-injection neutralization (prefix `= + - @` cells).
-- `store.jsx update()` — shallow path-copy instead of whole-profile deep clone per
-  keystroke.
-- Skip the redundant post-load autosave (the `[profile]`-keyed effect re-fires after
-  an async load).
-- Cap `NotificationProvider.seenIds` (unbounded dedupe set leaks over long sessions).
-- Surface `estateProjection`'s hard-coded 2025 federal estate exemption as a dated
-  assumption (or pull from a constants table).
-- Swap the `monteCarlo` LCG for mulberry32 **if** an exact probability is ever
-  surfaced (fine as an illustrative band today).
-- Add `isUUID` guards on `dbResolveQuestion`/`dbSnoozeAlert` for consistency.
-- Resolve soft-vs-hard-delete inconsistency (`cash_flows`/`documents`/`crm_tasks` hard
-  delete vs archive elsewhere) for a uniform 17a-4 story — or document the distinction.
+**2026-06-09 round 7 cleared the 2026-06-08 clean-room list** — shipped: CSV
+formula-injection neutralization; `store.jsx update()` shallow path-copy; post-load
+autosave echo skipped; `seenIds` capped (500/evict-to-400); estate exemption hoisted
+to a named, exported, dated constant (`FEDERAL_ESTATE_EXEMPTION_2025`); `monteCarlo`
+LCG → mulberry32 (the tool surfaces an exact success %, which was the trigger);
+`isUUID` guards on `dbResolveQuestion`/`dbSnoozeAlert`; soft-vs-hard-delete
+distinction documented as deliberate in `db.jsx` (deletions of working data are
+themselves audited; books-and-records artifacts never hard-delete); lint now has
+bundle-structure guards (src/ coverage ↔ `build-files.mjs`, portal-isolation
+assert — the practical form of the load-order guard).
+
+Still open:
 - Bulk import: server-side batch RPC for imports over a threshold (today N sequential
-  round-trips, non-transactional).
-- Lint/build guard asserting the `build-files.mjs` concatenation order (cross-file
-  bare-global coupling is load-order-fragile).
+  round-trips, non-transactional). Migration-gated — ship with the next queued
+  migration (see TODO).
 
 ### UX backlog (optional, low)
 - Roster swipe actions / richer mobile detail (cards already shipped).

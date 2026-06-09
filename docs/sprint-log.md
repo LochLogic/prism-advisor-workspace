@@ -12,6 +12,51 @@
 
 ---
 
+## 2026-06-09 (round 7) — Holistiplan-lite · exam packet · code-quality sweep · advisor-POV review
+
+Three queued builds plus a product review, shipped as one package. Build · lint ·
+calc · smoke green; both new features verified live in the demo preview. **No
+migration, no secrets, no edge-function change** — everything rides existing storage
+and RLS, so the merge to main is the whole deploy.
+
+**1 · Tax-return insight (Holistiplan-lite).** `calc-core.tax1040Insights` (unit-tested,
+13 new tests): keyed 1040 lines → deterministic observations — bracket position +
+headroom (ordinary income backs out LTCG/qualified dividends), withholding vs. total
+tax, standard-vs-itemized bunching, 0% LTCG harvesting room, interest/dividend drag,
+IRMAA proximity (dated 2025 tiers, exported alongside `LTCG_ZERO_TOP_2025`), QCD at
+70½+, SS provisional income. Captured in the Numbers drawer ("Import from your 1040",
+`taxes.t1040`, AGI-only minimum, one-click "Use NN%" marginal-rate apply like the W-2
+block) and rendered by a new Phase-04 **Tax-return insights** tool (`taxreturn`) with
+client-safe tones (opportunity / watch / info). No OCR — keyed lines keep every
+observation explainable.
+
+**2 · Exam-ready compliance export.** Firm-admin compliance section gained a
+window select (90d / 12mo / full) + **Exam packet** button → `printExamPacket`
+(store.jsx, pure renderer): advisor roster, fee schedules, client inventory + fee
+assignment, invoices, firm-wide acknowledgements with e-sign state (new
+`db.getFirmAcknowledgements`), append-only audit trail (new `since` filter on
+`db.getAuditLog`, 2,000-entry cap with truncation flag), retention statement.
+
+**3 · Code-quality sweep — 10 of 11 cleared** (detail in ROADMAP): CSV
+formula-injection guard; `update()` shallow path-copy (was a full deep clone per
+keystroke); post-load autosave echo skipped; notification dedupe set capped;
+`FEDERAL_ESTATE_EXEMPTION_2025` named/exported (EstateTool now reads it); monteCarlo
+LCG → mulberry32 (an exact success % is surfaced, the agreed trigger); `isUUID`
+guards; deletion policy documented as deliberate in db.jsx; estate doc dangling
+pointer closed (vault delete fires `px:document-deleted`; ProfileProvider clears
+matching `estate.*.documentId`); lint gained bundle-structure guards (src/ coverage ↔
+build-files.mjs + portal-isolation assert). Remaining: bulk-import batch RPC,
+deliberately migration-gated (TODO).
+
+**4 · Advisor-POV walkthrough** — five findings queued in TODO, themed "every
+analytic surface should end in a trackable next step": insight→action hooks,
+document-request flow, advisor-facing 1040 flags, prospect proposal packet, portal
+fee transparency. Full framing in ROADMAP ("Advisor-workflow review").
+
+**Hand-off:** nothing — no migration, no secrets, no edge redeploy.
+
+---
+
 ## 2026-06-09 (round 6) — W-2 import → parsed marginal rate (front-phase data play)
 
 Closes the last open **front-phase data play** in the Claude queue: replaces the

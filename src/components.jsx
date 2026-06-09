@@ -435,7 +435,13 @@ const DocumentVault = ({ clientId, role, firmId, advisorId, demoSeed = [], empty
   const remove = async (d) => {
     if (!isLive) return;
     const ok = await window.db.deleteDocument(d.id, d.storage_path, clientId);
-    if (ok) setDocs(prev => (prev || []).filter(x => x.id !== d.id));
+    if (ok) {
+      setDocs(prev => (prev || []).filter(x => x.id !== d.id));
+      // Estate checklist items may link this document (estate.*.documentId).
+      // Announce the deletion so ProfileProvider clears any stale link instead
+      // of leaving a dangling pointer behind a graceful-but-confusing toast.
+      window.dispatchEvent(new CustomEvent('px:document-deleted', { detail: { documentId: d.id, clientId } }));
+    }
   };
 
   return (

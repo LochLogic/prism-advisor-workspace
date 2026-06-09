@@ -120,13 +120,17 @@ function hsaProjection(balance, contrib, rate = 0.07, years = 25) {
 // Monte Carlo retirement projection with a seeded RNG (Box–Muller). Deterministic
 // for a given seed so each client sees stable-but-distinct results.
 function monteCarlo({ principal, years, withdrawal, seed = 42, runs = 800, mean = 0.07, sd = 0.16 }) {
-  let s = seed;
-  // RNG-quality note: this is a tiny LCG (period 233,280) — adequate for an
-  // *illustrative* confidence band (stable, deterministic, dependency-free), but
-  // its short period means it must NOT back a figure presented to a client as a
-  // precise/exact probability. If we ever surface an exact number, swap in a
-  // longer-period generator (e.g. mulberry32) here.
-  const rand = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+  // mulberry32 — full 2^32 state period, still seeded/deterministic/dependency-free.
+  // Replaced the original short-period LCG (233,280 states) because the Monte-Carlo
+  // tool surfaces "Success probability NN%" as a concrete figure to clients.
+  let s = (Number(seed) >>> 0) || 1;
+  const rand = () => {
+    s = (s + 0x6D2B79F5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
   const gauss = () => { let u = 0, v = 0; while (!u) u = rand(); while (!v) v = rand(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
   let success = 0;
   const finals = [];
@@ -166,9 +170,14 @@ function rothLadder({ tradBalance, annualConvert, bracketPct, growth = 0.06, yea
   return out;
 }
 
+// Federal estate-tax exemption — a DATED assumption like FED_BRACKETS_2025;
+// reindex annually (2025 figure, per-person). Named + exported so the tools can
+// label the year instead of burying the number in a default parameter.
+const FEDERAL_ESTATE_EXEMPTION_2025 = 13_990_000;
+
 // Estate projection: grow/draw to date of death, apply the federal estate tax
 // above the exemption, then compound the net to a second generation.
-function estateProjection({ principal, years, withdrawalRatePct, g2Years, realRet = 0.05, exempt = 13_990_000, estateTaxRate = 0.40 }) {
+function estateProjection({ principal, years, withdrawalRatePct, g2Years, realRet = 0.05, exempt = FEDERAL_ESTATE_EXEMPTION_2025, estateTaxRate = 0.40 }) {
   const draw = principal * (withdrawalRatePct / 100);
   let bal = principal;
   for (let y = 0; y < years; y++) bal = bal * (1 + realRet) - draw;
@@ -664,6 +673,143 @@ function w2Position({ box1 = 0, box2 = 0, filingStatus = 'mfj' } = {}) {
   return { wages, withheld, filingStatus: status, marginalRatePct, withholdingRate, bracket };
 }
 
+// ── 1040 capture → planning observations (Holistiplan-lite) ─────────────────
+// Dated 2025 companions to FED_BRACKETS_2025 — reindex annually together.
+// LTCG 0% band top (taxable income) and the first IRMAA MAGI tier (2025 premiums,
+// based on 2023 MAGI in real life; used here as a proximity flag, not a bill).
+const LTCG_ZERO_TOP_2025  = { single: 48_350,  mfj: 96_700 };
+const IRMAA_TIER1_2025    = { single: 106_000, mfj: 212_000 };
+
+// The fuller layer over w2Position: key lines off a filed Form 1040 → deterministic
+// planning observations. No OCR, no upload — the advisor (or client) keys ~8 lines
+// and every observation is a pure function of them, so the output is explainable
+// line-by-line in a client meeting. Observations carry a tone for the client-facing
+// surface (informative, never discouraging — see tone memory): 'opportunity' |
+// 'watch' | 'info'. Returns null when nothing material was entered.
+//   lines: { agi (L11), deduction (L12), taxableIncome (L15), totalTax (L24),
+//            withholding (L25d), taxableInterest (L2b), ordinaryDividends (L3b),
+//            qualifiedDividends (L3a), capGains (L7), iraDistributions (L4b),
+//            ssBenefits (L6b taxable) } — all optional, currency-cleaned.
+function tax1040Insights({ filingStatus = 'mfj', age = 0, lines = {} } = {}) {
+  const n = (v) => Math.max(0, Number(v) || 0);
+  const status = filingStatus === 'single' ? 'single' : 'mfj';
+  const agi = n(lines.agi);
+  if (agi <= 0) return null;
+
+  const table       = FED_BRACKETS_2025[status];
+  const deduction   = n(lines.deduction) || table.stdDeduction;
+  const taxable     = n(lines.taxableIncome) || Math.max(0, agi - deduction);
+  const totalTax    = n(lines.totalTax);
+  const withheld    = n(lines.withholding);
+  const interest    = n(lines.taxableInterest);
+  const ordDiv      = n(lines.ordinaryDividends);
+  const qualDiv     = Math.min(n(lines.qualifiedDividends), ordDiv || Infinity);
+  const capGains    = Number(lines.capGains) || 0;            // can be negative (carryforward)
+  const iraDist     = n(lines.iraDistributions);
+  const ssTaxable   = n(lines.ssBenefits);
+
+  // Locate the household in the ordinary brackets using ORDINARY income only
+  // (back out preferential-rate LTCG/qualified dividends so the marginal rate is
+  // the rate on the next ordinary dollar, which is what planning decisions price).
+  const ordinaryTaxable = Math.max(0, taxable - Math.max(0, capGains) - qualDiv);
+  const bracket = bracketPosition({ filingStatus: status, ordinaryIncome: ordinaryTaxable, deductions: 0 });
+  const effectiveRate = totalTax > 0 && agi > 0 ? totalTax / agi : null;
+
+  const obs = [];
+  const add = (id, tone, title, detail) => obs.push({ id, tone, title, detail });
+
+  // 1 · Bracket position + headroom — the anchor observation.
+  const pct = (r) => `${Math.round(r * 100)}%`;
+  if (bracket.headroom > 0 && isFinite(bracket.headroom)) {
+    add('bracket-headroom', 'opportunity', `Room in the ${pct(bracket.marginalRate)} bracket`,
+      `Ordinary income sits ${'$' + Math.round(bracket.headroom).toLocaleString('en-US')} below the top of the ` +
+      `${pct(bracket.marginalRate)} bracket. That headroom prices Roth conversions and the pre-tax vs. Roth ` +
+      `contribution choice this year.`);
+  } else if (!isFinite(bracket.headroom)) {
+    add('top-bracket', 'info', 'Top federal bracket',
+      'Ordinary income reaches the top bracket — deferral and timing strategies matter more than bracket-filling.');
+  }
+
+  // 2 · Withholding vs. total tax — refund/balance-due reality check.
+  if (totalTax > 0 && withheld > 0) {
+    const gap = withheld - totalTax;
+    const gapPct = Math.abs(gap) / totalTax;
+    if (gap > 0 && gapPct > 0.10) {
+      add('over-withheld', 'opportunity', 'Withholding ran well ahead of the tax bill',
+        `About ${'$' + Math.round(gap).toLocaleString('en-US')} more was withheld than owed — an interest-free loan ` +
+        `to the IRS. Adjusting a W-4 puts that into monthly cash flow instead of a once-a-year refund.`);
+    } else if (gap < 0 && gapPct > 0.10) {
+      add('under-withheld', 'watch', 'Withholding ran behind the tax bill',
+        `Withholding came in about ${'$' + Math.round(-gap).toLocaleString('en-US')} short of the total tax. Worth ` +
+        `a W-4 or estimated-payment check so next April doesn't surprise.`);
+    }
+  }
+
+  // 3 · Standard-vs-itemized proximity → bunching.
+  const std = table.stdDeduction;
+  if (deduction > std && (deduction - std) / std < 0.15) {
+    add('bunching', 'opportunity', 'Itemizing just over the standard deduction',
+      `Itemized deductions only narrowly beat the ${'$' + std.toLocaleString('en-US')} standard deduction. ` +
+      `Bunching two years of charitable gifts (e.g. a donor-advised fund) into one year can beat alternating.`);
+  }
+
+  // 4 · 0% LTCG band — gain harvesting.
+  const ltcgTop = LTCG_ZERO_TOP_2025[status];
+  if (taxable < ltcgTop) {
+    add('ltcg-zero', 'opportunity', 'Room in the 0% capital-gains band',
+      `Taxable income is ${'$' + Math.round(ltcgTop - taxable).toLocaleString('en-US')} below the top of the 0% ` +
+      `long-term-gains band — long-term gains realized inside that room are federally tax-free (gain harvesting).`);
+  } else if (capGains < 0) {
+    add('loss-carryforward', 'info', 'Capital-loss carryforward on file',
+      'Line 7 shows a net capital loss — the carryforward offsets future gains and up to $3,000 of ordinary income a year.');
+  }
+
+  // 5 · Interest income → cash possibly idle or bonds in the wrong account.
+  if (interest > 2_500 && bracket.marginalRate >= 0.22) {
+    add('interest-drag', 'opportunity', 'Sizable fully-taxed interest income',
+      `${'$' + Math.round(interest).toLocaleString('en-US')} of interest was taxed at ordinary rates. If it comes ` +
+      `from bonds or large cash in a taxable account, asset location (sheltering them in tax-deferred) or ` +
+      `Treasuries/munis could keep more of it.`);
+  }
+
+  // 6 · Dividend quality — non-qualified share taxed at ordinary rates.
+  if (ordDiv > 1_000 && qualDiv / ordDiv < 0.6) {
+    add('dividend-quality', 'watch', 'A large share of dividends taxed at ordinary rates',
+      `Only ${Math.round((qualDiv / ordDiv) * 100)}% of dividends were qualified. The rest are taxed like wages — ` +
+      `often a sign of REITs or high-turnover funds sitting in a taxable account.`);
+  }
+
+  // 7 · IRMAA proximity — flag within 10% below the first MAGI tier (or over it).
+  const irmaa = IRMAA_TIER1_2025[status];
+  if (agi >= irmaa) {
+    add('irmaa-over', 'watch', 'Income above the first Medicare IRMAA tier',
+      `MAGI near ${'$' + Math.round(agi).toLocaleString('en-US')} is over the ${'$' + irmaa.toLocaleString('en-US')} ` +
+      `tier where Medicare premiums step up (two years later). Roth-conversion sizing should price this cliff in.`);
+  } else if (agi > irmaa * 0.9) {
+    add('irmaa-near', 'watch', 'Approaching the first Medicare IRMAA tier',
+      `MAGI is within ${'$' + Math.round(irmaa - agi).toLocaleString('en-US')} of the ${'$' + irmaa.toLocaleString('en-US')} ` +
+      `tier that raises future Medicare premiums — a number to watch when realizing income.`);
+  }
+
+  // 8 · QCD eligibility — IRA distributions while charitably inclined at 70½+.
+  if (iraDist > 0 && age >= 70.5) {
+    add('qcd', 'opportunity', 'IRA distributions could flow through a QCD',
+      'Qualified charitable distributions (up to $108k, 2025) sent directly from the IRA count toward RMDs and ' +
+      'never hit AGI — usually beating a cash gift plus a deduction.');
+  }
+
+  // 9 · Taxable Social Security + other income → provisional-income lever.
+  if (ssTaxable > 0 && (interest + ordDiv + iraDist) > 10_000) {
+    add('ss-taxation', 'info', 'Other income is pulling Social Security into tax',
+      'Part of Social Security is taxable because of other income on the return. Sequencing withdrawals ' +
+      '(taxable first, Roth for spikes) can lower the taxed share in some years.');
+  }
+
+  return { filingStatus: status, agi, deduction, taxableIncome: taxable, ordinaryTaxable,
+    totalTax, effectiveRate, marginalRate: bracket.marginalRate, headroom: bracket.headroom,
+    bracket, observations: obs };
+}
+
 // ── Rough term-life premium estimate (illustrative, NOT a quote) ─────────────
 // A ballpark monthly cost for a given coverage amount, by age band, for a healthy
 // non-smoker on a ~20-year level term. Deliberately coarse and clearly illustrative
@@ -981,6 +1127,7 @@ const PrismCalc = {
   rmdProjection, RMD_UNIFORM_DIVISORS, ssBenefitFactor, socialSecurityClaiming,
   equityCompConcentration,
   netWorthTrajectory, incomeRunway,
+  tax1040Insights, LTCG_ZERO_TOP_2025, IRMAA_TIER1_2025, FEDERAL_ESTATE_EXEMPTION_2025,
 };
 
 if (typeof window !== 'undefined') window.PrismCalc = PrismCalc;

@@ -19,18 +19,12 @@
 Sequenced to the north star — onboard a first paying advisor. Each item is
 independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
 
-- [ ] **Tax-return insight (Holistiplan-lite)** (Tier B) — upload a 1040 → planning
-  observations into the roadmap + portal. *(The W-2 box-1/box-2 capture feeding
-  `bracketPosition` — the front-phase first slice — shipped 2026-06-09; this is the
-  fuller 1040 layer it folds into.)*
 - [ ] **Advisor MFA (TOTP)** — enforce in the advisor auth path. *↔ may need a
   Supabase Auth toggle (your queue).*
 - [ ] **Product analytics events** — first-party activation events (login, invite,
   message, plan-update, report) into a small events table.
 - [ ] **RLS-predicate index coverage audit** (`advisor_id`/`firm_id`/`client_id`,
   esp. the firm-admin cross-firm read).
-- [ ] **Exam-ready compliance export** — one-click books-&-records packet (audit log +
-  acknowledgements + WORM).
 - [ ] **Client PWA + push** — installable portal + push on new message/task/document.
   *↔ blocked-by-you: VAPID keypair.*
 - [ ] **Advisor-approval commit gate for client ledger edits** — opt-in draft → review
@@ -44,18 +38,29 @@ independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
   200 for permanent/unprocessable, 4xx/5xx only for retryable. *↔ money-adjacent;
   deferred by decision — needs the gated `stripe-webhook` edge redeploy with your go.
   Repo intentionally left in sync with what's deployed.*
-- [ ] **Code-quality backlog** (cleanup, low priority) — CSV formula-injection guard ·
-  `store.jsx update()` shallow path-copy · skip redundant post-load autosave · cap
-  `NotificationProvider.seenIds` · dated estate-exemption assumption · mulberry32 RNG
-  if exact probability surfaced · `isUUID` guards on `dbResolveQuestion`/`dbSnoozeAlert`
-  · soft-vs-hard-delete consistency for 17a-4 · bulk-import batch RPC · load-order lint
-  guard · **estate doc link dangling pointer** — deleting a vault document doesn't
-  clear `documentId` on the estate item; the open fails gracefully (toast) but leaving
-  the stale reference is untidy; a `documents` delete hook or a load-time validity check
-  would close it. *(See ROADMAP "Code-quality backlog." The 2026-06-09
-  architecture-pass items — sign-in phase-fetch parallelization, `generate-invoices`
-  N+1 batch, pre-auth brand theming, brand-cache sanitization — shipped 2026-06-09
-  round 5.)*
+- [ ] **Bulk-import batch RPC** (last open code-quality item) — server-side batch
+  insert for CSV imports over a threshold (today N sequential round-trips,
+  non-transactional). Deliberately deferred 2026-06-09: needs a hand-applied
+  migration (`px_bulk_create_clients`), so it ships when a migration is queued
+  anyway. *(The other ten 2026-06-09 code-quality items shipped in round 7.)*
+- [ ] **Insight → action hooks** (2026-06-09 advisor-POV review, top finding) — the
+  planning tools diagnose but mostly dead-end: only the SS claiming optimizer writes
+  back to the plan. Add a lightweight "Add to agenda / create task" affordance to the
+  high-verdict tools (coverage gap, Roth window, debt-vs-invest, 1040 observations)
+  so a tool finding becomes a tracked next step the advisor owns.
+- [ ] **Document-request flow** (advisor-POV review) — advisors chase statements /
+  trust docs constantly; the vault only takes unprompted uploads. Advisor requests a
+  named document → client portal shows the ask → upload lands in the vault and
+  resolves the request. Lean on the existing tasks + documents tables.
+- [ ] **Advisor-facing 1040 flags** (advisor-POV review; extends the round-7 tax
+  feature) — surface the top `tax1040Insights` observations in the client quick-view
+  and as QBR plan flags, so the advisor sees what the client's roadmap tool shows.
+- [ ] **Prospect proposal packet** (advisor-POV review) — prospect mode has no
+  branded close-the-deal output. One-click print: roadmap preview, readiness snapshot,
+  fee schedule, "what working together looks like." Reuses the print renderers.
+- [ ] **Portal fee transparency** (advisor-POV review, small) — approved/paid
+  invoices never surface client-side. Show them in the client portal (vault or a
+  small billing card) — a fiduciary trust signal.
 - [ ] **UX backlog** (optional) — roster swipe actions; housing ratio coaching + field
   hints (FinFire donors).
 

@@ -949,6 +949,56 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                 </div>
               );
             })()}
+
+            {/* 1040 capture → planning observations (Holistiplan-lite). Key lines
+                off the filed return; tax1040Insights turns them into deterministic
+                observations surfaced in the Phase-04 "Tax-return insights" tool. */}
+            {(() => {
+              const t = profile.taxes.t1040 || {};
+              const filing = profile.taxes.filingStatus === 'single' ? 'single' : 'mfj';
+              const res = tax1040Insights({ filingStatus: filing, age: planningAge, lines: t });
+              const ratePct = res ? Math.round(res.marginalRate * 100) : null;
+              const applied = res && Number(profile.taxes.marginalRate) === ratePct;
+              const FIELDS = [
+                ['agi',               'Line 11 — adjusted gross income', 1000],
+                ['deduction',         'Line 12 — deduction taken',       500],
+                ['taxableIncome',     'Line 15 — taxable income',        1000],
+                ['totalTax',          'Line 24 — total tax',             500],
+                ['withholding',       'Line 25d — tax withheld',         500],
+                ['capGains',          'Line 7 — capital gain or (loss)', 500],
+                ['taxableInterest',   'Line 2b — taxable interest',      100],
+                ['ordinaryDividends', 'Line 3b — ordinary dividends',    100],
+                ['qualifiedDividends','Line 3a — qualified dividends',   100],
+                ['iraDistributions',  'Line 4b — taxable IRA distributions', 500],
+                ['ssBenefits',        'Line 6b — taxable Social Security', 500],
+              ];
+              return (
+                <div style={{ marginTop: 12, border: '1px solid var(--border)', borderRadius: 6, padding: 12, background: 'var(--surface)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 10 }}>
+                    <span className="px-eyebrow" style={{ margin: 0 }}>Import from your 1040</span>
+                    <FieldHint text="Key lines from your most recent federal return (Form 1040). They unlock the tax-return insights in your roadmap — bracket position, withholding check, 0% gains room, and more. Enter what you have; every line is optional except AGI." />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    {FIELDS.map(([key, label, step]) => (
+                      <NumField key={key} label={label} path={`taxes.t1040.${key}`} value={t[key]} step={String(step)} onUpdate={update} />
+                    ))}
+                  </div>
+                  {res && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 10 }}>
+                      <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.5 }}>
+                        Return lands in the <b>{ratePct}%</b> bracket
+                        {res.effectiveRate != null && <> · effective <b>{Math.round(res.effectiveRate * 100)}%</b> of AGI</>}
+                        {' '}· <b>{res.observations.length}</b> insight{res.observations.length !== 1 ? 's' : ''} in the Phase-04 tax tool.
+                      </div>
+                      <button className="px-btn px-btn-sm" disabled={applied} style={{ whiteSpace: 'nowrap' }}
+                        onClick={() => update('taxes.marginalRate', ratePct)}>
+                        {applied ? 'Applied' : `Use ${ratePct}%`}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </section>
 
           {/* Funding goals — education / home / custom, tracked to a target date */}

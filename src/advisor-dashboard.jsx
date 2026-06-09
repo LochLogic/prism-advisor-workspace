@@ -833,9 +833,15 @@ const AdvisorDashboard = () => {
       c.name, c.tag, c.phase, c.aum, c.uninvestedCash,
       c.lastActivity, c.lastReview || '', c.notes || '',
     ]);
-    const csv = [headers, ...rows]
-      .map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
-      .join('\r\n');
+    // Neutralize spreadsheet formula injection: a leading = + - @ (or a tab/CR
+    // hiding one) would execute when the CSV opens in Excel/Sheets — prefix with
+    // a quote so it renders as text. Notes and names are client-editable input.
+    const cell = (v) => {
+      let s = String(v ?? '');
+      if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+      return `"${s.replace(/"/g, '""')}"`;
+    };
+    const csv = [headers, ...rows].map(r => r.map(cell).join(',')).join('\r\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = Object.assign(document.createElement('a'), {
