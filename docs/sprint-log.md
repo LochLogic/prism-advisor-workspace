@@ -12,6 +12,44 @@
 
 ---
 
+## 2026-06-09 (round 6) — W-2 import → parsed marginal rate (front-phase data play)
+
+Closes the last open **front-phase data play** in the Claude queue: replaces the
+hand-entered marginal rate with a figure parsed off the household's actual W-2.
+Build · lint · calc · check green; new calc engine unit-tested. **No migration, no
+secrets, no money** — profile is a JSON blob, so the new field rides existing storage.
+
+**The thesis:** the marginal rate drove HSA / Roth / asset-location estimates but was a
+hand-typed guess. A W-2 carries the two numbers that fix that — Box 1 (wages) and Box 2
+(federal tax withheld) — and Box 1 *is* ordinary income, so it drops straight into the
+existing `bracketPosition` engine. Smallest coherent slice: capture the two boxes, derive
+the bracket, offer it as the rate. Folds into the fuller Holistiplan-lite 1040 layer later.
+
+**What shipped**
+- **`calc-core.w2Position({ box1, box2, filingStatus })`** — reuses `bracketPosition`
+  to locate Box-1 wages in the 2025 federal brackets → a whole-percent `marginalRatePct`
+  (the parsed figure), plus the effective federal `withholdingRate` (Box 2 / Box 1) as a
+  reality-check. Pure/deterministic; filing status collapses to the two bracket tables
+  we carry. Unit-tested (`scripts/calc.test.mjs`).
+- **Numbers drawer W-2 capture** (`numbers-panel.jsx`, Planning & tax section): Box 1 +
+  Box 2 fields → live "Box 1 lands in the **22%** bracket · withheld **15%** of wages"
+  read-out + a one-click **Use NN%** button that writes the parsed rate to
+  `taxes.marginalRate` (becomes a disabled **Applied** once set). Explicit, not silent.
+- **Front-phase tie-in** (`calculators.jsx`): the Phase-04 Tax-Bracket Headroom tool now
+  prefers the captured W-2 Box-1 wages as its income default over the ledger estimate.
+- **Profile shape**: `taxes.w2 = { box1, box2 }` added to default + empty profiles;
+  `mergeProfile` back-fills it on older profiles. No schema change.
+
+**Verification:** browser-preview end-to-end — entered Box 1 $185k / Box 2 $28k → derived
+22% + 15% withholding → "Use 22%" applied to the marginal-rate field → button went
+"Applied". No console errors.
+
+**Files:** `src/calc-core.cjs`, `src/numbers-panel.jsx`, `src/calculators.jsx`,
+`src/store.jsx`, `scripts/calc.test.mjs`, `docs/TODO.md`, `docs/ARCHITECTURE.md`,
+`docs/sprint-log.md`. Frontend auto-deploys on merge.
+
+---
+
 ## 2026-06-09 (round 5) — Code-quality pass + front-phase parity finish
 
 Closes the four 2026-06-09 architecture-inefficiency items and the whole

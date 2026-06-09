@@ -456,7 +456,10 @@ const HSATool = () => {
 const BracketHeadroomTool = () => {
   const { profile, grossAnnualIncome, effectiveTakehome } = useProfile();
   const defaultFiling = profile.taxes?.filingStatus === 'single' ? 'single' : 'mfj';
-  const [income, setIncome] = useStateC(Math.round(((grossAnnualIncome || (effectiveTakehome || 0) * 12)) / 1000) * 1000);
+  // Prefer the parsed W-2 Box-1 wages when captured — the figure off the actual
+  // return beats the ledger estimate; fall back to gross/take-home when no W-2.
+  const w2Wages = Number(profile.taxes?.w2?.box1) || 0;
+  const [income, setIncome] = useStateC(w2Wages > 0 ? w2Wages : Math.round(((grossAnnualIncome || (effectiveTakehome || 0) * 12)) / 1000) * 1000);
   const [filing, setFiling] = useStateC(defaultFiling);
 
   const b = useMemoC(() => bracketPosition({ filingStatus: filing, ordinaryIncome: income }), [filing, income]);

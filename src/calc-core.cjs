@@ -641,6 +641,29 @@ function bracketPosition({ filingStatus = 'mfj', ordinaryIncome = 0, deductions 
     marginalRate, effectiveRate, bandLo, bandTop, headroom, nextRate, bands };
 }
 
+// ── W-2 capture → parsed marginal rate (front-phase tax-data play) ───────────
+// The smallest possible "tax-return import": Box 1 (wages, tips, other comp) and
+// Box 2 (federal income tax withheld) straight off a W-2. Box 1 IS ordinary income,
+// so it drops into bracketPosition to LOCATE the household in the federal brackets —
+// turning the hand-entered marginal rate into a parsed figure. Box 2 yields the
+// effective federal withholding rate (what was actually held back vs. wages), a
+// reality-check against the bracket math: a large gap flags over/under-withholding
+// worth a conversation. Pure/deterministic; reuses bracketPosition so the bracket
+// assumptions live in exactly one place. Filing status collapses to the two bracket
+// tables we carry (single vs. mfj), matching the rest of the client-facing tools.
+function w2Position({ box1 = 0, box2 = 0, filingStatus = 'mfj' } = {}) {
+  const wages    = Math.max(0, Number(box1) || 0);
+  const withheld = Math.max(0, Number(box2) || 0);
+  const status   = filingStatus === 'single' ? 'single' : 'mfj';
+  const bracket  = bracketPosition({ filingStatus: status, ordinaryIncome: wages });
+  // The parsed marginal rate that replaces the hand-entered figure (whole percent,
+  // to match the integer rate stored in profile.taxes.marginalRate).
+  const marginalRatePct = Math.round(bracket.marginalRate * 100);
+  // Effective federal withholding: employer's box-2 withholding as a share of wages.
+  const withholdingRate = wages > 0 ? withheld / wages : 0;
+  return { wages, withheld, filingStatus: status, marginalRatePct, withholdingRate, bracket };
+}
+
 // ── Rough term-life premium estimate (illustrative, NOT a quote) ─────────────
 // A ballpark monthly cost for a given coverage amount, by age band, for a healthy
 // non-smoker on a ~20-year level term. Deliberately coarse and clearly illustrative
@@ -953,7 +976,7 @@ const PrismCalc = {
   retirementReadiness, goalFunding, annualFeeForAum, lifeCoverageGap, assetComposition,
   riskProfile, RISK_ALLOCATIONS, assetLocationPlan,
   contributionWaterfall, withdrawalSequence, rothConversionWindow, FED_BRACKETS_2025,
-  bracketPosition, termLifePremium, yearsToIndependence, debtVsInvest,
+  bracketPosition, w2Position, termLifePremium, yearsToIndependence, debtVsInvest,
   mortgagePayoff, hdhpVsPpo, megaBackdoorCapacity,
   rmdProjection, RMD_UNIFORM_DIVISORS, ssBenefitFactor, socialSecurityClaiming,
   equityCompConcentration,
