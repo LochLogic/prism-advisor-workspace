@@ -12,6 +12,39 @@
 
 ---
 
+## 2026-06-08 — Planning depth: decumulation & contribution intelligence (Tier B)
+
+Advanced the **deeper-planning-intelligence priority track** (ROADMAP Tier B), building on
+the bespoke Asset Location optimizer. Three new pure, unit-tested engines in `calc-core.cjs`,
+each surfaced as an advisor tool driven entirely by data already on file:
+
+- **Contribution Priority** (`contributionWaterfall`) — sequences the year's savings in the
+  canonical order (full employer match → HSA → IRA/Roth → 401(k) max → taxable), capped by
+  each account's remaining room; flags capacity too thin to capture the full match (free
+  money left on the table). On Phase 04.
+- **Withdrawal Sequencing** (`withdrawalSequence`) — year-by-year tax-efficient draw order
+  (taxable → tax-deferred → tax-free Roth) netting guaranteed income, grossing up for tax;
+  reports longevity, lifetime tax, and after-tax value at the horizon. *Deliberately drops a
+  "vs. proportional $ saved" headline — under a flat rate that comparison is deferral-timing
+  dominated and can invert, so claiming it would mislead.* On Phase 07.
+- **Roth Conversion Window** (`rothConversionWindow`) — sizes conversions in the low-income
+  gap years (retirement → RMD age 73) to fill a target bracket's headroom, using a dated
+  `FED_BRACKETS_2025` table (standard deduction + ordinary bands, MFJ/single). On Phase 07.
+
+Supporting changes: `client-portal.jsx` now resolves a phase `calcs: [...]` array (any number
+of tools) alongside legacy `calc`/`calc2`; `data.jsx` wires the new tools + milestone tasks
+into Phases 04/07; `styles.css` themes bare `<select>` controls for the dark palette (the
+bracket picker). Verified in browser preview against the demo household; full `npm test`
+(build + smoke + 40+ calc assertions) green.
+
+Also folded in two previously-staged repo aids: **`docs/ARCHITECTURE.md`** (condensed repo
+map to cut re-exploration cost across chat clears) and **`CLAUDE.md`** (session-start
+directive to read the map first). No schema, secrets, or money touched — purely client-side.
+
+**PR:** _(this sprint)_ · **Deploy:** auto-merge → Cloudflare live; no human hand-off required.
+
+---
+
 ## 2026-06-08 — Foundation baseline (everything shipped to date)
 
 The starting point for the reset. Prism is a mature, multi-tenant RIA workspace —

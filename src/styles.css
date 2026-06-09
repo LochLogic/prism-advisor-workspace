@@ -432,6 +432,21 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 .px-input-affix input:focus { outline: none; }
 
+/* Bare <select> inside a tool field (e.g. the calculators' bracket picker) — match the
+   affix-input chrome so the native control reads in the dark palette instead of the
+   browser's default white-on-light. */
+.px-field select {
+  width: 100%; box-sizing: border-box;
+  border: 1px solid var(--border-2);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 14px;
+  padding: 8px 10px;
+}
+.px-field select:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px var(--accent-soft); }
+
 /* Numbers panel: editable numeric fields render in the serif lining figures the
    rest of the app uses for money — more refined than the mono face, and it keeps
    the panel visually of-a-piece with the dashboard and client portal. */
