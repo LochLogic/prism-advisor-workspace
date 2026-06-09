@@ -44,6 +44,68 @@ const CashflowTool = () => {
   );
 };
 
+/* Phase 01 · Freedom Date — savings-rate → years-to-independence (client utility) */
+const FreedomDateTool = () => {
+  const { surplus, savingsRate, totalInvested, annualExpenses, fireNumber, fireProgress, effectiveTakehome, planningAge } = useProfile();
+  // Investable surplus drives the contribution; let the client try saving a little more.
+  const baseAnnualSavings = Math.max(0, surplus * 12);
+  const [annualSavings, setAnnualSavings] = useStateC(Math.round(baseAnnualSavings));
+
+  const target = fireNumber;
+  const fi = useMemoC(
+    () => yearsToIndependence({ currentInvested: totalInvested, annualSavings, targetNumber: target, realReturn: 0.05 }),
+    [totalInvested, annualSavings, target]);
+  // The lever: one more percent of take-home, saved → how many months sooner.
+  const onePct = Math.max(0, effectiveTakehome) * 12 * 0.01;
+  const fiMore = useMemoC(
+    () => yearsToIndependence({ currentInvested: totalInvested, annualSavings: annualSavings + onePct, targetNumber: target, realReturn: 0.05 }),
+    [totalInvested, annualSavings, onePct, target]);
+  const monthsSooner = (fi.reached && fiMore.reached) ? Math.max(0, Math.round((fi.years - fiMore.years) * 12)) : 0;
+
+  const reached = fi.reached && isFinite(fi.years);
+  const freedomYear = reached ? new Date().getFullYear() + fi.years : null;
+  const freedomAge  = (reached && planningAge > 0) ? planningAge + fi.years : null;
+
+  return (
+    <ToolShell title="Freedom Date" hint="When work becomes optional — at today's savings pace">
+      <div className="px-tool-grid">
+        <StatCell label="Years to independence"
+          value={reached ? (fi.years === 0 ? 'Now' : `${fi.years} yr`) : '—'}
+          tone={reached ? 'good' : null}
+          foot={reached ? (freedomAge ? `around age ${freedomAge}` : `≈ ${freedomYear}`) : 'increase saving to set a date'} big />
+        <StatCell label="Freedom number" value={fmt$(target, { short: true })} foot="≈ 25× annual spending" />
+        <StatCell label="Progress" value={fmtPct(fireProgress)}
+          foot={`${fmt$(totalInvested, { short: true })} invested today`} />
+        <StatCell label="Saving" value={fmt$(annualSavings, { short: true })} foot={`${fmtPct(savingsRate)} of take-home`} />
+      </div>
+      <div style={{ marginTop: 14 }}>
+        <div style={{ height: 6, background: 'var(--bg-elev)', borderRadius: 3, overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${Math.min(100, fireProgress)}%`, background: 'var(--forest)', transition: 'width .4s' }} />
+        </div>
+      </div>
+      {monthsSooner > 0 && (
+        <div style={{ marginTop: 12, padding: '10px 12px', background: 'var(--bg-elev)', borderLeft: '3px solid var(--gold)',
+          borderRadius: 6, fontSize: 12, color: 'var(--ink)', lineHeight: 1.5 }}>
+          Saving just <b>1% more</b> of take-home ({fmt$(onePct / 12)}/mo) brings your Freedom Date forward about
+          <b> {monthsSooner} month{monthsSooner === 1 ? '' : 's'}</b>. Small, steady increases compound into years.
+        </div>
+      )}
+      <label className="px-field" style={{ marginTop: 14 }}>
+        <span className="px-field-label">Annual amount invested</span>
+        <div className="px-input-affix">
+          <span className="px-affix">$</span>
+          <input type="number" value={annualSavings} step="1000" onChange={(e) => setAnnualSavings(parseFloat(e.target.value) || 0)} />
+        </div>
+      </label>
+      <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 10, lineHeight: 1.5 }}>
+        "Independence" = invested assets reaching ≈ 25× your annual spending, the point a 4%-ish draw could
+        cover today's lifestyle. Illustrative at a 5% real return — the early years are the advantage, since
+        time does the heavy lifting. Your advisor can refine the target and pace with you.
+      </div>
+    </ToolShell>
+  );
+};
+
 /* Phase 02 · Reserve */
 const ReserveTool = () => {
   const { totalExpenses, profile, reserveTarget, reservePct } = useProfile();
@@ -155,6 +217,76 @@ const AvalancheTool = () => {
           <input type="number" value={extra} step="100" onChange={(e) => setExtra(parseFloat(e.target.value) || 0)} />
         </div>
       </label>
+    </ToolShell>
+  );
+};
+
+/* Phase 03 · Debt-vs-Invest crossover — pay down or invest the marginal dollar? */
+const DebtVsInvestTool = () => {
+  const { profile } = useProfile();
+  const debts = Array.isArray(profile.debts) ? profile.debts.filter(d => (Number(d.balance) || 0) > 0) : [];
+  const [returnPct, setReturnPct] = useStateC(6);   // expected after-tax annual return
+
+  const rows = useMemoC(() => debts.map(d => ({
+    label: d.label || d.name || 'Debt', balance: Number(d.balance) || 0, apr: Number(d.apr) || 0,
+    ...debtVsInvest({ apr: Number(d.apr) || 0, afterTaxReturn: returnPct }),
+  })), [debts, returnPct]);
+
+  const payBalance    = rows.filter(r => r.verdict === 'pay').reduce((a, r) => a + r.balance, 0);
+  const investBalance = rows.filter(r => r.verdict === 'invest').reduce((a, r) => a + r.balance, 0);
+
+  if (!debts.length) {
+    return (
+      <ToolShell title="Pay down or invest?" hint="The marginal-dollar crossover">
+        <div style={{ fontSize: 12, color: 'var(--ink-mute)', lineHeight: 1.5 }}>
+          No debts on file — nothing to weigh against investing. Every spare dollar can go straight to the
+          portfolio. Add balances in your numbers if that changes.
+        </div>
+      </ToolShell>
+    );
+  }
+  const V = { pay: { label: 'Pay down first', color: 'var(--gold)' },
+              invest: { label: 'Invest instead', color: 'var(--forest)' },
+              tossup: { label: 'Toss-up', color: 'var(--ink-mute)' } };
+  return (
+    <ToolShell title="Pay down or invest?" hint="Guaranteed payoff return vs. expected after-tax return">
+      <div className="px-tool-grid">
+        <StatCell label="Expected return" value={fmtPct(returnPct)} foot="after-tax, the bar to beat" />
+        <StatCell label="Pay down first" value={fmt$(payBalance, { short: true })}
+          tone={payBalance > 0 ? null : 'good'} foot={payBalance > 0 ? 'APR beats investing' : 'none — all below the bar'} />
+        <StatCell label="Better to invest" value={fmt$(investBalance, { short: true })} tone="good"
+          foot="APR below expected return" />
+        <StatCell label="Debts weighed" value={`${debts.length}`} foot="balances on file" />
+      </div>
+      <label className="px-field" style={{ marginTop: 14 }}>
+        <span className="px-field-label">Expected after-tax investment return</span>
+        <div className="px-input-affix">
+          <input type="number" value={returnPct} step="0.5" onChange={(e) => setReturnPct(parseFloat(e.target.value) || 0)} />
+          <span className="px-affix px-affix-r">%</span>
+        </div>
+      </label>
+      <div style={{ marginTop: 14 }}>
+        <table className="px-table" style={{ background: 'var(--surface)' }}>
+          <thead>
+            <tr><th>Debt</th><th className="is-num">Balance</th><th className="is-num">APR</th><th className="is-num">Verdict</th></tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i} style={{ cursor: 'default' }}>
+                <td style={{ fontFamily: 'var(--serif)', fontSize: 13.5 }}>{r.label}</td>
+                <td className="is-num px-mono">{fmt$(r.balance, { short: true })}</td>
+                <td className="is-num px-mono">{fmtPct(r.apr)}</td>
+                <td className="is-num px-mono" style={{ color: V[r.verdict].color, fontWeight: 600 }}>{V[r.verdict].label}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 8, lineHeight: 1.5 }}>
+          Paying a balance down earns a <b>guaranteed, tax-free</b> return equal to its APR; investing earns an
+          uncertain one. Above ~{fmtPct(returnPct)} APR, the guaranteed payoff usually wins — below it, the
+          expected market return does. Near the line it's a toss-up where liquidity and peace of mind decide.
+        </div>
+      </div>
     </ToolShell>
   );
 };
@@ -784,9 +916,11 @@ const RothConversionWindowTool = () => {
 /* ─── Calculator registry ─────────────────────────────────────────── */
 const calculators = {
   cashflow:      CashflowTool,
+  freedomdate:   FreedomDateTool,
   reserve:       ReserveTool,
   coveragegap:   CoverageGapTool,
   avalanche:     AvalancheTool,
+  debtvinvest:   DebtVsInvestTool,
   hsa:           HSATool,
   brackets:      BracketHeadroomTool,
   assetlocation: AssetLocationTool,

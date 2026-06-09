@@ -12,6 +12,34 @@
 
 ---
 
+## 2026-06-09 (round 2) — Front-phase parity: Freedom Date + Debt-vs-Invest
+
+Second client-utility round, same review. Build · lint · calc · check · e2e ·
+rls-isolation all green; both tools verified via DOM in a browser preview (the
+screenshot renderer was hung that session — DOM checks were authoritative). Frontend
+auto-deploys on merge. **No migration, no secrets, no money.**
+
+**What shipped**
+- **Phase 01 — Freedom Date.** New `calc-core.yearsToIndependence()` — years until
+  invested assets reach the FIRE number (≈ 25× spending) at a 5% real return + flat
+  annual saving. The tool shows years/Freedom age, progress, and a **"+1% of take-home
+  saved → months sooner"** lever (derived by re-running the calc with a higher
+  contribution). Pure motivation from data on file; inclusive early-journey tone.
+- **Phase 03 — Pay down or invest?** New `calc-core.debtVsInvest()` — per-debt verdict
+  comparing the **guaranteed, tax-free** payoff return (the APR) against an expected
+  after-tax investment return, with a dead-band toss-up zone. Makes the phase's own
+  6–7%-crossover rationale interactive; graceful empty state when no debts are on file.
+- **Chip ↔ hero gap.** Trimmed ~12px more (chip bottom-margin 10→2, hero top-padding
+  4→0) for a tighter top; placement/right-alignment unchanged. Mobile row unchanged.
+
+Both new functions unit-tested (`scripts/calc.test.mjs`). Wiring: `data.jsx` phase 01
+`calcs += freedomdate`, phase 03 `calcs += debtvinvest`; registered in `calculators`.
+
+**Files:** `src/calc-core.cjs`, `src/calculators.jsx`, `src/data.jsx`, `src/styles.css`,
+`scripts/calc.test.mjs`, `docs/ROADMAP.md`, `docs/TODO.md`, `docs/ARCHITECTURE.md`.
+
+---
+
 ## 2026-06-09 — Client-utility tools: coverage gap + bracket headroom (front-phase parity)
 
 Acts on a clean-room review of the client side (2026-06-09). PR #40

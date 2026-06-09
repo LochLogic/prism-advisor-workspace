@@ -805,7 +805,7 @@ i.px-split-dot {
 /* ── CLIENT PORTAL ──────────────────────────────────────────────── */
 .px-client-app { max-width: 980px; margin: 0 auto; padding: 32px 28px 80px; min-width: 0; }
 
-.px-clienthero { padding: 4px 0 28px; }
+.px-clienthero { padding: 0 0 28px; }
 .px-clienthero-eyebrow { margin-bottom: 12px; }
 .px-clienthero h1 {
   font-family: var(--serif);
@@ -1242,7 +1242,7 @@ i.px-split-dot {
 
 /* ── Advisor chip on client view ─────────────────────────────────── */
 .px-advisor-chip {
-  margin: 0 0 10px auto;            /* top of the canvas, right-aligned, normal flow (was floated/pulled up over the hero) */
+  margin: 0 0 2px auto;             /* top of the canvas, right-aligned, normal flow (was floated/pulled up over the hero) */
   width: max-content; max-width: 100%;
   display: flex; align-items: center; gap: 10px;
   padding: 8px 14px 8px 8px;
