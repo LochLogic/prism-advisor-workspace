@@ -26,17 +26,23 @@ independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
 - [ ] **AI relationship assistant (Gemini)** (Tier B) — draft replies, household
   summaries, review talking points, "who needs attention," server-side edge function.
   *Key already in Supabase secrets.*
-- [ ] **Front-phase tool parity** (Tier B, client-utility) — bring phases 1–4 up to the
-  depth of 5–7. *Shipped 2026-06-09:* Phase 01 Freedom Date · Phase 02 Coverage-Gap ·
-  Phase 03 Debt-vs-Invest · Phase 04 Bracket-Headroom. *Next, ranked & all from data on
-  file:* Phase 03 mortgage-payoff accelerator · Phase 04 HDHP-vs-PPO break-even (answers
-  flagged q03) · Phase 05 Mega-Backdoor capacity (answers flagged q02) · Phase 07 RMD
-  projector + SS claiming-age optimizer. *(Full ranking + rationale in ROADMAP
-  "Front-phase tool parity.")*
-- [ ] **Client-data builds that unlock tools** — Social Security PIA capture (→ claiming
-  optimizer), equity-comp fields (→ Phase 06 concentration/vest planner), Plaid
-  balance-freshness "as of" indicator. *Schema-touching; sequence ahead of the tools
-  that depend on them.*
+- [ ] **Front-phase parity — finish the symmetry & wire the new tools through** (small,
+  sequenced; the ranked backlog itself shipped 2026-06-09 round 3). Step by step:
+  1. **Phase 01 third tool** — add a savings-rate → net-worth-trajectory projector so
+     P01 matches P03/P04's depth (P01 currently has 2 tools: cashflow + freedomdate).
+  2. **Phase 02 second-half tool** — a disability-income / income-runway tool to pair
+     with the coverage-gap one (mirrors the P03 debt pair).
+  3. **Roadmap task hooks** — add a Phase 06 task line referencing `equitycomp` and a
+     Phase 03 line referencing `mortgagepayoff` (tool: 'advanced'/null) so the phase
+     checklists point at the new tools, not just the calc strip.
+  4. **Close the SS loop** — let the claiming-age choice from `socialSecurityClaiming`
+     drive the SS income stream's `startAge`/`monthlyAmount` (today the optimizer is
+     standalone; feeding it into the streams makes retirement-readiness reflect the call).
+  5. **Surface in advisor reports** — add equity-comp concentration + the first-RMD
+     figure to the QBR/IPS print renderers in `store.jsx` (`printQBRReport`/`printIPSReport`).
+- [ ] **Tax-return / W-2 import (the last open front-phase data play)** — replace the
+  hand-entered marginal rate with a parsed figure; smallest first slice is a W-2 box-1/
+  box-2 capture feeding `bracketPosition`. Folds into Holistiplan-lite below.
 - [ ] **Tax-return insight (Holistiplan-lite)** (Tier B) — upload a 1040 → planning
   observations into the roadmap + portal.
 - [ ] **Advisor MFA (TOTP)** — enforce in the advisor auth path. *↔ may need a

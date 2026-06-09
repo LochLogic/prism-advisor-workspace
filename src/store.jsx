@@ -52,8 +52,15 @@ const defaultProfile = {
   // turns on at startAge and grows by its COLA. Netted against spending by the
   // retirement-readiness engine.
   incomeStreams: [
-    { id: 'is1', label: 'Social Security — Robert', type: 'social_security', monthlyAmount: 3800, startAge: 67, colaPct: 2.5 },
-    { id: 'is2', label: 'Social Security — Eileen',  type: 'social_security', monthlyAmount: 2600, startAge: 67, colaPct: 2.5 },
+    { id: 'is1', label: 'Social Security — Robert', type: 'social_security', monthlyAmount: 3800, startAge: 67, colaPct: 2.5, pia: 3800 },
+    { id: 'is2', label: 'Social Security — Eileen',  type: 'social_security', monthlyAmount: 2600, startAge: 67, colaPct: 2.5, pia: 2600 },
+  ],
+  // Equity compensation (W6 / Phase 06) — concentrated single-stock positions from
+  // RSU/ISO grants. `positionValue` is vested market value, `unvestedValue` is grants
+  // not yet vested. Feeds the concentration / diversification planner; empty for most
+  // households, common for the tech/founder clients who seek an advisor.
+  equityComp: [
+    { id: 'eq1', ticker: 'NVDA', type: 'rsu', positionValue: 680_000, costBasis: 180_000, unvestedValue: 240_000 },
   ],
   // Protection (W5) — capture, not advise. Coverage feeds a simple gap check vs. an
   // income-multiple guideline; the advisor coaches, Prism doesn't underwrite.
@@ -94,6 +101,7 @@ const emptyProfile = {
   taxable: { balance: 0, monthlyContrib: 0 },
   goals:   { age: 45, retireAt: 65, items: [] },
   incomeStreams: [],
+  equityComp: [],
   insurance: [],
   estate: {
     will:                { status: 'none', lastReviewed: '' },
@@ -371,6 +379,23 @@ function ProfileProvider({ children }) {
       : null),
     [totalInvested, annualExpenses, mcYears, mcWithdrawal, mcSeed]);
 
+  // ── Equity compensation → concentration (Phase 06) ──────────────
+  // Concentrated single-stock positions from RSU/ISO grants. The total equity-comp
+  // value rolls into invested totals via the largest-position concentration check
+  // against the whole portfolio (totalInvested already includes typed balances; the
+  // position is treated as part of that total by the calc).
+  const equityComp = Array.isArray(profile.equityComp) ? profile.equityComp : [];
+  const equityCompValue   = equityComp.reduce((a, e) => a + (Number(e.positionValue) || 0), 0);
+  const equityUnvested    = equityComp.reduce((a, e) => a + (Number(e.unvestedValue) || 0), 0);
+  const largestPosition   = equityComp.reduce((b, e) =>
+    (Number(e.positionValue) || 0) > (Number(b?.positionValue) || 0) ? e : b, null);
+  const equityConcentration = largestPosition ? _calc.equityCompConcentration({
+    positionValue: Number(largestPosition.positionValue) || 0,
+    costBasis: Number(largestPosition.costBasis) || 0,
+    totalInvested, unvestedValue: Number(largestPosition.unvestedValue) || 0,
+    capGainsRatePct: 15, thresholdPct: 10,
+  }) : null;
+
   const metrics = {
     totalExpenses, totalDebt, toxicDebt, surplus, savingsRate,
     retirementAssets, taxableBalance, totalInvested, investedOnFile, netWorth,
@@ -385,6 +410,7 @@ function ProfileProvider({ children }) {
     goalItems, goalsFunding,
     insurance, lifeCoverage, lifeCoverageGap, estate, estateProgress, estateComplete,
     riskAnswers, riskComplete, riskProfile, successBand,
+    equityComp, equityCompValue, equityUnvested, largestPosition, equityConcentration,
   };
 
   // Asset-truth composition (managed AUM is passed in by the view, which knows the

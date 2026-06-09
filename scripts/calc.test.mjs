@@ -546,6 +546,88 @@ console.log('calc-core unit tests\n');
   assert(C.debtVsInvest({}).verdict === 'tossup', 'debtVsInvest: empty input is safe');
 }
 
+/* ── mortgagePayoff accelerator ──────────────────────────────────────── */
+{
+  const r = C.mortgagePayoff({ balance: 300_000, aprPct: 6, paymentMonthly: 1798.65, extraMonthly: 0 });
+  // A 30-yr $300k @ 6% standard payment is ~$1,798.65 → ~360 months.
+  assert(r.amortizes && Math.abs(r.base.months - 360) <= 1, 'mortgagePayoff: standard 30-yr payment ≈ 360 months');
+  const ex = C.mortgagePayoff({ balance: 300_000, aprPct: 6, paymentMonthly: 1798.65, extraMonthly: 400 });
+  assert(ex.accel.months < ex.base.months && ex.monthsSaved > 0, 'mortgagePayoff: extra principal shortens the loan');
+  assert(ex.interestSaved > 0, 'mortgagePayoff: extra principal saves interest');
+  const stuck = C.mortgagePayoff({ balance: 300_000, aprPct: 12, paymentMonthly: 100 });
+  assert(stuck.amortizes === false, 'mortgagePayoff: payment below interest never amortizes');
+  assert(C.mortgagePayoff({ balance: 0 }) === null && C.mortgagePayoff({}) === null, 'mortgagePayoff: no balance → null');
+}
+
+/* ── hdhpVsPpo break-even ─────────────────────────────────────────────── */
+{
+  // Low claims: HDHP's lower premium + HSA benefit should win.
+  const low = C.hdhpVsPpo({ expectedClaims: 1000, hdhpPremium: 2400, ppoPremium: 5400,
+    hdhpDeductible: 3300, hdhpOopMax: 7000, ppoDeductible: 1000, ppoOopMax: 4000,
+    employerHsaContribution: 1000, hsaContribution: 4300, marginalRatePct: 24 });
+  assert(low.cheaper === 'hdhp', 'hdhpVsPpo: low claims → HDHP cheaper');
+  // A scenario that genuinely crosses (no HSA benefit, HDHP carries more OOP exposure):
+  // at high claims the PPO's lower out-of-pocket max wins.
+  const params = { hdhpPremium: 2400, ppoPremium: 5400, hdhpDeductible: 3300, hdhpOopMax: 7500,
+    hdhpCoinsurance: 0.2, ppoDeductible: 1000, ppoOopMax: 4000, ppoCoinsurance: 0.2,
+    employerHsaContribution: 0, hsaContribution: 0, marginalRatePct: 0 };
+  const lowX  = C.hdhpVsPpo({ ...params, expectedClaims: 1000 });
+  const highX = C.hdhpVsPpo({ ...params, expectedClaims: 40_000 });
+  assert(lowX.cheaper === 'hdhp', 'hdhpVsPpo: low claims (crossover scenario) → HDHP cheaper');
+  assert(highX.cheaper === 'ppo', 'hdhpVsPpo: high claims → PPO cheaper');
+  assert(highX.breakeven != null && highX.breakeven > 0, 'hdhpVsPpo: a break-even claims level exists');
+  assert(near(low.hsaTaxBenefit, 1000 + 4300 * 0.24), 'hdhpVsPpo: HSA benefit = employer + tax saved on contribution');
+}
+
+/* ── megaBackdoorCapacity ─────────────────────────────────────────────── */
+{
+  const c = C.megaBackdoorCapacity({ age: 40, employeeDeferral: 23_500, employerContribution: 10_000 });
+  assert(c.limit === 70_000 && near(c.afterTaxCapacity, 70_000 - 23_500 - 10_000), 'megaBackdoorCapacity: 70k − deferral − employer');
+  assert(c.deferralRoom === 0, 'megaBackdoorCapacity: maxed deferral → no elective room');
+  const c50 = C.megaBackdoorCapacity({ age: 55, employeeDeferral: 0, employerContribution: 0 });
+  assert(c50.limit === 77_500, 'megaBackdoorCapacity: 50+ uses the catch-up limit');
+  const full = C.megaBackdoorCapacity({ age: 40, employeeDeferral: 40_000, employerContribution: 40_000 });
+  assert(full.afterTaxCapacity === 0 && full.hasCapacity === false, 'megaBackdoorCapacity: over the limit → no capacity');
+}
+
+/* ── rmdProjection ────────────────────────────────────────────────────── */
+{
+  const r = C.rmdProjection({ taxDeferredBalance: 1_000_000, currentAge: 73, rmdAge: 73, growth: 0, marginalRatePct: 22, throughAge: 75 });
+  assert(near(r.firstRmd.amount, 1_000_000 / 26.5, 1), 'rmdProjection: first RMD = balance ÷ 26.5 at age 73');
+  assert(r.firstRmd.age === 73, 'rmdProjection: first RMD at 73');
+  assert(r.lifetimeRmd > 0 && r.lifetimeTax > 0, 'rmdProjection: accumulates lifetime RMD + tax');
+  // Growth before RMD age increases the balance at 73.
+  const grown = C.rmdProjection({ taxDeferredBalance: 1_000_000, currentAge: 63, rmdAge: 73, growth: 0.06, marginalRatePct: 22 });
+  assert(grown.balanceAtRmd > 1_000_000, 'rmdProjection: balance grows to the RMD age');
+  assert(C.rmdProjection({ taxDeferredBalance: 0 }) === null, 'rmdProjection: no balance → null');
+}
+
+/* ── socialSecurityClaiming ───────────────────────────────────────────── */
+{
+  const r = C.socialSecurityClaiming({ pia: 3000, fra: 67, colaPct: 0, longevityAge: 90, discountRatePct: 0 });
+  const at62 = r.options.find(o => o.claimAge === 62);
+  const at67 = r.options.find(o => o.claimAge === 67);
+  const at70 = r.options.find(o => o.claimAge === 70);
+  assert(near(at67.monthly, 3000), 'socialSecurityClaiming: PIA paid in full at FRA (67)');
+  assert(near(at62.monthly, 3000 * 0.70, 1), 'socialSecurityClaiming: 62 = 70% of PIA (30% reduction)');
+  assert(near(at70.monthly, 3000 * 1.24, 1), 'socialSecurityClaiming: 70 = 124% of PIA (8%/yr credits)');
+  assert(r.best.claimAge === 70, 'socialSecurityClaiming: no discount + long life → 70 maximizes PV');
+  assert(r.breakevenAge > 67 && r.breakevenAge < 90, 'socialSecurityClaiming: 62-vs-70 break-even in the late 70s/early 80s');
+  assert(C.socialSecurityClaiming({ pia: 0 }) === null, 'socialSecurityClaiming: no PIA → null');
+}
+
+/* ── equityCompConcentration ──────────────────────────────────────────── */
+{
+  const c = C.equityCompConcentration({ positionValue: 500_000, costBasis: 100_000, totalInvested: 1_000_000, capGainsRatePct: 20, thresholdPct: 10 });
+  assert(near(c.concentrationPct, 50), 'equityCompConcentration: 500k of 1M → 50%');
+  assert(near(c.gain, 400_000), 'equityCompConcentration: gain = value − basis');
+  assert(near(c.taxToFullyDiversify, 400_000 * 0.20), 'equityCompConcentration: full-exit tax = gain × rate');
+  // Trim to 10% of 1M = 100k target → 400k excess, at 80% gain fraction, 20% rate.
+  assert(near(c.excess, 400_000) && near(c.taxToTrim, 400_000 * 0.8 * 0.20), 'equityCompConcentration: trim tax on the excess only');
+  assert(c.concentrated === true, 'equityCompConcentration: above threshold → concentrated');
+  assert(C.equityCompConcentration({ positionValue: 0 }) === null, 'equityCompConcentration: no position → null');
+}
+
 console.log('');
 if (failures) { console.error(`FAILED: ${failures} test(s)`); process.exit(1); }
 console.log('All calc-core tests passed.');

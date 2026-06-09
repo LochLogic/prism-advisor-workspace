@@ -129,22 +129,22 @@ a demo into a "yes," then depth and reach.
   independence vs. the FIRE number with a "+1% saved → months sooner" lever
   (`yearsToIndependence`); (4) **Phase 03 Debt-vs-Invest crossover** — per-debt
   pay-down-vs-invest verdict, guaranteed APR vs. expected after-tax return
-  (`debtVsInvest`). *Backlog, ranked (all in the Roth-window vein — one specific,
-  dollar-denominated, advisor-hooked number from data on file):*
-  - **Phase 03 — mortgage-payoff accelerator** (`debtPayoffMonths`, captured mortgage
-    fields) — the remaining half of the Phase 03 debt pair.
-  - **Phase 04 — HDHP-vs-PPO break-even** and **Phase 05 — Mega-Backdoor Roth capacity**
-    — both directly answer flagged client questions (q03, q02). Closing the
-    flagged-question → self-serve-tool loop is its own value pattern.
-  - **Phase 07 — RMD projector** (at 73; makes Roth-ladder urgency tangible) and
-    **Social Security claiming-age optimizer** (62/67/70 break-even; needs a small PIA
-    capture — see data plays).
-  - **Phase 06 — equity-comp planner** (concentration risk, vest-tax, diversification
-    glide) — *blocked on a data build:* the profile model has no equity-comp fields
-    despite RSU/concentrated-position-heavy clients.
-  - **Cross-cutting data plays:** Social Security PIA capture; equity-comp fields;
-    tax-return/W-2 import to replace the hand-entered marginal rate; a Plaid
-    balance-freshness ("as of") indicator to raise trust in every projection.
+  (`debtVsInvest`). **Shipped 2026-06-09 (round 3 — the full ranked backlog + its data plays):**
+  - **Phase 03 — mortgage-payoff accelerator** (`mortgagePayoff`) — extra principal →
+    time + interest saved; the remaining half of the Phase 03 debt pair.
+  - **Phase 04 — HDHP-vs-PPO break-even** (`hdhpVsPpo`) and **Phase 05 — Mega-Backdoor
+    Roth capacity** (`megaBackdoorCapacity`) — close the flagged-question → self-serve-tool
+    loop, answering q03 and q02 directly.
+  - **Phase 07 — RMD projector** (`rmdProjection`, IRS Uniform Lifetime divisors; makes
+    Roth-ladder urgency tangible) and **Social Security claiming-age optimizer**
+    (`socialSecurityClaiming`; 62/67/70 PV + break-even age).
+  - **Phase 06 — equity-comp planner** (`equityCompConcentration`) — single-stock
+    concentration, embedded gain, and the cap-gains tax to trim or fully diversify.
+  - **Cross-cutting data plays — shipped:** Social Security PIA capture (`pia` on SS
+    income streams), equity-comp fields (`equityComp[]`), and a Plaid balance-freshness
+    ("as of") indicator on the advisor accounts table. *Still open:* tax-return/W-2
+    import to replace the hand-entered marginal rate (folds into Holistiplan-lite below).
+  *Phases 1–4 now carry 2–3 interactive tools each, at parity with 5–7.*
 - **Tax-return insight (Holistiplan-lite)** — drop a 1040 → planning observations in
   the roadmap + portal. High willingness-to-pay; differentiating inside a client
   portal. Pairs naturally with the planning-depth track above.
