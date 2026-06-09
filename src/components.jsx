@@ -272,13 +272,35 @@ const MilestoneAchievedModal = ({ isOpen, onClose, phase, onSchedule }) => {
 // viewer ('advisor' | 'client'); their own messages align right. Live clients
 // load + subscribe in realtime; demo/mock clients use local state from demoSeed.
 const MessageThread = ({ clientId, role, authorId, firmId, demoSeed = [], context = null,
-                         counterpartName = 'your advisor', emptyHint, height = 300 }) => {
+                         counterpartName = 'your advisor', emptyHint, height = 300,
+                         aiContext = null }) => {
   const isLive = window.db?.isUUID(clientId);
   const [messages, setMessages] = React.useState(isLive ? undefined : demoSeed);
   const [draft, setDraft] = React.useState('');
   const [sending, setSending] = React.useState(false);
   const [sendError, setSendError] = React.useState('');
+  const [aiBusy, setAiBusy] = React.useState(false);
   const endRef = React.useRef(null);
+
+  // AI draft (advisor side only) — sends the client context + recent thread to
+  // the server-side Gemini edge function and drops the result into the compose
+  // box for the advisor to edit before sending. Demo mode shows a canned draft.
+  const aiDraft = async () => {
+    if (aiBusy) return;
+    setAiBusy(true);
+    let text = null;
+    if (isLive) {
+      text = await window.db.aiAssist?.('draft_reply', {
+        ...aiContext,
+        thread: (messages || []).slice(-12).map(m => ({ from: m.author_role, body: m.body })),
+      });
+    } else {
+      text = `Thanks for the note — that's exactly the kind of question this plan is built to answer. Looking at where the household stands, you're in a solid position to take this step without disturbing the longer-term targets we set. Let's walk through the numbers together at our next review; I'll bring a side-by-side so you can see the trade-off clearly.`;
+    }
+    setAiBusy(false);
+    if (text) setDraft(text);
+    else setSendError('AI draft unavailable — try again, or write your reply directly.');
+  };
 
   React.useEffect(() => {
     if (!isLive) { setMessages(demoSeed); return; }
@@ -339,9 +361,17 @@ const MessageThread = ({ clientId, role, authorId, firmId, demoSeed = [], contex
           onChange={e => { setDraft(e.target.value); if (sendError) setSendError(''); }}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
           style={{ resize: 'none' }} />
-        <button className="px-btn px-btn-primary px-btn-sm" onClick={send} disabled={sending || !draft.trim()}>
-          <Icons.Message size={12} /> {sending ? 'Sending…' : 'Send'}
-        </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <button className="px-btn px-btn-primary px-btn-sm" onClick={send} disabled={sending || !draft.trim()}>
+            <Icons.Message size={12} /> {sending ? 'Sending…' : 'Send'}
+          </button>
+          {role === 'advisor' && aiContext && (
+            <button className="px-btn px-btn-ghost px-btn-sm" onClick={aiDraft} disabled={aiBusy}
+              title="Draft a reply with the AI assistant — you review and edit before sending">
+              <Icons.Sparkles size={12} /> {aiBusy ? 'Drafting…' : 'AI draft'}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

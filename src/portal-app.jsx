@@ -15,14 +15,21 @@ window.__pxIsPortal = true;
 /* ─── Slim client topbar (no view switcher, no admin) ────────────── */
 const PortalTopbar = ({ onOpenNumbers, dark, toggleTheme }) => {
   const { activeClient } = useView();
+  const brand = useFirmBrand();
+  // "Powered by Prism" attribution: shown when the firm white-labels the portal
+  // and hasn't turned attribution off (firms.show_powered_by, default true).
+  const branded = !!(brand && brand.name);
+  const poweredBy = branded && brand.show_powered_by !== false;
 
   return (
     <header className="px-topbar">
-      <div className="px-brand" aria-label="Prism">
-        <div className="px-brand-mark"><Icons.Prism size={15} /></div>
+      <div className="px-brand" aria-label={branded ? brand.name : 'Prism'}>
+        {brand?.logo_url
+          ? <img className="px-brand-logo" src={brand.logo_url} alt={brand.name || 'Firm logo'} />
+          : <div className="px-brand-mark"><Icons.Prism size={15} /></div>}
         <div>
-          <div className="px-brand-name">Prism</div>
-          <div className="px-brand-sub">Client Portal</div>
+          <div className="px-brand-name">{branded ? brand.name : 'Prism'}</div>
+          <div className="px-brand-sub">Client Portal{poweredBy ? ' · powered by Prism' : ''}</div>
         </div>
       </div>
 

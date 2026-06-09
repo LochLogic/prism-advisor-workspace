@@ -34,6 +34,13 @@ function AuthProvider({ children }) {
     }
   }
 
+  // Authoritative white-label brand: the signed-in user's own firm row (RLS-
+  // scoped). Fire-and-forget — the cached/subdomain brand already painted at
+  // boot (store.jsx); this corrects and re-caches it.
+  function loadBrand() {
+    window.db?.getFirmBrand?.().then(b => { if (b) window.applyFirmBrand?.(b); });
+  }
+
   // Query advisors → clients tables to determine role
   async function detectRole(sess, event) {
     // MFA enforcement: a session with an enrolled TOTP factor must reach aal2.
@@ -61,6 +68,7 @@ function AuthProvider({ children }) {
 
       if (adv) {
         await mergePhasesWithDB();
+        loadBrand();
         // DB role column: 'advisor' | 'admin' | 'analyst'
         const appRole = adv.role === 'admin' ? 'admin' : 'advisor';
         // Capture actor identity for the audit trail (auth uid, not advisors.id)
@@ -77,6 +85,7 @@ function AuthProvider({ children }) {
 
       if (cli) {
         await mergePhasesWithDB();
+        loadBrand();
         window.__pxAuthActor = { id: sess.user.id, role: 'client', email: sess.user.email, firm_id: cli.firm_id };
         auditSignin();
         setRole('client'); setAuthUser(cli); setLoading(false); return;
@@ -132,6 +141,7 @@ function AuthProvider({ children }) {
     }
     window.__pxAuthActor = null;
     sessionStorage.removeItem('px_demo');
+    try { localStorage.removeItem('px_brand:' + window.location.hostname); } catch {}
     if (window.__sb) await window.__sb.auth.signOut();
     window.location.href = '/login.html';
   };

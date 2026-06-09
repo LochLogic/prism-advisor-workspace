@@ -12,6 +12,61 @@
 
 ---
 
+## 2026-06-09 (round 4) — White-label branding + AI relationship assistant (Gemini)
+
+Closes the top two items in Claude's TODO queue. Build · lint · calc · check green.
+**Carries migration `032_firm_branding.sql`** (applied with the ship) and a **new edge
+function `ai-assist`** (deployed, `verify_jwt = true`, uses the `GEMINI_API_KEY` secret).
+
+**White-label branding (Tier A) — "no second portal" is now literally true:**
+- **Brand engine** (`store.jsx`): `applyFirmBrand()` sets inline CSS custom properties
+  on `<html>` (`--brand`, `--brand-hover`, `--accent`, `--accent-soft`, `--accent-line`)
+  — inline beats every stylesheet rule incl. dark-theme overrides. `useFirmBrand()`
+  hook re-renders topbars on resolution. Paint order: localStorage cache (instant,
+  per-host) → subdomain slug → signed-in firm row (authoritative, re-caches).
+- **Subdomain → brand resolution:** `{slug}.prismaw.com` resolves pre-auth via the new
+  anon-callable `px_brand_for_slug()` SECURITY DEFINER fn (exposes only public branding
+  columns). DNS was already in place.
+- **Theming surface** (`styles.css`): new `--brand`/`--brand-hover` vars; brand mark,
+  primary buttons, and the accent trio now key off them. Default = the Prism navy.
+- **Topbars** (`app.jsx`, `portal-app.jsx`): firm logo (`.px-brand-logo`) + firm name
+  replace the Prism mark when branded; portal shows "Client Portal · powered by Prism"
+  unless the firm turns attribution off.
+- **Firm-admin Branding section** (`firm-admin.jsx`): accent color picker, logo upload
+  (PNG/JPEG/SVG/WebP ≤200 KB → **data URI** in `firms.logo_url` — deliberate: CSP
+  `img-src 'self' data:` allows it with no storage bucket / signed-URL machinery),
+  "powered by Prism" toggle, portal URL display.
+- **Migration 032:** `firms.show_powered_by`, `firms_update_admin` RLS policy (admins
+  could never write branding before — firms had only SELECT), `px_brand_for_slug()`.
+- **db.jsx:** `getFirmBrand`, `updateFirmBrand` (audited `firm.brand`), `getBrandForSlug`.
+
+**AI relationship assistant (Tier B) — rides the shipped messaging + CRM:**
+- **Edge fn `ai-assist`** (Deno): advisor/admin JWT required; four actions —
+  `draft_reply`, `household_summary`, `talking_points`, `attention` — each a guarded
+  prompt (fiduciary back-office tone, no security recs, no return promises, drafts for
+  the ADVISOR to review) over a ≤24 KB context the browser supplies from data it
+  already holds under RLS. Calls Gemini (`gemini-2.0-flash`) server-side; the key never
+  reaches the browser. Every call lands in the audit trail (`ai.assist`).
+- **UI:** `AiAssistCard` (advisor-modal.jsx, advisor bundle only) — Household summary +
+  Review talking points in the client quick-view Overview; "Who needs attention?" book
+  triage in the dashboard sidebar; **AI draft** button in the advisor's message compose
+  (`MessageThread` gains `aiContext`, advisor-side only) that drops a Gemini draft into
+  the box for editing. Demo mode shows canned output so demos stay alive keyless.
+- **db.jsx:** `aiAssist(action, context)` → `functions.invoke('ai-assist')`.
+
+**Architecture review (same pass) — findings logged to ROADMAP code-quality backlog:**
+sign-in serializes the phase fetch before role resolution (parallelizable RTT);
+`generate-invoices` does an N+1 balance_history query per client (fine ≤150 households);
+static login/landing pages stay Prism-branded pre-auth (bundle-only subdomain theming);
+brand cache in localStorage is trusted until the authoritative row corrects it.
+
+**Files:** `supabase/migrations/032_firm_branding.sql`, `supabase/functions/ai-assist/index.ts`,
+`supabase/config.toml`, `src/db.jsx`, `src/store.jsx`, `src/auth.jsx`, `src/styles.css`,
+`src/app.jsx`, `src/portal-app.jsx`, `src/firm-admin.jsx`, `src/components.jsx`,
+`src/advisor-modal.jsx`, `src/advisor-dashboard.jsx`, docs.
+
+---
+
 ## 2026-06-09 (round 3) — Front-phase parity COMPLETE: the full ranked backlog + its data builds
 
 Closes both the **Front-phase tool parity** and **Client-data builds that unlock tools**

@@ -7,6 +7,61 @@
 // module-level constant would show stale labels.
 const phaseOptions = () => phasesData.map(p => ({ value: p.id, label: `Phase ${p.num} — ${p.title}` }));
 
+/* ─── AI assistant card (advisor bundle only — Gemini via ai-assist edge fn) ──
+   Generic action-buttons → plain-text output card. Used by the client preview
+   modal (household summary / talking points) and the dashboard sidebar (book
+   triage). `actions` = [{ key, label, icon, action, context() }]. Demo mode
+   (no live session) shows `demoText` so the demo stays alive without a key. */
+const AiAssistCard = ({ actions, demoText, isLive, note }) => {
+  const { showToast } = useView();
+  const [busyKey, setBusyKey] = useStateAdv(null);
+  const [output, setOutput]   = useStateAdv(null);   // { label, text }
+  const run = async (a) => {
+    if (busyKey) return;
+    setBusyKey(a.key);
+    const text = isLive
+      ? await window.db.aiAssist?.(a.action, a.context())
+      : (demoText?.[a.key] || null);
+    setBusyKey(null);
+    if (text) setOutput({ label: a.label, text });
+    else showToast('AI assistant unavailable — try again shortly');
+  };
+  const copy = async () => {
+    try { await navigator.clipboard?.writeText(output.text); showToast('Copied'); } catch {}
+  };
+  return (
+    <div style={{ padding: '11px 13px', background: 'var(--bg-elev)', borderRadius: 6, marginBottom: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600,
+          color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.05em' }}>
+          <Icons.Sparkles size={13} style={{ color: 'var(--gold)' }} /> AI assistant
+        </span>
+        <div style={{ flex: 1 }} />
+        {actions.map(a => (
+          <button key={a.key} className="px-btn px-btn-sm px-btn-ghost" onClick={() => run(a)} disabled={!!busyKey}>
+            {busyKey === a.key ? 'Thinking…' : a.label}
+          </button>
+        ))}
+      </div>
+      {output && (
+        <div style={{ marginTop: 10, padding: '10px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-faint)', textTransform: 'uppercase', letterSpacing: '.05em' }}>{output.label}</span>
+            <span>
+              <button className="px-btn px-btn-sm px-btn-ghost" onClick={copy}><Icons.FileText size={10} /> Copy</button>
+              <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => setOutput(null)} aria-label="Dismiss AI output"><Icons.X size={10} /></button>
+            </span>
+          </div>
+          <div style={{ fontSize: 12.5, color: 'var(--ink)', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{output.text}</div>
+          <div style={{ fontSize: 10.5, color: 'var(--ink-faint)', marginTop: 8 }}>
+            {note || 'AI-drafted from data on file — review before using; nothing here is investment advice.'}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const NewClientModal = ({ isOpen, onClose, advisorId, firmId, onCreated }) => {
   const { showToast } = useView();
   const [saving, setSaving] = useStateAdv(false);
@@ -761,6 +816,27 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
   const isLiveClient = window.db?.isUUID(client.id);
   const openRoadmap = () => { openClientPortal(client); onClose(); };
 
+  // Compact household context for the AI assistant (only data already on
+  // screen / on file for this advisor — the edge fn re-checks the JWT + role).
+  const aiHouseholdContext = () => {
+    const p = profileData || {};
+    const members = (Array.isArray(p.members) ? p.members : []).map(m => ({
+      role: m.role, age: advMemberAge(m) || undefined }));
+    return {
+      household: client.shortName || client.name,
+      tag: client.tag !== '—' ? client.tag : undefined,
+      phase: `P${phase.num} · ${phase.title}`,
+      aum: client.aum || undefined,
+      uninvestedCash: client.uninvestedCash || undefined,
+      pipelineStage: client.pipelineStage || undefined,
+      advisorNotes: (notes || '').slice(0, 1200) || undefined,
+      members: members.length ? members : undefined,
+      goals: p.goals || undefined,
+      incomeStreams: (p.incomeStreams || []).map(s => ({ label: s.label, monthlyAmount: s.monthlyAmount, startAge: s.startAge })),
+      recentMeetings: (meetings || []).slice(0, 3).map(m => ({ when: m.met_at, notes: (m.notes || '').slice(0, 300) })),
+    };
+  };
+
   /* client portal invite (C3) — generate a single-use claim link to share */
   const generateInvite = async () => {
     setInvite({ busy: true });
@@ -1225,6 +1301,19 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                 </div>
               )
             )}
+            {/* AI briefing — household summary + review talking points */}
+            <AiAssistCard
+              isLive={isLiveClient}
+              actions={[
+                { key: 'summary', label: 'Household summary', action: 'household_summary', context: aiHouseholdContext },
+                { key: 'talking', label: 'Review talking points', action: 'talking_points', context: aiHouseholdContext },
+              ]}
+              demoText={{
+                summary: `${client.shortName || client.name} are a ${phase.title.toLowerCase()}-phase household in good standing.\n- Assets under management of ${client.aum ? fmt$(client.aum, { short: true }) : '—'} with ${client.uninvestedCash ? fmt$(client.uninvestedCash, { short: true }) : 'minimal'} sitting uninvested.\n- Roadmap progress is steady; no flagged questions are waiting.\n- Worth confirming beneficiary designations and current contribution rates at the next review.`,
+                talking: `- Put the uninvested cash to work — agree a dollar-cost plan that fits the risk profile.\n- Revisit this year's contribution order (match → HSA → IRA → 401(k)) against actual savings.\n- Confirm insurance coverage still matches the household's income and dependents.\n- Check progress on the current phase's open roadmap tasks.\n- What's changed in your world since we last spoke — anything the plan should know about?`,
+              }}
+            />
+
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
               {[
                 { label: 'AUM', value: client.aum ? fmt$(client.aum, { short: true }) : '—', color: 'var(--ink)' },
@@ -1761,6 +1850,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
             emptyHint={`No messages yet — open the conversation with ${client.shortName || client.name}.`}
             demoSeed={window.demoMessages ? window.demoMessages() : []}
             height={360}
+            aiContext={aiHouseholdContext()}
           />
         )}
 

@@ -997,6 +997,80 @@ function useTheme() {
   return { dark, toggleTheme };
 }
 
+/* ─── Firm brand (white-label) ────────────────────────────────────────
+   A firm's brand (name, color, logo, attribution) themes both bundles.
+   Application = inline CSS custom properties on <html> (inline beats every
+   stylesheet rule, including the dark-theme overrides) + window.__pxBrand +
+   a 'px:brand' event the topbars subscribe to via useFirmBrand().
+
+   Sources, in paint order:
+   1. localStorage cache (instant repaint on next boot, per host),
+   2. subdomain slug → px_brand_for_slug RPC (anon, pre-auth, {slug}.prismaw.com),
+   3. the signed-in user's own firm row (auth.jsx, authoritative → re-cached). */
+const PX_DEFAULT_BRAND_COLOR = '#1c2e4a';
+const _brandCacheKey = () => `px_brand:${window.location.hostname}`;
+
+// #rrggbb → slightly darkened hover shade
+const _shadeHex = (hex, f = 0.85) => {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex || '');
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  const ch = (x) => Math.max(0, Math.min(255, Math.round(x * f)));
+  return '#' + [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(c => ch(c).toString(16).padStart(2, '0')).join('');
+};
+const _hexRgba = (hex, a) => {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex || '');
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+};
+
+function applyFirmBrand(brand, { cache = true } = {}) {
+  if (!brand || typeof brand !== 'object') return;
+  const root = document.documentElement.style;
+  const color = /^#[0-9a-f]{6}$/i.test(brand.brand_color || '') ? brand.brand_color : null;
+  if (color && color.toLowerCase() !== PX_DEFAULT_BRAND_COLOR) {
+    root.setProperty('--brand', color);
+    root.setProperty('--brand-hover', _shadeHex(color));
+    root.setProperty('--accent', color);
+    root.setProperty('--accent-soft', _hexRgba(color, 0.14));
+    root.setProperty('--accent-line', _hexRgba(color, 0.40));
+  } else {
+    for (const v of ['--brand', '--brand-hover', '--accent', '--accent-soft', '--accent-line']) root.removeProperty(v);
+  }
+  window.__pxBrand = brand;
+  if (cache) {
+    try { localStorage.setItem(_brandCacheKey(), JSON.stringify(brand)); } catch {}
+  }
+  window.dispatchEvent(new CustomEvent('px:brand'));
+}
+
+// Topbar hook — re-renders when the brand resolves or changes.
+function useFirmBrand() {
+  const [brand, setBrand] = React.useState(window.__pxBrand || null);
+  React.useEffect(() => {
+    const on = () => setBrand(window.__pxBrand || null);
+    window.addEventListener('px:brand', on);
+    return () => window.removeEventListener('px:brand', on);
+  }, []);
+  return brand;
+}
+
+// Boot-time paint: cached brand first (no flash), then resolve the subdomain
+// slug against the DB (covers a client landing on {slug}.prismaw.com pre-auth).
+(() => {
+  try {
+    const cached = localStorage.getItem(_brandCacheKey());
+    if (cached) applyFirmBrand(JSON.parse(cached), { cache: false });
+  } catch {}
+  const host = window.location.hostname;
+  const m = /^([a-z0-9-]+)\.prismaw\.com$/i.exec(host);
+  const slug = m && !['www', 'app'].includes(m[1].toLowerCase()) ? m[1].toLowerCase() : null;
+  if (slug && window.db?.getBrandForSlug) {
+    window.db.getBrandForSlug(slug).then(b => { if (b) applyFirmBrand(b); });
+  }
+})();
+
 /* ─── Print helpers ───────────────────────────────────────────────── */
 const escapeHtml = (s) => {
   if (s == null) return '';
@@ -1402,6 +1476,7 @@ Object.assign(window, {
   ViewProvider, useView,
   NotificationProvider, useNotifications,
   useTheme,
+  applyFirmBrand, useFirmBrand,
   printClientReport,
   printMilestoneReport,
   printComplianceReport,

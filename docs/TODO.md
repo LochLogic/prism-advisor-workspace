@@ -19,13 +19,6 @@
 Sequenced to the north star — onboard a first paying advisor. Each item is
 independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
 
-- [ ] **White-label branding UI** (Tier A) — firm brand loaded at auth → CSS-var
-  theming + logo slot; firm-admin brand settings/upload form; per-firm subdomain →
-  brand resolution. *Backend resolution + `*.prismaw.com` DNS already in place.*
-  *↔ blocked-by-you on nothing now (DNS done); just needs the build.*
-- [ ] **AI relationship assistant (Gemini)** (Tier B) — draft replies, household
-  summaries, review talking points, "who needs attention," server-side edge function.
-  *Key already in Supabase secrets.*
 - [ ] **Front-phase parity — finish the symmetry & wire the new tools through** (small,
   sequenced; the ranked backlog itself shipped 2026-06-09 round 3). Step by step:
   1. **Phase 01 third tool** — add a savings-rate → net-worth-trajectory projector so
@@ -74,7 +67,9 @@ independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
   guard · **estate doc link dangling pointer** — deleting a vault document doesn't
   clear `documentId` on the estate item; the open fails gracefully (toast) but leaving
   the stale reference is untidy; a `documents` delete hook or a load-time validity check
-  would close it. *(See ROADMAP "Code-quality backlog.")*
+  would close it · sign-in boot serializes the phase fetch (parallelizable) ·
+  `generate-invoices` N+1 balance_history query · pre-auth login/landing pages not
+  brand-themed on firm subdomains. *(See ROADMAP "Code-quality backlog.")*
 - [ ] **UX backlog** (optional) — roster swipe actions; housing ratio coaching + field
   hints (FinFire donors).
 
@@ -88,6 +83,14 @@ ROADMAP and is built only when a partner asks — not queued here.*
 Things I genuinely can't do — they cost money, need your identity/credentials, or live
 in dashboards I can't reach. **Bold = the hard blockers gating any live client.**
 Project ref: `phabxcijbbphfxvjedfj` · Domain: `prismaw.com`.
+
+### Apply migration 032 (white-label branding) — **gates the new Branding section**
+- [ ] Run [`supabase/migrations/032_firm_branding.sql`](../supabase/migrations/032_firm_branding.sql)
+  in the Supabase SQL editor (the operating model — migrations are hand-applied).
+  Until then: the firm-admin Branding form saves fail gracefully (no `firms` update
+  policy yet) and subdomain pre-auth branding no-ops (`px_brand_for_slug` missing).
+  Everything else in the 2026-06-09 round-4 ship works without it; the `ai-assist`
+  edge function deploy is independent and handled via the gated deploy workflow.
 
 ### Infrastructure to production grade — **the #1 hard blocker**
 - [ ] **Upgrade Supabase to Pro + enable PITR / daily backups.** Free tier auto-pauses
