@@ -1,4 +1,4 @@
-in this session, youll be performing a comprehensive, rigorous, "clean-room" code review of the repository. Your analysis must be both wide (system architecture, integration boundaries, data flow) and deep (line-by-line efficiency, edge cases, race conditions, memory management, and security vulnerabilities).
+in this session, you'll be performing a comprehensive, rigorous, "clean-room" code review of the repository. Your analysis must be both wide (system architecture, integration boundaries, data flow) and deep (line-by-line efficiency, edge cases, race conditions, memory management, and security vulnerabilities).
 
 Execute your review in four distinct, sequential passes. Do not move to the next pass until the previous one is fully analyzed.
 

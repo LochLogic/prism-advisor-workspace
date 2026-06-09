@@ -338,6 +338,45 @@ console.log('calc-core unit tests\n');
   assert(up.score === 56 && dn.score === 40, 'riskProfile: horizon nudges score (±)');
 }
 
+// ── assetLocationPlan (C4 planning depth) ───────────────────────────────────
+{
+  // No invested dollars → null (caller falls back to the illustrative model).
+  assert(C.assetLocationPlan({ taxable: 0, taxDeferred: 0, taxFree: 0 }) === null,
+    'assetLocationPlan: empty sleeves → null');
+
+  const p = C.assetLocationPlan({
+    taxable: 300000, taxDeferred: 500000, taxFree: 200000,
+    allocation: { equity: 60, fixedIncome: 35, cash: 5 },
+  });
+  assert(p && p.total === 1_000_000, 'assetLocationPlan: total = sum of sleeves');
+  assert(p.rows.length === 4, 'assetLocationPlan: four asset-class rows');
+
+  // Each row's three sleeve percentages sum to 100 (largest-remainder rounding).
+  for (const r of p.rows) {
+    assert(r.taxable + r.deferred + r.free === 100 || r.dollars === 0,
+      `assetLocationPlan: ${r.key} row sums to 100%`);
+  }
+
+  // Tax-inefficient bonds shelter first: with ample tax-deferred room (500k vs a
+  // 350k bond target) they land entirely in tax-deferred.
+  const bonds = p.rows.find(r => r.key === 'bonds');
+  assert(bonds.deferred === 100 && bonds.taxable === 0,
+    'assetLocationPlan: bonds shelter into tax-deferred first');
+
+  // Broad equity is tax-efficient → anchors taxable over tax-deferred.
+  const broad = p.rows.find(r => r.key === 'broad');
+  assert(broad.taxable >= broad.deferred,
+    'assetLocationPlan: broad equity favors taxable');
+
+  // Tiny shelter forces inefficient assets to overflow into taxable.
+  const squeezed = C.assetLocationPlan({
+    taxable: 900000, taxDeferred: 50000, taxFree: 50000,
+    allocation: { equity: 40, fixedIncome: 55, cash: 5 },
+  });
+  const sb = squeezed.rows.find(r => r.key === 'bonds');
+  assert(sb.taxable > 0, 'assetLocationPlan: bonds overflow to taxable when shelter is full');
+}
+
 console.log('');
 if (failures) { console.error(`FAILED: ${failures} test(s)`); process.exit(1); }
 console.log('All calc-core tests passed.');

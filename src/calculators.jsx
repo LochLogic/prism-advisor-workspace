@@ -114,19 +114,23 @@ const HSATool = () => {
 
 /* Asset Location optimizer — placement of tax-inefficient vs efficient assets */
 const AssetLocationTool = () => {
-  const { profile, retirementAssets, taxableBalance } = useProfile();
-  const taxDeferred = (profile.retirement.iraBalance || 0) + (profile.retirement.fourohonekBalance || 0);
-  const roth = 0;
-  const taxFree = profile.retirement.hsaBalance + roth;
-  const taxable = taxableBalance;
+  const { profile, riskProfile } = useProfile();
+  const r = profile.retirement;
+  const taxDeferred = (r.iraBalance || 0) + (r.fourohonekBalance || 0);
+  const taxFree     = (r.hsaBalance || 0) + (r.rothBalance || 0);   // Roth + HSA = tax-free
+  const taxable     = profile.taxable?.balance || 0;
 
-  // Target placement model — institutional rule of thumb
-  const targets = [
+  // Bespoke placement of the household's ACTUAL dollars, fit to their strategic
+  // allocation (from the risk profile). Falls back to an illustrative rule-of-thumb
+  // model when nothing is invested yet (e.g. a blank/prospect client).
+  const plan = assetLocationPlan({ taxable, taxDeferred, taxFree, allocation: riskProfile?.allocation });
+  const STATIC = [
     { label: 'Broad equity index (efficient)', taxable: 80, deferred: 10, free: 10 },
     { label: 'Corporate bonds / TIPS (inefficient)', taxable: 5, deferred: 90, free: 5 },
     { label: 'REIT / high-dividend (inefficient)', taxable: 5, deferred: 60, free: 35 },
     { label: 'International equity', taxable: 60, deferred: 25, free: 15 },
   ];
+  const rows = plan ? plan.rows : STATIC;
 
   return (
     <ToolShell title="Asset Location optimizer" advanced>
@@ -138,7 +142,14 @@ const AssetLocationTool = () => {
       </div>
 
       <div style={{ marginTop: 16 }}>
-        <div className="px-eyebrow" style={{ marginBottom: 10 }}>Target asset → account mapping</div>
+        <div className="px-eyebrow" style={{ marginBottom: 10 }}>
+          Target asset → account mapping
+          {plan && riskProfile && (
+            <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 400, color: 'var(--ink-mute)' }}>
+              {' '}· fit to this household ({riskProfile.band})
+            </span>
+          )}
+        </div>
         <table className="px-table" style={{ background: 'var(--surface)' }}>
           <thead>
             <tr>
@@ -149,7 +160,7 @@ const AssetLocationTool = () => {
             </tr>
           </thead>
           <tbody>
-            {targets.map(t => (
+            {rows.map(t => (
               <tr key={t.label} style={{ cursor: 'default' }}>
                 <td style={{ fontFamily: 'var(--serif)', fontSize: 13.5 }}>{t.label}</td>
                 <td className="is-num px-mono">{t.taxable}%</td>
@@ -159,6 +170,17 @@ const AssetLocationTool = () => {
             ))}
           </tbody>
         </table>
+        {plan ? (
+          <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 8 }}>
+            Placement of {fmt$(plan.total, { short: true })} invested across your accounts
+            {riskProfile ? ` at a ${riskProfile.band.toLowerCase()} target allocation` : ''} —
+            tax-inefficient assets are sheltered first.
+          </div>
+        ) : (
+          <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 8 }}>
+            Illustrative institutional model — enter account balances to fit this to the household.
+          </div>
+        )}
       </div>
     </ToolShell>
   );

@@ -328,6 +328,10 @@ input, select, textarea { font-family: inherit; color: inherit; }
   animation: pxRise .18s;
 }
 @keyframes pxRise { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+/* Client quick-view carries a dense header (5 actions) + an 8-tab row; give it more
+   width so nothing clips. Header buttons wrap and the tab row scrolls as a fallback
+   on narrow viewports, so this never forces a horizontal scrollbar on the modal. */
+.px-modal.px-modal-client { max-width: 720px; }
 .px-modal-close {
   position: absolute; top: 14px; right: 14px;
   width: 28px; height: 28px;

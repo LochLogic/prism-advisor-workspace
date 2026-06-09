@@ -364,12 +364,78 @@ function riskProfile({ answers = [], horizonYears = null } = {}) {
   return { score: Math.round(score), band, allocation: RISK_ALLOCATIONS[band] };
 }
 
+// ── Asset location optimizer (C4 planning depth) ─────────────────────────────
+// Given the three account "sleeves" (taxable / tax-deferred / tax-free) and a target
+// strategic allocation (equity / fixed income / cash, e.g. from `riskProfile`),
+// produce a tax-aware placement of the household's ACTUAL dollars: tax-inefficient
+// assets (bonds/TIPS, REIT/high-dividend) claim sheltered space first; tax-efficient
+// broad equity and international (whose foreign-tax-credit is wasted in a retirement
+// account) anchor taxable. Equity is split into broad domestic / international / REIT
+// by conventional weights; cash is parked in taxable and not placed. Returns, per
+// asset class, the dollars and the resulting share across sleeves — so the mapping
+// table reflects THIS household, not a static rule of thumb. Returns null when there
+// are no invested dollars, so callers can fall back to the illustrative model.
+const AL_EQUITY_SPLIT = { broad: 0.63, intl: 0.25, reit: 0.12 };
+const AL_PREF = {        // sleeve preference per class, most → least preferred
+  bonds: ['D', 'F', 'T'], reit: ['D', 'F', 'T'],
+  intl:  ['T', 'F', 'D'], broad: ['T', 'F', 'D'],
+};
+const AL_ORDER  = ['bonds', 'reit', 'intl', 'broad'];   // shelter-hungry assets first
+const AL_LABELS = {
+  broad: 'Broad equity index (efficient)',
+  bonds: 'Corporate bonds / TIPS (inefficient)',
+  reit:  'REIT / high-dividend (inefficient)',
+  intl:  'International equity',
+};
+// Round a [taxable, deferred, free] fraction split to whole percents summing to 100
+// (largest-remainder), so each row reads cleanly like the legacy table.
+function alPctSplit(parts, sum) {
+  if (sum <= 0) return { taxable: 0, deferred: 0, free: 0 };
+  const raw = [parts.T / sum * 100, parts.D / sum * 100, parts.F / sum * 100];
+  const floor = raw.map(Math.floor);
+  let rem = 100 - floor.reduce((a, b) => a + b, 0);
+  const order = raw.map((v, i) => [i, v - floor[i]]).sort((a, b) => b[1] - a[1]);
+  for (let k = 0; k < order.length && rem > 0; k++, rem--) floor[order[k][0]]++;
+  return { taxable: floor[0], deferred: floor[1], free: floor[2] };
+}
+function assetLocationPlan({ taxable = 0, taxDeferred = 0, taxFree = 0, allocation = {} } = {}) {
+  const T = Math.max(0, taxable), D = Math.max(0, taxDeferred), F = Math.max(0, taxFree);
+  const total = T + D + F;
+  if (total <= 0) return null;
+  const eqPct = (allocation.equity ?? 60) / 100;
+  const fiPct = (allocation.fixedIncome ?? 35) / 100;
+  const targets = {
+    bonds: total * fiPct,
+    reit:  total * eqPct * AL_EQUITY_SPLIT.reit,
+    intl:  total * eqPct * AL_EQUITY_SPLIT.intl,
+    broad: total * eqPct * AL_EQUITY_SPLIT.broad,
+  };
+  const cap = { T, D, F };
+  const placed = {};
+  for (const cls of AL_ORDER) {
+    const p = { T: 0, D: 0, F: 0 };
+    let need = targets[cls];
+    for (const sleeve of AL_PREF[cls]) {
+      if (need <= 0) break;
+      const take = Math.min(need, cap[sleeve]);
+      p[sleeve] += take; cap[sleeve] -= take; need -= take;
+    }
+    placed[cls] = p;
+  }
+  const rows = ['broad', 'bonds', 'reit', 'intl'].map(cls => {
+    const p = placed[cls];
+    const sum = p.T + p.D + p.F;
+    return { key: cls, label: AL_LABELS[cls], dollars: Math.round(sum), ...alPctSplit(p, sum) };
+  });
+  return { total, rows, sleeves: { taxable: T, taxDeferred: D, taxFree: F } };
+}
+
 const PrismCalc = {
   monthlyExpenseTotal,
   buildValueSeries, modifiedDietz, perfPeriods,
   debtPayoffMonths, hsaProjection, monteCarlo, rothLadder, estateProjection, tlh,
   retirementReadiness, goalFunding, annualFeeForAum, lifeCoverageGap, assetComposition,
-  riskProfile, RISK_ALLOCATIONS,
+  riskProfile, RISK_ALLOCATIONS, assetLocationPlan,
 };
 
 if (typeof window !== 'undefined') window.PrismCalc = PrismCalc;

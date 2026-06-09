@@ -610,6 +610,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
               <NumField label="HSA balance" path="retirement.hsaBalance" value={profile.retirement.hsaBalance} step="500"  onUpdate={update}/>
               <NumField label="IRA balance" path="retirement.iraBalance" value={profile.retirement.iraBalance} step="500"  onUpdate={update}/>
               <NumField label="401(k) balance" path="retirement.fourohonekBalance" value={profile.retirement.fourohonekBalance} step="500"  onUpdate={update}/>
+              <NumField label="Roth IRA balance" path="retirement.rothBalance" value={profile.retirement.rothBalance} step="500"  onUpdate={update}/>
               <NumField label="HSA contrib / yr" path="retirement.hsaContrib" value={profile.retirement.hsaContrib} step="100"  onUpdate={update}/>
             </div>
             <div className="px-field-label" style={{ marginTop: 14, marginBottom: 8 }}>Contributions &amp; employer match</div>
