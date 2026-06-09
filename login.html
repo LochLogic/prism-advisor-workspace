@@ -10,6 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500;8..60,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="vendor/supabase.js"></script>
 <script src="src/supabase-client.js"></script>
+<script src="src/brand-boot.js" defer></script>
 <style>
   :root {
     --bg:#fafaf7; --bg-elev:#f4f1e8; --surface:#ffffff;
@@ -31,7 +32,7 @@
   /* Brand */
   .brand{text-align:center;margin-bottom:32px;}
   .brand-mark{
-    width:44px;height:44px;background:var(--ink);border-radius:11px;
+    width:44px;height:44px;background:var(--brand,var(--ink));border-radius:11px;
     display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;
   }
   .brand-mark svg{color:#fff;}
@@ -51,11 +52,11 @@
     font-family:var(--sans);font-size:14px;color:var(--ink);background:var(--bg);
     outline:none;transition:border-color .15s;
   }
-  .field input:focus{border-color:var(--ink);}
+  .field input:focus{border-color:var(--brand,var(--ink));}
 
   /* Buttons */
   .btn-primary{
-    width:100%;height:42px;background:var(--ink);color:#fff;
+    width:100%;height:42px;background:var(--brand,var(--ink));color:#fff;
     border:none;border-radius:6px;font-family:var(--sans);font-size:14px;font-weight:500;
     cursor:pointer;transition:opacity .15s;margin-top:4px;
   }
@@ -106,14 +107,14 @@
 <div class="wrap">
 
   <div class="brand">
-    <div class="brand-mark">
+    <div class="brand-mark" data-brand-mark>
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
            stroke-linecap="round" stroke-linejoin="round">
         <path d="M12 2 3 20h18Z"/><path d="m12 2 4 9-9 4"/>
       </svg>
     </div>
-    <div class="brand-name">Prism</div>
-    <div class="brand-sub">Advisor Workspace</div>
+    <div class="brand-name" data-brand-name>Prism</div>
+    <div class="brand-sub" data-brand-sub>Advisor Workspace</div>
   </div>
 
   <!-- Password card -->

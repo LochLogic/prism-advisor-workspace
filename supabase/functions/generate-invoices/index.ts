@@ -121,15 +121,30 @@ Deno.serve(async (req) => {
     const { data: schedules } = await sq;
     const schedMap: Record<string, any> = Object.fromEntries((schedules || []).map(s => [s.id, s]));
 
+    // Batch the balance_history reads: one chunked+paginated query set instead of
+    // one query per client (the old N+1). Rows past a client's own period end are
+    // harmless — buildSeries keeps them but avgDaily/periodEnd filter by date.
+    const billable = (clients || []).filter(c => schedMap[c.fee_schedule_id]);
+    const bhByClient: Record<string, any[]> = {};
+    const CHUNK = 25, PAGE = 1000;
+    for (let i = 0; i < billable.length; i += CHUNK) {
+      const ids = billable.slice(i, i + CHUNK).map(c => c.id);
+      for (let from = 0; ; from += PAGE) {
+        const { data: page } = await admin.from("balance_history")
+          .select("client_id, account_id, as_of, balance")
+          .in("client_id", ids).order("client_id").order("as_of")
+          .range(from, from + PAGE - 1);
+        for (const r of (page || [])) (bhByClient[r.client_id] = bhByClient[r.client_id] || []).push(r);
+        if (!page || page.length < PAGE) break;
+      }
+    }
+
     let created = 0, skipped = 0, failed = 0, total = 0;
-    for (const c of (clients || [])) {
+    for (const c of billable) {
       const sched = schedMap[c.fee_schedule_id];
-      if (!sched) continue;
       // Bill each client for the most-recent completed period of THEIR frequency
       const { start, end, days } = periodFor(sched.frequency || "quarterly");
-      const { data: bh } = await admin.from("balance_history")
-        .select("account_id, as_of, balance").eq("client_id", c.id).lte("as_of", end);
-      const s = buildSeries(bh || []);
+      const s = buildSeries((bhByClient[c.id] || []).filter(r => r.as_of <= end));
       const basis = sched.basis === "period_end" ? periodEnd(s, end) : avgDaily(s, start, end);
       if (basis <= 0) { skipped++; continue; }
       const fee = annualFee(sched.tiers, basis) * (days / 365);

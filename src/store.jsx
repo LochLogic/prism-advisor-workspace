@@ -1025,10 +1025,26 @@ const _hexRgba = (hex, a) => {
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 };
 
-function applyFirmBrand(brand, { cache = true } = {}) {
-  if (!brand || typeof brand !== 'object') return;
+// Trust boundary: the localStorage cache is client-writable and the slug RPC is
+// anon-callable — whitelist + validate every field before painting or re-caching.
+// (Pre-auth pages run the same shape of sanitizer in src/brand-boot.js.)
+function _sanitizeBrand(b) {
+  if (!b || typeof b !== 'object') return null;
+  const out = {};
+  if (typeof b.id === 'string') out.id = b.id;
+  if (typeof b.name === 'string') out.name = b.name.slice(0, 120);
+  if (typeof b.slug === 'string') out.slug = b.slug.slice(0, 63);
+  if (/^#[0-9a-f]{6}$/i.test(b.brand_color || '')) out.brand_color = b.brand_color.toLowerCase();
+  if (typeof b.logo_url === 'string' && /^data:image\//.test(b.logo_url) && b.logo_url.length <= 300000) out.logo_url = b.logo_url;
+  out.show_powered_by = b.show_powered_by !== false;
+  return out;
+}
+
+function applyFirmBrand(rawBrand, { cache = true } = {}) {
+  const brand = _sanitizeBrand(rawBrand);
+  if (!brand) return;
   const root = document.documentElement.style;
-  const color = /^#[0-9a-f]{6}$/i.test(brand.brand_color || '') ? brand.brand_color : null;
+  const color = brand.brand_color || null;
   if (color && color.toLowerCase() !== PX_DEFAULT_BRAND_COLOR) {
     root.setProperty('--brand', color);
     root.setProperty('--brand-hover', _shadeHex(color));
@@ -1368,6 +1384,23 @@ function printQBRReport(opts) {
        <div class="grid grid5">${periodCells}</div>`
     : '';
 
+  // Plan flags — concentrated equity comp + the projected first RMD (advisor
+  // talking points the front sections don't carry; rendered only when present).
+  const _planFlagsHtml = (pf) => {
+    if (!pf || (!pf.equityConcentration && !pf.rmd)) return '';
+    const lines = [];
+    if (pf.equityConcentration) {
+      const ec = pf.equityConcentration;
+      lines.push(`<div class="rpt-p">Concentrated position${pf.equityTicker ? ` (${escapeHtml(pf.equityTicker)})` : ''}: <b>${ec.concentrationPct.toFixed(0)}% of invested assets</b>${ec.concentrated ? ` — above the ${ec.thresholdPct}% guideline` : ''} &middot; embedded gain ${fmt$(ec.gain, { short: true })} &middot; est. tax to trim to ${ec.thresholdPct}% ≈ ${fmt$(ec.taxToTrim, { short: true })}.</div>`);
+    }
+    if (pf.rmd && pf.rmd.firstRmd) {
+      const fr = pf.rmd.firstRmd;
+      lines.push(`<div class="rpt-p">Projected first RMD at age ${fr.age}: <b>≈ ${fmt$(fr.amount, { short: true })}/yr</b> on a tax-deferred balance growing to ${fmt$(fr.balance, { short: true })} — frames the Roth-conversion window in the years before.</div>`);
+    }
+    return `<div class="section-lbl">Plan flags</div>${lines.join('')}`;
+  };
+  const planFlagsHtml = _planFlagsHtml(o.planFlags);
+
   // Risk allocation
   const allocHtml = (o.risk && o.risk.allocation)
     ? `<div class="section-lbl">Strategic allocation (${escapeHtml(o.risk.band)})</div>
@@ -1388,6 +1421,7 @@ function printQBRReport(opts) {
     ${phaseRows}
     ${readinessHtml}
     ${allocHtml}
+    ${planFlagsHtml}
     ${goalsHtml}
     ${protHtml}
     ${perfHtml}
@@ -1400,7 +1434,7 @@ function printQBRReport(opts) {
 // advisor reviews, prints for the vault, and sends for e-sign via acknowledgements.
 //   opts: { client, risk:{ score, band, allocation }, planningAge, retireAt, advisorName, advisorFirm }
 function printIPSReport(opts) {
-  const { client, risk, planningAge, retireAt, advisorName, advisorFirm } = opts || {};
+  const { client, risk, planningAge, retireAt, planFlags, advisorName, advisorFirm } = opts || {};
   const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const a = risk?.allocation || { equity: 60, fixedIncome: 35, cash: 5 };
   const horizon = (retireAt && planningAge) ? Math.max(0, retireAt - planningAge) : null;
@@ -1430,7 +1464,12 @@ function printIPSReport(opts) {
     ${allocRows}
     <div class="section-lbl">4 · Rebalancing</div>
     <div class="rpt-p">Allocations are reviewed at least annually and rebalanced when any asset class drifts more than ±5% from its target, or upon a material change in the household's circumstances.</div>
-    <div class="section-lbl">5 · Review &amp; acknowledgement</div>
+    ${(planFlags && (planFlags.equityConcentration || (planFlags.rmd && planFlags.rmd.firstRmd))) ? `
+      <div class="section-lbl">5 · Concentrated positions &amp; distributions</div>
+      ${planFlags.equityConcentration ? `<div class="rpt-p">The household holds a concentrated single-stock position${planFlags.equityTicker ? ` (${escapeHtml(planFlags.equityTicker)})` : ''} at ${planFlags.equityConcentration.concentrationPct.toFixed(0)}% of invested assets (guideline ≤ ${planFlags.equityConcentration.thresholdPct}%). Diversification is managed deliberately against the embedded gain of ${fmt$(planFlags.equityConcentration.gain, { short: true })} — estimated tax to trim to guideline ≈ ${fmt$(planFlags.equityConcentration.taxToTrim, { short: true })}.</div>` : ''}
+      ${(planFlags.rmd && planFlags.rmd.firstRmd) ? `<div class="rpt-p">Required minimum distributions are projected to begin at age ${planFlags.rmd.firstRmd.age} at approximately ${fmt$(planFlags.rmd.firstRmd.amount, { short: true })}/yr; the drawdown and Roth-conversion strategy is coordinated against this horizon.</div>` : ''}
+    ` : ''}
+    <div class="section-lbl">${(planFlags && (planFlags.equityConcentration || (planFlags.rmd && planFlags.rmd.firstRmd))) ? 6 : 5} · Review &amp; acknowledgement</div>
     <div class="rpt-p">This statement is reviewed at each periodic meeting. By signing, the client acknowledges they have reviewed and agree to this policy as a basis for ongoing management.</div>
     <div class="sig-row">
       <div class="sig">Client signature &amp; date</div>

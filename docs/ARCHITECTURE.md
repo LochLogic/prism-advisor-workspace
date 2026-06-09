@@ -2,7 +2,7 @@
 
 > **Purpose:** condensed router for AI/dev work. Tells you *which* file owns a
 > concern and what it exports — not every line. Read the named file for deep logic.
-> **Last synced:** 2026-06-09 white-label + ai-assist sprint (post-`c34c600`). **Regenerate when:** `build-files.mjs`
+> **Last synced:** 2026-06-09 round-5 code-quality + parity-finish sprint. **Regenerate when:** `build-files.mjs`
 > load order changes, a `src/*` file is added/split, or `window.db`/`PrismCalc` gain methods.
 
 ---
@@ -43,6 +43,7 @@ playwright.config.ts   e2e config
 src/
   error-reporter.js    window.__pxReportError — captures errors → log-error edge fn
   supabase-client.js   window.__sb = supabase client (null if CDN fails → demo mode)
+  brand-boot.js        standalone pre-auth brand paint (login/signup/landing only — NOT in the bundles/build-files.mjs; copied + cache-busted by build.mjs)
   icons.jsx            window.Icons — Lucide-style SVG set
   data.jsx             domain mock data + phasesData/advisor; the 7 Wealth-Horizons phases
   calc-core.cjs        window.PrismCalc — ALL financial math (pure, also unit-tested)
@@ -108,7 +109,9 @@ client-utility: `bracketPosition` (shared bracket-headroom engine), `termLifePre
 `mortgagePayoff` (P03 accelerator), `hdhpVsPpo` (P04 plan break-even), `megaBackdoorCapacity`
 (P05 after-tax 401k room), `rmdProjection` + `RMD_UNIFORM_DIVISORS` (P07 RMDs at 73),
 `ssBenefitFactor` + `socialSecurityClaiming` (P07 62/67/70 optimizer), `equityCompConcentration`
-(P06 single-stock risk + tax-to-diversify).
+(P06 single-stock risk + tax-to-diversify) · parity finish (round 5): `netWorthTrajectory`
+(P01 year-by-year projection; negative balances not compounded), `incomeRunway` (P02
+reserve-months-of-essentials with disability benefit + elimination period).
 ⚠ Client returns are NET of advisory fees, advisor GROSS [see memory: performance-net-of-fees].
 ⚠ `FED_BRACKETS_2025`, `RMD_UNIFORM_DIVISORS`, the §415(c) mega-backdoor limit, and SS
 credit/reduction factors are dated assumptions — reindex annually (like `estateProjection`'s exemption).
@@ -123,7 +126,9 @@ printPerformanceReport, printInvoiceReport, printQBRReport, printIPSReport`; hel
 Also `ProspectProvider/useProspects` — unsaved "prospect-" households → one-click convert.
 Also white-label brand engine: `applyFirmBrand(brand)` (inline `--brand`/`--accent*` CSS vars
 on `<html>` + `window.__pxBrand` + 'px:brand' event), `useFirmBrand()` hook; boot paints
-cached → subdomain-slug → (auth.jsx) authoritative firm row.
+cached → subdomain-slug → (auth.jsx) authoritative firm row. Every brand input (cache /
+anon RPC / firm row) is whitelist-sanitized before paint or re-cache (`_sanitizeBrand`;
+mirrored in `src/brand-boot.js` for the pre-auth pages).
 
 **`auth.jsx`**: `AuthProvider, useAuth`. Sets `window.__pxAuthActor = {id, role, email, firm_id}`.
 

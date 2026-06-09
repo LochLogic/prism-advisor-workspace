@@ -19,20 +19,6 @@
 Sequenced to the north star — onboard a first paying advisor. Each item is
 independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
 
-- [ ] **Front-phase parity — finish the symmetry & wire the new tools through** (small,
-  sequenced; the ranked backlog itself shipped 2026-06-09 round 3). Step by step:
-  1. **Phase 01 third tool** — add a savings-rate → net-worth-trajectory projector so
-     P01 matches P03/P04's depth (P01 currently has 2 tools: cashflow + freedomdate).
-  2. **Phase 02 second-half tool** — a disability-income / income-runway tool to pair
-     with the coverage-gap one (mirrors the P03 debt pair).
-  3. **Roadmap task hooks** — add a Phase 06 task line referencing `equitycomp` and a
-     Phase 03 line referencing `mortgagepayoff` (tool: 'advanced'/null) so the phase
-     checklists point at the new tools, not just the calc strip.
-  4. **Close the SS loop** — let the claiming-age choice from `socialSecurityClaiming`
-     drive the SS income stream's `startAge`/`monthlyAmount` (today the optimizer is
-     standalone; feeding it into the streams makes retirement-readiness reflect the call).
-  5. **Surface in advisor reports** — add equity-comp concentration + the first-RMD
-     figure to the QBR/IPS print renderers in `store.jsx` (`printQBRReport`/`printIPSReport`).
 - [ ] **Tax-return / W-2 import (the last open front-phase data play)** — replace the
   hand-entered marginal rate with a parsed figure; smallest first slice is a W-2 box-1/
   box-2 capture feeding `bracketPosition`. Folds into Holistiplan-lite below.
@@ -67,9 +53,10 @@ independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
   guard · **estate doc link dangling pointer** — deleting a vault document doesn't
   clear `documentId` on the estate item; the open fails gracefully (toast) but leaving
   the stale reference is untidy; a `documents` delete hook or a load-time validity check
-  would close it · sign-in boot serializes the phase fetch (parallelizable) ·
-  `generate-invoices` N+1 balance_history query · pre-auth login/landing pages not
-  brand-themed on firm subdomains. *(See ROADMAP "Code-quality backlog.")*
+  would close it. *(See ROADMAP "Code-quality backlog." The 2026-06-09
+  architecture-pass items — sign-in phase-fetch parallelization, `generate-invoices`
+  N+1 batch, pre-auth brand theming, brand-cache sanitization — shipped 2026-06-09
+  round 5.)*
 - [ ] **UX backlog** (optional) — roster swipe actions; housing ratio coaching + field
   hints (FinFire donors).
 

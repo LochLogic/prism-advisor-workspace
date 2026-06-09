@@ -628,6 +628,36 @@ console.log('calc-core unit tests\n');
   assert(C.equityCompConcentration({ positionValue: 0 }) === null, 'equityCompConcentration: no position → null');
 }
 
+/* ── netWorthTrajectory ───────────────────────────────────────────────── */
+{
+  const t = C.netWorthTrajectory({ startNetWorth: 100_000, annualSavings: 10_000, realReturn: 0.05, years: 20 });
+  assert(t.series.length === 21, 'netWorthTrajectory: year-0 + 20 projected points');
+  assert(near(t.series[1].value, 100_000 * 1.05 + 10_000), 'netWorthTrajectory: year 1 = growth + savings');
+  assert(t.at5 < t.at10 && t.at10 < t.at20, 'netWorthTrajectory: monotonic with positive savings');
+  assert(t.crossesZeroYear === 0, 'netWorthTrajectory: positive start → crosses zero at 0');
+  // Negative net worth: debt is NOT compounded at the investment return; savings dig out linearly.
+  const neg = C.netWorthTrajectory({ startNetWorth: -30_000, annualSavings: 10_000, realReturn: 0.05, years: 10 });
+  assert(near(neg.series[1].value, -20_000), 'netWorthTrajectory: negative balance not compounded');
+  assert(neg.crossesZeroYear === 3, 'netWorthTrajectory: -30k at 10k/yr crosses zero in year 3');
+  const flat = C.netWorthTrajectory({});
+  assert(flat.series.length === 21 && flat.final === 0, 'netWorthTrajectory: defaults are safe');
+}
+
+/* ── incomeRunway ─────────────────────────────────────────────────────── */
+{
+  const bare = C.incomeRunway({ liquidReserve: 30_000, monthlyEssentials: 5_000 });
+  assert(bare.months === 6, 'incomeRunway: reserve ÷ essentials with no benefit');
+  // 60% benefit after a 3-month wait: 3 × 5000 through the wait, then 2000/mo.
+  const ltd = C.incomeRunway({ liquidReserve: 30_000, monthlyEssentials: 5_000, monthlyBenefit: 3_000, benefitWaitMonths: 3 });
+  assert(ltd.months === 3 + Math.floor(15_000 / 2_000), 'incomeRunway: wait burns full essentials, then the gap');
+  assert(near(ltd.coveragePct, 60), 'incomeRunway: benefit coverage percent of essentials');
+  const full = C.incomeRunway({ liquidReserve: 1_000, monthlyEssentials: 4_000, monthlyBenefit: 4_000, benefitWaitMonths: 0 });
+  assert(full.indefinite === true, 'incomeRunway: benefit ≥ essentials → indefinite');
+  const broke = C.incomeRunway({ liquidReserve: 0, monthlyEssentials: 4_000 });
+  assert(broke.months === 0 && broke.indefinite === false, 'incomeRunway: no reserve → 0 months');
+  assert(C.incomeRunway({}).indefinite === true, 'incomeRunway: no essentials → indefinite (safe default)');
+}
+
 console.log('');
 if (failures) { console.error(`FAILED: ${failures} test(s)`); process.exit(1); }
 console.log('All calc-core tests passed.');

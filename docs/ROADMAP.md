@@ -146,6 +146,18 @@ a demo into a "yes," then depth and reach.
     ("as of") indicator on the advisor accounts table. *Still open:* tax-return/W-2
     import to replace the hand-entered marginal rate (folds into Holistiplan-lite below).
   *Phases 1–4 now carry 2–3 interactive tools each, at parity with 5–7.*
+  **Round 4 (2026-06-09) — symmetry finished & tools wired through:** (1) **Phase 01
+  net-worth trajectory** (`netWorthTrajectory`) — where today's savings pace leads,
+  year by year, with the "+1% saved" lever and an honest no-compounding-while-negative
+  rule; (2) **Phase 02 income runway** (`incomeRunway`) — if income paused, how long
+  the reserve carries essentials, with a disability benefit + elimination period
+  (mirrors the P03 debt pair); (3) phase-checklist task hooks for the mortgage-payoff
+  accelerator (P03) and equity-comp planner (P06); (4) the **SS claiming optimizer now
+  feeds the plan** — one click writes the chosen claim age back into the Social
+  Security income stream (`startAge` + rescaled `monthlyAmount` from PIA), so
+  retirement readiness reflects the call; (5) **QBR + IPS print renderers** carry the
+  concentrated-equity position and the projected first RMD as plan flags. P01–P03 now
+  hold 3 tools each, P02 2+runway — full front/back symmetry.
 - **Tax-return insight (Holistiplan-lite)** — drop a 1040 → planning observations in
   the roadmap + portal. High willingness-to-pay; differentiating inside a client
   portal. Pairs naturally with the planning-depth track above.
@@ -191,17 +203,11 @@ a demo into a "yes," then depth and reach.
   (~1,300, esp. the print-report renderers) into load-ordered modules.
 
 ### Code-quality backlog (open by design, low priority)
-Added by the 2026-06-09 architecture-inefficiency pass:
-- **Sign-in boot serializes the phase fetch** — `auth.jsx detectRole()` awaits
-  `mergePhasesWithDB()` before resolving role state; the phase fetch and the
-  advisors/clients role queries are independent and could run in parallel (one
-  round-trip saved on every sign-in).
-- **`generate-invoices` N+1** — one `balance_history` query per client per run; fine
-  at ≤150 households, batch into a single `in (client_ids)` query when books grow.
-- **Pre-auth pages aren't brand-themed** — login.html / landing are static and stay
-  Prism-branded even on a firm subdomain (the brand engine lives in the bundles).
-- **Brand cache trust** — the per-host localStorage brand paints before the
-  authoritative firm-row fetch corrects it; harmless (cosmetic-only fields), noted.
+*The 2026-06-09 architecture-inefficiency pass (sign-in phase-fetch serialization,
+`generate-invoices` N+1, un-themed pre-auth pages, brand cache trust) shipped in full
+2026-06-09 round 5 — see `sprint-log.md`. Pre-auth branding = `src/brand-boot.js`
+(standalone, login/signup/landing); the cache + anon-RPC brand inputs are now
+whitelist-sanitized in both the bundles and the boot script.*
 
 From the 2026-06-08 clean-room review — cleanup passes, none blocking:
 - CSV export formula-injection neutralization (prefix `= + - @` cells).

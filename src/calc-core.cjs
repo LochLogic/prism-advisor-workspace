@@ -897,6 +897,55 @@ function equityCompConcentration({ positionValue = 0, costBasis = 0, totalInvest
   };
 }
 
+// ── Net-worth trajectory (Phase 01, client-utility) ──────────────────────────
+// The earliest-journey companion to the Freedom Date: instead of "when," it shows
+// "what the curve looks like" — net worth projected year by year at today's savings
+// pace. A negative net worth (debts exceed assets) is NOT compounded at the
+// investment return — only a positive balance grows; savings always flow in. That
+// keeps the early-journey picture honest: digging out is linear, compounding starts
+// once the household crosses zero. All inputs default so partial data is safe.
+function netWorthTrajectory({ startNetWorth = 0, annualSavings = 0, realReturn = 0.05, years = 20 } = {}) {
+  const r = Number(realReturn) || 0;
+  const save = Number(annualSavings) || 0;
+  let bal = Number(startNetWorth) || 0;
+  const horizon = Math.max(1, Math.min(60, Math.round(Number(years) || 0) || 20));
+  const series = [{ year: 0, value: bal }];
+  let crossesZeroYear = bal >= 0 ? 0 : null;
+  for (let y = 1; y <= horizon; y++) {
+    bal = (bal > 0 ? bal * (1 + r) : bal) + save;
+    if (crossesZeroYear === null && bal >= 0) crossesZeroYear = y;
+    series.push({ year: y, value: bal });
+  }
+  const at = (y) => series[Math.min(y, horizon)].value;
+  return { series, at5: at(5), at10: at(10), at20: at(20), final: bal, years: horizon, crossesZeroYear };
+}
+
+// ── Income runway (Phase 02, client-utility) ─────────────────────────────────
+// The disability-side mirror of the coverage-gap tool: if household income stopped
+// today, how many months can the liquidity reserve carry essential spending? A
+// disability benefit (typically ~60% of gross, often after an elimination/waiting
+// period) reduces the monthly burn once it starts; if the benefit fully covers
+// essentials the runway is indefinite. Pure month-by-month simulation, capped at
+// 600 months. All inputs default so partial data is safe.
+function incomeRunway({ liquidReserve = 0, monthlyEssentials = 0, monthlyBenefit = 0, benefitWaitMonths = 0 } = {}) {
+  const essentials = Math.max(0, Number(monthlyEssentials) || 0);
+  const benefit = Math.max(0, Number(monthlyBenefit) || 0);
+  const wait = Math.max(0, Math.round(Number(benefitWaitMonths) || 0));
+  let reserve = Math.max(0, Number(liquidReserve) || 0);
+  const coveragePct = essentials > 0 ? Math.min(100, (benefit / essentials) * 100) : 100;
+  if (essentials <= 0) return { months: Infinity, indefinite: true, coveragePct, burnAfterBenefit: 0 };
+  const burnAfterBenefit = Math.max(0, essentials - benefit);
+  let months = 0;
+  for (let m = 1; m <= 600; m++) {
+    const burn = m <= wait ? essentials : burnAfterBenefit;
+    if (burn <= 0) return { months: Infinity, indefinite: true, coveragePct, burnAfterBenefit };
+    if (reserve < burn) break;
+    reserve -= burn;
+    months = m;
+  }
+  return { months, indefinite: months >= 600, coveragePct, burnAfterBenefit };
+}
+
 const PrismCalc = {
   monthlyExpenseTotal,
   buildValueSeries, modifiedDietz, perfPeriods,
@@ -908,6 +957,7 @@ const PrismCalc = {
   mortgagePayoff, hdhpVsPpo, megaBackdoorCapacity,
   rmdProjection, RMD_UNIFORM_DIVISORS, ssBenefitFactor, socialSecurityClaiming,
   equityCompConcentration,
+  netWorthTrajectory, incomeRunway,
 };
 
 if (typeof window !== 'undefined') window.PrismCalc = PrismCalc;

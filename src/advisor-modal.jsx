@@ -1077,6 +1077,25 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     window.printComplianceReport?.(client, audit || [], meetings || [], (versions || []).length);
   };
 
+  /* Plan flags shared by the QBR + IPS printers: the largest concentrated
+     equity-comp position and the projected first RMD (both from data on file). */
+  const advPlanFlags = (pd, age, invested) => {
+    const C = window.PrismCalc || {};
+    const eq = Array.isArray(pd.equityComp) ? pd.equityComp : [];
+    const largest = eq.reduce((b, e) =>
+      (Number(e.positionValue) || 0) > (Number(b?.positionValue) || 0) ? e : b, null);
+    const equityConcentration = largest ? C.equityCompConcentration?.({
+      positionValue: Number(largest.positionValue) || 0, costBasis: Number(largest.costBasis) || 0,
+      totalInvested: invested, unvestedValue: Number(largest.unvestedValue) || 0,
+      capGainsRatePct: 15, thresholdPct: 10 }) : null;
+    const r = pd.retirement || {};
+    const deferred = (Number(r.iraBalance) || 0) + (Number(r.fourohonekBalance) || 0);
+    const rmd = (age > 0 && age < 73 && deferred > 0) ? C.rmdProjection?.({
+      taxDeferredBalance: deferred, currentAge: age,
+      marginalRatePct: Number(pd.taxes?.marginalRate) || 22 }) : null;
+    return { equityConcentration, equityTicker: largest?.ticker || '', rmd };
+  };
+
   /* QBR packet (C4) — assemble a client-ready review from data already on file */
   const generateQBR = async () => {
     showToast('Assembling review packet…');
@@ -1154,6 +1173,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
         disabilityCount, ltcCount,
         estateComplete, estateTotal: estateKeys.length, estateItems },
       risk, series, periods, flows,
+      planFlags: advPlanFlags(pd, age, invested),
       advisorName: authUser?.full_name, advisorFirm: authUser?.firms?.name,
     });
   };
@@ -1180,7 +1200,12 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
   };
   const printIPS = () => {
     const { rp, age, retireAt } = _ipsRisk();
+    const pd = profileData || {};
+    const r = pd.retirement || {};
+    const invested = (Number(r.hsaBalance) || 0) + (Number(r.iraBalance) || 0)
+      + (Number(r.fourohonekBalance) || 0) + (Number(pd.taxable?.balance) || 0);
     window.printIPSReport?.({ client, risk: rp, planningAge: age, retireAt,
+      planFlags: advPlanFlags(pd, age, invested),
       advisorName: authUser?.full_name, advisorFirm: authUser?.firms?.name });
   };
 
