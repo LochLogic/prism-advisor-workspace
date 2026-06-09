@@ -22,6 +22,7 @@ const AUDIT_ACTION_LABELS = {
   'message.create': 'Message sent', 'message.send': 'Message sent', 'task.create': 'Task created',
   'task.complete': 'Task completed', 'task.reopen': 'Task reopened', 'task.delete': 'Task deleted',
   'firm.brand': 'Branding updated', 'ai.assist': 'AI assist',
+  'document.request': 'Document requested', 'document.request_done': 'Document request fulfilled',
 };
 
 /* ─── Audit trail (SEC 17a-3 / FINRA) ────────────────────────────────
@@ -1179,6 +1180,76 @@ async function dbDeleteDocument(id, storagePath, clientId) {
   } catch (e) { console.warn('[db] deleteDocument:', e.message); return false; }
 }
 
+/* ─── Document requests (rides on messages — no new table) ──────────
+   Advisors chase statements/trust docs constantly; the vault only took
+   unprompted uploads. A request is an advisor message whose context is
+   'doc-request:<category>' and whose body is the asked-for document name; a
+   resolution is any later message with context 'doc-request-done:<request id>'
+   (sent by the client when their upload lands, or by the advisor to close it
+   manually). Pending = request without a resolution. Messages already grant
+   clients read+insert under RLS (migration 019), so the whole flow ships with
+   zero schema change and shows up in the conversation thread for free. */
+const DOC_REQ_PREFIX  = 'doc-request:';
+const DOC_REQ_DONE    = 'doc-request-done:';
+
+// Pure derivation over a message list → request objects (newest first).
+function deriveDocRequests(messages) {
+  const done = new Map();
+  for (const m of messages || []) {
+    if (typeof m.context === 'string' && m.context.startsWith(DOC_REQ_DONE)) {
+      done.set(m.context.slice(DOC_REQ_DONE.length), m);
+    }
+  }
+  return (messages || [])
+    .filter(m => typeof m.context === 'string' && m.context.startsWith(DOC_REQ_PREFIX))
+    .map(m => {
+      const d = done.get(String(m.id));
+      return {
+        id: m.id, title: m.body, category: m.context.slice(DOC_REQ_PREFIX.length) || 'other',
+        requestedAt: m.created_at, resolved: !!d, resolvedAt: d?.created_at || null,
+        resolvedByRole: d?.author_role || null,
+      };
+    })
+    .sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt));
+}
+
+async function dbGetDocumentRequests(clientId) {
+  const rows = await dbGetMessages(clientId);
+  return rows ? deriveDocRequests(rows) : null;
+}
+
+// Advisor asks the client for a named document. `title` is what they should
+// upload ("2025 Form 1040"); `category` keys into the vault categories.
+async function dbRequestDocument(clientId, { title, category = 'other', advisorId, firmId } = {}) {
+  if (!title?.trim()) return null;
+  const row = await dbSendMessage(clientId, {
+    body: title.trim().slice(0, 200), authorRole: 'advisor', authorId: advisorId || null,
+    context: `${DOC_REQ_PREFIX}${category}`, firmId,
+  });
+  if (row) {
+    dbAudit('document.request', { entityType: 'message', entityId: row.id, clientId,
+      summary: `Requested document: ${row.body}` });
+  }
+  return row;
+}
+
+// Close a request — by the client (their upload landed) or the advisor
+// (received out of band / no longer needed). `note` is the human-readable line
+// that appears in the thread.
+async function dbResolveDocumentRequest(clientId, requestId, { byRole = 'advisor', authorId, firmId, note } = {}) {
+  if (!requestId) return null;
+  const row = await dbSendMessage(clientId, {
+    body: (note || 'Document request closed').slice(0, 200),
+    authorRole: byRole === 'client' ? 'client' : 'advisor', authorId: authorId || null,
+    context: `${DOC_REQ_DONE}${requestId}`, firmId,
+  });
+  if (row) {
+    dbAudit('document.request_done', { entityType: 'message', entityId: row.id, clientId,
+      summary: `Document request fulfilled: ${row.body}` });
+  }
+  return row;
+}
+
 /* ─── Firm branding (white-label) ───────────────────────────────────
    The signed-in user's firm brand (RLS scopes firms to the caller's own), plus
    an anon-callable slug lookup so {slug}.prismaw.com paints the firm brand
@@ -1284,6 +1355,9 @@ window.db = {
   uploadDocument:      dbUploadDocument,
   getDocumentUrl:      dbGetDocumentUrl,
   deleteDocument:      dbDeleteDocument,
+  getDocumentRequests: dbGetDocumentRequests,
+  requestDocument:     dbRequestDocument,
+  resolveDocumentRequest: dbResolveDocumentRequest,
   getPhases:           dbGetPhases,
   audit:               dbAudit,
   getAuditLog:         dbGetAuditLog,

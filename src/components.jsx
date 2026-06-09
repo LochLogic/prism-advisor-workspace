@@ -336,6 +336,14 @@ const MessageThread = ({ clientId, role, authorId, firmId, demoSeed = [], contex
 
   const fmtTime = (t) => new Date(t).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
+  // Machine-readable contexts (document requests) render as friendly labels.
+  const ctxLabel = (c) => {
+    if (typeof c !== 'string') return c;
+    if (c.startsWith('doc-request-done:')) return 'Document request · fulfilled';
+    if (c.startsWith('doc-request:')) return `Document request · ${_docCatLabel(c.slice('doc-request:'.length))}`;
+    return c;
+  };
+
   return (
     <div className="px-thread">
       <div className="px-thread-log" style={{ maxHeight: height }}>
@@ -346,7 +354,7 @@ const MessageThread = ({ clientId, role, authorId, firmId, demoSeed = [], contex
         {(messages || []).map(m => (
           <div key={m.id} className={`px-msg ${m.author_role === role ? 'is-mine' : ''}`}>
             <div className="px-msg-bubble">
-              {m.context && <div className="px-msg-context">{m.context}</div>}
+              {m.context && <div className="px-msg-context">{ctxLabel(m.context)}</div>}
               <div className="px-msg-body">{m.body}</div>
               <div className="px-msg-time">{fmtTime(m.created_at)}</div>
             </div>
@@ -404,16 +412,59 @@ const DocumentVault = ({ clientId, role, firmId, advisorId, demoSeed = [], empty
   const [form, setForm] = React.useState(null);
   const fileRef = React.useRef(null);
 
+  // Document requests — the advisor's "please upload X" asks (rides on the
+  // messages table; see db.jsx). Demo mode keeps them in local state so the
+  // flow is demonstrable without a session.
+  const [requests, setRequests] = React.useState([]);
+  const [reqForm, setReqForm] = React.useState(null);
+  const [reqBusy, setReqBusy] = React.useState(false);
+  const openRequests = requests.filter(r => !r.resolved);
+
   React.useEffect(() => {
-    if (!isLive) { setDocs(demoSeed); return; }
+    if (!isLive) { setDocs(demoSeed); setRequests([]); return; }
     setDocs(undefined);
     window.db.getDocuments(clientId).then(rows => setDocs(rows || []));
+    window.db.getDocumentRequests?.(clientId).then(rows => setRequests(rows || []));
   }, [clientId]);
 
-  const pickFile = (e) => {
+  const sendRequest = async () => {
+    const title = reqForm?.title?.trim();
+    if (!title || reqBusy) return;
+    if (!isLive) {
+      setRequests(prev => [{ id: 'demo-' + Date.now(), title, category: reqForm.category,
+        requestedAt: new Date().toISOString(), resolved: false }, ...prev]);
+      setReqForm(null);
+      return;
+    }
+    setReqBusy(true); setErr('');
+    const row = await window.db.requestDocument(clientId, { title, category: reqForm.category, advisorId, firmId });
+    setReqBusy(false);
+    if (row) {
+      setRequests(prev => [{ id: row.id, title, category: reqForm.category,
+        requestedAt: row.created_at, resolved: false }, ...prev]);
+      setReqForm(null);
+    } else setErr('Could not send the request — please try again.');
+  };
+
+  const resolveRequest = async (r, { byRole, note } = {}) => {
+    if (isLive) {
+      const ok = await window.db.resolveDocumentRequest(clientId, r.id, {
+        byRole: byRole || role,
+        authorId: role === 'client' ? clientId : advisorId,
+        firmId, note,
+      });
+      if (!ok) { setErr('Could not update the request — please try again.'); return false; }
+    }
+    setRequests(prev => prev.map(x => x.id === r.id ? { ...x, resolved: true } : x));
+    return true;
+  };
+
+  const pickFile = (e, request = null) => {
     const f = e.target.files?.[0]; if (!f) return;
     setErr('');
-    setForm({ file: f, title: f.name.replace(/\.[^.]+$/, ''), category: 'other' });
+    setForm(request
+      ? { file: f, title: request.title, category: request.category, requestId: request.id }
+      : { file: f, title: f.name.replace(/\.[^.]+$/, ''), category: 'other' });
   };
   const upload = async () => {
     if (!form?.file || busy) return;
@@ -423,7 +474,12 @@ const DocumentVault = ({ clientId, role, firmId, advisorId, demoSeed = [], empty
       { title: form.title?.trim() || form.file.name, category: form.category,
         uploadedByRole: role === 'client' ? 'client' : 'advisor' });
     setBusy(false);
-    if (row) { setDocs(prev => [row, ...(prev || [])]); setForm(null); if (fileRef.current) fileRef.current.value = ''; }
+    if (row) {
+      // Upload fulfilling an advisor request → close the request in the thread.
+      const req = form.requestId ? requests.find(r => r.id === form.requestId) : null;
+      if (req) await resolveRequest(req, { note: `Uploaded: ${row.title}` });
+      setDocs(prev => [row, ...(prev || [])]); setForm(null); if (fileRef.current) fileRef.current.value = '';
+    }
     else setErr('Upload failed — please try again.');
   };
   const download = async (d) => {
@@ -446,18 +502,80 @@ const DocumentVault = ({ clientId, role, firmId, advisorId, demoSeed = [], empty
 
   return (
     <div className="px-docs">
-      {canUpload && (
+      {/* Open document requests — what the advisor has asked the client to upload */}
+      {openRequests.length > 0 && (
         <div style={{ marginBottom: 12 }}>
+          {openRequests.map(r => (
+            <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+              padding: '10px 12px', marginBottom: 6, background: 'var(--gold-soft)',
+              border: '1px solid var(--gold)', borderRadius: 6 }}>
+              <span style={{ color: 'var(--gold)', display: 'flex', flexShrink: 0 }}><Icons.FileText size={15} /></span>
+              <div style={{ flex: 1, minWidth: 160 }}>
+                <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)' }}>
+                  {role === 'client' ? `Your advisor asked for: ${r.title}` : r.title}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--ink-mute)' }}>
+                  {_docCatLabel(r.category)}{r.requestedAt ? ` · requested ${_fmtDocDate(r.requestedAt)}` : ''}
+                  {role === 'advisor' ? ' · awaiting client upload' : ''}
+                </div>
+              </div>
+              {role === 'client' && (
+                <label className="px-btn px-btn-sm px-btn-primary" style={{ cursor: 'pointer' }}>
+                  <Icons.Upload size={12} /> Upload
+                  <input type="file" onChange={(e) => pickFile(e, r)} style={{ display: 'none' }} />
+                </label>
+              )}
+              {role === 'advisor' && (
+                <button className="px-btn px-btn-sm px-btn-ghost"
+                  title="Close this request — received outside the portal or no longer needed"
+                  onClick={() => resolveRequest(r, { note: `Received: ${r.title}` })}>
+                  Mark received
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      {canUpload && (
+        <div style={{ marginBottom: 12, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           {!form && (
             <label className="px-btn px-btn-sm px-btn-ghost" style={{ cursor: 'pointer' }}>
               <Icons.Upload size={12} /> {role === 'client' ? 'Upload a document' : 'Upload document'}
               <input ref={fileRef} type="file" onChange={pickFile} style={{ display: 'none' }} />
             </label>
           )}
+          {!form && role === 'advisor' && !reqForm && (
+            <button className="px-btn px-btn-sm px-btn-ghost"
+              title="Ask the client to upload a named document — the request appears in their portal"
+              onClick={() => setReqForm({ title: '', category: 'statement' })}>
+              <Icons.FileText size={12} /> Request document
+            </button>
+          )}
+          {!form && reqForm && (
+            <div style={{ padding: 12, background: 'var(--bg-elev)', borderRadius: 6, flexBasis: '100%' }}>
+              <div style={{ fontSize: 12.5, color: 'var(--ink-2)', marginBottom: 8 }}>
+                Request a document — the ask shows in the client&apos;s portal and is resolved by their upload.
+              </div>
+              <input className="px-input" placeholder="What should they upload? e.g. 2025 Form 1040" value={reqForm.title} autoFocus
+                onChange={e => setReqForm(f => ({ ...f, title: e.target.value }))}
+                onKeyDown={e => { if (e.key === 'Enter') sendRequest(); }} style={{ marginBottom: 8 }} />
+              <select className="px-select" value={reqForm.category}
+                onChange={e => setReqForm(f => ({ ...f, category: e.target.value }))} style={{ marginBottom: 8, width: '100%' }}>
+                {DOC_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              </select>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button className="px-btn px-btn-sm px-btn-primary" onClick={sendRequest} disabled={reqBusy || !reqForm.title.trim()}>
+                  {reqBusy ? 'Sending…' : 'Send request'}
+                </button>
+                <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => setReqForm(null)}>Cancel</button>
+              </div>
+            </div>
+          )}
           {form && (
-            <div style={{ padding: 12, background: 'var(--bg-elev)', borderRadius: 6 }}>
+            <div style={{ padding: 12, background: 'var(--bg-elev)', borderRadius: 6, flexBasis: '100%' }}>
               <div style={{ fontSize: 12.5, color: 'var(--ink-2)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Icons.FileText size={13} /> {form.file.name} <span style={{ color: 'var(--ink-faint)' }}>· {_fmtBytes(form.file.size)}</span>
+                {form.requestId && <span style={{ color: 'var(--gold)', fontSize: 11, fontWeight: 600 }}>· fulfills a request</span>}
               </div>
               <input className="px-input" placeholder="Title" value={form.title} autoFocus
                 onChange={e => setForm(f => ({ ...f, title: e.target.value }))} style={{ marginBottom: 8 }} />

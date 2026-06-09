@@ -48,16 +48,9 @@ independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
   back to the plan. Add a lightweight "Add to agenda / create task" affordance to the
   high-verdict tools (coverage gap, Roth window, debt-vs-invest, 1040 observations)
   so a tool finding becomes a tracked next step the advisor owns.
-- [ ] **Document-request flow** (advisor-POV review) — advisors chase statements /
-  trust docs constantly; the vault only takes unprompted uploads. Advisor requests a
-  named document → client portal shows the ask → upload lands in the vault and
-  resolves the request. Lean on the existing tasks + documents tables.
 - [ ] **Advisor-facing 1040 flags** (advisor-POV review; extends the round-7 tax
   feature) — surface the top `tax1040Insights` observations in the client quick-view
   and as QBR plan flags, so the advisor sees what the client's roadmap tool shows.
-- [ ] **Prospect proposal packet** (advisor-POV review) — prospect mode has no
-  branded close-the-deal output. One-click print: roadmap preview, readiness snapshot,
-  fee schedule, "what working together looks like." Reuses the print renderers.
 - [ ] **Portal fee transparency** (advisor-POV review, small) — approved/paid
   invoices never surface client-side. Show them in the client portal (vault or a
   small billing card) — a fiduciary trust signal.

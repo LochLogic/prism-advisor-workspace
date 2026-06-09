@@ -12,6 +12,42 @@
 
 ---
 
+## 2026-06-09 (round 8) — Document-request flow + prospect proposal packet
+
+Two advisor-POV review items shipped together. Build · lint · calc · smoke green;
+both verified in the live demo preview. **No migration, no secrets, no edge-function
+change** — the merge to main is the whole deploy.
+
+**1 · Document-request flow.** Advisors chase statements/trust docs constantly; the
+vault only took unprompted uploads. Now: advisor opens a client's **documents** tab →
+"Request document" (name + vault category) → the ask appears in the client portal's
+Documents card as a highlighted card with a one-click **Upload** that pre-fills
+title/category → the upload lands in the vault and auto-resolves the request (the
+advisor can also "Mark received" for out-of-band delivery). *Design note:* the TODO
+suggested leaning on the tasks table, but `crm_tasks` has no client RLS policy — so
+requests ride on the **messages** table instead (clients already have read+insert,
+migration 019): a request is an advisor message with context `doc-request:<category>`;
+a resolution is a message with context `doc-request-done:<request id>`. Zero schema
+change, the ask shows in the conversation thread for free (with friendly context
+labels), and both lifecycle events are audit-logged (`document.request`,
+`document.request_done`). New `db` methods: `getDocumentRequests`, `requestDocument`,
+`resolveDocumentRequest`. UI lives in the shared `DocumentVault`, so the advisor
+modal and the client portal both got it in one place.
+
+**2 · Prospect proposal packet.** Proposal mode had no branded close-the-deal output.
+New `printProposalPacket` (store.jsx, same print-shell/print.css pattern as the QBR)
+behind a **Proposal packet** button on the prospect banner: today's snapshot (net
+worth, invested, reserve, surplus — em-dash when not yet entered), retirement-readiness
+verdict + Monte Carlo when numbers exist, the seven-horizon roadmap with the
+prospect's starting phase marked, "what working together looks like" (onboarding /
+ongoing cadence / fiduciary), and the fee schedule — the firm's first active schedule
+with the estimated annual fee at the prospect's invested assets, or clearly-labelled
+illustrative tiers (1.00%/0.75%/0.50%) when none exists yet.
+
+**Files:** `src/db.jsx`, `src/components.jsx`, `src/store.jsx`, `src/client-portal.jsx`.
+
+---
+
 ## 2026-06-09 (round 7) — Holistiplan-lite · exam packet · code-quality sweep · advisor-POV review
 
 Three queued builds plus a product review, shipped as one package. Build · lint ·

@@ -1611,6 +1611,91 @@ function printIPSReport(opts) {
   `);
 }
 
+// Prospect proposal packet — the close-the-deal print for proposal mode. One
+// click from the prospect banner: where the household stands today, the
+// seven-horizon roadmap they'd be working, what working together looks like,
+// and the fee schedule. A pure renderer like printQBRReport — the portal view
+// gathers the pieces from useProfile + the firm's fee schedules.
+//   opts: { client, phase, phases:[{num,title,total}], netWorth, invested,
+//           reserve, surplus, readiness, successBand, risk,
+//           feeSchedule:{name,tiers}|null, feeIllustrative, advisorName, advisorFirm }
+function printProposalPacket(opts) {
+  const o = opts || {};
+  const client = o.client || {};
+  const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+  // Roadmap preview — the seven horizons, with the prospect's starting point marked.
+  const phaseRows = (o.phases || []).map(p => {
+    const current = o.phase && p.num === o.phase.num;
+    return `<div class="task"><span class="f1${current ? ' b6' : ''}">Phase ${escapeHtml(p.num)} · ${escapeHtml(p.title)}</span>
+      <span class="${current ? 'ok b6' : 'mut2'}">${current ? 'your starting point' : `${p.total} milestones`}</span></div>`;
+  }).join('');
+
+  // Readiness snapshot — only when there are numbers behind it.
+  let readinessHtml = '';
+  if (o.readiness && (o.invested > 0 || o.netWorth > 0)) {
+    const r = o.readiness;
+    const pct = Math.round((r.fundedRatio || 0) * 100);
+    const band = o.successBand
+      ? ` &middot; Monte Carlo success ${Math.round(o.successBand.successPct)}%`
+      : '';
+    readinessHtml = `<div class="section-lbl">Retirement readiness — where you stand today</div>
+      <div class="rpt-p">${pct}% funded &middot; <b>${escapeHtml(r.verdict)}</b>${r.lasts ? ' — plan funded through age 95' : (r.depletionAge ? ` — projected to age ${r.depletionAge}` : '')}${band}. This is the baseline we would work from together — every milestone on the roadmap moves this number.</div>`;
+  }
+
+  const allocHtml = (o.risk && o.risk.allocation && o.risk.score != null)
+    ? `<div class="section-lbl">A starting allocation matched to you (${escapeHtml(o.risk.band)})</div>
+       <div class="rpt-p">Equity ${o.risk.allocation.equity}% &middot; Fixed income ${o.risk.allocation.fixedIncome}% &middot; Cash ${o.risk.allocation.cash}% — refined together in a full Investment Policy Statement.</div>`
+    : '';
+
+  // Fee schedule — the firm's real tiers when one exists; an illustrative
+  // default otherwise, labelled as such.
+  let feeHtml = '';
+  const tiers = Array.isArray(o.feeSchedule?.tiers) ? o.feeSchedule.tiers : [];
+  if (tiers.length) {
+    let prev = 0;
+    const rows = tiers.map(t => {
+      const cap = (t.up_to == null || t.up_to === '') ? null : Number(t.up_to);
+      const label = cap == null
+        ? (prev > 0 ? `Above ${fmt$(prev, { short: true })}` : 'All assets')
+        : (prev > 0 ? `${fmt$(prev, { short: true })} – ${fmt$(cap, { short: true })}` : `First ${fmt$(cap, { short: true })}`);
+      prev = cap == null ? prev : cap;
+      return `<div class="task"><span class="f1">${label}</span><span class="b6">${((Number(t.annual_bps) || 0) / 100).toFixed(2)}% / yr</span></div>`;
+    }).join('');
+    const est = (o.invested > 0 && window.PrismCalc?.annualFeeForAum)
+      ? window.PrismCalc.annualFeeForAum(tiers, o.invested) : 0;
+    feeHtml = `<div class="section-lbl">Fee schedule${o.feeIllustrative ? ' (illustrative)' : o.feeSchedule?.name ? ` — ${escapeHtml(o.feeSchedule.name)}` : ''}</div>
+      <div class="task task-head"><span class="f1">Assets under management</span><span>Annual fee</span></div>
+      ${rows}
+      ${est > 0 ? `<div class="rpt-p mut2">On roughly ${fmt$(o.invested, { short: true })} of invested assets, that works out to about ${fmt$(est)} per year — fully transparent, billed quarterly, and itemized on every invoice.</div>` : ''}
+      ${o.feeIllustrative ? `<div class="rpt-p mut2">Final pricing is confirmed in your advisory agreement.</div>` : ''}`;
+  }
+
+  _openPrint(`Proposal — ${escapeHtml(client.name)}`, `
+    <div class="rpt-head">
+      <div><h1>Working Together — A Proposal</h1><div class="sub">Prepared for ${escapeHtml(client.name)} &middot; ${date}</div></div>
+      <div class="rpt-meta">${escapeHtml(o.advisorFirm || 'Prism Advisor Workspace')}${o.advisorName ? `<br/>Prepared by ${escapeHtml(o.advisorName)}` : ''}<br/>Confidential</div>
+    </div>
+    <div class="rpt-p">This proposal previews the plan we would build together: where your household stands today, the lifecycle roadmap we would work through, and exactly what the engagement costs. Nothing here is binding — it is what working together looks like, on paper.</div>
+    <div class="grid">
+      <div class="stat"><div class="stat-lbl">Net worth today</div><div class="stat-val">${o.netWorth ? fmt$(o.netWorth, { short: true }) : '—'}</div></div>
+      <div class="stat"><div class="stat-lbl">Invested assets</div><div class="stat-val">${o.invested ? fmt$(o.invested, { short: true }) : '—'}</div></div>
+      <div class="stat"><div class="stat-lbl">Liquidity reserve</div><div class="stat-val">${o.reserve ? fmt$(o.reserve, { short: true }) : '—'}</div></div>
+      <div class="stat"><div class="stat-lbl">Monthly surplus</div><div class="stat-val ${(o.surplus || 0) < 0 ? 'bad' : 'ok'}">${o.surplus != null && o.surplus !== 0 ? fmt$(o.surplus) : '—'}</div></div>
+    </div>
+    ${readinessHtml}
+    <div class="section-lbl">Your roadmap — seven horizons, one coordinated plan</div>
+    ${phaseRows}
+    ${allocHtml}
+    <div class="section-lbl">What working together looks like</div>
+    <div class="rpt-p"><b>Onboarding (first 30 days)</b> — we capture the full household picture, agree an Investment Policy Statement, and stand up your client portal: your live roadmap, secure messaging, and document vault.</div>
+    <div class="rpt-p"><b>Ongoing</b> — structured reviews each quarter with a written packet, milestone-by-milestone progress on the roadmap, and direct access to your advisor between meetings. Every recommendation is documented and every fee is itemized.</div>
+    <div class="rpt-p"><b>Fiduciary, always</b> — advice is delivered net of a transparent advisory fee, with no commissions and no product sales.</div>
+    ${feeHtml}
+    <div class="footer">This proposal is illustrative, is not investment advice, and does not establish an advisory relationship — that begins with a signed advisory agreement. Figures reflect the information provided to date. ${escapeHtml(o.advisorFirm || 'Prism Advisor Workspace')} &middot; ${date}.</div>
+  `);
+}
+
 // Branded advisory-fee invoice (Theme D, 18d)
 function printInvoiceReport(invoice, clientName, advisorFirm) {
   const fmtD = (d) => new Date(d).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
@@ -1656,6 +1741,7 @@ Object.assign(window, {
   printInvoiceReport,
   printQBRReport,
   printIPSReport,
+  printProposalPacket,
   escapeHtml, sanitizeHtml,
   fmt$, fmtPct, fmtN,
 });
