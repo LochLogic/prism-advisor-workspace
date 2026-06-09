@@ -1057,7 +1057,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     ];
     const estateKeys = estateDefs.map(([k]) => k);
     const estateItems = estateDefs.map(([k, label]) => ({ label, status: estate[k]?.status || 'none' }));
-    const estateComplete = estateItems.filter(i => i.status === 'complete').length;
+    const estateComplete = estateItems.filter(i => estateInPlace(i.status)).length;
     // Other protection lines beyond term/whole life — surfaced so a $0 life
     // figure isn't read as "no protection at all".
     const disabilityCount = insurance.filter(i => i.type === 'disability').length;
@@ -1338,7 +1338,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
               const insurance = Array.isArray(profileData.insurance) ? profileData.insurance : [];
               const estate = (profileData.estate && typeof profileData.estate === 'object') ? profileData.estate : {};
               const estateKeys = ['will', 'trust', 'poa', 'healthcareDirective', 'beneficiaries'];
-              const estateComplete = estateKeys.filter(k => estate[k]?.status === 'complete').length;
+              const estateComplete = estateKeys.filter(k => estateInPlace(estate[k]?.status)).length;
               if (!insurance.length && !estateComplete) return null;
               const lifeCoverage = insurance.filter(i => i.type === 'life').reduce((s, i) => s + (Number(i.coverageAmount) || 0), 0);
               const grossAnnual = (Array.isArray(profileData.income?.sources) ? profileData.income.sources : [])

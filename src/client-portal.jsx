@@ -354,13 +354,31 @@ const ClientPortal = ({ onOpenNumbers }) => {
   const [acks, setAcks] = React.useState([]);
   const [signName, setSignName] = React.useState('');
   const [signingId, setSigningId] = React.useState(null);
+  // Documents the client can open — used to resolve estate-checklist links
+  // (documentId → storage_path) into a clickable, signed-URL download.
+  const [docsById, setDocsById] = React.useState({});
   React.useEffect(() => {
-    if (!window.db?.isUUID(activeClientId)) { setPerfBal(null); setPerfFlows([]); setInvoices([]); setAcks([]); return; }
+    const index = (rows) => setDocsById(Object.fromEntries((rows || []).map(d => [d.id, d])));
+    if (!window.db?.isUUID(activeClientId)) {
+      setPerfBal(null); setPerfFlows([]); setInvoices([]); setAcks([]);
+      index(window.demoDocuments ? window.demoDocuments() : []);
+      return;
+    }
     window.db.getBalanceHistory(activeClientId).then(r => setPerfBal(r || []));
     window.db.getCashFlows(activeClientId).then(r => setPerfFlows(r || []));
     window.db.getInvoices({ clientId: activeClientId }).then(r => setInvoices((r || []).filter(i => i.status !== 'void' && i.status !== 'draft')));
     window.db.getAcknowledgements(activeClientId).then(r => setAcks(r || []));
+    window.db.getDocuments(activeClientId).then(index);
   }, [activeClientId]);
+
+  // Open a linked estate document in a new tab via a short-lived signed URL.
+  const openEstateDoc = async (docId) => {
+    const doc = docsById[docId];
+    if (!doc) return;
+    if (!window.db?.isUUID(activeClientId)) { showToast('Documents open in your live portal.'); return; }
+    const url = await window.db.getDocumentUrl(doc.storage_path);
+    if (url) window.open(url, '_blank', 'noopener'); else showToast('Could not open the document.');
+  };
 
   const signAck = async (ack) => {
     if (!signName.trim()) { showToast('Type your full name to acknowledge'); return; }
@@ -802,13 +820,24 @@ const ClientPortal = ({ onOpenNumbers }) => {
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
                 {estateRows.map(({ key, label }) => {
-                  const st = estate[key]?.status || 'none';
-                  const done = st === 'complete';
-                  const prog = st === 'in_progress';
-                  const tone = done ? 'var(--forest)' : prog ? 'var(--gold)' : 'var(--ink-faint)';
+                  const item = estate[key] || {};
+                  const st = item.status || 'none';
+                  const { tone, filled, note } = estateStatusView(st);
+                  // Solid green = a shared document is linked → the chip opens it.
+                  const docId = item.documentId;
+                  const canOpen = filled && !!docId && !!docsById[docId];
+                  const fg = filled ? '#fff' : tone;
                   return (
-                    <span key={key} style={{ fontSize: 11, color: tone, border: `1px solid ${tone}`, borderRadius: 20, padding: '2px 9px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      {done && <Icons.Check size={10} />}{label}{prog ? ' · in progress' : done ? '' : ' · to do'}
+                    <span key={key} role={canOpen ? 'button' : undefined} tabIndex={canOpen ? 0 : undefined}
+                      onClick={canOpen ? () => openEstateDoc(docId) : undefined}
+                      onKeyDown={canOpen ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openEstateDoc(docId); } } : undefined}
+                      title={canOpen ? `Open ${docsById[docId].title}` : undefined}
+                      style={{ fontSize: 11, color: fg, background: filled ? tone : 'transparent',
+                        border: `1px solid ${tone}`, borderRadius: 20, padding: '2px 9px',
+                        display: 'inline-flex', alignItems: 'center', gap: 4,
+                        cursor: canOpen ? 'pointer' : 'default' }}>
+                      {filled && <Icons.Check size={10} />}{label}{note}
+                      {canOpen && <Icons.Download size={10} />}
                     </span>
                   );
                 })}

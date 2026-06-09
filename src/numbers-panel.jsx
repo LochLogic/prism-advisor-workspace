@@ -103,7 +103,21 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
   const { profile, update, setProfile, undoEdit, undoDepth, totalExpenses, surplus, netWorth,
           isOwner, homeEquity, mortgagePrincipalMonthly, mortgageInterestMonthly, escrowMonthly,
           propertiesEquity, primaryMember, planningAge, grossMonthlyIncome, effectiveTakehome } = useProfile();
+  const { activeClientId } = useView();
   const hasIncomeSources = (profile.income.sources || []).length > 0;
+
+  // Estate-category vault documents, for the "link a document" picker below. A
+  // linked doc is what marks an estate item "Complete & shared" (solid green,
+  // openable in the client portal). Demo clients use the seeded estate docs.
+  const [estateDocs, setEstateDocs] = React.useState([]);
+  React.useEffect(() => {
+    if (window.db?.isUUID(activeClientId)) {
+      window.db.getDocuments(activeClientId).then(rows =>
+        setEstateDocs((rows || []).filter(d => d.category === 'estate')));
+    } else {
+      setEstateDocs((window.demoDocuments ? window.demoDocuments() : []).filter(d => d.category === 'estate'));
+    }
+  }, [activeClientId]);
 
   // Undo safety net. The drawer remounts each time it opens (the `if (!isOpen)`
   // guard short-circuits before any hook), so these refs capture the state as of
@@ -832,30 +846,36 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
           {/* Estate readiness checklist */}
           <section style={{ marginBottom: 22 }}>
             <div className="px-eyebrow" style={{ marginBottom: 10 }}>Estate readiness</div>
-            {[
-              { key: 'will', label: 'Will' },
-              { key: 'trust', label: 'Revocable trust' },
-              { key: 'poa', label: 'Power of attorney' },
-              { key: 'healthcareDirective', label: 'Healthcare directive' },
-              { key: 'beneficiaries', label: 'Beneficiary review' },
-            ].map(({ key, label }) => {
+            {ESTATE_DEFS.map(({ key, label }) => {
               const item = (profile.estate || {})[key] || { status: 'none', lastReviewed: '' };
+              const isComplete = item.status === 'complete';
               return (
-                <div key={key} style={{ display: 'grid', gridTemplateColumns: '1fr 130px 140px', gap: 8, alignItems: 'end', marginBottom: 8 }}>
-                  <span style={{ fontSize: 13, color: 'var(--ink)' }}>{label}</span>
-                  <label className="px-field">
-                    <span className="px-field-label">Status</span>
-                    <select className="px-select" value={item.status || 'none'} onChange={(e) => updateEstate(key, 'status', e.target.value)}>
-                      <option value="none">Not started</option>
-                      <option value="in_progress">In progress</option>
-                      <option value="complete">Complete</option>
-                    </select>
-                  </label>
-                  <label className="px-field">
-                    <span className="px-field-label">Last reviewed</span>
-                    <input type="date" className="px-input" value={item.lastReviewed || ''} style={{ width: '100%' }}
-                      onChange={(e) => updateEstate(key, 'lastReviewed', e.target.value)} />
-                  </label>
+                <div key={key} style={{ marginBottom: 10 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 150px 140px', gap: 8, alignItems: 'end' }}>
+                    <span style={{ fontSize: 13, color: 'var(--ink)' }}>{label}</span>
+                    <label className="px-field">
+                      <span className="px-field-label">Status</span>
+                      <select className="px-select" value={item.status || 'none'} onChange={(e) => updateEstate(key, 'status', e.target.value)}>
+                        {ESTATE_STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    </label>
+                    <label className="px-field">
+                      <span className="px-field-label">Last reviewed</span>
+                      <input type="date" className="px-input" value={item.lastReviewed || ''} style={{ width: '100%' }}
+                        onChange={(e) => updateEstate(key, 'lastReviewed', e.target.value)} />
+                    </label>
+                  </div>
+                  {/* Shared items link to a vault document the client can open. */}
+                  {isComplete && (
+                    <label className="px-field" style={{ marginTop: 6 }}>
+                      <span className="px-field-label">Shared document{estateDocs.length === 0 ? ' — upload an estate document in the vault first' : ''}</span>
+                      <select className="px-select" value={item.documentId || ''} style={{ width: '100%' }}
+                        onChange={(e) => updateEstate(key, 'documentId', e.target.value || null)}>
+                        <option value="">No document linked</option>
+                        {estateDocs.map(d => <option key={d.id} value={d.id}>{d.title}</option>)}
+                      </select>
+                    </label>
+                  )}
                 </div>
               );
             })}

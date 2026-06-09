@@ -68,13 +68,15 @@ const defaultProfile = {
     { id: 'ins1', type: 'life',       carrier: 'Northwestern', owner: 'Robert Marsh', coverageAmount: 1_500_000, premiumMonthly: 320 },
     { id: 'ins2', type: 'disability', carrier: 'Guardian',     owner: 'Robert Marsh', coverageAmount: 180_000,   premiumMonthly: 140 },
   ],
-  // Estate readiness checklist — status + last-reviewed per instrument.
+  // Estate readiness checklist — status + last-reviewed + linked vault doc per
+  // instrument. documentId points at a `documents` row (category 'estate'); its
+  // presence is what an advisor sets when marking an item "Complete & shared".
   estate: {
-    will:                { status: 'complete',    lastReviewed: '2023-03-01' },
-    trust:               { status: 'complete',    lastReviewed: '2023-03-01' },
-    poa:                 { status: 'in_progress', lastReviewed: '' },
-    healthcareDirective: { status: 'complete',    lastReviewed: '2023-03-01' },
-    beneficiaries:       { status: 'none',        lastReviewed: '' },
+    will:                { status: 'complete',      lastReviewed: '2023-03-01', documentId: 'doc4' },
+    trust:               { status: 'have_unshared', lastReviewed: '2023-03-01' },
+    poa:                 { status: 'in_progress',   lastReviewed: '' },
+    healthcareDirective: { status: 'complete',      lastReviewed: '2023-03-01', documentId: 'doc5' },
+    beneficiaries:       { status: 'none',          lastReviewed: '' },
   },
   // Risk tolerance questionnaire (C4) — per-question scores (0..4). Feeds the
   // strategic allocation and the draft IPS. Completed in the sample household.
@@ -354,7 +356,9 @@ function ProfileProvider({ children }) {
   });
   const estate = (profile.estate && typeof profile.estate === 'object') ? profile.estate : {};
   const estateKeys = ['will', 'trust', 'poa', 'healthcareDirective', 'beneficiaries'];
-  const estateComplete = estateKeys.filter(k => estate[k]?.status === 'complete').length;
+  // "In place" = the instrument exists — whether shared (complete) or held but
+  // not shared (have_unshared). Both count toward readiness.
+  const estateComplete = estateKeys.filter(k => estateInPlace(estate[k]?.status)).length;
   const estateProgress = Math.round((estateComplete / estateKeys.length) * 100);
 
   // ── Risk tolerance → strategic allocation (C4) ──────────────────
@@ -1250,10 +1254,12 @@ function printQBRReport(opts) {
     const estItems = Array.isArray(p.estateItems) ? p.estateItems : [];
     const estList = estItems.length
       ? `<div class="grid grid5 mt10">${estItems.map(it => {
-          const done = it.status === 'complete', prog = it.status === 'in_progress';
-          const mark = done ? '&#10003;' : prog ? '&hellip;' : '&mdash;';
-          const cls = done ? 'ok' : prog ? '' : 'mut2';
-          return `<div class="stat"><div class="stat-lbl">${escapeHtml(it.label)}</div><div class="stat-val ${cls}" style="font-size:15px">${mark}</div></div>`;
+          // ✓ shared · ◦ held but not shared (hollow) · … in progress · — to do
+          const done = it.status === 'complete', priv = it.status === 'have_unshared', prog = it.status === 'in_progress';
+          const mark = done ? '&#10003;' : priv ? '&#9675;' : prog ? '&hellip;' : '&mdash;';
+          const cls = done ? 'ok' : priv ? 'ok' : prog ? '' : 'mut2';
+          const sub = priv ? '<div class="stat-lbl mut2" style="font-size:9px">private</div>' : '';
+          return `<div class="stat"><div class="stat-lbl">${escapeHtml(it.label)}</div><div class="stat-val ${cls}" style="font-size:15px">${mark}</div>${sub}</div>`;
         }).join('')}</div>`
       : '';
     protHtml = `<div class="section-lbl">Protection &amp; estate</div>
