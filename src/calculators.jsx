@@ -533,6 +533,78 @@ const BracketHeadroomTool = () => {
   );
 };
 
+/* Phase 04 · Tax-return insights (Holistiplan-lite) — observations off the
+   captured 1040 lines (Numbers drawer → "Import from your 1040"). Pure render
+   over tax1040Insights; every observation is explainable line-by-line. */
+const TaxReturnInsightTool = () => {
+  const { profile, planningAge } = useProfile();
+  const filing = profile.taxes?.filingStatus === 'single' ? 'single' : 'mfj';
+  const res = useMemoC(
+    () => tax1040Insights({ filingStatus: filing, age: planningAge, lines: profile.taxes?.t1040 || {} }),
+    [filing, planningAge, profile.taxes?.t1040]);
+  const pct = (x) => `${Math.round(x * 100)}%`;
+  const TONE = {
+    opportunity: { label: 'Opportunity', color: 'var(--forest)' },
+    watch:       { label: 'Worth watching', color: 'var(--gold)' },
+    info:        { label: 'Good to know', color: 'var(--ink-mute)' },
+  };
+
+  if (!res) {
+    return (
+      <ToolShell title="Tax-return insights"
+        hint="Planning observations read straight off your filed 1040">
+        <div style={{ padding: '14px 4px', fontSize: 12.5, color: 'var(--ink-mute)', lineHeight: 1.6 }}>
+          Add a few lines from your most recent federal return in <b>Your numbers → Planning &amp; tax →
+          Import from your 1040</b> (AGI is the only required line). The return then reads back as plain-language
+          observations — bracket position, withholding check, 0% capital-gains room, and more — refreshed
+          automatically as the numbers change.
+        </div>
+      </ToolShell>
+    );
+  }
+
+  return (
+    <ToolShell title="Tax-return insights"
+      hint="Planning observations read straight off your filed 1040">
+      <div className="px-tool-grid">
+        <StatCell label="Marginal rate" value={pct(res.marginalRate)} big foot="on the next ordinary dollar" />
+        <StatCell label="Effective rate" value={res.effectiveRate != null ? pct(res.effectiveRate) : '—'}
+          foot={res.effectiveRate != null ? 'total tax ÷ AGI' : 'add Line 24 to compute'} />
+        <StatCell label="Taxable income" value={fmt$(res.taxableIncome, { short: true })}
+          foot={`after ${fmt$(res.deduction, { short: true })} deduction`} />
+        <StatCell label="Bracket headroom" value={isFinite(res.headroom) ? fmt$(res.headroom, { short: true }) : '—'}
+          tone={isFinite(res.headroom) && res.headroom > 0 ? 'good' : null}
+          foot={isFinite(res.headroom) ? 'before the next bracket' : 'top bracket'} />
+      </div>
+      <div style={{ marginTop: 14 }}>
+        {res.observations.map(o => {
+          const t = TONE[o.tone] || TONE.info;
+          return (
+            <div key={o.id} style={{ padding: '10px 12px', background: 'var(--bg-elev)',
+              borderLeft: `3px solid ${t.color}`, borderRadius: 6, marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 3 }}>
+                <span style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.05em', color: t.color }}>{t.label}</span>
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)' }}>{o.title}</span>
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--ink-mute)', lineHeight: 1.55 }}>{o.detail}</div>
+            </div>
+          );
+        })}
+        {res.observations.length === 0 && (
+          <div style={{ fontSize: 12, color: 'var(--ink-mute)', fontStyle: 'italic', padding: '6px 0' }}>
+            Nothing flagged from the lines entered — add more lines (withholding, dividends, gains) for a fuller read.
+          </div>
+        )}
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 10, lineHeight: 1.5 }}>
+        Observations are derived only from the 1040 lines you entered, against 2025 federal brackets and
+        thresholds (reindexed annually). Educational, not tax advice — each one is a conversation starter
+        with your advisor, who sees the same list.
+      </div>
+    </ToolShell>
+  );
+};
+
 /* ───────────────────── ADVANCED TOOLS ─────────────────────────────── */
 
 /* Asset Location optimizer — placement of tax-inefficient vs efficient assets */
@@ -724,16 +796,18 @@ const EstateTool = () => {
   const [g2Years, setG2Years] = useStateC(30);     // generation-2 horizon
   const [withdrawalRate, setWdRate] = useStateC(3.5);
 
-  // 2026 federal estate tax exemption ~ $13.99M / individual (sunset 2026 ~ $7M post)
+  // Dated assumption: the named 2025 exemption from calc-core (reindex annually;
+  // scheduled sunset would roughly halve it). Single source of truth in calc-core.
+  const exempt = PrismCalc.FEDERAL_ESTATE_EXEMPTION_2025;
   const result = useMemoC(
     () => estateProjection({ principal: totalInvested, years: grossUp,
       withdrawalRatePct: withdrawalRate, g2Years, realRet: 0.05,
-      exempt: 13_990_000, estateTaxRate: 0.40 }),
+      exempt, estateTaxRate: 0.40 }),
     [totalInvested, grossUp, withdrawalRate, g2Years]);
 
   return (
     <ToolShell title="Estate & generational wealth" advanced
-      hint="Federal estate exemption $13.99M / individual · 40% above threshold">
+      hint={`Federal estate exemption ${fmt$(exempt, { short: true })} / individual (2025, reindexed annually) · 40% above threshold`}>
       <div className="px-tool-grid">
         <StatCell label="Projected gross estate" value={fmt$(result.estate, { short: true })}
           foot={`@ ${grossUp}y · ${withdrawalRate}% draw · 5% real`} />
@@ -1561,6 +1635,7 @@ const calculators = {
   mortgagepayoff: MortgagePayoffTool,
   hsa:           HSATool,
   brackets:      BracketHeadroomTool,
+  taxreturn:     TaxReturnInsightTool,
   hdhpppo:       HDHPvsPPOTool,
   assetlocation: AssetLocationTool,
   contriborder:  ContributionPriorityTool,

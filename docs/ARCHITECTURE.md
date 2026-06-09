@@ -2,7 +2,7 @@
 
 > **Purpose:** condensed router for AI/dev work. Tells you *which* file owns a
 > concern and what it exports — not every line. Read the named file for deep logic.
-> **Last synced:** 2026-06-09 round-6 W-2 import sprint. **Regenerate when:** `build-files.mjs`
+> **Last synced:** 2026-06-09 round-7 sprint (1040 insights · exam packet · CQ sweep). **Regenerate when:** `build-files.mjs`
 > load order changes, a `src/*` file is added/split, or `window.db`/`PrismCalc` gain methods.
 
 ---
@@ -71,7 +71,8 @@ supabase/
 
 scripts/
   check.mjs            smoke-asserts the dist/ deploy artifact post-build
-  lint.mjs             custom linter (resolves bare cross-file globals via build-files.mjs)
+  lint.mjs             custom linter (resolves bare cross-file globals via build-files.mjs;
+                       also asserts src/ coverage ↔ build-files.mjs + portal isolation)
   calc.test.mjs        zero-dep unit tests over calc-core.cjs
   db-test.mjs / rls-test.mjs   run supabase/tests/*.sql
   publish-due.mjs / gsc-digest.mjs / seo-check.mjs / build-whitepaper.mjs / serve.mjs   ops/SEO/content
@@ -91,7 +92,7 @@ e2e/demo.spec.ts       Playwright smoke
 - Tasks/flags: `getTaskStates, upsertTask, getFlaggedQuestions, flagQuestion, resolveQuestion, getFlagMessages, addFlagMessage`
 - Alerts/meetings: `getAlerts, snoozeAlert, getMeetings, logMeeting, requestMeeting, updateMeetingStatus, deleteMeeting`
 - Firm/billing: `getAdvisors, getFirmClients, getFeeSchedules, createFeeSchedule, getInvoices, updateInvoiceStatus, getSubscription`
-- Compliance: `getAcknowledgements, createAcknowledgement, signAcknowledgement, sendDocusignEnvelope, audit, getAuditLog`
+- Compliance: `getAcknowledgements, getFirmAcknowledgements (firm-wide, round 7), createAcknowledgement, signAcknowledgement, sendDocusignEnvelope, audit, getAuditLog ({limit, clientId, since})`
 - Messaging/docs: `getMessages, sendMessage, markMessagesRead, getUnreadMessageClients, getDocuments, uploadDocument, getDocumentUrl, deleteDocument`
 - Misc: `getPhases, getBalanceHistory, getBookBalanceHistory, getTasks/createTask/updateTask/deleteTask, isUUID, timeAgo`
 - Branding/AI (2026-06-09): `getFirmBrand, updateFirmBrand, getBrandForSlug` (anon RPC
@@ -120,12 +121,19 @@ credit/reduction factors are dated assumptions — reindex annually (like `estat
 Profile JSON gained `equityComp[]` (concentrated positions) and a `pia` field on `social_security`
 income streams; captured in `numbers-panel.jsx`. Round 6 added `taxes.w2 = { box1, box2 }`
 (W-2 capture; the Numbers-drawer "Import from W-2" block derives the marginal rate from it).
-No migration — profile is a JSON blob.
+No migration — profile is a JSON blob. Round 7 added `taxes.t1040` (keyed 1040 lines)
+→ `tax1040Insights` (Holistiplan-lite observation engine; dated companions
+`LTCG_ZERO_TOP_2025`, `IRMAA_TIER1_2025`, plus `FEDERAL_ESTATE_EXEMPTION_2025` now
+named/exported) rendered by the Phase-04 `taxreturn` tool. `monteCarlo`'s RNG is
+mulberry32 (seeded, deterministic). Vault document deletion fires a
+`px:document-deleted` window event; ProfileProvider clears matching
+`estate.*.documentId` links.
 
 **`store.jsx`** (via `Object.assign(window,…)`): providers `ProfileProvider/useProfile`,
 `TaskProvider/useTasks`, `ViewProvider/useView`, `NotificationProvider/useNotifications`,
-`useTheme`; report printers `printClientReport, printMilestoneReport, printComplianceReport,
-printPerformanceReport, printInvoiceReport, printQBRReport, printIPSReport`; helpers
+`useTheme`; report printers `printClientReport, printMilestoneReport, printComplianceReport, printExamPacket
+(firm books-&-records, round 7), printPerformanceReport, printInvoiceReport,
+printQBRReport, printIPSReport`; helpers
 `escapeHtml, sanitizeHtml, fmt$, fmtPct, fmtN, emptyProfile, mergeProfile`.
 Also `ProspectProvider/useProspects` — unsaved "prospect-" households → one-click convert.
 Also white-label brand engine: `applyFirmBrand(brand)` (inline `--brand`/`--accent*` CSS vars

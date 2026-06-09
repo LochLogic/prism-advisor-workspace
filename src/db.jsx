@@ -50,7 +50,7 @@ async function dbAudit(action, opts = {}) {
   } catch (e) { console.warn('[db] audit:', e.message); }
 }
 
-async function dbGetAuditLog({ limit = 100, clientId = null } = {}) {
+async function dbGetAuditLog({ limit = 100, clientId = null, since = null } = {}) {
   if (!_sb()) return null;
   try {
     let q = _sb()
@@ -59,6 +59,7 @@ async function dbGetAuditLog({ limit = 100, clientId = null } = {}) {
       .order('occurred_at', { ascending: false })
       .limit(limit);
     if (isUUID(clientId)) q = q.eq('client_id', clientId);
+    if (since) q = q.gte('occurred_at', new Date(since).toISOString());
     const { data, error } = await q;
     if (error) throw error;
     return data;
@@ -223,6 +224,22 @@ async function dbGetAcknowledgements(clientId) {
     if (error) throw error;
     return data;
   } catch (e) { console.warn('[db] getAcknowledgements:', e.message); return null; }
+}
+
+// Firm-wide acknowledgement inventory for the exam packet — every disclosure /
+// e-sign request across the firm with its signature state. RLS scopes the read to
+// the caller's firm (admins see the whole firm; advisors their own book).
+async function dbGetFirmAcknowledgements({ limit = 500 } = {}) {
+  if (!_sb()) return null;
+  try {
+    const { data, error } = await _sb()
+      .from('acknowledgements')
+      .select(`${ACK_COLS}, clients ( household_name, short_name )`)
+      .order('requested_at', { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    return data;
+  } catch (e) { console.warn('[db] getFirmAcknowledgements:', e.message); return null; }
 }
 
 async function dbCreateAcknowledgement(clientId, firmId, advisorId, { title, body, documentId }) {
@@ -635,7 +652,7 @@ async function dbFlagQuestion(clientId, advisorId, phaseId, taskId, flag, questi
 }
 
 async function dbResolveQuestion(id) {
-  if (!_sb()) return;
+  if (!_sb() || !isUUID(id)) return;
   try {
     const { error } = await _sb()
       .from('flagged_questions')
@@ -715,7 +732,7 @@ function mapAlert(a) {
 }
 
 async function dbSnoozeAlert(id) {
-  if (!_sb()) return;
+  if (!_sb() || !isUUID(id)) return;
   try {
     const { error } = await _sb()
       .from('alerts')
@@ -897,6 +914,16 @@ async function dbAddCashFlow(clientId, fields) {
   } catch (e) { console.warn('[db] addCashFlow:', e.message); return null; }
 }
 
+// ── Deletion policy (17a-4 note) ─────────────────────────────────────────────
+// Three tables hard-delete (`cash_flows`, `crm_tasks`, `documents`) while client
+// records archive/soft-delete. This is deliberate, not drift: the hard-deleted
+// rows are working data (ledger corrections, to-dos, vault files), and every
+// deletion still writes an append-only audit_log entry — so the *fact and actor*
+// of the deletion is retained forever even though the payload is not. Books-and-
+// records artifacts (clients, acknowledgements, audit_log, profile versions,
+// invoices) are never hard-deleted. If a partner's compliance review wants
+// payload-level retention on these working tables too, move them to soft-delete
+// + the WORM export (see ROADMAP, partner-gated).
 async function dbDeleteCashFlow(id, clientId) {
   if (!_sb() || !isUUID(id)) return;
   try {
@@ -1243,6 +1270,7 @@ window.db = {
   getInvoices:         dbGetInvoices,
   updateInvoiceStatus: dbUpdateInvoiceStatus,
   getAcknowledgements:   dbGetAcknowledgements,
+  getFirmAcknowledgements: dbGetFirmAcknowledgements,
   createAcknowledgement: dbCreateAcknowledgement,
   signAcknowledgement:   dbSignAcknowledgement,
   sendDocusignEnvelope:  dbSendDocusignEnvelope,

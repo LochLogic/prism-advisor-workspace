@@ -171,6 +171,9 @@ function ProfileProvider({ children }) {
   // Lets us FLUSH it before a client switch (or unmount) so the last <1.5s of
   // edits aren't dropped when the load effect cancels the pending timer.
   const pendingSave = React.useRef(null);
+  // Set when an async DB load lands: the next [profile]-keyed persist run is the
+  // load's own echo, not a user edit, and must not be written back.
+  const skipNextSave = React.useRef(false);
 
   const flushPendingSave = () => {
     const p = pendingSave.current;
@@ -192,6 +195,10 @@ function ProfileProvider({ children }) {
       isLoading.current = true;
       _setProfile(emptyProfile);
       window.db.getProfile(activeClientId).then(data => {
+        // The persist effect (keyed on [profile]) fires once more for this set —
+        // after isLoading is already false — so flag it to skip that one run:
+        // it would only write back the bytes we just read.
+        skipNextSave.current = true;
         _setProfile(mergeProfile(emptyProfile, data));
         isLoading.current = false;
       }).catch(() => { isLoading.current = false; });
@@ -210,6 +217,7 @@ function ProfileProvider({ children }) {
   // Persist (skip during loading to avoid writing stale data)
   useEffect(() => {
     if (isLoading.current) return;
+    if (skipNextSave.current) { skipNextSave.current = false; return; }   // post-load echo
     if (window.db?.isUUID(activeClientId)) {
       clearTimeout(dbSaveTimer.current);
       pendingSave.current = { clientId: activeClientId, profile };
@@ -222,16 +230,46 @@ function ProfileProvider({ children }) {
     }
   }, [profile]); // intentionally omit activeClientId — load effect handles switches
 
+  // When a vault document is deleted (DocumentVault fires px:document-deleted),
+  // clear any estate-checklist link pointing at it so the profile never carries a
+  // dangling documentId. Raw _setProfile: a system cleanup, not an undoable edit;
+  // returning prev unchanged keeps the persist effect quiet.
+  useEffect(() => {
+    const onDocDeleted = (e) => {
+      const { documentId, clientId } = e.detail || {};
+      if (!documentId || clientId !== activeClientId) return;
+      _setProfile(prev => {
+        const est = prev?.estate;
+        if (!est || typeof est !== 'object') return prev;
+        let changed = false;
+        const next = {};
+        for (const [k, item] of Object.entries(est)) {
+          if (item && item.documentId === documentId) { next[k] = { ...item, documentId: null }; changed = true; }
+          else next[k] = item;
+        }
+        return changed ? { ...prev, estate: next } : prev;
+      });
+    };
+    window.addEventListener('px:document-deleted', onDocDeleted);
+    return () => window.removeEventListener('px:document-deleted', onDocDeleted);
+  }, [activeClientId]);
+
   const update = useCallback((path, value) => {
     setProfile(prev => {
-      const next = JSON.parse(JSON.stringify(prev));
+      // Shallow path-copy: clone only the spine of objects along the edited path
+      // (this runs per keystroke — a whole-profile deep clone was measurable on
+      // large profiles). Untouched branches keep their references, which is also
+      // what lets memoized consumers skip re-deriving.
       const keys = path.split('.');
+      const next = { ...prev };
       let o = next;
       for (let i = 0; i < keys.length - 1; i++) {
+        const k = keys[i];
         // Create missing intermediate objects so paths into a not-yet-present
         // branch (e.g. `housing.type` on an older profile) never throw.
-        if (o[keys[i]] == null || typeof o[keys[i]] !== 'object') o[keys[i]] = {};
-        o = o[keys[i]];
+        const cur = o[k];
+        o[k] = (cur == null || typeof cur !== 'object') ? {} : (Array.isArray(cur) ? [...cur] : { ...cur });
+        o = o[k];
       }
       o[keys[keys.length - 1]] = value;
       return next;
@@ -840,6 +878,15 @@ function NotificationProvider({ children }) {
   const addNotification = useCallback((n) => {
     if (seenIds.current.has(n.id)) return;
     seenIds.current.add(n.id);
+    // Cap the dedupe set — over a long-lived session it otherwise grows without
+    // bound. Evict oldest first (Set iterates in insertion order); 500 is far
+    // beyond the 20-notification display window.
+    if (seenIds.current.size > 500) {
+      for (const id of seenIds.current) {
+        if (seenIds.current.size <= 400) break;
+        seenIds.current.delete(id);
+      }
+    }
     setNotifications(prev => [n, ...prev].slice(0, 20));
     setUnread(prev => prev + 1);
   }, []);
@@ -1235,6 +1282,91 @@ function printComplianceReport(client, auditEntries, meetings, versionCount) {
   `);
 }
 
+// Exam-ready books-&-records packet (SEC/state exam). One click from firm admin:
+// firm inventory (advisors, clients, fee schedules), billing record, every
+// acknowledgement with its signature state, and the append-only audit trail over
+// the chosen window — plus the WORM-retention statement. A pure renderer; the
+// firm-admin view gathers the pieces.
+//   opts: { firmName, generatedBy, rangeLabel, advisors, clients, feeSchedules,
+//           invoices, acknowledgements, auditEntries, auditTruncated }
+function printExamPacket(opts) {
+  const o = opts || {};
+  const date = new Date().toLocaleString('en-US', { dateStyle: 'long', timeStyle: 'short' });
+  const d = (iso, t) => iso ? new Date(iso).toLocaleString('en-US', t ? { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' } : { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+  const clientName = (c) => escapeHtml(c?.short_name || c?.household_name || 'Client');
+
+  const advisorsHtml = (o.advisors || []).map(a => `
+    <div class="task"><span class="f140">${escapeHtml(a.full_name || '')}</span>
+      <span class="mut">${escapeHtml(a.email || '')}</span>
+      <span class="mut fs11">${escapeHtml(a.role || 'advisor')}${a.credentials ? ' · ' + escapeHtml(a.credentials) : ''}</span></div>`).join('')
+    || '<div class="task mut2">No advisors on record.</div>';
+
+  const schedById = Object.fromEntries((o.feeSchedules || []).map(s => [s.id, s]));
+  const schedulesHtml = (o.feeSchedules || []).map(s => `
+    <div class="task"><span class="f140">${escapeHtml(s.name || '')}</span>
+      <span class="mut">${escapeHtml(s.frequency || '')} · ${escapeHtml(s.basis || '')}</span>
+      <span>${(s.tiers || []).map(t => `${Number(t.annual_bps) || 0} bps${t.up_to ? ` ≤ ${fmt$(t.up_to, { short: true })}` : ' above'}`).join(' / ')}</span></div>`).join('')
+    || '<div class="task mut2">No fee schedules defined.</div>';
+
+  const clientsHtml = (o.clients || []).map(c => `
+    <div class="task"><span class="f140">${clientName(c)}</span>
+      <span class="mut">${fmt$(Number(c.aum) || 0, { short: true })} AUM</span>
+      <span>${c.fee_schedule_id && schedById[c.fee_schedule_id] ? escapeHtml(schedById[c.fee_schedule_id].name) : '<i>no fee schedule assigned</i>'}</span></div>`).join('')
+    || '<div class="task mut2">No active clients.</div>';
+
+  const invoicesHtml = (o.invoices || []).length
+    ? (o.invoices || []).map(i => `
+        <div class="task"><span class="f140">${clientName(i.clients)}</span>
+          <span class="mut fs11 nw">${d(i.period_start)} – ${d(i.period_end)}</span>
+          <span class="mut">${fmt$(i.fee_amount)}</span>
+          <span>${escapeHtml(i.status || '')}</span></div>`).join('')
+    : '<div class="task mut2">No invoices generated.</div>';
+
+  const acksHtml = (o.acknowledgements || []).length
+    ? (o.acknowledgements || []).map(a => `
+        <div class="task"><span class="f140">${clientName(a.clients)}</span>
+          <span>${escapeHtml(a.title || '')}</span>
+          <span class="mut fs11 nw">req ${d(a.requested_at)}</span>
+          <span class="mut">${a.status === 'signed' || a.acknowledged_at
+            ? `signed ${d(a.acknowledged_at)}${a.signer_name ? ' · ' + escapeHtml(a.signer_name) : ''}${a.provider === 'docusign' ? ' · DocuSign' : ''}`
+            : escapeHtml(a.envelope_status || a.status || 'pending')}</span></div>`).join('')
+    : '<div class="task mut2">No acknowledgements requested.</div>';
+
+  const auditHtml = (o.auditEntries || []).length
+    ? (o.auditEntries || []).map(e => `
+        <div class="task"><span class="mut fs11 nw">${d(e.occurred_at, true)}</span>
+          <span class="f140">${escapeHtml(AUDIT_ACTION_LABELS[e.action] || e.action)}</span>
+          <span class="mut">${escapeHtml(e.actor_email || '')}</span>
+          <span>${escapeHtml(e.summary || '')}</span></div>`).join('')
+    : '<div class="task mut2">No audit entries in this window.</div>';
+
+  _openPrint(`Exam Packet — ${escapeHtml(o.firmName || 'Firm')}`, `
+    <div class="rpt-head">
+      <div><h1>${escapeHtml(o.firmName || 'Firm')}</h1>
+        <div class="sub">Books &amp; records packet · ${escapeHtml(o.rangeLabel || '')} · Generated ${date}${o.generatedBy ? ` by ${escapeHtml(o.generatedBy)}` : ''}</div></div>
+      <div class="rpt-meta">Prism Advisor Workspace<br/>Confidential · SEC 17a-3 / 17a-4</div>
+    </div>
+    <div class="grid">
+      <div class="stat"><div class="stat-lbl">Advisors</div><div class="stat-val">${(o.advisors || []).length}</div></div>
+      <div class="stat"><div class="stat-lbl">Active clients</div><div class="stat-val">${(o.clients || []).length}</div></div>
+      <div class="stat"><div class="stat-lbl">Acknowledgements</div><div class="stat-val">${(o.acknowledgements || []).length}</div></div>
+      <div class="stat"><div class="stat-lbl">Audited actions</div><div class="stat-val">${(o.auditEntries || []).length}${o.auditTruncated ? '+' : ''}</div></div>
+    </div>
+    <div class="section-lbl">1 · Advisor roster</div>${advisorsHtml}
+    <div class="section-lbl">2 · Fee schedules</div>${schedulesHtml}
+    <div class="section-lbl">3 · Client inventory &amp; fee assignment</div>${clientsHtml}
+    <div class="section-lbl">4 · Advisory-fee invoices</div>${invoicesHtml}
+    <div class="section-lbl">5 · Disclosures &amp; acknowledgements (e-sign record)</div>${acksHtml}
+    <div class="section-lbl">6 · Audit trail (append-only)${o.auditTruncated ? ' — most recent entries; full history retained' : ''}</div>${auditHtml}
+    <div class="section-lbl">7 · Retention statement</div>
+    <div class="rpt-p">The audit trail is an append-only ledger (no update or delete policy exists on the table).
+      A scheduled export writes each day's entries to a private write-once storage bucket per SEC Rule 17a-4
+      retention practice. Client profile changes are additionally versioned. Records are archived, never erased.</div>
+    <div class="footer">This packet reflects the firm's books and records as of generation time and is intended for
+      regulatory examination use. Prism Advisor Workspace.</div>
+  `);
+}
+
 // Client-facing performance report — branded, printable PDF (Theme D, 18b).
 // Takes pre-computed data so it has no dependency on where the math lives.
 //   opts: { client, series:[{date,value}], periods:[{label,pct}], flows:[{flow_date,amount,kind}], advisorName, advisorFirm }
@@ -1519,6 +1651,7 @@ Object.assign(window, {
   printClientReport,
   printMilestoneReport,
   printComplianceReport,
+  printExamPacket,
   printPerformanceReport,
   printInvoiceReport,
   printQBRReport,

@@ -679,6 +679,42 @@ console.log('calc-core unit tests\n');
   assert(C.incomeRunway({}).indefinite === true, 'incomeRunway: no essentials → indefinite (safe default)');
 }
 
+/* ── tax1040Insights ─────────────────────────────────────────────── */
+{
+  assert(C.tax1040Insights({}) === null, 'tax1040Insights: no AGI → null (nothing entered)');
+
+  // MFJ household, mid-bracket, over-withheld, itemizing just over the standard.
+  const a = C.tax1040Insights({ filingStatus: 'mfj', lines: {
+    agi: 180_000, deduction: 32_000, totalTax: 22_000, withholding: 27_000 } });
+  assert(near(a.marginalRate, 0.22), 'tax1040Insights: $148k MFJ taxable → 22% marginal');
+  assert(near(a.effectiveRate, 22_000 / 180_000), 'tax1040Insights: effective = total tax ÷ AGI');
+  const ids = a.observations.map(o => o.id);
+  assert(ids.includes('over-withheld'), 'tax1040Insights: >10% over-withholding flagged');
+  assert(ids.includes('bunching'), 'tax1040Insights: itemizing narrowly over standard → bunching');
+  assert(ids.includes('bracket-headroom'), 'tax1040Insights: headroom observation present');
+
+  // Low-income single: room in the 0% LTCG band; ordinary income backs out gains.
+  const b = C.tax1040Insights({ filingStatus: 'single', lines: { agi: 50_000, capGains: 8_000 } });
+  assert(b.observations.some(o => o.id === 'ltcg-zero'), 'tax1040Insights: below 0% LTCG top → gain-harvest room');
+  assert(b.ordinaryTaxable < b.taxableIncome, 'tax1040Insights: LTCG backed out of ordinary income');
+
+  // Retiree at 72 with IRA distributions: QCD; near-IRMAA single flagged.
+  const c = C.tax1040Insights({ filingStatus: 'single', age: 72, lines: {
+    agi: 100_000, iraDistributions: 40_000, ssBenefits: 20_000, taxableInterest: 12_000 } });
+  const cids = c.observations.map(o => o.id);
+  assert(cids.includes('qcd'), 'tax1040Insights: 70½+ with IRA distributions → QCD');
+  assert(cids.includes('irmaa-near'), 'tax1040Insights: within 10% of IRMAA tier → flagged');
+  assert(cids.includes('ss-taxation'), 'tax1040Insights: taxable SS + other income → provisional note');
+
+  // Under-withholding watch.
+  const d = C.tax1040Insights({ filingStatus: 'mfj', lines: { agi: 200_000, totalTax: 30_000, withholding: 20_000 } });
+  assert(d.observations.some(o => o.id === 'under-withheld'), 'tax1040Insights: >10% under-withholding flagged');
+
+  // Every observation carries a known tone.
+  const tones = new Set(['opportunity', 'watch', 'info']);
+  assert([a, b, c, d].every(r => r.observations.every(o => tones.has(o.tone))), 'tax1040Insights: tones are client-safe enum');
+}
+
 console.log('');
 if (failures) { console.error(`FAILED: ${failures} test(s)`); process.exit(1); }
 console.log('All calc-core tests passed.');

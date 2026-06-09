@@ -63,7 +63,7 @@ let phasesData = [
       { id: 'p3t3', label: 'Migrate cash balance to invested HSA assets', tool: 'discuss' },
       { id: 'p3t4', label: 'Establish receipt archive for future reimbursement', tool: null },
     ],
-    calcs: ['hsa', 'brackets', 'hdhpppo'],
+    calcs: ['hsa', 'brackets', 'hdhpppo', 'taxreturn'],
     metricLabel: 'Annual tax savings',
     metricKey: 'hsaTaxSavings',
   },
