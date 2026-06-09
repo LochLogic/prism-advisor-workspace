@@ -380,7 +380,39 @@ const demoDocuments = () => {
     { id: 'doc1', category: 'ips',        title: 'Investment Policy Statement 2026', file_name: 'IPS_Marsh_2026.pdf',        mime_type: 'application/pdf', size_bytes: 248000, uploaded_at: ago(12) },
     { id: 'doc2', category: 'statement',  title: 'Q1 2026 Performance Statement',     file_name: 'Statement_Q1_2026.pdf',     mime_type: 'application/pdf', size_bytes: 184000, uploaded_at: ago(40) },
     { id: 'doc3', category: 'disclosure', title: 'Form ADV Part 2A',                   file_name: 'ADV_2A.pdf',                 mime_type: 'application/pdf', size_bytes: 512000, uploaded_at: ago(95) },
+    { id: 'doc4', category: 'estate',     title: 'Last Will & Testament',              file_name: 'Will_Marsh_2023.pdf',        mime_type: 'application/pdf', size_bytes: 196000, storage_path: 'demo/will.pdf',      uploaded_at: ago(460) },
+    { id: 'doc5', category: 'estate',     title: 'Healthcare Directive',               file_name: 'Healthcare_Directive.pdf',   mime_type: 'application/pdf', size_bytes: 88000,  storage_path: 'demo/directive.pdf', uploaded_at: ago(460) },
   ];
+};
+
+// ── Estate readiness — instruments + status presentation ──────────────────
+// status ∈ none | in_progress | have_unshared | complete. An advisor attaches a
+// vault document (documentId → a `documents` row, category 'estate') to mark an
+// item "Complete & shared" — that linked doc is what makes the chip solid green
+// and clickable in the portal. "have_unshared" is the client-has-it-but-won't-
+// share state (hollow green, no file). Both greens count as "in place".
+const ESTATE_DEFS = [
+  { key: 'will', label: 'Will' },
+  { key: 'trust', label: 'Revocable trust' },
+  { key: 'poa', label: 'Power of attorney' },
+  { key: 'healthcareDirective', label: 'Healthcare directive' },
+  { key: 'beneficiaries', label: 'Beneficiary review' },
+];
+const ESTATE_STATUS_OPTIONS = [
+  { value: 'none', label: 'Not started' },
+  { value: 'in_progress', label: 'In progress' },
+  { value: 'have_unshared', label: 'Has it · not shared' },
+  { value: 'complete', label: 'Complete & shared' },
+];
+const estateInPlace = (status) => status === 'complete' || status === 'have_unshared';
+// Chip/row presentation for a status. `filled` = solid green vs hollow outline.
+const estateStatusView = (status) => {
+  switch (status) {
+    case 'complete':      return { tone: 'var(--forest)',    filled: true,  note: '' };
+    case 'have_unshared': return { tone: 'var(--forest)',    filled: false, note: ' · private' };
+    case 'in_progress':   return { tone: 'var(--gold)',      filled: false, note: ' · in progress' };
+    default:              return { tone: 'var(--ink-faint)', filled: false, note: ' · to do' };
+  }
 };
 
 /* ─── "Current user" — Robert & Eileen Marsh, viewed in Client Portal ─ */
@@ -399,3 +431,7 @@ window.demoTimeline = demoTimeline;
 window.demoMessages = demoMessages;
 window.demoDocuments = demoDocuments;
 window.currentClientId = currentClientId;
+window.ESTATE_DEFS = ESTATE_DEFS;
+window.ESTATE_STATUS_OPTIONS = ESTATE_STATUS_OPTIONS;
+window.estateInPlace = estateInPlace;
+window.estateStatusView = estateStatusView;

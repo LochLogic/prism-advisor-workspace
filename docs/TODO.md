@@ -71,7 +71,10 @@ independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
   `NotificationProvider.seenIds` · dated estate-exemption assumption · mulberry32 RNG
   if exact probability surfaced · `isUUID` guards on `dbResolveQuestion`/`dbSnoozeAlert`
   · soft-vs-hard-delete consistency for 17a-4 · bulk-import batch RPC · load-order lint
-  guard. *(See ROADMAP "Code-quality backlog.")*
+  guard · **estate doc link dangling pointer** — deleting a vault document doesn't
+  clear `documentId` on the estate item; the open fails gracefully (toast) but leaving
+  the stale reference is untidy; a `documents` delete hook or a load-time validity check
+  would close it. *(See ROADMAP "Code-quality backlog.")*
 - [ ] **UX backlog** (optional) — roster swipe actions; housing ratio coaching + field
   hints (FinFire donors).
 
