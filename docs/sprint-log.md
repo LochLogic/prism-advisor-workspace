@@ -70,4 +70,40 @@ by design). Nothing CRITICAL or MAJOR is outstanding.
 
 ---
 
+## 2026-06-08 — UX polish + asset-location planning depth (post-reset)
+
+First sprint after the baseline reset. PR #37 (squash-merged to `main`,
+`6f62ba7`). Build · lint · calc · check · e2e · rls-isolation all green; verified
+in a browser preview. Frontend auto-deploys on merge. **No migration, no secrets,
+no money.**
+
+**What shipped**
+- **Pages open at the top.** New views/clients reset window scroll on navigation
+  (`src/app.jsx`). The body is the scroller and the topbar is `position: sticky`, so
+  a freshly-rendered view was inheriting the prior page's scroll position and opening
+  mid-scroll. Reset on every view switch, and on a client switch only while on the
+  portal (so opening a client's Numbers drawer from the advisor view doesn't jump the
+  roster). A phase deep-link still re-scrolls itself ~150ms after mount and wins.
+- **Client quick-view modal no longer clips "View roadmap."** Widened to 720px
+  (`.px-modal-client` in `styles.css`), header actions wrap, and the 8-tab row scrolls
+  instead of forcing a horizontal scrollbar on the whole modal (`src/advisor-modal.jsx`).
+- **Roth wired into the model.** New `profile.retirement.rothBalance` (jsonb,
+  `mergeProfile`-backfilled; editable in the Numbers panel; counted in
+  `retirementAssets`). The Asset Location tool's tax-free sleeve is now HSA + Roth, not
+  HSA + 0 (the long-standing `roth = 0` stub). (`src/store.jsx`, `src/numbers-panel.jsx`)
+- **Bespoke asset-location table.** New `calc-core.assetLocationPlan()` places the
+  household's *actual* dollars across the three sleeves, fit to their `riskProfile`
+  strategic allocation — tax-inefficient assets (bonds/TIPS, REIT) shelter into
+  tax-deferred/tax-free first, tax-efficient broad equity + international anchor
+  taxable. Replaces the static rule-of-thumb model (kept as the fallback for
+  blank/prospect clients). Unit-tested (`scripts/calc.test.mjs`). This is the first
+  increment of the C4 tax-return-insight / planning-depth track; more depth is wanted
+  (see ROADMAP Tier B).
+
+**Files:** `src/app.jsx`, `src/advisor-modal.jsx`, `src/styles.css`, `src/store.jsx`,
+`src/numbers-panel.jsx`, `src/calc-core.cjs`, `src/calculators.jsx`,
+`scripts/calc.test.mjs`.
+
+---
+
 <!-- New sprints append above this line, newest first. -->

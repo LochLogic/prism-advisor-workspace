@@ -105,9 +105,16 @@ a demo into a "yes," then depth and reach.
 - **Zapier / public API** — connect Prism to the rest of a firm's stack.
 
 ### Tier B — Wedge deepeners (retire a paid tool)
+- **Deeper planning intelligence — the priority track.** The advisor wants planning
+  *depth* to keep growing. First increment shipped 2026-06-08: the Asset Location
+  optimizer now produces a **bespoke** placement of the household's real dollars
+  (fit to their risk allocation, sheltering tax-inefficient assets first) and counts
+  Roth. Build on this: tax-aware withdrawal sequencing, Roth-conversion windows tied
+  to bracket headroom, and per-account contribution optimization — all from data
+  already on file.
 - **Tax-return insight (Holistiplan-lite)** — drop a 1040 → planning observations in
   the roadmap + portal. High willingness-to-pay; differentiating inside a client
-  portal.
+  portal. Pairs naturally with the planning-depth track above.
 - **AI relationship assistant (Gemini)** — draft replies, summarize a household,
   generate review talking points, flag "who needs attention." Rides on the shipped
   messaging + CRM; runs server-side (edge function) so the key never reaches the
