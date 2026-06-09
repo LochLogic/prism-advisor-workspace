@@ -106,12 +106,17 @@ a demo into a "yes," then depth and reach.
 
 ### Tier B — Wedge deepeners (retire a paid tool)
 - **Deeper planning intelligence — the priority track.** The advisor wants planning
-  *depth* to keep growing. First increment shipped 2026-06-08: the Asset Location
-  optimizer now produces a **bespoke** placement of the household's real dollars
-  (fit to their risk allocation, sheltering tax-inefficient assets first) and counts
-  Roth. Build on this: tax-aware withdrawal sequencing, Roth-conversion windows tied
-  to bracket headroom, and per-account contribution optimization — all from data
-  already on file.
+  *depth* to keep growing. Shipped 2026-06-08: (1) the Asset Location optimizer's
+  **bespoke** placement of real dollars (fit to risk allocation, sheltering
+  tax-inefficient assets first, counting Roth); (2) **Contribution Priority** — the
+  savings waterfall (match → HSA → IRA/Roth → 401(k) max → taxable, capped by room,
+  flags missed match); (3) **Withdrawal Sequencing** — tax-efficient decumulation draw
+  order with longevity + after-tax-at-horizon; (4) **Roth Conversion Window** — sizing
+  conversions to bracket headroom in the pre-RMD low-income years (dated
+  `FED_BRACKETS_2025`). All from data already on file. *Next when wanted:* RMD modeling
+  at 73, IRMAA/ACA-cliff awareness in the conversion sizer, and a bracket-aware
+  (vs. flat-rate) lifetime-tax comparison to make the sequencing dollar-value claim
+  robust enough to surface.
 - **Tax-return insight (Holistiplan-lite)** — drop a 1040 → planning observations in
   the roadmap + portal. High willingness-to-pay; differentiating inside a client
   portal. Pairs naturally with the planning-depth track above.

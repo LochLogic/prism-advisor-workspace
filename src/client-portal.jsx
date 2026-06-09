@@ -16,8 +16,10 @@ const PhaseCard = ({ phase, onOpenMilestone }) => {
   const isLocked = phase.id > activePhase + 1;
 
   const PhaseIcon = Icons[phase.icon] || Icons.Briefcase;
-  const ToolComp = calculators[phase.calc];
-  const ToolComp2 = phase.calc2 ? calculators[phase.calc2] : null;
+  // A phase may carry a `calcs` array (preferred, any number of tools) or the legacy
+  // `calc` / `calc2` pair. Resolve to a deduped, render-ready list of components.
+  const toolKeys = Array.isArray(phase.calcs) ? phase.calcs : [phase.calc, phase.calc2];
+  const ToolComps = [...new Set(toolKeys.filter(Boolean))].map(k => calculators[k]).filter(Boolean);
 
   // Compute the metric value from the profile
   const metricValue = (() => {
@@ -125,10 +127,9 @@ const PhaseCard = ({ phase, onOpenMilestone }) => {
               })}
             </div>
 
-            {(ToolComp || ToolComp2) && (
+            {ToolComps.length > 0 && (
               <div id={`tool-${phase.id}`}>
-                {ToolComp && <ToolComp />}
-                {ToolComp2 && <ToolComp2 />}
+                {ToolComps.map((Comp, i) => <Comp key={i} />)}
               </div>
             )}
 

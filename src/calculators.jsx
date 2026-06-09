@@ -390,6 +390,250 @@ const TLHTool = () => {
   );
 };
 
+/* Contribution Priority — the savings waterfall (per-account optimization) */
+const ContributionPriorityTool = () => {
+  const { profile, surplus, annualRetirementContribution, grossAnnualIncome, effectiveTakehome } = useProfile();
+  const r = profile.retirement;
+  // Default capacity: what the household already directs to retirement plus any free
+  // monthly surplus — a sensible starting figure the advisor tunes.
+  const defaultCapacity = Math.max(0, Math.round((annualRetirementContribution + Math.max(0, surplus) * 12) / 500) * 500);
+  const [capacity, setCapacity] = useStateC(defaultCapacity);
+  const [matchPct, setMatchPct] = useStateC(r.employerMatchPct || 0);
+  const salary = grossAnnualIncome || effectiveTakehome * 12;
+
+  const plan = useMemoC(() => contributionWaterfall({
+    annualCapacity: capacity, salary, employerMatchPct: matchPct,
+    k401Limit: r.fourohonekLimit || 23_500, k401Contributed: 0,
+    iraLimit: r.iraLimit || 7_000, iraContributed: 0,
+    hsaLimit: 4_300, hsaContributed: 0, hsaEligible: (r.hsaBalance || 0) > 0 || (r.hsaContrib || 0) > 0,
+  }), [capacity, salary, matchPct, r.fourohonekLimit, r.iraLimit, r.hsaBalance, r.hsaContrib]);
+
+  return (
+    <ToolShell title="Contribution Priority" advanced
+      hint="Optimal funding order for this year's savings — match first, taxable last">
+      <div className="px-tool-grid">
+        <StatCell label="Annual to invest" value={fmt$(capacity, { short: true })} />
+        <StatCell label="Into tax-advantaged" value={fmt$(plan.totalTaxAdvantaged, { short: true })} tone="good"
+          foot={`${capacity > 0 ? Math.round(plan.totalTaxAdvantaged / capacity * 100) : 0}% sheltered`} />
+        <StatCell label="To taxable brokerage" value={fmt$(plan.taxable, { short: true })} foot="after accounts are filled" />
+        <StatCell label="Employer match"
+          value={plan.fullMatch ? 'Captured' : 'Short'} tone={plan.fullMatch ? 'good' : 'bad'}
+          foot={plan.fullMatch ? 'full match funded' : `${fmt$(plan.missedMatch)} left on the table`} />
+      </div>
+      {!plan.fullMatch && plan.missedMatch > 0 && (
+        <div style={{ marginTop: 12, padding: '10px 12px', background: 'var(--bg-elev)', borderLeft: '3px solid var(--brick)',
+          borderRadius: 6, fontSize: 12, color: 'var(--ink)' }}>
+          Capacity stops short of the full employer match — {fmt$(plan.missedMatch)}/yr of guaranteed return is unclaimed.
+          The match is the first dollar to fund.
+        </div>
+      )}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 14 }}>
+        <label className="px-field">
+          <span className="px-field-label">Annual amount to invest</span>
+          <div className="px-input-affix">
+            <span className="px-affix">$</span>
+            <input type="number" value={capacity} step="1000" onChange={(e) => setCapacity(parseFloat(e.target.value) || 0)} />
+          </div>
+        </label>
+        <label className="px-field">
+          <span className="px-field-label">Employer match (% of salary)</span>
+          <div className="px-input-affix">
+            <input type="number" value={matchPct} step="0.5" onChange={(e) => setMatchPct(parseFloat(e.target.value) || 0)} />
+            <span className="px-affix px-affix-r">%</span>
+          </div>
+        </label>
+      </div>
+      <div style={{ marginTop: 14 }}>
+        <table className="px-table" style={{ background: 'var(--surface)' }}>
+          <thead>
+            <tr><th>Priority</th><th>Account</th><th className="is-num">Annual amount</th></tr>
+          </thead>
+          <tbody>
+            {plan.steps.map((s, i) => (
+              <tr key={s.key} style={{ cursor: 'default' }}>
+                <td className="px-mono">{i + 1}</td>
+                <td style={{ fontFamily: 'var(--serif)', fontSize: 13.5 }}>{s.label}<span style={{ color: 'var(--ink-mute)', fontSize: 11 }}> · {s.note}</span></td>
+                <td className="is-num px-mono">{fmt$(s.amount)}</td>
+              </tr>
+            ))}
+            {plan.taxable > 0 && (
+              <tr style={{ cursor: 'default' }}>
+                <td className="px-mono">{plan.steps.length + 1}</td>
+                <td style={{ fontFamily: 'var(--serif)', fontSize: 13.5 }}>Taxable brokerage<span style={{ color: 'var(--ink-mute)', fontSize: 11 }}> · flexible, no limit</span></td>
+                <td className="is-num px-mono">{fmt$(plan.taxable)}</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+        <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 8 }}>
+          Each tier is filled to its annual limit before the next — capturing the guaranteed
+          employer match first, then the most tax-advantaged space, with the remainder deployed to taxable.
+        </div>
+      </div>
+    </ToolShell>
+  );
+};
+
+/* Tax-aware Withdrawal Sequencing — the decumulation draw order */
+const WithdrawalSequenceTool = () => {
+  const { profile, taxableBalance, annualExpenses, planningAge, incomeStreams } = useProfile();
+  const r = profile.retirement;
+  const taxDeferred = (r.iraBalance || 0) + (r.fourohonekBalance || 0);
+  const taxFree     = (r.rothBalance || 0) + (r.hsaBalance || 0);
+  const streamsAnnual = (incomeStreams || []).reduce((a, s) => a + (Number(s.monthlyAmount) || 0) * 12, 0);
+  const [spending, setSpending] = useStateC(Math.round(annualExpenses / 1000) * 1000);
+  const [otherIncome, setOther] = useStateC(Math.round(streamsAnnual / 1000) * 1000);
+
+  const result = useMemoC(() => withdrawalSequence({
+    taxable: taxableBalance, taxDeferred, taxFree,
+    annualSpending: spending, otherIncome,
+    currentAge: planningAge, retireAt: profile.goals.retireAt, horizonAge: 95,
+  }), [taxableBalance, taxDeferred, taxFree, spending, otherIncome, planningAge, profile.goals.retireAt]);
+
+  if (!result) {
+    return (
+      <ToolShell title="Withdrawal Sequencing" advanced hint="Tax-efficient retirement draw order">
+        <div style={{ fontSize: 12, color: 'var(--ink-mute)' }}>Add invested balances and a spending figure to model the draw-down.</div>
+      </ToolShell>
+    );
+  }
+  // Show the schedule at 5-year checkpoints to keep it scannable.
+  const checkpoints = result.schedule.filter((y, i) => i % 5 === 0 || i === result.schedule.length - 1);
+  return (
+    <ToolShell title="Withdrawal Sequencing" advanced
+      hint={`Draw order · ${result.strategy}`}>
+      <div className="px-tool-grid">
+        <StatCell label="Portfolio horizon"
+          value={result.lasts ? `Through ${profile.goals.retireAt + result.yearsFunded}` : `Depletes at ${result.depletesAt}`}
+          tone={result.lasts ? 'good' : 'bad'}
+          foot={result.lasts ? `funds all ${result.yearsFunded} years` : 'spending outpaces assets'} big />
+        <StatCell label="Lifetime tax (this order)" value={fmt$(result.lifetimeTax, { short: true })}
+          foot="cumulative, nominal" />
+        <StatCell label="After-tax value at 95" value={fmt$(result.afterTax, { short: true })} tone="good"
+          foot="deferred sleeve net of embedded tax" />
+        <StatCell label="Guaranteed income" value={fmt$(otherIncome, { short: true })} foot="SS / pension, before draws" />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 14 }}>
+        <label className="px-field">
+          <span className="px-field-label">Annual retirement spending</span>
+          <div className="px-input-affix">
+            <span className="px-affix">$</span>
+            <input type="number" value={spending} step="5000" onChange={(e) => setSpending(parseFloat(e.target.value) || 0)} />
+          </div>
+        </label>
+        <label className="px-field">
+          <span className="px-field-label">Guaranteed annual income</span>
+          <div className="px-input-affix">
+            <span className="px-affix">$</span>
+            <input type="number" value={otherIncome} step="1000" onChange={(e) => setOther(parseFloat(e.target.value) || 0)} />
+          </div>
+        </label>
+      </div>
+      <div style={{ marginTop: 14 }}>
+        <table className="px-table" style={{ background: 'var(--surface)' }}>
+          <thead>
+            <tr><th>Age</th><th className="is-num">From taxable</th><th className="is-num">Tax-deferred</th><th className="is-num">Tax-free</th><th className="is-num">Est. tax</th></tr>
+          </thead>
+          <tbody>
+            {checkpoints.map(y => (
+              <tr key={y.age} style={{ cursor: 'default' }}>
+                <td className="px-mono">{y.age}</td>
+                <td className="is-num px-mono">{fmt$(y.taxable, { short: true })}</td>
+                <td className="is-num px-mono">{fmt$(y.taxDeferred, { short: true })}</td>
+                <td className="is-num px-mono">{fmt$(y.taxFree, { short: true })}</td>
+                <td className="is-num px-mono" style={{ color: y.tax > 0 ? 'var(--brick)' : 'inherit' }}>{fmt$(y.tax, { short: true })}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 8 }}>
+          Spend taxable first (only gains are taxed), then tax-deferred, preserving the tax-free Roth
+          longest so its untaxed growth compounds the longest. Five-year checkpoints shown.
+        </div>
+      </div>
+    </ToolShell>
+  );
+};
+
+/* Roth Conversion Window — bracket-headroom sizing in the low-income years */
+const RothConversionWindowTool = () => {
+  const { profile, planningAge, incomeStreams } = useProfile();
+  const r = profile.retirement;
+  const taxDeferredBalance = (r.iraBalance || 0) + (r.fourohonekBalance || 0);
+  const filing = profile.taxes.filingStatus === 'single' ? 'single' : 'mfj';
+  const streamsAnnual = (incomeStreams || []).reduce((a, s) => a + (Number(s.monthlyAmount) || 0) * 12, 0);
+  const [income, setIncome] = useStateC(Math.round(streamsAnnual / 1000) * 1000);
+  const [bracket, setBracket] = useStateC(0.22);
+
+  const w = useMemoC(() => rothConversionWindow({
+    currentAge: planningAge, retireAt: profile.goals.retireAt, rmdAge: 73,
+    filingStatus: filing, taxDeferredBalance, estimatedRetirementIncome: income, targetBracket: bracket,
+  }), [planningAge, profile.goals.retireAt, filing, taxDeferredBalance, income, bracket]);
+
+  if (!w) {
+    return (
+      <ToolShell title="Roth Conversion Window" advanced hint="Bracket-filling conversions before RMDs">
+        <div style={{ fontSize: 12, color: 'var(--ink-mute)' }}>
+          No conversion window — either retirement is at/after the RMD age (73) or there's no tax-deferred balance to convert.
+        </div>
+      </ToolShell>
+    );
+  }
+  return (
+    <ToolShell title="Roth Conversion Window" advanced
+      hint={`Low-income years ${w.windowStart}–${w.windowEnd} · fill to the ${Math.round(w.targetBracket * 100)}% bracket`}>
+      <div className="px-tool-grid">
+        <StatCell label="Conversion window" value={`${w.windowYears} yr`} foot={`age ${w.windowStart} → ${w.windowEnd} (RMDs)`} big />
+        <StatCell label="Annual conversion" value={fmt$(w.annualConversion, { short: true })} tone="good"
+          foot={w.fillsBracket ? 'fills the target bracket' : 'no headroom at this income'} />
+        <StatCell label="Total over window" value={fmt$(w.totalConverted, { short: true })} />
+        <StatCell label="Est. tax cost" value={fmt$(w.estTaxCost, { short: true })} foot={`≈ ${Math.round(w.targetBracket * 100)}% on converted`} />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 14 }}>
+        <label className="px-field">
+          <span className="px-field-label">Other taxable income (gap years)</span>
+          <div className="px-input-affix">
+            <span className="px-affix">$</span>
+            <input type="number" value={income} step="5000" onChange={(e) => setIncome(parseFloat(e.target.value) || 0)} />
+          </div>
+        </label>
+        <label className="px-field">
+          <span className="px-field-label">Fill to bracket</span>
+          <select value={bracket} onChange={(e) => setBracket(parseFloat(e.target.value))}>
+            <option value="0.12">12%</option>
+            <option value="0.22">22%</option>
+            <option value="0.24">24%</option>
+            <option value="0.32">32%</option>
+          </select>
+        </label>
+      </div>
+      <div style={{ marginTop: 14 }}>
+        <table className="px-table" style={{ background: 'var(--surface)' }}>
+          <thead>
+            <tr><th>Year</th><th className="is-num">Age</th><th className="is-num">Convert</th><th className="is-num">Tax</th><th className="is-num">Remaining deferred</th></tr>
+          </thead>
+          <tbody>
+            {w.schedule.map(s => (
+              <tr key={s.year} style={{ cursor: 'default' }}>
+                <td className="px-mono">{s.year}</td>
+                <td className="is-num px-mono">{s.age}</td>
+                <td className="is-num px-mono">{fmt$(s.convert)}</td>
+                <td className="is-num px-mono" style={{ color: 'var(--brick)' }}>{fmt$(s.tax)}</td>
+                <td className="is-num px-mono">{fmt$(s.remaining, { short: true })}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 8 }}>
+          Headroom this year: {fmt$(w.headroom, { short: true })} before income spills into the next bracket
+          ({filing === 'mfj' ? 'married filing jointly' : 'single'}, 2025 brackets). Converting in these low-income
+          years moves tax-deferred dollars to tax-free at a controlled rate, ahead of RMDs and Social Security.
+        </div>
+      </div>
+    </ToolShell>
+  );
+};
+
 /* ─── Calculator registry ─────────────────────────────────────────── */
 const calculators = {
   cashflow:      CashflowTool,
@@ -397,10 +641,13 @@ const calculators = {
   avalanche:     AvalancheTool,
   hsa:           HSATool,
   assetlocation: AssetLocationTool,
+  contriborder:  ContributionPriorityTool,
   montecarlo:    MonteCarloTool,
   tlh:           TLHTool,
   estate:        EstateTool,
   rothladder:    RothLadderTool,
+  withdrawalseq: WithdrawalSequenceTool,
+  rothwindow:    RothConversionWindowTool,
 };
 
 Object.assign(window, { calculators, ToolShell, StatCell });

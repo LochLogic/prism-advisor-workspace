@@ -377,6 +377,108 @@ console.log('calc-core unit tests\n');
   assert(sb.taxable > 0, 'assetLocationPlan: bonds overflow to taxable when shelter is full');
 }
 
+// ── contributionWaterfall (C4 planning depth) ───────────────────────────────
+{
+  // Ample capacity: fills match → HSA → IRA → 401(k) max → taxable remainder.
+  const w = C.contributionWaterfall({
+    annualCapacity: 60_000, salary: 200_000, employerMatchPct: 5,
+    k401Limit: 23_500, k401Contributed: 0, iraLimit: 7_000, iraContributed: 0,
+    hsaLimit: 4_300, hsaContributed: 0, hsaEligible: true,
+  });
+  assert(w.steps[0].key === 'match' && w.steps[0].amount === 10_000, 'waterfall: match first = 5% of $200k salary');
+  assert(w.steps.find(s => s.key === 'hsa').amount === 4_300, 'waterfall: HSA filled to limit');
+  assert(w.steps.find(s => s.key === 'ira').amount === 7_000, 'waterfall: IRA filled to limit');
+  assert(w.steps.find(s => s.key === 'k401').amount === 13_500, 'waterfall: 401(k) topped to federal max (23.5k − 10k match)');
+  assert(w.taxable === 60_000 - 10_000 - 4_300 - 7_000 - 13_500, 'waterfall: remainder spills to taxable');
+  assert(w.fullMatch === true && w.missedMatch === 0, 'waterfall: ample capacity captures the full match');
+
+  // Thin capacity that cannot even cover the match → flags missed free money.
+  const thin = C.contributionWaterfall({ annualCapacity: 6_000, salary: 200_000, employerMatchPct: 5, k401Contributed: 0 });
+  assert(thin.steps[0].amount === 6_000 && thin.fullMatch === false && thin.missedMatch === 4_000,
+    'waterfall: capacity below match → full match not captured, missed amount surfaced');
+  assert(thin.taxable === 0, 'waterfall: nothing reaches taxable when capacity is exhausted on the match');
+
+  // HSA-ineligible household skips the HSA step.
+  const noHsa = C.contributionWaterfall({ annualCapacity: 30_000, salary: 100_000, employerMatchPct: 4, hsaEligible: false });
+  assert(!noHsa.steps.some(s => s.key === 'hsa'), 'waterfall: HSA-ineligible skips the HSA step');
+
+  // Already-contributed amounts reduce remaining room.
+  const partial = C.contributionWaterfall({ annualCapacity: 50_000, salary: 150_000, employerMatchPct: 0,
+    k401Limit: 23_500, k401Contributed: 20_000, iraLimit: 7_000, iraContributed: 7_000, hsaEligible: false });
+  assert(partial.steps.find(s => s.key === 'k401').amount === 3_500, 'waterfall: 401(k) room nets out prior contributions');
+  assert(!partial.steps.some(s => s.key === 'ira'), 'waterfall: a maxed IRA contributes no step');
+
+  // Zero capacity → no steps, no taxable.
+  const zero = C.contributionWaterfall({ annualCapacity: 0, salary: 100_000, employerMatchPct: 5 });
+  assert(zero.steps.length === 0 && zero.taxable === 0, 'waterfall: zero capacity → empty plan');
+}
+
+// ── withdrawalSequence (C4 planning depth) ──────────────────────────────────
+{
+  // Nothing to draw → null.
+  assert(C.withdrawalSequence({ taxable: 0, taxDeferred: 0, taxFree: 0, annualSpending: 50_000 }) === null,
+    'withdrawalSequence: empty sleeves → null');
+  assert(C.withdrawalSequence({ taxable: 100_000, annualSpending: 0 }) === null,
+    'withdrawalSequence: zero spending → null');
+
+  const r = C.withdrawalSequence({
+    taxable: 500_000, taxDeferred: 800_000, taxFree: 300_000,
+    annualSpending: 90_000, otherIncome: 40_000,
+    currentAge: 65, retireAt: 65, horizonAge: 95,
+  });
+  assert(r && r.strategy.startsWith('Taxable'), 'withdrawalSequence: taxable-first strategy label');
+  assert(r.schedule.length === 30, 'withdrawalSequence: one row per retirement year to horizon');
+  // Year 1 funds the gap from the taxable sleeve first (deferred/free untouched).
+  assert(r.schedule[0].taxable > 0 && r.schedule[0].taxDeferred === 0 && r.schedule[0].taxFree === 0,
+    'withdrawalSequence: first year draws taxable before deferred/free');
+  // The tax-free Roth sleeve is preserved longest — only tapped after taxable is gone.
+  const firstRothYear = r.schedule.findIndex(y => y.taxFree > 0);
+  const firstDefYear  = r.schedule.findIndex(y => y.taxDeferred > 0);
+  assert(firstRothYear === -1 || firstRothYear >= firstDefYear, 'withdrawalSequence: Roth tapped no earlier than tax-deferred');
+  assert(Number.isFinite(r.lifetimeTax) && r.lifetimeTax >= 0, 'withdrawalSequence: lifetime tax is a finite non-negative number');
+  assert(r.afterTax <= r.ending, 'withdrawalSequence: after-tax ending discounts the deferred sleeve');
+  assert(typeof r.lasts === 'boolean' && r.yearsFunded >= 0, 'withdrawalSequence: reports longevity');
+
+  // Deterministic for identical inputs.
+  const args = { taxable: 400_000, taxDeferred: 600_000, taxFree: 200_000, annualSpending: 80_000, currentAge: 60, retireAt: 65 };
+  assert(JSON.stringify(C.withdrawalSequence(args)) === JSON.stringify(C.withdrawalSequence(args)),
+    'withdrawalSequence: deterministic for identical inputs');
+}
+
+// ── rothConversionWindow (C4 planning depth) ────────────────────────────────
+{
+  // No window (already past RMD age) → null.
+  assert(C.rothConversionWindow({ currentAge: 75, retireAt: 75, taxDeferredBalance: 500_000 }) === null,
+    'rothWindow: no gap years before RMDs → null');
+  // Nothing to convert → null.
+  assert(C.rothConversionWindow({ currentAge: 65, retireAt: 65, taxDeferredBalance: 0 }) === null,
+    'rothWindow: empty tax-deferred balance → null');
+
+  // Standard gap: retire at 65, RMDs at 73 → an 8-year window.
+  const w = C.rothConversionWindow({
+    currentAge: 65, retireAt: 65, rmdAge: 73, filingStatus: 'mfj',
+    taxDeferredBalance: 1_200_000, estimatedRetirementIncome: 60_000, targetBracket: 0.22,
+  });
+  assert(w.windowYears === 8 && w.schedule.length === 8, 'rothWindow: 8-year conversion window (65→73)');
+  // Headroom = top of the 22% MFJ bracket (206,700) − (income 60,000 − std deduction 30,000) = 176,700.
+  assert(w.headroom === 206_700 - (60_000 - 30_000), 'rothWindow: headroom = bracket ceiling − taxable income');
+  // Annual conversion is capped by the smaller of headroom and an even drawdown.
+  assert(w.annualConversion === Math.min(w.headroom, 1_200_000 / 8), 'rothWindow: annual conversion = min(headroom, even drawdown)');
+  assert(near(w.estTaxCost, w.totalConverted * 0.22, 1e-3), 'rothWindow: tax cost ≈ converted × target bracket');
+  assert(w.totalConverted <= 1_200_000, 'rothWindow: never converts more than the balance');
+  assert(w.fillsBracket === true, 'rothWindow: positive headroom fills the bracket');
+
+  // High existing income (already above the target bracket) → no headroom.
+  const noRoom = C.rothConversionWindow({ currentAge: 65, retireAt: 65, taxDeferredBalance: 500_000,
+    estimatedRetirementIncome: 300_000, targetBracket: 0.22 });
+  assert(noRoom.headroom === 0 && noRoom.annualConversion === 0 && noRoom.fillsBracket === false,
+    'rothWindow: income above the bracket → no headroom, no conversion');
+
+  // Brackets table is exposed and dated.
+  assert(C.FED_BRACKETS_2025.mfj.stdDeduction === 30_000 && C.FED_BRACKETS_2025.single.stdDeduction === 15_000,
+    'rothWindow: 2025 standard deductions exposed');
+}
+
 console.log('');
 if (failures) { console.error(`FAILED: ${failures} test(s)`); process.exit(1); }
 console.log('All calc-core tests passed.');

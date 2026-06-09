@@ -430,12 +430,186 @@ function assetLocationPlan({ taxable = 0, taxDeferred = 0, taxFree = 0, allocati
   return { total, rows, sleeves: { taxable: T, taxDeferred: D, taxFree: F } };
 }
 
+// ── Contribution priority waterfall (C4 planning depth) ──────────────────────
+// Per-account contribution optimization: given the household's annual savings
+// capacity, sequence it across accounts in the canonical tax-efficiency order every
+// fee-only planner uses — capture the full employer match first (a guaranteed return
+// nothing else beats), then the triple-advantaged HSA, then IRA/Roth, then fill the
+// 401(k) to the federal limit, and finally taxable for anything left. Each step is
+// capped by that account's REMAINING room (limit − already-contributed this year), so
+// the plan reflects what the household has left to give, not a blank-slate maximum.
+// Returns the ordered steps with dollars + cumulative, the taxable remainder, and the
+// one finding that matters most: whether capacity is too thin to capture the full
+// match (leaving free money on the table). All inputs default so partial data is safe.
+function contributionWaterfall({
+  annualCapacity = 0, salary = 0, employerMatchPct = 0,
+  k401Limit = 23_500, k401Contributed = 0,
+  iraLimit = 7_000,   iraContributed = 0,
+  hsaLimit = 4_300,   hsaContributed = 0, hsaEligible = true,
+} = {}) {
+  let left = Math.max(0, Number(annualCapacity) || 0);
+  const steps = [];
+  const take = (key, label, room, note) => {
+    const amount = Math.min(Math.max(0, room), left);
+    if (amount > 0) { left -= amount; steps.push({ key, label, amount, note, cumulative: (Number(annualCapacity) || 0) - left }); }
+    return amount;
+  };
+
+  // 1. Employer match — fund the 401(k) up to the matched share of salary first.
+  const k401Room   = Math.max(0, (Number(k401Limit) || 0) - (Number(k401Contributed) || 0));
+  const matchTarget = Math.min(k401Room, (Number(salary) || 0) * (Number(employerMatchPct) || 0) / 100);
+  const matchFunded = take('match', 'Capture full employer match', matchTarget, '401(k) — guaranteed return');
+  const fullMatch   = matchTarget > 0 ? matchFunded >= matchTarget - 0.5 : true;
+  const missedMatch = Math.max(0, matchTarget - matchFunded);
+
+  // 2. HSA — triple-advantaged (deductible in, tax-free growth, tax-free out).
+  if (hsaEligible) take('hsa', 'Max the HSA', (Number(hsaLimit) || 0) - (Number(hsaContributed) || 0), 'Triple-advantaged');
+  // 3. IRA / Roth.
+  take('ira', 'Fund IRA / Roth', (Number(iraLimit) || 0) - (Number(iraContributed) || 0), 'Tax-free or deductible');
+  // 4. 401(k) to the federal limit (room beyond what the match already used).
+  take('k401', 'Fill 401(k) to the federal max', k401Room - matchFunded, 'Tax-deferred');
+  // 5. Whatever remains → taxable brokerage.
+  const taxable = Math.max(0, left);
+
+  return {
+    steps, taxable,
+    totalTaxAdvantaged: (Number(annualCapacity) || 0) - taxable,
+    fullMatch, missedMatch,
+    capacity: Number(annualCapacity) || 0,
+  };
+}
+
+// ── Tax-aware withdrawal sequencing (C4 planning depth) ──────────────────────
+// The accumulation problem and the decumulation problem are different problems. In
+// retirement, the conventional tax-efficient draw order is: spend the TAXABLE sleeve
+// first (only its gains are taxed, and it stops generating annual drag), then
+// TAX-DEFERRED (ordinary income), and preserve the TAX-FREE Roth sleeve longest so its
+// untaxed growth compounds as long as possible. This models that sequence year by year:
+// each year it funds the spending gap (inflated spending less guaranteed income) by
+// pulling from sleeves in order, grossing each withdrawal up so the household nets its
+// spend after tax. It reports the per-year schedule, the lifetime tax under this order,
+// how long the portfolio lasts, and the after-tax value remaining at the horizon (the
+// tax-deferred sleeve is discounted for the ordinary tax an heir still owes on it).
+//
+// Deliberately NOT claimed: a dollar "saved vs. drawing proportionally." Under a flat
+// marginal rate that comparison is dominated by deferral timing and can invert, so a
+// headline number there would mislead. The honest, robust output is the sequence
+// itself, the schedule, and longevity. Transparent, deterministic, advisor-refinable.
+// Returns null when there's nothing to draw.
+function withdrawalSequence({
+  taxable = 0, taxDeferred = 0, taxFree = 0,
+  annualSpending = 0, otherIncome = 0,
+  currentAge = 65, retireAt = 65, horizonAge = 95,
+  growth = 0.05, inflation = 0.025,
+  taxableGainFraction = 0.5, capGainsRate = 0.15, ordinaryRate = 0.22,
+} = {}) {
+  const start = Math.max(0, Number(taxable) || 0) + Math.max(0, Number(taxDeferred) || 0) + Math.max(0, Number(taxFree) || 0);
+  if (start <= 0 || (Number(annualSpending) || 0) <= 0) return null;
+  retireAt = Math.max(Number(currentAge) || 0, Number(retireAt) || 0);
+  const effRate = { taxable: taxableGainFraction * capGainsRate, taxDeferred: ordinaryRate, taxFree: 0 };
+
+  const bal = { taxable: Math.max(0, taxable), taxDeferred: Math.max(0, taxDeferred), taxFree: Math.max(0, taxFree) };
+  const grow = () => { bal.taxable *= 1 + growth; bal.taxDeferred *= 1 + growth; bal.taxFree *= 1 + growth; };
+  for (let i = 0; i < retireAt - (Number(currentAge) || 0); i++) grow();      // accumulate to retirement
+  const pull = (sleeve, need) => {                                            // gross up so `need` nets after tax
+    const r = effRate[sleeve];
+    const gross = Math.min(need / (1 - r), bal[sleeve]);
+    bal[sleeve] -= gross;
+    return { gross, net: gross * (1 - r), tax: gross * r };
+  };
+
+  const schedule = []; let lifetimeTax = 0; let depletesAt = null;
+  for (let age = retireAt; age < horizonAge; age++) {
+    const need = Math.max(0, (Number(annualSpending) || 0) * Math.pow(1 + inflation, age - (Number(currentAge) || 0))
+      - (Number(otherIncome) || 0) * Math.pow(1 + inflation, Math.max(0, age - retireAt)));
+    const draw = { taxable: 0, taxDeferred: 0, taxFree: 0 }; let yearTax = 0; let remaining = need;
+    for (const s of ['taxable', 'taxDeferred', 'taxFree']) {
+      if (remaining <= 0.5) break;
+      const p = pull(s, remaining); draw[s] += p.gross; yearTax += p.tax; remaining -= p.net;
+    }
+    lifetimeTax += yearTax;
+    grow();
+    schedule.push({ age, need, ...draw, tax: yearTax, shortfall: remaining > 1 ? remaining : 0 });
+    if (remaining > 1 && depletesAt == null) depletesAt = age;
+  }
+  const ending = Math.max(0, bal.taxable + bal.taxDeferred + bal.taxFree);
+  // After-tax ending: a tax-deferred dollar at the horizon still owes ordinary tax when
+  // an heir draws it, so discount that sleeve for its embedded liability.
+  const afterTax = Math.max(0, bal.taxable + bal.taxDeferred * (1 - effRate.taxDeferred) + bal.taxFree);
+  const yearsFunded = (depletesAt == null ? horizonAge : depletesAt) - retireAt;
+  return {
+    strategy: 'Taxable → Tax-deferred → Tax-free (Roth)',
+    schedule, lifetimeTax, depletesAt, yearsFunded, lasts: depletesAt == null, ending, afterTax,
+  };
+}
+
+// ── Federal ordinary-income brackets + standard deduction (2025, dated) ──────
+// A maintainable, clearly-dated assumption (like the estate exemption in
+// estateProjection). Update annually for inflation indexing. Thresholds are the
+// TOP of each bracket (taxable income, i.e. AFTER the standard deduction).
+const FED_BRACKETS_2025 = {
+  single: { stdDeduction: 15_000, bands: [
+    [11_925, 0.10], [48_475, 0.12], [103_350, 0.22], [197_300, 0.24],
+    [250_525, 0.32], [626_350, 0.35], [Infinity, 0.37],
+  ] },
+  mfj: { stdDeduction: 30_000, bands: [
+    [23_850, 0.10], [96_950, 0.12], [206_700, 0.22], [394_600, 0.24],
+    [501_050, 0.32], [751_600, 0.35], [Infinity, 0.37],
+  ] },
+};
+
+// ── Roth-conversion window sizing (C4 planning depth) ────────────────────────
+// The years between retirement and the start of RMDs (age 73) — before Social
+// Security and required distributions push income back up — are the prime window to
+// convert tax-deferred dollars to Roth at a low rate. This sizes that window: it finds
+// the household's projected taxable income in those gap years, measures the HEADROOM
+// to the top of a target bracket, and recommends an annual conversion that fills the
+// bracket without spilling into the next one — capped so it doesn't over-draw the
+// balance across the window. Returns null when there's no window or nothing to convert.
+function rothConversionWindow({
+  currentAge = 60, retireAt = 65, rmdAge = 73,
+  filingStatus = 'mfj', taxDeferredBalance = 0,
+  estimatedRetirementIncome = 0,          // annual ordinary income in the gap years (pre-conversion)
+  targetBracket = 0.22,                   // fill up to the top of this bracket
+  year = new Date().getFullYear(),
+} = {}) {
+  const bal = Math.max(0, Number(taxDeferredBalance) || 0);
+  const windowStart = Math.max(Number(currentAge) || 0, Number(retireAt) || 0);
+  const windowYears = Math.max(0, (Number(rmdAge) || 73) - windowStart);
+  if (windowYears <= 0 || bal <= 0) return null;
+
+  const table = FED_BRACKETS_2025[filingStatus] || FED_BRACKETS_2025.mfj;
+  const ceiling = (table.bands.find(b => Math.abs(b[1] - targetBracket) < 1e-9) || table.bands[2])[0];
+  const taxableIncome = Math.max(0, (Number(estimatedRetirementIncome) || 0) - table.stdDeduction);
+  const headroom = Math.max(0, ceiling - taxableIncome);              // room before spilling to the next bracket
+  // Don't recommend converting more than fits in the headroom, nor more than an even
+  // drawdown of the balance across the window.
+  const annualConversion = Math.max(0, Math.min(headroom, bal / windowYears));
+  const totalConverted   = Math.min(bal, annualConversion * windowYears);
+  const estTaxCost       = totalConverted * targetBracket;            // blended ≈ the filled bracket's rate
+
+  const schedule = [];
+  let remaining = bal;
+  for (let i = 0; i < windowYears; i++) {
+    const convert = Math.min(annualConversion, remaining);
+    remaining -= convert;
+    schedule.push({ year: year + i, age: windowStart + i, convert, tax: convert * targetBracket, remaining });
+  }
+  return {
+    windowYears, windowStart, windowEnd: rmdAge,
+    targetBracket, headroom, taxableIncome,
+    annualConversion, totalConverted, estTaxCost,
+    fillsBracket: headroom > 0, schedule,
+  };
+}
+
 const PrismCalc = {
   monthlyExpenseTotal,
   buildValueSeries, modifiedDietz, perfPeriods,
   debtPayoffMonths, hsaProjection, monteCarlo, rothLadder, estateProjection, tlh,
   retirementReadiness, goalFunding, annualFeeForAum, lifeCoverageGap, assetComposition,
   riskProfile, RISK_ALLOCATIONS, assetLocationPlan,
+  contributionWaterfall, withdrawalSequence, rothConversionWindow, FED_BRACKETS_2025,
 };
 
 if (typeof window !== 'undefined') window.PrismCalc = PrismCalc;
