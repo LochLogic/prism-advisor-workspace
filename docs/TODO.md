@@ -26,6 +26,17 @@ independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
 - [ ] **AI relationship assistant (Gemini)** (Tier B) — draft replies, household
   summaries, review talking points, "who needs attention," server-side edge function.
   *Key already in Supabase secrets.*
+- [ ] **Front-phase tool parity** (Tier B, client-utility) — bring phases 1–4 up to the
+  depth of 5–7. *Shipped 2026-06-09:* Phase 02 Coverage-Gap + Phase 04 Bracket-Headroom.
+  *Next, ranked & all from data on file:* Phase 01 "Freedom Date" savings-rate lever ·
+  Phase 03 debt-vs-invest crossover + mortgage-payoff accelerator · Phase 04 HDHP-vs-PPO
+  break-even (answers flagged q03) · Phase 05 Mega-Backdoor capacity (answers flagged
+  q02) · Phase 07 RMD projector + SS claiming-age optimizer. *(Full ranking + rationale
+  in ROADMAP "Front-phase tool parity.")*
+- [ ] **Client-data builds that unlock tools** — Social Security PIA capture (→ claiming
+  optimizer), equity-comp fields (→ Phase 06 concentration/vest planner), Plaid
+  balance-freshness "as of" indicator. *Schema-touching; sequence ahead of the tools
+  that depend on them.*
 - [ ] **Tax-return insight (Holistiplan-lite)** (Tier B) — upload a 1040 → planning
   observations into the roadmap + portal.
 - [ ] **Advisor MFA (TOTP)** — enforce in the advisor auth path. *↔ may need a

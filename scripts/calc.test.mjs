@@ -479,6 +479,40 @@ console.log('calc-core unit tests\n');
     'rothWindow: 2025 standard deductions exposed');
 }
 
+/* ── bracketPosition (client-utility headroom) ──────────────────────── */
+{
+  // MFJ, $150k gross → taxable 120,000 (after 30k std). That sits in the 22% band
+  // (96,950 < 120,000 ≤ 206,700), with 86,700 of headroom before the 24% band.
+  const b = C.bracketPosition({ filingStatus: 'mfj', ordinaryIncome: 150_000 });
+  assert(b.taxableIncome === 120_000, 'bracketPosition: taxable income nets the standard deduction');
+  assert(near(b.marginalRate, 0.22), 'bracketPosition: marginal rate located (22% band)');
+  assert(b.headroom === 206_700 - 120_000, 'bracketPosition: headroom to the top of the current band');
+  assert(near(b.nextRate, 0.24), 'bracketPosition: next bracket rate reported');
+  assert(b.effectiveRate > 0 && b.effectiveRate < b.marginalRate, 'bracketPosition: effective rate below marginal');
+  assert(b.bands.some(x => x.isCurrent) && b.bands.filter(x => x.isCurrent).length === 1,
+    'bracketPosition: exactly one current band flagged');
+
+  // Income at/below the standard deduction → 0 taxable, first band, full headroom.
+  const z = C.bracketPosition({ filingStatus: 'mfj', ordinaryIncome: 20_000 });
+  assert(z.taxableIncome === 0 && near(z.marginalRate, 0.10) && z.bands[0].isCurrent,
+    'bracketPosition: income under the deduction sits in the first band at 0 taxable');
+
+  // Top bracket → infinite headroom, no next rate.
+  const top = C.bracketPosition({ filingStatus: 'single', ordinaryIncome: 2_000_000 });
+  assert(near(top.marginalRate, 0.37) && top.headroom === Infinity && top.nextRate === null,
+    'bracketPosition: top bracket has no headroom ceiling and no next rate');
+}
+
+/* ── termLifePremium (illustrative coverage cost) ───────────────────── */
+{
+  const p = C.termLifePremium({ coverage: 1_000_000, age: 45 });
+  assert(near(p.annual, 1700) && near(p.monthly, 1700 / 12), 'termLifePremium: $1M at 45 → age-banded annual/monthly');
+  assert(C.termLifePremium({ coverage: 0, age: 45 }).monthly === 0, 'termLifePremium: no coverage → $0');
+  assert(C.termLifePremium({ coverage: 500_000, age: 25 }).ratePer1k < C.termLifePremium({ coverage: 500_000, age: 65 }).ratePer1k,
+    'termLifePremium: rate rises with age');
+  assert(C.termLifePremium({}).monthly === 0, 'termLifePremium: empty input is safe');
+}
+
 console.log('');
 if (failures) { console.error(`FAILED: ${failures} test(s)`); process.exit(1); }
 console.log('All calc-core tests passed.');

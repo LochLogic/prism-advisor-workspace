@@ -117,6 +117,33 @@ a demo into a "yes," then depth and reach.
   at 73, IRMAA/ACA-cliff awareness in the conversion sizer, and a bracket-aware
   (vs. flat-rate) lifetime-tax comparison to make the sequencing dollar-value claim
   robust enough to surface.
+- **Front-phase tool parity — client-utility track (2026-06-09 review).** Phases 5–7
+  carry 2–4 interactive tools each; phases 1–4 had one apiece, yet those are the
+  earliest-journey households who most need engagement. Shipped 2026-06-09: (1)
+  **Income-Protection / Coverage-Gap** in Phase 02 — `lifeCoverageGap` promoted from a
+  passive card to an interactive tool with a rough term-premium estimate
+  (`termLifePremium`); (2) **Tax-Bracket Headroom** in Phase 04 — a shared
+  `bracketPosition` engine (reuses `FED_BRACKETS_2025`) showing marginal/effective rate
+  and the headroom that frames the Roth-conversion + contribution-order decisions.
+  *Backlog, ranked (all in the Roth-window vein — one specific, dollar-denominated,
+  advisor-hooked number from data on file):*
+  - **Phase 01 — "Freedom Date" / savings-rate lever** (uses `savingsRate`/`fireNumber`/
+    `fireProgress`; +1% savings → months sooner). Pure motivation, existing data.
+  - **Phase 03 — Debt-vs-Invest crossover** (APR vs. after-tax return; makes the phase's
+    own 6–7% rationale interactive) + **mortgage-payoff accelerator** (`debtPayoffMonths`,
+    captured mortgage fields).
+  - **Phase 04 — HDHP-vs-PPO break-even** and **Phase 05 — Mega-Backdoor Roth capacity**
+    — both directly answer flagged client questions (q03, q02). Closing the
+    flagged-question → self-serve-tool loop is its own value pattern.
+  - **Phase 07 — RMD projector** (at 73; makes Roth-ladder urgency tangible) and
+    **Social Security claiming-age optimizer** (62/67/70 break-even; needs a small PIA
+    capture — see data plays).
+  - **Phase 06 — equity-comp planner** (concentration risk, vest-tax, diversification
+    glide) — *blocked on a data build:* the profile model has no equity-comp fields
+    despite RSU/concentrated-position-heavy clients.
+  - **Cross-cutting data plays:** Social Security PIA capture; equity-comp fields;
+    tax-return/W-2 import to replace the hand-entered marginal rate; a Plaid
+    balance-freshness ("as of") indicator to raise trust in every projection.
 - **Tax-return insight (Holistiplan-lite)** — drop a 1040 → planning observations in
   the roadmap + portal. High willingness-to-pay; differentiating inside a client
   portal. Pairs naturally with the planning-depth track above.

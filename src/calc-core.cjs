@@ -603,6 +603,57 @@ function rothConversionWindow({
   };
 }
 
+// ── Marginal-bracket position + headroom (client-utility, reuses FED_BRACKETS) ─
+// Given ordinary income and a filing status, locate the household in the 2025
+// federal brackets: their taxable income (after the standard deduction unless an
+// explicit `deductions` is passed), the marginal rate, the blended effective rate,
+// and — the number that matters for planning — the HEADROOM remaining before income
+// spills into the next bracket. That headroom is the space the Roth-conversion and
+// contribution-order tools fill, so this is shared infrastructure, not a one-off.
+// Also returns the full band list (with the household's dollars per band) so a tool
+// can render where they sit. Pure/deterministic; all inputs default so partial data
+// is safe. Brackets are a dated assumption (see FED_BRACKETS_2025) — reindex annually.
+function bracketPosition({ filingStatus = 'mfj', ordinaryIncome = 0, deductions = null } = {}) {
+  const table = FED_BRACKETS_2025[filingStatus] || FED_BRACKETS_2025.mfj;
+  const std = deductions == null ? table.stdDeduction : Math.max(0, Number(deductions) || 0);
+  const taxableIncome = Math.max(0, (Number(ordinaryIncome) || 0) - std);
+  let prev = 0, tax = 0;
+  let marginalRate = table.bands[0][1], bandLo = 0, bandTop = table.bands[0][0];
+  let nextRate = null, headroom = Infinity;
+  const bands = [];
+  for (let i = 0; i < table.bands.length; i++) {
+    const [top, rate] = table.bands[i];
+    const lo = prev;
+    const inBand = Math.max(0, Math.min(taxableIncome, top) - lo);   // household $ taxed in this band
+    tax += inBand * rate;
+    // The household sits in the band where lo < income ≤ top; income 0 sits in the first band.
+    const isCurrent = taxableIncome > lo ? taxableIncome <= top : lo === 0;
+    if (isCurrent) {
+      marginalRate = rate; bandLo = lo; bandTop = top;
+      nextRate = (i + 1 < table.bands.length) ? table.bands[i + 1][1] : null;
+      headroom = isFinite(top) ? Math.max(0, top - taxableIncome) : Infinity;
+    }
+    bands.push({ lo, top, rate, inBand, isCurrent });
+    prev = top;
+  }
+  const effectiveRate = taxableIncome > 0 ? tax / taxableIncome : 0;
+  return { filingStatus, stdDeduction: std, taxableIncome, tax,
+    marginalRate, effectiveRate, bandLo, bandTop, headroom, nextRate, bands };
+}
+
+// ── Rough term-life premium estimate (illustrative, NOT a quote) ─────────────
+// A ballpark monthly cost for a given coverage amount, by age band, for a healthy
+// non-smoker on a ~20-year level term. Deliberately coarse and clearly illustrative
+// — it exists only to make the coverage-gap finding feel actionable ("≈ $X/mo"),
+// never to price a policy. Real pricing depends on health, term, and carrier.
+function termLifePremium({ coverage = 0, age = 40 } = {}) {
+  const c = Math.max(0, Number(coverage) || 0);
+  const a = Number(age) || 0;
+  const ratePer1k = a < 30 ? 0.6 : a < 40 ? 0.9 : a < 50 ? 1.7 : a < 60 ? 4.0 : 9.0;  // $/yr per $1,000
+  const annual = (c / 1000) * ratePer1k;
+  return { annual, monthly: annual / 12, ratePer1k };
+}
+
 const PrismCalc = {
   monthlyExpenseTotal,
   buildValueSeries, modifiedDietz, perfPeriods,
@@ -610,6 +661,7 @@ const PrismCalc = {
   retirementReadiness, goalFunding, annualFeeForAum, lifeCoverageGap, assetComposition,
   riskProfile, RISK_ALLOCATIONS, assetLocationPlan,
   contributionWaterfall, withdrawalSequence, rothConversionWindow, FED_BRACKETS_2025,
+  bracketPosition, termLifePremium,
 };
 
 if (typeof window !== 'undefined') window.PrismCalc = PrismCalc;

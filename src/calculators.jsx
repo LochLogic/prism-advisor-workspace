@@ -62,6 +62,75 @@ const ReserveTool = () => {
   );
 };
 
+/* Phase 02 · Income-protection / life-coverage gap (client utility) */
+const CoverageGapTool = () => {
+  const { profile, grossAnnualIncome, effectiveTakehome, totalDebt, lifeCoverage, planningAge } = useProfile();
+  const income = grossAnnualIncome || (effectiveTakehome || 0) * 12;
+  const liquid = profile.savings?.emergency || 0;
+  const [multiple, setMultiple] = useStateC(10);
+  const [existing, setExisting] = useStateC(Math.round(lifeCoverage || 0));
+
+  const cg = useMemoC(
+    () => lifeCoverageGap({ annualIncome: income, incomeMultiple: multiple,
+      liabilities: totalDebt, existingCoverage: existing, liquidAssets: liquid }),
+    [income, multiple, totalDebt, existing, liquid]);
+  const prem = useMemoC(() => termLifePremium({ coverage: cg.gap, age: planningAge }), [cg.gap, planningAge]);
+
+  // Constructive tone (never alarming on the client side): forest when covered,
+  // gold "room to strengthen" when there's a gap — no red.
+  const tone     = cg.covered ? 'var(--forest)' : 'var(--gold)';
+  const label    = cg.covered ? 'Well protected' : 'Room to strengthen';
+  const ratioPct = Math.round((cg.ratio || 0) * 100);
+
+  return (
+    <ToolShell title="Income protection · coverage gap"
+      hint="Life cover vs. a simple income-multiple guideline">
+      <div className="px-tool-grid">
+        <StatCell label="Guideline coverage" value={fmt$(cg.recommended, { short: true })}
+          foot={`${multiple}× income + debts, less reserve`} />
+        <StatCell label="Coverage in place" value={fmt$(existing, { short: true })} />
+        <StatCell label={cg.covered ? 'Surplus' : 'Coverage gap'}
+          value={cg.covered ? 'Covered' : fmt$(cg.gap, { short: true })}
+          tone={cg.covered ? 'good' : null}
+          foot={cg.covered ? 'guideline met' : 'worth reviewing with your advisor'} />
+        <StatCell label="Est. term premium"
+          value={cg.gap > 0 ? `${fmt$(prem.monthly)}/mo` : '—'}
+          foot={cg.gap > 0 ? 'rough, healthy non-smoker' : 'no gap to fill'} />
+      </div>
+      <div style={{ marginTop: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+          <span className="px-eyebrow">Coverage vs. guideline</span>
+          <span style={{ fontFamily: 'var(--serif)', fontSize: 13, fontWeight: 600, color: tone }}>{label}</span>
+        </div>
+        <div style={{ height: 6, background: 'var(--bg-elev)', borderRadius: 3, overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${ratioPct}%`, background: tone, transition: 'width .4s' }} />
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 14 }}>
+        <label className="px-field">
+          <span className="px-field-label">Income multiple</span>
+          <div className="px-input-affix">
+            <input type="number" value={multiple} min="0" step="1" onChange={(e) => setMultiple(parseFloat(e.target.value) || 0)} />
+            <span className="px-affix px-affix-r">×</span>
+          </div>
+        </label>
+        <label className="px-field">
+          <span className="px-field-label">Coverage in place</span>
+          <div className="px-input-affix">
+            <span className="px-affix">$</span>
+            <input type="number" value={existing} step="50000" onChange={(e) => setExisting(parseFloat(e.target.value) || 0)} />
+          </div>
+        </label>
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 10, lineHeight: 1.5 }}>
+        Guideline ≈ income × {multiple} + debts to retire, less the liquidity reserve. The premium is a
+        rough illustration, not a quote — actual cost depends on age, health, and term. A short
+        conversation with your advisor sizes the right policy.
+      </div>
+    </ToolShell>
+  );
+};
+
 /* Phase 03 · Avalanche */
 const AvalancheTool = () => {
   const { profile, toxicDebt } = useProfile();
@@ -105,6 +174,84 @@ const HSATool = () => {
           foot={`at ${profile.taxes.marginalRate}% marginal rate`} />
         <StatCell label="25-year projection" value={fmt$(yearsCompounded, { short: true })}
           foot="at 7% nominal, tax-free" />
+      </div>
+    </ToolShell>
+  );
+};
+
+/* Phase 04 · Tax-bracket headroom (client utility; shared bracket engine) */
+const BracketHeadroomTool = () => {
+  const { profile, grossAnnualIncome, effectiveTakehome } = useProfile();
+  const defaultFiling = profile.taxes?.filingStatus === 'single' ? 'single' : 'mfj';
+  const [income, setIncome] = useStateC(Math.round(((grossAnnualIncome || (effectiveTakehome || 0) * 12)) / 1000) * 1000);
+  const [filing, setFiling] = useStateC(defaultFiling);
+
+  const b = useMemoC(() => bracketPosition({ filingStatus: filing, ordinaryIncome: income }), [filing, income]);
+  const topBracket = b.nextRate == null;
+  const pct = (x) => `${Math.round(x * 100)}%`;
+
+  return (
+    <ToolShell title="Tax-bracket headroom"
+      hint="Where this year's income sits — and the room before the next bracket">
+      <div className="px-tool-grid">
+        <StatCell label="Marginal rate" value={pct(b.marginalRate)} big
+          foot={topBracket ? 'top federal bracket' : `next dollar taxed at ${pct(b.marginalRate)}`} />
+        <StatCell label="Taxable income" value={fmt$(b.taxableIncome, { short: true })}
+          foot={`after ${fmt$(b.stdDeduction, { short: true })} standard deduction`} />
+        <StatCell label="Effective rate" value={pct(b.effectiveRate)} foot="blended across brackets" />
+        <StatCell label="Headroom to next" value={topBracket ? '—' : fmt$(b.headroom, { short: true })}
+          tone={topBracket ? null : 'good'}
+          foot={topBracket ? 'no higher bracket' : `before the ${pct(b.nextRate)} bracket`} />
+      </div>
+      {!topBracket && b.headroom > 0 && (
+        <div style={{ marginTop: 12, padding: '10px 12px', background: 'var(--bg-elev)', borderLeft: '3px solid var(--gold)',
+          borderRadius: 6, fontSize: 12, color: 'var(--ink)', lineHeight: 1.5 }}>
+          You have <b>{fmt$(b.headroom, { short: true })}</b> of room in the {pct(b.marginalRate)} bracket before income
+          spills into {pct(b.nextRate)}. That headroom is the space for Roth conversions or pre-tax vs. Roth
+          contribution choices this year — worth coordinating with your advisor.
+        </div>
+      )}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 14 }}>
+        <label className="px-field">
+          <span className="px-field-label">Ordinary income</span>
+          <div className="px-input-affix">
+            <span className="px-affix">$</span>
+            <input type="number" value={income} step="5000" onChange={(e) => setIncome(parseFloat(e.target.value) || 0)} />
+          </div>
+        </label>
+        <label className="px-field">
+          <span className="px-field-label">Filing status</span>
+          <select value={filing} onChange={(e) => setFiling(e.target.value)}>
+            <option value="mfj">Married filing jointly</option>
+            <option value="single">Single</option>
+          </select>
+        </label>
+      </div>
+      <div style={{ marginTop: 14 }}>
+        <table className="px-table" style={{ background: 'var(--surface)' }}>
+          <thead>
+            <tr><th>Bracket</th><th className="is-num">Taxable range</th><th className="is-num">Your income here</th></tr>
+          </thead>
+          <tbody>
+            {b.bands.map((band) => (
+              <tr key={band.rate + '-' + band.lo}
+                style={{ cursor: 'default', background: band.isCurrent ? 'var(--gold-soft)' : undefined }}>
+                <td style={{ fontFamily: 'var(--serif)', fontSize: 13.5, fontWeight: band.isCurrent ? 600 : 400 }}>
+                  {pct(band.rate)}{band.isCurrent ? <span style={{ color: 'var(--gold)', fontSize: 11 }}> · you are here</span> : null}
+                </td>
+                <td className="is-num px-mono">
+                  {fmt$(band.lo, { short: true })} – {isFinite(band.top) ? fmt$(band.top, { short: true }) : '+'}
+                </td>
+                <td className="is-num px-mono">{band.inBand > 0 ? fmt$(band.inBand, { short: true }) : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 8, lineHeight: 1.5 }}>
+          2025 federal ordinary-income brackets, applied to income after the standard deduction. Brackets
+          reindex each year. This frames the Roth-conversion and contribution-priority decisions in the
+          later phases — illustrative, and best refined with your advisor.
+        </div>
       </div>
     </ToolShell>
   );
@@ -638,8 +785,10 @@ const RothConversionWindowTool = () => {
 const calculators = {
   cashflow:      CashflowTool,
   reserve:       ReserveTool,
+  coveragegap:   CoverageGapTool,
   avalanche:     AvalancheTool,
   hsa:           HSATool,
+  brackets:      BracketHeadroomTool,
   assetlocation: AssetLocationTool,
   contriborder:  ContributionPriorityTool,
   montecarlo:    MonteCarloTool,

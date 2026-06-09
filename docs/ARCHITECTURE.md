@@ -99,7 +99,9 @@ copy is `functions/_shared/fees.ts`): `monthlyExpenseTotal, buildValueSeries, mo
 perfPeriods, debtPayoffMonths, hsaProjection, monteCarlo, rothLadder, estateProjection, tlh,
 retirementReadiness, goalFunding, annualFeeForAum, lifeCoverageGap, assetComposition,
 riskProfile, RISK_ALLOCATIONS, assetLocationPlan` · planning-depth (Tier B):
-`contributionWaterfall, withdrawalSequence, rothConversionWindow, FED_BRACKETS_2025`.
+`contributionWaterfall, withdrawalSequence, rothConversionWindow, FED_BRACKETS_2025` ·
+client-utility: `bracketPosition` (shared bracket-headroom engine), `termLifePremium`
+(illustrative coverage-cost estimate).
 ⚠ Client returns are NET of advisory fees, advisor GROSS [see memory: performance-net-of-fees].
 ⚠ `FED_BRACKETS_2025` is a dated assumption — reindex annually (like `estateProjection`'s exemption).
 
