@@ -101,7 +101,8 @@ retirementReadiness, goalFunding, annualFeeForAum, lifeCoverageGap, assetComposi
 riskProfile, RISK_ALLOCATIONS, assetLocationPlan` · planning-depth (Tier B):
 `contributionWaterfall, withdrawalSequence, rothConversionWindow, FED_BRACKETS_2025` ·
 client-utility: `bracketPosition` (shared bracket-headroom engine), `termLifePremium`
-(illustrative coverage-cost estimate).
+(illustrative coverage-cost estimate), `yearsToIndependence` (Freedom-Date horizon),
+`debtVsInvest` (pay-down-vs-invest crossover verdict).
 ⚠ Client returns are NET of advisory fees, advisor GROSS [see memory: performance-net-of-fees].
 ⚠ `FED_BRACKETS_2025` is a dated assumption — reindex annually (like `estateProjection`'s exemption).
 

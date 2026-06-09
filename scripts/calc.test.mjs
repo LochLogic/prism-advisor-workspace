@@ -513,6 +513,39 @@ console.log('calc-core unit tests\n');
   assert(C.termLifePremium({}).monthly === 0, 'termLifePremium: empty input is safe');
 }
 
+/* ── yearsToIndependence (Freedom Date) ─────────────────────────────── */
+{
+  // Already at/over the target → 0 years, reached.
+  assert(C.yearsToIndependence({ currentInvested: 2_000_000, targetNumber: 1_000_000 }).years === 0,
+    'yearsToIndependence: already past target → 0 years');
+
+  // 100k invested, 50k/yr saved, 5% real, target 1M → reached in a finite, sensible span.
+  const f = C.yearsToIndependence({ currentInvested: 100_000, annualSavings: 50_000, targetNumber: 1_000_000, realReturn: 0.05 });
+  assert(f.reached && f.years > 0 && f.years < 20, 'yearsToIndependence: 100k + 50k/yr @5% reaches 1M in <20 yr');
+  assert(f.finalBalance >= 1_000_000, 'yearsToIndependence: final balance clears the target');
+
+  // More savings → never later (monotonic lever the tool relies on).
+  const more = C.yearsToIndependence({ currentInvested: 100_000, annualSavings: 70_000, targetNumber: 1_000_000, realReturn: 0.05 });
+  assert(more.years <= f.years, 'yearsToIndependence: saving more never pushes the date later');
+
+  // No savings and no growth ever reaching the target → Infinity, not reached.
+  const never = C.yearsToIndependence({ currentInvested: 1000, annualSavings: 0, targetNumber: 1_000_000, realReturn: 0 });
+  assert(never.years === Infinity && never.reached === false, 'yearsToIndependence: unreachable → Infinity, reached:false');
+  assert(C.yearsToIndependence({}).reached === true, 'yearsToIndependence: empty input is safe (target 0 → reached)');
+}
+
+/* ── debtVsInvest crossover ──────────────────────────────────────────── */
+{
+  const pay = C.debtVsInvest({ apr: 9, afterTaxReturn: 6 });
+  assert(pay.verdict === 'pay' && near(pay.edge, 3), 'debtVsInvest: APR above expected return → pay down');
+  const inv = C.debtVsInvest({ apr: 3, afterTaxReturn: 6 });
+  assert(inv.verdict === 'invest' && near(inv.edge, -3), 'debtVsInvest: APR below expected return → invest');
+  const toss = C.debtVsInvest({ apr: 6.2, afterTaxReturn: 6 });
+  assert(toss.verdict === 'tossup', 'debtVsInvest: within the dead-band → toss-up');
+  assert(near(C.debtVsInvest({ apr: 9, afterTaxReturn: 6 }).breakeven, 6), 'debtVsInvest: breakeven = the expected after-tax return');
+  assert(C.debtVsInvest({}).verdict === 'tossup', 'debtVsInvest: empty input is safe');
+}
+
 console.log('');
 if (failures) { console.error(`FAILED: ${failures} test(s)`); process.exit(1); }
 console.log('All calc-core tests passed.');

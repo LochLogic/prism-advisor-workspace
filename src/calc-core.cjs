@@ -654,6 +654,42 @@ function termLifePremium({ coverage = 0, age = 40 } = {}) {
   return { annual, monthly: annual / 12, ratePer1k };
 }
 
+// ── Years to financial independence ("Freedom Date") ────────────────────────
+// How long until invested assets reach a target number (the FIRE number ≈ 25×
+// annual spending), compounding current investments at a real return and adding a
+// flat annual contribution. Whole-year resolution; returns `reached:false` with
+// years:Infinity if the contribution never gets there inside maxYears. Pure and
+// deterministic — pairs with a "+1% saved → months sooner" lever the caller derives
+// by re-running with a higher annualSavings. All inputs default so partial data is safe.
+function yearsToIndependence({ currentInvested = 0, annualSavings = 0, targetNumber = 0, realReturn = 0.05, maxYears = 80 } = {}) {
+  const target = Math.max(0, Number(targetNumber) || 0);
+  let bal = Math.max(0, Number(currentInvested) || 0);
+  if (target <= 0 || bal >= target) return { years: 0, reached: true, finalBalance: bal };
+  const save = Math.max(0, Number(annualSavings) || 0);
+  const r = Number(realReturn) || 0;
+  for (let y = 1; y <= maxYears; y++) {
+    bal = bal * (1 + r) + save;
+    if (bal >= target) return { years: y, reached: true, finalBalance: bal };
+  }
+  return { years: Infinity, reached: false, finalBalance: bal };
+}
+
+// ── Debt-vs-invest crossover ─────────────────────────────────────────────────
+// The one question Phase 03 turns on: pay the debt down or invest the marginal
+// dollar? Paying down a balance earns a GUARANTEED, tax-free return equal to its APR;
+// investing earns an UNCERTAIN after-tax return. So the rule is simply APR vs. the
+// expected after-tax return, with a small dead-band around the crossover where it's a
+// genuine toss-up (and other factors — liquidity, behavior — decide). Returns the
+// verdict, the edge in percentage points, and the crossover return at which it flips.
+function debtVsInvest({ apr = 0, afterTaxReturn = 0, deadbandPct = 0.5 } = {}) {
+  const a = Number(apr) || 0;
+  const r = Number(afterTaxReturn) || 0;
+  const edge = a - r;                                  // percentage points; >0 favors paying down
+  const band = Math.max(0, Number(deadbandPct) || 0);
+  const verdict = edge > band ? 'pay' : edge < -band ? 'invest' : 'tossup';
+  return { verdict, edge, breakeven: r };              // breakeven APR = the expected after-tax return
+}
+
 const PrismCalc = {
   monthlyExpenseTotal,
   buildValueSeries, modifiedDietz, perfPeriods,
@@ -661,7 +697,7 @@ const PrismCalc = {
   retirementReadiness, goalFunding, annualFeeForAum, lifeCoverageGap, assetComposition,
   riskProfile, RISK_ALLOCATIONS, assetLocationPlan,
   contributionWaterfall, withdrawalSequence, rothConversionWindow, FED_BRACKETS_2025,
-  bracketPosition, termLifePremium,
+  bracketPosition, termLifePremium, yearsToIndependence, debtVsInvest,
 };
 
 if (typeof window !== 'undefined') window.PrismCalc = PrismCalc;

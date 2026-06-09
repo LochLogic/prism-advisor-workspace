@@ -125,13 +125,14 @@ a demo into a "yes," then depth and reach.
   (`termLifePremium`); (2) **Tax-Bracket Headroom** in Phase 04 — a shared
   `bracketPosition` engine (reuses `FED_BRACKETS_2025`) showing marginal/effective rate
   and the headroom that frames the Roth-conversion + contribution-order decisions.
-  *Backlog, ranked (all in the Roth-window vein — one specific, dollar-denominated,
-  advisor-hooked number from data on file):*
-  - **Phase 01 — "Freedom Date" / savings-rate lever** (uses `savingsRate`/`fireNumber`/
-    `fireProgress`; +1% savings → months sooner). Pure motivation, existing data.
-  - **Phase 03 — Debt-vs-Invest crossover** (APR vs. after-tax return; makes the phase's
-    own 6–7% rationale interactive) + **mortgage-payoff accelerator** (`debtPayoffMonths`,
-    captured mortgage fields).
+  Also shipped 2026-06-09 (round 2): (3) **Phase 01 "Freedom Date"** — years-to-
+  independence vs. the FIRE number with a "+1% saved → months sooner" lever
+  (`yearsToIndependence`); (4) **Phase 03 Debt-vs-Invest crossover** — per-debt
+  pay-down-vs-invest verdict, guaranteed APR vs. expected after-tax return
+  (`debtVsInvest`). *Backlog, ranked (all in the Roth-window vein — one specific,
+  dollar-denominated, advisor-hooked number from data on file):*
+  - **Phase 03 — mortgage-payoff accelerator** (`debtPayoffMonths`, captured mortgage
+    fields) — the remaining half of the Phase 03 debt pair.
   - **Phase 04 — HDHP-vs-PPO break-even** and **Phase 05 — Mega-Backdoor Roth capacity**
     — both directly answer flagged client questions (q03, q02). Closing the
     flagged-question → self-serve-tool loop is its own value pattern.
