@@ -84,6 +84,14 @@ Things I genuinely can't do — they cost money, need your identity/credentials,
 in dashboards I can't reach. **Bold = the hard blockers gating any live client.**
 Project ref: `phabxcijbbphfxvjedfj` · Domain: `prismaw.com`.
 
+### Apply migration 032 (white-label branding) — **gates the new Branding section**
+- [ ] Run [`supabase/migrations/032_firm_branding.sql`](../supabase/migrations/032_firm_branding.sql)
+  in the Supabase SQL editor (the operating model — migrations are hand-applied).
+  Until then: the firm-admin Branding form saves fail gracefully (no `firms` update
+  policy yet) and subdomain pre-auth branding no-ops (`px_brand_for_slug` missing).
+  Everything else in the 2026-06-09 round-4 ship works without it; the `ai-assist`
+  edge function deploy is independent and handled via the gated deploy workflow.
+
 ### Infrastructure to production grade — **the #1 hard blocker**
 - [ ] **Upgrade Supabase to Pro + enable PITR / daily backups.** Free tier auto-pauses
   after 7 days idle and has no backups/connection headroom. Non-negotiable before live
