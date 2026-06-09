@@ -913,6 +913,458 @@ const RothConversionWindowTool = () => {
   );
 };
 
+/* ───────────────── FRONT-PHASE PARITY TOOLS (client-utility) ──────── */
+
+// Months → "Xy Ym" for payoff horizons.
+const fmtMonths = (m) => {
+  if (!isFinite(m)) return '—';
+  const y = Math.floor(m / 12), mo = Math.round(m % 12);
+  return y > 0 ? `${y}y${mo ? ` ${mo}m` : ''}` : `${mo}m`;
+};
+
+/* Phase 03 · Mortgage payoff accelerator — extra principal → time & interest saved */
+const MortgagePayoffTool = () => {
+  const { profile, isOwner, mortgageBalance, mortgageInterestMonthly, mortgagePrincipalMonthly } = useProfile();
+  const apr = Number(profile.housing?.mortgageApr) || 0;
+  const regularPI = Math.max(0, Math.round(mortgagePrincipalMonthly + mortgageInterestMonthly));
+  const [payment, setPayment] = useStateC(regularPI || 0);
+  const [extra, setExtra] = useStateC(500);
+
+  const result = useMemoC(
+    () => mortgagePayoff({ balance: mortgageBalance, aprPct: apr, paymentMonthly: payment, extraMonthly: extra }),
+    [mortgageBalance, apr, payment, extra]);
+
+  if (!isOwner || mortgageBalance <= 0 || !result) {
+    return (
+      <ToolShell title="Mortgage payoff accelerator" hint="Extra principal → time & interest saved">
+        <div style={{ fontSize: 12, color: 'var(--ink-mute)', lineHeight: 1.5 }}>
+          No mortgage on file — nothing to accelerate. Add your home and mortgage balance in your numbers to
+          model paying it down faster.
+        </div>
+      </ToolShell>
+    );
+  }
+  if (!result.amortizes) {
+    return (
+      <ToolShell title="Mortgage payoff accelerator" hint="Extra principal → time & interest saved">
+        <div style={{ fontSize: 12, color: 'var(--ink-mute)', lineHeight: 1.5 }}>
+          At {fmtPct(apr)} APR, a payment of {fmt$(payment)}/mo doesn't cover the monthly interest, so the
+          balance never amortizes. Raise the payment to see a payoff horizon.
+        </div>
+        <label className="px-field" style={{ marginTop: 14 }}>
+          <span className="px-field-label">Monthly payment (P&amp;I)</span>
+          <div className="px-input-affix"><span className="px-affix">$</span>
+            <input type="number" value={payment} step="100" onChange={(e) => setPayment(parseFloat(e.target.value) || 0)} /></div>
+        </label>
+      </ToolShell>
+    );
+  }
+  return (
+    <ToolShell title="Mortgage payoff accelerator" hint="What a little extra principal each month buys you">
+      <div className="px-tool-grid">
+        <StatCell label="Payoff at current pace" value={fmtMonths(result.base.months)}
+          foot={`${fmt$(result.base.interest, { short: true })} total interest`} />
+        <StatCell label="With extra principal" value={fmtMonths(result.accel.months)} tone="good"
+          foot={`${fmt$(result.accel.interest, { short: true })} total interest`} big />
+        <StatCell label="Time saved" value={result.monthsSaved > 0 ? fmtMonths(result.monthsSaved) : '—'} tone={result.monthsSaved > 0 ? 'good' : null}
+          foot={`${fmt$(extra)}/mo extra`} />
+        <StatCell label="Interest saved" value={result.interestSaved > 0 ? fmt$(result.interestSaved, { short: true }) : '—'} tone="good"
+          foot="over the life of the loan" />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 14 }}>
+        <label className="px-field">
+          <span className="px-field-label">Monthly payment (P&amp;I)</span>
+          <div className="px-input-affix"><span className="px-affix">$</span>
+            <input type="number" value={payment} step="100" onChange={(e) => setPayment(parseFloat(e.target.value) || 0)} /></div>
+        </label>
+        <label className="px-field">
+          <span className="px-field-label">Extra principal / mo</span>
+          <div className="px-input-affix"><span className="px-affix">$</span>
+            <input type="number" value={extra} step="100" onChange={(e) => setExtra(parseFloat(e.target.value) || 0)} /></div>
+        </label>
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 10, lineHeight: 1.5 }}>
+        Paying extra principal shortens the loan and saves interest — a guaranteed, tax-free return equal to the
+        mortgage rate ({fmtPct(apr)}). At a low fixed rate that's often below what the same dollars might earn
+        invested — see "Pay down or invest?" — so this is usually a peace-of-mind choice. Worth weighing with your advisor.
+      </div>
+    </ToolShell>
+  );
+};
+
+/* Phase 04 · HDHP-vs-PPO break-even — answers the flagged "is the HDHP worth it?" */
+const HDHPvsPPOTool = () => {
+  const { profile } = useProfile();
+  const marginal = Number(profile.taxes?.marginalRate) || 22;
+  const hsaContrib = Number(profile.retirement?.hsaContrib) || 4_300;
+  const [claims, setClaims] = useStateC(3000);
+  const [hdhpPremium, setHdhpPremium] = useStateC(2400);
+  const [ppoPremium, setPpoPremium] = useStateC(5400);
+  const [hdhpDeductible, setHdhpDed] = useStateC(3300);
+  const [ppoDeductible, setPpoDed] = useStateC(1000);
+  const [employerHsa, setEmployerHsa] = useStateC(1000);
+
+  const r = useMemoC(() => hdhpVsPpo({
+    expectedClaims: claims, hdhpPremium, ppoPremium,
+    hdhpDeductible, hdhpOopMax: 7000, hdhpCoinsurance: 0.1,
+    ppoDeductible, ppoOopMax: 4000, ppoCoinsurance: 0.2,
+    employerHsaContribution: employerHsa, hsaContribution: hsaContrib, marginalRatePct: marginal,
+  }), [claims, hdhpPremium, ppoPremium, hdhpDeductible, ppoDeductible, employerHsa, hsaContrib, marginal]);
+
+  const winnerLabel = r.cheaper === 'hdhp' ? 'HDHP + HSA' : 'PPO';
+  return (
+    <ToolShell title="HDHP vs. PPO break-even"
+      hint="Total annual cost of each plan — including the HSA tax advantage">
+      <div className="px-tool-grid">
+        <StatCell label="HDHP net cost" value={fmt$(r.hdhp, { short: true })}
+          tone={r.cheaper === 'hdhp' ? 'good' : null} foot={`incl. ${fmt$(r.hsaTaxBenefit)} HSA benefit`} />
+        <StatCell label="PPO cost" value={fmt$(r.ppo, { short: true })}
+          tone={r.cheaper === 'ppo' ? 'good' : null} foot="premium + your share of claims" />
+        <StatCell label="Lower-cost plan" value={winnerLabel} tone="good" big
+          foot={`saves ${fmt$(r.savings, { short: true })}/yr at this spend`} />
+        <StatCell label="Break-even claims" value={r.breakeven != null ? fmt$(r.breakeven, { short: true }) : '—'}
+          foot={r.breakeven != null ? 'above this, the PPO wins' : 'HDHP wins across the range'} />
+      </div>
+      <div style={{ marginTop: 12, padding: '10px 12px', background: 'var(--bg-elev)', borderLeft: '3px solid var(--gold)',
+        borderRadius: 6, fontSize: 12, color: 'var(--ink)', lineHeight: 1.5 }}>
+        For your expected <b>{fmt$(claims, { short: true })}</b> of annual medical spending, the <b>{winnerLabel}</b> costs
+        less. {r.breakeven != null
+          ? <>The plans break even around <b>{fmt$(r.breakeven, { short: true })}</b> of claims — below that the HDHP's lower premium and HSA advantage win.</>
+          : <>The HDHP stays cheaper across the plausible range here, thanks to the HSA tax advantage.</>}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 14 }}>
+        <label className="px-field">
+          <span className="px-field-label">Expected annual claims</span>
+          <div className="px-input-affix"><span className="px-affix">$</span>
+            <input type="number" value={claims} step="500" onChange={(e) => setClaims(parseFloat(e.target.value) || 0)} /></div>
+        </label>
+        <label className="px-field">
+          <span className="px-field-label">Employer HSA contribution</span>
+          <div className="px-input-affix"><span className="px-affix">$</span>
+            <input type="number" value={employerHsa} step="250" onChange={(e) => setEmployerHsa(parseFloat(e.target.value) || 0)} /></div>
+        </label>
+        <label className="px-field">
+          <span className="px-field-label">HDHP premium / yr</span>
+          <div className="px-input-affix"><span className="px-affix">$</span>
+            <input type="number" value={hdhpPremium} step="100" onChange={(e) => setHdhpPremium(parseFloat(e.target.value) || 0)} /></div>
+        </label>
+        <label className="px-field">
+          <span className="px-field-label">PPO premium / yr</span>
+          <div className="px-input-affix"><span className="px-affix">$</span>
+            <input type="number" value={ppoPremium} step="100" onChange={(e) => setPpoPremium(parseFloat(e.target.value) || 0)} /></div>
+        </label>
+        <label className="px-field">
+          <span className="px-field-label">HDHP deductible</span>
+          <div className="px-input-affix"><span className="px-affix">$</span>
+            <input type="number" value={hdhpDeductible} step="250" onChange={(e) => setHdhpDed(parseFloat(e.target.value) || 0)} /></div>
+        </label>
+        <label className="px-field">
+          <span className="px-field-label">PPO deductible</span>
+          <div className="px-input-affix"><span className="px-affix">$</span>
+            <input type="number" value={ppoDeductible} step="250" onChange={(e) => setPpoDed(parseFloat(e.target.value) || 0)} /></div>
+        </label>
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 10, lineHeight: 1.5 }}>
+        The HDHP's net cost subtracts the HSA advantage — the employer's contribution plus the tax saved on
+        your own HSA dollars at your {marginal}% rate. Coinsurance and out-of-pocket maximums use plan-typical
+        defaults; your advisor can refine with your actual benefits summary. Illustrative, not benefits advice.
+      </div>
+    </ToolShell>
+  );
+};
+
+/* Phase 05 · Mega-Backdoor Roth capacity — answers the flagged q02 */
+const MegaBackdoorTool = () => {
+  const { profile, planningAge, grossAnnualIncome, effectiveTakehome } = useProfile();
+  const r = profile.retirement;
+  const salary = grossAnnualIncome || (effectiveTakehome || 0) * 12;
+  const defaultEmployer = Math.round(salary * (Number(r.employerMatchPct) || 0) / 100);
+  const [deferral, setDeferral] = useStateC(Number(r.fourohonekContributed) || 23_500);
+  const [employer, setEmployer] = useStateC(defaultEmployer);
+  const [planAllows, setPlanAllows] = useStateC(true);
+
+  const c = useMemoC(() => megaBackdoorCapacity({
+    age: planningAge, employeeDeferral: deferral, employerContribution: employer,
+    deferralLimit: Number(r.fourohonekLimit) || 23_500,
+  }), [planningAge, deferral, employer, r.fourohonekLimit]);
+
+  return (
+    <ToolShell title="Mega-Backdoor Roth capacity"
+      hint="After-tax 401(k) room under the §415(c) total-additions limit">
+      <div className="px-tool-grid">
+        <StatCell label="After-tax capacity" value={planAllows ? fmt$(c.afterTaxCapacity, { short: true }) : '—'}
+          tone={planAllows && c.hasCapacity ? 'good' : null} big
+          foot={planAllows ? (c.hasCapacity ? 'convertible to Roth' : 'limit already reached') : 'plan must allow it'} />
+        <StatCell label="Total-additions limit" value={fmt$(c.limit, { short: true })}
+          foot={`§415(c) · ${planningAge >= 50 ? '50+' : 'under 50'}`} />
+        <StatCell label="Your deferral" value={fmt$(c.deferral, { short: true })}
+          foot={c.deferralRoom > 0 ? `${fmt$(c.deferralRoom, { short: true })} elective room left` : 'elective max reached'} />
+        <StatCell label="Employer contribution" value={fmt$(c.employer, { short: true })} foot="match + profit-share" />
+      </div>
+      <div style={{ marginTop: 12, padding: '10px 12px', background: 'var(--bg-elev)',
+        borderLeft: `3px solid ${planAllows && c.hasCapacity ? 'var(--forest)' : 'var(--gold)'}`,
+        borderRadius: 6, fontSize: 12, color: 'var(--ink)', lineHeight: 1.5 }}>
+        {planAllows
+          ? (c.hasCapacity
+            ? <>Your plan has roughly <b>{fmt$(c.afterTaxCapacity, { short: true })}</b> of room for after-tax contributions that
+                can be converted to Roth — the "mega backdoor." This only works if your 401(k) plan allows after-tax
+                contributions <i>and</i> in-plan Roth conversions (or in-service withdrawals). Confirm both with your advisor.</>
+            : <>You've already filled the §415(c) limit, so there's no after-tax room to convert this year.</>)
+          : <>The mega backdoor requires a plan that permits after-tax contributions and in-plan Roth conversions.
+              Check your plan documents — your advisor can help read them.</>}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 14 }}>
+        <label className="px-field">
+          <span className="px-field-label">Your 401(k) deferral / yr</span>
+          <div className="px-input-affix"><span className="px-affix">$</span>
+            <input type="number" value={deferral} step="500" onChange={(e) => setDeferral(parseFloat(e.target.value) || 0)} /></div>
+        </label>
+        <label className="px-field">
+          <span className="px-field-label">Employer contribution / yr</span>
+          <div className="px-input-affix"><span className="px-affix">$</span>
+            <input type="number" value={employer} step="500" onChange={(e) => setEmployer(parseFloat(e.target.value) || 0)} /></div>
+        </label>
+      </div>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, fontSize: 12, color: 'var(--ink)', cursor: 'pointer' }}>
+        <input type="checkbox" checked={planAllows} onChange={(e) => setPlanAllows(e.target.checked)} />
+        My 401(k) plan allows after-tax contributions + in-plan Roth conversion
+      </label>
+      <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 10, lineHeight: 1.5 }}>
+        The §415(c) total-additions limit ({fmt$(c.limit, { short: true })} in 2025) caps all 401(k) money — your
+        deferral, the employer's contribution, and after-tax dollars combined. Whatever's left is the mega-backdoor
+        capacity. A dated assumption; reindexed annually. Illustrative — coordinate with your advisor.
+      </div>
+    </ToolShell>
+  );
+};
+
+/* Phase 06 · Equity-comp concentration & diversification planner */
+const EquityCompTool = () => {
+  const { equityComp, largestPosition, equityConcentration, totalInvested, equityUnvested } = useProfile();
+  const [capGains, setCapGains] = useStateC(15);
+  const [threshold, setThreshold] = useStateC(10);
+
+  const conc = useMemoC(() => (largestPosition ? equityCompConcentration({
+    positionValue: Number(largestPosition.positionValue) || 0,
+    costBasis: Number(largestPosition.costBasis) || 0,
+    totalInvested, unvestedValue: Number(largestPosition.unvestedValue) || 0,
+    capGainsRatePct: capGains, thresholdPct: threshold,
+  }) : null), [largestPosition, totalInvested, capGains, threshold]);
+
+  if (!equityComp.length || !conc) {
+    return (
+      <ToolShell title="Equity-comp concentration" hint="Single-stock risk + cost to diversify">
+        <div style={{ fontSize: 12, color: 'var(--ink-mute)', lineHeight: 1.5 }}>
+          No equity compensation on file. If you hold RSUs, options, or a concentrated single-stock position, add it
+          in your numbers to see the concentration and the tax cost of diversifying.
+        </div>
+      </ToolShell>
+    );
+  }
+  const ticker = largestPosition.ticker || 'position';
+  const tone = conc.concentrated ? 'var(--gold)' : 'var(--forest)';
+  return (
+    <ToolShell title="Equity-comp concentration"
+      hint={`Single-stock risk in ${ticker} — and the tax cost to diversify`}>
+      <div className="px-tool-grid">
+        <StatCell label="Concentration" value={`${conc.concentrationPct.toFixed(1)}%`} big
+          tone={conc.concentrated ? null : 'good'}
+          foot={conc.concentrated ? `above the ${conc.thresholdPct}% guideline` : 'within guideline'} />
+        <StatCell label="Position value" value={fmt$(largestPosition.positionValue, { short: true })}
+          foot={`${fmt$(conc.gain, { short: true })} unrealized gain`} />
+        <StatCell label={`Trim to ${conc.thresholdPct}%`} value={conc.excess > 0 ? fmt$(conc.excess, { short: true }) : '—'}
+          foot={conc.excess > 0 ? `≈ ${fmt$(conc.taxToTrim, { short: true })} cap-gains tax` : 'no trim needed'} />
+        <StatCell label="Tax to fully exit" value={fmt$(conc.taxToFullyDiversify, { short: true })}
+          foot={`at ${capGains}% on the full gain`} />
+      </div>
+      {conc.unvestedValue > 0 && (
+        <div style={{ fontSize: 12, color: 'var(--ink-mute)', marginTop: 12, lineHeight: 1.5 }}>
+          Plus <b>{fmt$(conc.unvestedValue, { short: true })}</b> of unvested grants still to come — future vesting adds
+          to the position (and to ordinary income) as it lands, so the concentration tends to rebuild without a plan.
+        </div>
+      )}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 14 }}>
+        <label className="px-field">
+          <span className="px-field-label">Capital-gains rate</span>
+          <div className="px-input-affix">
+            <input type="number" value={capGains} step="1" onChange={(e) => setCapGains(parseFloat(e.target.value) || 0)} />
+            <span className="px-affix px-affix-r">%</span></div>
+        </label>
+        <label className="px-field">
+          <span className="px-field-label">Concentration target</span>
+          <div className="px-input-affix">
+            <input type="number" value={threshold} step="1" onChange={(e) => setThreshold(parseFloat(e.target.value) || 0)} />
+            <span className="px-affix px-affix-r">%</span></div>
+        </label>
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 10, lineHeight: 1.5 }}>
+        A single stock above ~{conc.thresholdPct}% of the portfolio carries company-specific risk no diversified
+        plan would choose deliberately. Diversifying realizes the gain and the tax — a staged sell-down, a 10b5-1
+        plan, or charitable gifting of appreciated shares can soften it. Your advisor coordinates the glide.
+      </div>
+    </ToolShell>
+  );
+};
+
+/* Phase 07 · RMD projector — required distributions at 73 */
+const RMDProjectionTool = () => {
+  const { profile, planningAge } = useProfile();
+  const r = profile.retirement;
+  const taxDeferred = (Number(r.iraBalance) || 0) + (Number(r.fourohonekBalance) || 0);
+  const [growth, setGrowth] = useStateC(5);
+  const [rate, setRate] = useStateC(Number(profile.taxes?.marginalRate) || 22);
+
+  const result = useMemoC(() => rmdProjection({
+    taxDeferredBalance: taxDeferred, currentAge: planningAge, rmdAge: 73,
+    growth: growth / 100, marginalRatePct: rate, throughAge: 95,
+  }), [taxDeferred, planningAge, growth, rate]);
+
+  if (!result) {
+    return (
+      <ToolShell title="RMD projector" advanced hint="Required distributions starting at 73">
+        <div style={{ fontSize: 12, color: 'var(--ink-mute)' }}>
+          No tax-deferred balance (IRA / 401k) on file — nothing to project. RMDs only apply to pre-tax accounts.
+        </div>
+      </ToolShell>
+    );
+  }
+  const checkpoints = result.schedule.filter((y, i) => i % 4 === 0 || i === result.schedule.length - 1);
+  return (
+    <ToolShell title="RMD projector" advanced hint="Required distributions begin at age 73 — and the tax they trigger">
+      <div className="px-tool-grid">
+        <StatCell label="First RMD (age 73)" value={fmt$(result.firstRmd.amount, { short: true })} big
+          foot={`on ${fmt$(result.balanceAtRmd, { short: true })} projected`} />
+        <StatCell label="First-year tax" value={fmt$(result.firstRmd.amount * rate / 100, { short: true })}
+          foot={`at ${rate}% ordinary`} />
+        <StatCell label="Lifetime RMDs (to 95)" value={fmt$(result.lifetimeRmd, { short: true })} />
+        <StatCell label="Lifetime RMD tax" value={fmt$(result.lifetimeTax, { short: true })} tone="bad"
+          foot="ordinary income, nominal" />
+      </div>
+      <div style={{ marginTop: 12, padding: '10px 12px', background: 'var(--bg-elev)', borderLeft: '3px solid var(--gold)',
+        borderRadius: 6, fontSize: 12, color: 'var(--ink)', lineHeight: 1.5 }}>
+        Pre-tax accounts can't grow untaxed forever — at 73 the IRS forces a growing distribution each year, taxed
+        as income. Roth conversions in the low-income years before then shrink this future tax. See the
+        Roth Conversion Window tool.
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 14 }}>
+        <label className="px-field">
+          <span className="px-field-label">Growth rate</span>
+          <div className="px-input-affix">
+            <input type="number" value={growth} step="0.5" onChange={(e) => setGrowth(parseFloat(e.target.value) || 0)} />
+            <span className="px-affix px-affix-r">%</span></div>
+        </label>
+        <label className="px-field">
+          <span className="px-field-label">Marginal tax rate</span>
+          <div className="px-input-affix">
+            <input type="number" value={rate} step="1" onChange={(e) => setRate(parseFloat(e.target.value) || 0)} />
+            <span className="px-affix px-affix-r">%</span></div>
+        </label>
+      </div>
+      <div style={{ marginTop: 14 }}>
+        <table className="px-table" style={{ background: 'var(--surface)' }}>
+          <thead>
+            <tr><th>Age</th><th className="is-num">Divisor</th><th className="is-num">RMD</th><th className="is-num">Est. tax</th><th className="is-num">Balance</th></tr>
+          </thead>
+          <tbody>
+            {checkpoints.map(y => (
+              <tr key={y.age} style={{ cursor: 'default' }}>
+                <td className="px-mono">{y.age}</td>
+                <td className="is-num px-mono">{y.divisor}</td>
+                <td className="is-num px-mono">{fmt$(y.rmd, { short: true })}</td>
+                <td className="is-num px-mono" style={{ color: 'var(--brick)' }}>{fmt$(y.tax, { short: true })}</td>
+                <td className="is-num px-mono">{fmt$(y.balanceBefore, { short: true })}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 8, lineHeight: 1.5 }}>
+          IRS Uniform Lifetime Table divisors; RMD = balance ÷ divisor. Illustrative at a flat {growth}% growth and
+          {rate}% rate — your advisor refines with actual balances and bracket projections.
+        </div>
+      </div>
+    </ToolShell>
+  );
+};
+
+/* Phase 07 · Social Security claiming-age optimizer (62 / 67 / 70 break-even) */
+const SSClaimingTool = () => {
+  const { incomeStreams } = useProfile();
+  const ssStreams = (incomeStreams || []).filter(s => s.type === 'social_security');
+  // PIA = benefit at full retirement age. Prefer a captured `pia`; fall back to the
+  // largest stream's monthly amount (assumes it was entered at FRA).
+  const defaultPia = ssStreams.reduce((m, s) => Math.max(m, Number(s.pia) || Number(s.monthlyAmount) || 0), 0);
+  const [pia, setPia] = useStateC(Math.round(defaultPia) || 3000);
+  const [longevity, setLongevity] = useStateC(90);
+  const [discount, setDiscount] = useStateC(0);
+
+  const result = useMemoC(() => socialSecurityClaiming({
+    pia, fra: 67, colaPct: 2.5, longevityAge: longevity, discountRatePct: discount, claimAges: [62, 67, 70],
+  }), [pia, longevity, discount]);
+
+  if (!result) {
+    return (
+      <ToolShell title="Social Security claiming age" advanced hint="62 vs. 67 vs. 70 — lifetime break-even">
+        <div style={{ fontSize: 12, color: 'var(--ink-mute)', lineHeight: 1.5 }}>
+          Enter your PIA — the monthly Social Security benefit at full retirement age (67), from your SSA statement —
+          to compare claiming ages. Or add a Social Security stream in your numbers.
+        </div>
+        <label className="px-field" style={{ marginTop: 14 }}>
+          <span className="px-field-label">PIA (monthly benefit at 67)</span>
+          <div className="px-input-affix"><span className="px-affix">$</span>
+            <input type="number" value={pia} step="100" onChange={(e) => setPia(parseFloat(e.target.value) || 0)} /></div>
+        </label>
+      </ToolShell>
+    );
+  }
+  const fmtAge = (a) => result.options.find(o => o.claimAge === a);
+  return (
+    <ToolShell title="Social Security claiming age" advanced
+      hint={`PV-optimal at ${result.best.claimAge}${result.breakevenAge ? ` · 62-vs-70 break-even ≈ age ${result.breakevenAge}` : ''}`}>
+      <div className="px-tool-grid">
+        {result.options.map(o => (
+          <StatCell key={o.claimAge} label={`Claim at ${o.claimAge}`} value={`${fmt$(o.monthly)}/mo`}
+            tone={o.claimAge === result.best.claimAge ? 'good' : null}
+            foot={`${fmt$(o.lifetimeNominal, { short: true })} lifetime${o.claimAge === result.best.claimAge ? ' · best PV' : ''}`} />
+        ))}
+        <StatCell label="Break-even age" value={result.breakevenAge ? `${result.breakevenAge}` : '—'}
+          foot={result.breakevenAge ? 'delaying to 70 pulls ahead here' : 'no crossover before ' + longevity} />
+      </div>
+      <div style={{ marginTop: 12, padding: '10px 12px', background: 'var(--bg-elev)', borderLeft: '3px solid var(--gold)',
+        borderRadius: 6, fontSize: 12, color: 'var(--ink)', lineHeight: 1.5 }}>
+        Claiming at 62 means a smaller check for life; waiting to 70 earns 8%/yr of delayed credits.
+        {result.breakevenAge
+          ? <> If you live past about <b>age {result.breakevenAge}</b>, delaying to 70 wins on total dollars — so
+              longevity, other income, and a spouse's benefit drive the call.</>
+          : <> At this longevity the earlier claim isn't overtaken — but health, other income, and survivor benefits matter.</>}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginTop: 14 }}>
+        <label className="px-field">
+          <span className="px-field-label">PIA (at 67)</span>
+          <div className="px-input-affix"><span className="px-affix">$</span>
+            <input type="number" value={pia} step="100" onChange={(e) => setPia(parseFloat(e.target.value) || 0)} /></div>
+        </label>
+        <label className="px-field">
+          <span className="px-field-label">Live to age</span>
+          <div className="px-input-affix">
+            <input type="number" value={longevity} step="1" onChange={(e) => setLongevity(parseInt(e.target.value) || 0)} />
+            <span className="px-affix px-affix-r">yr</span></div>
+        </label>
+        <label className="px-field">
+          <span className="px-field-label">Discount rate</span>
+          <div className="px-input-affix">
+            <input type="number" value={discount} step="0.5" onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)} />
+            <span className="px-affix px-affix-r">%</span></div>
+        </label>
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 10, lineHeight: 1.5 }}>
+        PIA is your benefit at full retirement age (67). Figures assume a 2.5% annual COLA; the discount rate (0% =
+        compare raw dollars) reflects how much you value money sooner. Illustrative — your actual SSA estimate and a
+        spouse's benefit should anchor the decision with your advisor.
+      </div>
+    </ToolShell>
+  );
+};
+
 /* ─── Calculator registry ─────────────────────────────────────────── */
 const calculators = {
   cashflow:      CashflowTool,
@@ -921,16 +1373,22 @@ const calculators = {
   coveragegap:   CoverageGapTool,
   avalanche:     AvalancheTool,
   debtvinvest:   DebtVsInvestTool,
+  mortgagepayoff: MortgagePayoffTool,
   hsa:           HSATool,
   brackets:      BracketHeadroomTool,
+  hdhpppo:       HDHPvsPPOTool,
   assetlocation: AssetLocationTool,
   contriborder:  ContributionPriorityTool,
+  megabackdoor:  MegaBackdoorTool,
   montecarlo:    MonteCarloTool,
   tlh:           TLHTool,
+  equitycomp:    EquityCompTool,
   estate:        EstateTool,
   rothladder:    RothLadderTool,
   withdrawalseq: WithdrawalSequenceTool,
   rothwindow:    RothConversionWindowTool,
+  rmd:           RMDProjectionTool,
+  ssclaiming:    SSClaimingTool,
 };
 
 Object.assign(window, { calculators, ToolShell, StatCell });

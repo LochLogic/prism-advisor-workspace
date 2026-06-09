@@ -690,6 +690,213 @@ function debtVsInvest({ apr = 0, afterTaxReturn = 0, deadbandPct = 0.5 } = {}) {
   return { verdict, edge, breakeven: r };              // breakeven APR = the expected after-tax return
 }
 
+// ── Mortgage payoff accelerator (Phase 03, client-utility) ───────────────────
+// The second half of the Phase 03 debt pair: a mortgage usually sits below the
+// avalanche cutoff, so it's a "should we pay it down faster?" question, not a "must
+// we?" one. Given the balance, APR, the regular monthly P&I payment, and an optional
+// extra principal payment, amortize both the regular and accelerated schedules and
+// report the months and interest the extra saves. Caps at 600 months. Returns null
+// when there's no balance, or `amortizes:false` when the payment can't even cover
+// interest (so it never pays off). All inputs default so partial data is safe.
+function mortgagePayoff({ balance = 0, aprPct = 0, paymentMonthly = 0, extraMonthly = 0 } = {}) {
+  const B = Math.max(0, Number(balance) || 0);
+  const r = (Number(aprPct) || 0) / 100 / 12;
+  const pay = Math.max(0, Number(paymentMonthly) || 0);
+  const extra = Math.max(0, Number(extraMonthly) || 0);
+  if (B <= 0 || pay <= 0) return null;
+  const run = (monthly) => {
+    let bal = B, interest = 0;
+    for (let m = 1; m <= 600; m++) {
+      const i = bal * r;
+      const principal = monthly - i;
+      if (principal <= 0) return { months: Infinity, interest: Infinity };   // never amortizes
+      interest += i;
+      bal -= principal;
+      if (bal <= 0) return { months: m, interest };
+    }
+    return { months: Infinity, interest: Infinity };
+  };
+  const base = run(pay);
+  const accel = extra > 0 ? run(pay + extra) : base;
+  const monthsSaved   = (isFinite(base.months) && isFinite(accel.months)) ? base.months - accel.months : 0;
+  const interestSaved = (isFinite(base.interest) && isFinite(accel.interest)) ? Math.max(0, base.interest - accel.interest) : 0;
+  return { base, accel, monthsSaved, interestSaved, amortizes: isFinite(base.months) };
+}
+
+// ── HDHP-vs-PPO break-even (Phase 04 — answers flagged q03) ──────────────────
+// "Is the HDHP worth it if I never go to the doctor?" Models the total annual cost of
+// each plan at a given expected-claims level: premiums + the patient's share of claims
+// (full cost up to the deductible, then coinsurance, capped at the out-of-pocket max).
+// The HDHP's net cost is reduced by the HSA advantage it unlocks — the employer's HSA
+// contribution (free money) plus the tax saved on the household's own pre-tax HSA
+// dollars. Then it scans the claims axis for the break-even point where the cheaper
+// plan flips, so the answer is "HDHP wins below ~$X of annual claims." All inputs
+// default so partial data is safe. NOT advice — a transparent cost comparison.
+function _planOop(claims, deductible, coinsurance, oopMax) {
+  const c = Math.max(0, claims);
+  const ded = Math.max(0, deductible);
+  const cap = oopMax > 0 ? oopMax : Infinity;
+  if (c <= ded) return Math.min(c, cap);
+  return Math.min(ded + (c - ded) * Math.max(0, coinsurance), cap);
+}
+function hdhpVsPpo({
+  expectedClaims = 0,
+  hdhpPremium = 0, hdhpDeductible = 0, hdhpOopMax = 0, hdhpCoinsurance = 0.1,
+  ppoPremium = 0,  ppoDeductible = 0,  ppoOopMax = 0,  ppoCoinsurance = 0.2,
+  employerHsaContribution = 0, hsaContribution = 0, marginalRatePct = 22,
+} = {}) {
+  const hsaTaxBenefit = Math.max(0, Number(hsaContribution) || 0) * (Number(marginalRatePct) || 0) / 100
+    + Math.max(0, Number(employerHsaContribution) || 0);
+  const cost = (claims) => {
+    const hdhpOop = _planOop(claims, hdhpDeductible, hdhpCoinsurance, hdhpOopMax);
+    const ppoOop  = _planOop(claims, ppoDeductible,  ppoCoinsurance,  ppoOopMax);
+    return { hdhp: hdhpPremium + hdhpOop - hsaTaxBenefit, ppo: ppoPremium + ppoOop, hdhpOop, ppoOop };
+  };
+  const at = cost(Math.max(0, Number(expectedClaims) || 0));
+  // Break-even claims level: monotonic OOP means the plans cross at most once over the
+  // relevant range. Scan in $100 steps to the higher OOP max + headroom.
+  const hi = Math.max(hdhpOopMax, ppoOopMax, Number(expectedClaims) || 0) + 5000;
+  let breakeven = null, prev = cost(0).hdhp - cost(0).ppo;
+  for (let c = 100; c <= hi; c += 100) {
+    const diff = cost(c).hdhp - cost(c).ppo;
+    if ((prev <= 0 && diff > 0) || (prev >= 0 && diff < 0)) { breakeven = c; break; }
+    prev = diff;
+  }
+  return { ...at, hsaTaxBenefit, breakeven,
+    cheaper: at.hdhp <= at.ppo ? 'hdhp' : 'ppo', savings: Math.abs(at.hdhp - at.ppo) };
+}
+
+// ── Mega-Backdoor Roth capacity (Phase 05 — answers flagged q02) ─────────────
+// "Should we be doing a Mega Backdoor Roth?" The capacity is whatever's left under the
+// §415(c) total-additions limit ($70,000 in 2025, $77,500 with the 50+ catch-up) after
+// the employee's own elective deferral and all employer contributions — that headroom
+// can be filled with after-tax 401(k) dollars and converted to Roth, IF the plan allows
+// after-tax contributions + in-service conversion. Also reports remaining elective-
+// deferral room. All inputs default so partial data is safe.
+function megaBackdoorCapacity({
+  age = 40, employeeDeferral = 0, employerContribution = 0,
+  totalAdditionsLimit = null, deferralLimit = 23_500,
+} = {}) {
+  const limit = totalAdditionsLimit != null ? Math.max(0, Number(totalAdditionsLimit) || 0)
+    : ((Number(age) || 0) >= 50 ? 77_500 : 70_000);
+  const deferral = Math.max(0, Number(employeeDeferral) || 0);
+  const employer = Math.max(0, Number(employerContribution) || 0);
+  const deferralRoom    = Math.max(0, deferralLimit - deferral);
+  const afterTaxCapacity = Math.max(0, limit - deferral - employer);
+  return { limit, deferral, employer, deferralRoom, afterTaxCapacity, hasCapacity: afterTaxCapacity > 0 };
+}
+
+// ── RMD projector (Phase 07) ─────────────────────────────────────────────────
+// Required Minimum Distributions begin at age 73. Project the tax-deferred balance
+// forward to that age, then apply the IRS Uniform Lifetime Table divisor each year:
+// RMD = balance ÷ divisor, taxed as ordinary income, with the remainder growing on.
+// Surfaces the first RMD (age, amount), the lifetime RMD + tax drag, and a schedule —
+// making the Roth-ladder urgency tangible (every dollar converted now is a dollar not
+// force-distributed and taxed later). Returns null when there's no deferred balance.
+const RMD_UNIFORM_DIVISORS = {
+  73: 26.5, 74: 25.5, 75: 24.6, 76: 23.7, 77: 22.9, 78: 22.0, 79: 21.1, 80: 20.2,
+  81: 19.4, 82: 18.5, 83: 17.7, 84: 16.8, 85: 16.0, 86: 15.2, 87: 14.4, 88: 13.7,
+  89: 12.9, 90: 12.2, 91: 11.5, 92: 10.8, 93: 10.1, 94: 9.5, 95: 8.9, 96: 8.4,
+  97: 7.8, 98: 7.3, 99: 6.8, 100: 6.4,
+};
+function rmdProjection({ taxDeferredBalance = 0, currentAge = 65, rmdAge = 73, growth = 0.05, marginalRatePct = 22, throughAge = 95 } = {}) {
+  let bal = Math.max(0, Number(taxDeferredBalance) || 0);
+  if (bal <= 0) return null;
+  const start = Number(currentAge) || 0;
+  const rate = Number(growth) || 0;
+  const taxRate = (Number(marginalRatePct) || 0) / 100;
+  for (let a = start; a < rmdAge; a++) bal *= (1 + rate);     // grow to the first RMD year
+  const balanceAtRmd = bal;
+  const schedule = []; let firstRmd = null, lifetimeRmd = 0, lifetimeTax = 0;
+  for (let a = rmdAge; a <= throughAge; a++) {
+    const divisor = RMD_UNIFORM_DIVISORS[a] || RMD_UNIFORM_DIVISORS[100];
+    const rmd = bal / divisor;
+    const tax = rmd * taxRate;
+    if (firstRmd == null) firstRmd = { age: a, amount: rmd, balance: bal };
+    lifetimeRmd += rmd; lifetimeTax += tax;
+    schedule.push({ age: a, divisor, rmd, tax, balanceBefore: bal });
+    bal = Math.max(0, (bal - rmd) * (1 + rate));
+  }
+  return { firstRmd, schedule, lifetimeRmd, lifetimeTax, rmdAge, balanceAtRmd };
+}
+
+// ── Social Security claiming-age optimizer (Phase 07) ────────────────────────
+// Claiming early (62) permanently reduces the benefit; delaying past full retirement
+// age (FRA, 67 for current retirees) earns 8%/yr delayed credits to age 70. Given the
+// PIA (the monthly benefit at FRA), this computes the benefit at each candidate claim
+// age, then the lifetime total to an assumed longevity — both nominal and present-value
+// (so a discount rate can reflect "a dollar now beats a dollar later"). Reports the
+// PV-maximizing age and the break-even age between the earliest and latest options.
+// Reductions: 5/9% per month for the first 36 months early, 5/12% per month beyond;
+// credits: 2/3% per month after FRA. Returns null without a PIA.
+function ssBenefitFactor(claimAge, fra = 67) {
+  const months = (Number(claimAge) - Number(fra)) * 12;
+  if (months === 0) return 1;
+  if (months < 0) {
+    const early = -months, first = Math.min(early, 36), beyond = Math.max(0, early - 36);
+    return Math.max(0, 1 - first * (5 / 9) / 100 - beyond * (5 / 12) / 100);
+  }
+  const credited = Math.min(months, (70 - fra) * 12);        // credits cap at 70
+  return 1 + credited * (2 / 3) / 100;
+}
+function socialSecurityClaiming({ pia = 0, fra = 67, colaPct = 0, longevityAge = 90, discountRatePct = 0, claimAges = [62, 67, 70] } = {}) {
+  const P = Math.max(0, Number(pia) || 0);
+  if (P <= 0) return null;
+  const cola = (Number(colaPct) || 0) / 100;
+  const disc = (Number(discountRatePct) || 0) / 100;
+  const ages = (Array.isArray(claimAges) && claimAges.length ? claimAges : [62, 67, 70]).slice().sort((a, b) => a - b);
+  const base = ages[0];
+  const options = ages.map(age => {
+    const monthly = P * ssBenefitFactor(age, fra);
+    let nominal = 0, pv = 0;
+    for (let a = age; a <= longevityAge; a++) {
+      const annual = monthly * 12 * Math.pow(1 + cola, a - age);
+      nominal += annual;
+      pv += annual / Math.pow(1 + disc, a - base);
+    }
+    return { claimAge: age, monthly, annual: monthly * 12, lifetimeNominal: nominal, lifetimePV: pv };
+  });
+  const best = options.reduce((b, o) => o.lifetimePV > b.lifetimePV ? o : b, options[0]);
+  // Break-even age between the earliest and latest claim: where the later option's
+  // cumulative benefit overtakes the earlier one's.
+  const lo = options[0], hi = options[options.length - 1];
+  let breakevenAge = null, cumLo = 0, cumHi = 0;
+  for (let a = lo.claimAge; a <= longevityAge; a++) {
+    if (a >= lo.claimAge) cumLo += lo.monthly * 12 * Math.pow(1 + cola, a - lo.claimAge);
+    if (a >= hi.claimAge) cumHi += hi.monthly * 12 * Math.pow(1 + cola, a - hi.claimAge);
+    if (a > hi.claimAge && cumHi >= cumLo) { breakevenAge = a; break; }
+  }
+  return { options, best, breakevenAge, longevityAge, fra };
+}
+
+// ── Equity-comp concentration / diversification (Phase 06) ───────────────────
+// RSU/ISO-heavy households often carry a single-stock position far above prudent
+// concentration. Given the concentrated position's market value, its cost basis, the
+// whole invested portfolio, and any unvested value, this measures the concentration as
+// a share of the portfolio, the embedded unrealized gain, the capital-gains tax to fully
+// diversify, and the tax to merely trim back to a target threshold (default 10%). The
+// "tax to trim" makes the cost of de-risking concrete. Returns null without a position.
+function equityCompConcentration({ positionValue = 0, costBasis = 0, totalInvested = 0, unvestedValue = 0, capGainsRatePct = 15, thresholdPct = 10 } = {}) {
+  const pos = Math.max(0, Number(positionValue) || 0);
+  if (pos <= 0) return null;
+  const total = Math.max(pos, Number(totalInvested) || 0);     // the position is part of the total
+  const rate  = (Number(capGainsRatePct) || 0) / 100;
+  const thr   = Math.max(0, Number(thresholdPct) || 0);
+  const concentrationPct = (pos / total) * 100;
+  const gain = Math.max(0, pos - Math.max(0, Number(costBasis) || 0));
+  const gainFraction = pos > 0 ? gain / pos : 0;
+  const taxToFullyDiversify = gain * rate;
+  const targetValue = total * (thr / 100);
+  const excess = Math.max(0, pos - targetValue);               // dollars above the threshold
+  const taxToTrim = excess * gainFraction * rate;
+  return {
+    concentrationPct, gain, gainFraction, taxToFullyDiversify,
+    targetValue, excess, taxToTrim, thresholdPct: thr,
+    concentrated: concentrationPct > thr,
+    unvestedValue: Math.max(0, Number(unvestedValue) || 0),
+  };
+}
+
 const PrismCalc = {
   monthlyExpenseTotal,
   buildValueSeries, modifiedDietz, perfPeriods,
@@ -698,6 +905,9 @@ const PrismCalc = {
   riskProfile, RISK_ALLOCATIONS, assetLocationPlan,
   contributionWaterfall, withdrawalSequence, rothConversionWindow, FED_BRACKETS_2025,
   bracketPosition, termLifePremium, yearsToIndependence, debtVsInvest,
+  mortgagePayoff, hdhpVsPpo, megaBackdoorCapacity,
+  rmdProjection, RMD_UNIFORM_DIVISORS, ssBenefitFactor, socialSecurityClaiming,
+  equityCompConcentration,
 };
 
 if (typeof window !== 'undefined') window.PrismCalc = PrismCalc;

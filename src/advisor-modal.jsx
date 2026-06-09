@@ -1646,7 +1646,27 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                         {a.name && <div style={{ fontSize: 11, color: 'var(--ink-mute)', fontFamily: 'var(--sans)', fontStyle: 'normal' }}>{a.name}</div>}
                       </td>
                       <td style={{ padding: '9px 8px', color: 'var(--ink-mute)' }}>{a.custodian || '—'}</td>
-                      <td style={{ padding: '9px 8px', textAlign: 'right', fontFamily: 'var(--mono, monospace)', color: 'var(--ink)' }}>{fmt$(a.balance, { short: true })}</td>
+                      <td style={{ padding: '9px 8px', textAlign: 'right', fontFamily: 'var(--mono, monospace)', color: 'var(--ink)' }}>
+                        {fmt$(a.balance, { short: true })}
+                        {(() => {
+                          // Balance-freshness ("as of") indicator — raises trust in every projection
+                          // built on this balance. Linked (Plaid) balances that haven't synced in a
+                          // while are flagged; manual entries just show when they were last set.
+                          if (!a.as_of) return null;
+                          const days = Math.floor((Date.now() - new Date(a.as_of).getTime()) / 86400000);
+                          const linked = a.source && a.source !== 'manual';
+                          const stale = linked ? days > 7 : days > 120;
+                          const when = days <= 0 ? 'today' : days === 1 ? 'yesterday'
+                            : days < 30 ? `${days}d ago` : new Date(a.as_of).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                          return (
+                            <div title={`Balance as of ${a.as_of}${linked ? ' · linked via Plaid' : ' · manually entered'}`}
+                              style={{ fontSize: 10, fontWeight: 500, fontFamily: 'var(--sans)', marginTop: 2,
+                                color: stale ? 'var(--brick)' : 'var(--ink-faint)' }}>
+                              {stale ? '⚠ ' : ''}as of {when}
+                            </div>
+                          );
+                        })()}
+                      </td>
                       <td style={{ padding: '9px 8px', textAlign: 'right', fontFamily: 'var(--mono, monospace)', color: a.cash > 0 ? 'var(--brick)' : 'var(--ink-mute)' }}>{a.cash ? fmt$(a.cash, { short: true }) : '—'}</td>
                       <td style={{ padding: '9px 0 9px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                         <button className="px-btn px-btn-sm px-btn-ghost" style={{ marginRight: 4 }} aria-label="Edit account"

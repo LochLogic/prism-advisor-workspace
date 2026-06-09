@@ -144,6 +144,14 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
     ...p, incomeStreams: (p.incomeStreams || []).map(s => s.id === id ? { ...s, [field]: value } : s),
   }));
 
+  // ── Equity compensation (concentrated single-stock positions) ──
+  const eqc = (p) => Array.isArray(p.equityComp) ? p.equityComp : [];
+  const addEquity = () => setProfile(p => ({ ...p, equityComp: [...eqc(p),
+    { id: `eq${Date.now()}`, ticker: '', type: 'rsu', positionValue: 0, costBasis: 0, unvestedValue: 0 }] }));
+  const removeEquity = (id) => setProfile(p => ({ ...p, equityComp: eqc(p).filter(e => e.id !== id) }));
+  const updateEquity = (id, field, value) => setProfile(p => ({
+    ...p, equityComp: eqc(p).map(e => e.id === id ? { ...e, [field]: value } : e) }));
+
   // ── Funding goals (education / home / custom) ──
   const gitems = (p) => (p.goals && Array.isArray(p.goals.items)) ? p.goals.items : [];
   const addGoal = () => setProfile(p => ({ ...p, goals: { ...p.goals, items: [...gitems(p),
@@ -675,6 +683,17 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                         onChange={(e) => updateStream(s.id, 'colaPct', parseFloat(e.target.value) || 0)} />
                       <span className="px-affix px-affix-r">%</span></div>
                   </label>
+                  {s.type === 'social_security' && (
+                    <label className="px-field" style={{ gridColumn: '1 / -1' }}>
+                      <span className="px-field-label">
+                        PIA — benefit at full retirement age (67)
+                        <FieldHint text="Your Primary Insurance Amount: the monthly Social Security benefit at full retirement age (67), from your SSA statement. Powers the claiming-age (62 / 67 / 70) optimizer." />
+                      </span>
+                      <div className="px-input-affix"><span className="px-affix">$</span>
+                        <input type="number" value={s.pia ?? ''} step="100" placeholder="from SSA statement"
+                          onChange={(e) => updateStream(s.id, 'pia', parseFloat(e.target.value) || 0)} /></div>
+                    </label>
+                  )}
                 </div>
               </div>
             ))}
@@ -687,6 +706,70 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
               <NumField label="Balance" path="taxable.balance" value={profile.taxable.balance} step="1000"  onUpdate={update}/>
               <NumField label="Monthly contribution" path="taxable.monthlyContrib" value={profile.taxable.monthlyContrib}  onUpdate={update}/>
             </div>
+          </section>
+
+          {/* Equity compensation — concentrated single-stock positions (RSU / ISO) */}
+          <section style={{ marginBottom: 22 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div className="px-eyebrow">Equity compensation</div>
+              <button className="px-btn px-btn-sm px-btn-ghost" style={{ padding: '3px 8px' }} onClick={addEquity}>
+                <Icons.Plus size={10} /> Add position
+              </button>
+            </div>
+            {(profile.equityComp || []).length === 0 && (
+              <div style={{ padding: '10px 0', textAlign: 'center', color: 'var(--ink-faint)', fontStyle: 'italic', fontSize: 12 }}>
+                RSUs, options, or a concentrated single stock — capture it so the plan can size single-stock risk and the tax cost of diversifying.
+              </div>
+            )}
+            {(profile.equityComp || []).map(e => (
+              <div key={e.id} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 10, marginBottom: 8, background: 'var(--surface)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <input type="text" value={e.ticker} placeholder="Ticker (e.g. NVDA)"
+                    onChange={(ev) => updateEquity(e.id, 'ticker', ev.target.value)}
+                    style={{ fontFamily: 'var(--serif)', fontSize: 13, fontWeight: 500, background: 'none', border: 'none', color: 'var(--ink)', outline: 'none', flex: 1 }} />
+                  <button onClick={() => removeEquity(e.id)} title="Remove" aria-label="Remove position"
+                    style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', padding: '2px 6px', lineHeight: 1 }}>
+                    <Icons.X size={12} />
+                  </button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <label className="px-field">
+                    <span className="px-field-label">Type</span>
+                    <select className="px-select" value={e.type} onChange={(ev) => updateEquity(e.id, 'type', ev.target.value)}>
+                      <option value="rsu">RSU</option>
+                      <option value="iso">ISO (incentive)</option>
+                      <option value="nso">NSO (non-qual)</option>
+                      <option value="espp">ESPP</option>
+                      <option value="other">Other / held shares</option>
+                    </select>
+                  </label>
+                  <label className="px-field">
+                    <span className="px-field-label">Vested value</span>
+                    <div className="px-input-affix"><span className="px-affix">$</span>
+                      <input type="number" value={e.positionValue} step="5000"
+                        onChange={(ev) => updateEquity(e.id, 'positionValue', parseFloat(ev.target.value) || 0)} /></div>
+                  </label>
+                  <label className="px-field">
+                    <span className="px-field-label">
+                      Cost basis
+                      <FieldHint text="What you paid (or the value when RSUs vested and were taxed). Vested value − cost basis = the unrealized gain that diversifying would realize." />
+                    </span>
+                    <div className="px-input-affix"><span className="px-affix">$</span>
+                      <input type="number" value={e.costBasis} step="5000"
+                        onChange={(ev) => updateEquity(e.id, 'costBasis', parseFloat(ev.target.value) || 0)} /></div>
+                  </label>
+                  <label className="px-field">
+                    <span className="px-field-label">
+                      Unvested value
+                      <FieldHint text="Grants not yet vested. They add to the position (and to ordinary income) as they vest, so concentration tends to rebuild without a plan." />
+                    </span>
+                    <div className="px-input-affix"><span className="px-affix">$</span>
+                      <input type="number" value={e.unvestedValue} step="5000"
+                        onChange={(ev) => updateEquity(e.id, 'unvestedValue', parseFloat(ev.target.value) || 0)} /></div>
+                  </label>
+                </div>
+              </div>
+            ))}
           </section>
 
           {/* Insurance — protection capture (life / disability / LTC) */}

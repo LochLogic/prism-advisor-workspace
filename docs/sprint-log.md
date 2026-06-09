@@ -12,6 +12,45 @@
 
 ---
 
+## 2026-06-09 (round 3) — Front-phase parity COMPLETE: the full ranked backlog + its data builds
+
+Closes both the **Front-phase tool parity** and **Client-data builds that unlock tools**
+TODO items in one ship. Build · lint · calc (118 assertions) · check all green; all six
+new tools verified rendering with correct live values via browser-preview DOM checks,
+zero console errors. Frontend auto-deploys on merge. **No migration** (profile is a JSON
+blob — new fields are JSON, not columns), **no secrets, no money.**
+
+**Six new tools (one calc-core fn each, all unit-tested):**
+- **Phase 03 — Mortgage payoff accelerator** (`mortgagePayoff`) — extra principal → months
+  and interest saved, regular vs. accelerated amortization. Completes the P03 debt pair.
+- **Phase 04 — HDHP vs. PPO break-even** (`hdhpVsPpo`) — total annual cost of each plan
+  incl. the HSA tax advantage (employer contribution + tax saved on contributions), with
+  the break-even claims level. **Answers flagged q03.**
+- **Phase 05 — Mega-Backdoor Roth capacity** (`megaBackdoorCapacity`) — after-tax 401(k)
+  room under the §415(c) limit ($70k / $77.5k 50+), gated on a plan-allows toggle.
+  **Answers flagged q02.**
+- **Phase 06 — Equity-comp concentration** (`equityCompConcentration`) — single-stock
+  concentration %, embedded gain, and the cap-gains tax to trim to target vs. fully exit.
+- **Phase 07 — RMD projector** (`rmdProjection`, IRS Uniform Lifetime divisors) — first
+  RMD at 73, lifetime RMDs + tax drag; makes Roth-ladder urgency tangible.
+- **Phase 07 — Social Security claiming age** (`socialSecurityClaiming`) — 62/67/70
+  monthly + lifetime (nominal & PV) and the 62-vs-70 break-even age.
+
+**Data builds (the plays that unlocked the tools):**
+- **SS PIA capture** — `pia` field on `social_security` income streams (numbers-panel,
+  with an inline hint); feeds the claiming optimizer.
+- **Equity-comp fields** — `equityComp[]` on the profile (ticker / type / vested value /
+  cost basis / unvested), captured in a new numbers-panel section; demo seeded with an
+  NVDA position (~13% concentration) so the planner shows real output.
+- **Plaid balance-freshness "as of" indicator** — the advisor accounts table now shows
+  when each balance was last set, flagging linked (Plaid) balances stale >7d and manual
+  entries >120d, raising trust in every projection built on them.
+
+Wiring: `calc-core.cjs` (+6 fns, RMD divisor table, SS factor helper), `calculators.jsx`
+(+6 tools, registry), `data.jsx` (phase `calcs` arrays — P06 migrated off legacy
+`calc`/`calc2`), `store.jsx` (profile fields + `equityConcentration` derived), `numbers-panel.jsx`
+(PIA + equity-comp capture), `advisor-modal.jsx` (freshness indicator), `calc.test.mjs` (+33 assertions).
+
 ## 2026-06-09 (round 2) — Front-phase parity: Freedom Date + Debt-vs-Invest
 
 Second client-utility round, same review. Build · lint · calc · check · e2e ·

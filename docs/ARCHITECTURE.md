@@ -102,9 +102,16 @@ riskProfile, RISK_ALLOCATIONS, assetLocationPlan` · planning-depth (Tier B):
 `contributionWaterfall, withdrawalSequence, rothConversionWindow, FED_BRACKETS_2025` ·
 client-utility: `bracketPosition` (shared bracket-headroom engine), `termLifePremium`
 (illustrative coverage-cost estimate), `yearsToIndependence` (Freedom-Date horizon),
-`debtVsInvest` (pay-down-vs-invest crossover verdict).
+`debtVsInvest` (pay-down-vs-invest crossover verdict) · front-phase parity (2026-06-09):
+`mortgagePayoff` (P03 accelerator), `hdhpVsPpo` (P04 plan break-even), `megaBackdoorCapacity`
+(P05 after-tax 401k room), `rmdProjection` + `RMD_UNIFORM_DIVISORS` (P07 RMDs at 73),
+`ssBenefitFactor` + `socialSecurityClaiming` (P07 62/67/70 optimizer), `equityCompConcentration`
+(P06 single-stock risk + tax-to-diversify).
 ⚠ Client returns are NET of advisory fees, advisor GROSS [see memory: performance-net-of-fees].
-⚠ `FED_BRACKETS_2025` is a dated assumption — reindex annually (like `estateProjection`'s exemption).
+⚠ `FED_BRACKETS_2025`, `RMD_UNIFORM_DIVISORS`, the §415(c) mega-backdoor limit, and SS
+credit/reduction factors are dated assumptions — reindex annually (like `estateProjection`'s exemption).
+Profile JSON gained `equityComp[]` (concentrated positions) and a `pia` field on `social_security`
+income streams; captured in `numbers-panel.jsx`. No migration — profile is a JSON blob.
 
 **`store.jsx`** (via `Object.assign(window,…)`): providers `ProfileProvider/useProfile`,
 `TaskProvider/useTasks`, `ViewProvider/useView`, `NotificationProvider/useNotifications`,
