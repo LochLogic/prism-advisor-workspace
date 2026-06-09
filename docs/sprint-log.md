@@ -12,6 +12,44 @@
 
 ---
 
+## 2026-06-09 — Client-utility tools: coverage gap + bracket headroom (front-phase parity)
+
+Acts on a clean-room review of the client side (2026-06-09). PR #40
+(squash-merged to `main`, `e813a0e`). Build · lint · calc · check · e2e ·
+rls-isolation all green; both tools verified in a browser preview. Frontend
+auto-deploys on merge. **No migration, no secrets, no money.**
+
+**The thesis:** phases 5–7 carried 2–4 interactive tools each; phases 1–4 had one
+apiece — yet those are the earliest-journey households who most need engagement.
+This brings two of the thin front phases up toward parity, in the Roth-window vein
+(one specific, dollar-denominated, advisor-hooked number from data already on file).
+
+**What shipped**
+- **Phase 02 — Income-Protection / Coverage-Gap tool.** Promotes the existing
+  `lifeCoverageGap` from a passive "Protection & estate" card to an interactive tool
+  (adjustable income multiple + coverage in place) and adds `termLifePremium`, a
+  rough age-banded monthly-cost estimate (clearly illustrative, not a quote).
+  Constructive tone — gold "room to strengthen," never alarming red.
+- **Phase 04 — Tax-Bracket Headroom tool.** New shared `calc-core.bracketPosition()`
+  engine reusing `FED_BRACKETS_2025`: marginal rate, blended effective rate, the
+  household's dollars per band ("you are here"), and the **headroom** to the next
+  bracket — the space the Roth-conversion + contribution-order tools fill. Built once,
+  reusable. Both new functions unit-tested (`scripts/calc.test.mjs`).
+- **Advisor chip polish.** The advisor/Request-meeting pill was a floated overlay
+  clipping the hero on the right; moved above the hero, right-aligned, hero lifted a
+  few px to reclaim space. Mobile full-width row unchanged.
+
+**Wiring:** `data.jsx` phase 02 `calcs += coveragegap`, phase 04 `calcs += brackets`;
+registered in the `calculators` registry. ROADMAP + TODO carry the ranked
+**front-phase parity** backlog (Freedom Date, debt-vs-invest, HDHP break-even,
+Mega-Backdoor, RMD, SS optimizer) and the data-build dependencies.
+
+**Files:** `src/calc-core.cjs`, `src/calculators.jsx`, `src/data.jsx`,
+`src/client-portal.jsx`, `src/styles.css`, `scripts/calc.test.mjs`, `docs/ROADMAP.md`,
+`docs/TODO.md`, `docs/ARCHITECTURE.md`.
+
+---
+
 ## 2026-06-08 — Planning depth: decumulation & contribution intelligence (Tier B)
 
 Advanced the **deeper-planning-intelligence priority track** (ROADMAP Tier B), building on
