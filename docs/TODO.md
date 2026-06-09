@@ -19,11 +19,10 @@
 Sequenced to the north star — onboard a first paying advisor. Each item is
 independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
 
-- [ ] **Tax-return / W-2 import (the last open front-phase data play)** — replace the
-  hand-entered marginal rate with a parsed figure; smallest first slice is a W-2 box-1/
-  box-2 capture feeding `bracketPosition`. Folds into Holistiplan-lite below.
 - [ ] **Tax-return insight (Holistiplan-lite)** (Tier B) — upload a 1040 → planning
-  observations into the roadmap + portal.
+  observations into the roadmap + portal. *(The W-2 box-1/box-2 capture feeding
+  `bracketPosition` — the front-phase first slice — shipped 2026-06-09; this is the
+  fuller 1040 layer it folds into.)*
 - [ ] **Advisor MFA (TOTP)** — enforce in the advisor auth path. *↔ may need a
   Supabase Auth toggle (your queue).*
 - [ ] **Product analytics events** — first-party activation events (login, invite,

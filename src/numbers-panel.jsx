@@ -912,8 +912,43 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                 </select>
               </label>
               <NumField label="Marginal rate (%)" path="taxes.marginalRate" value={profile.taxes.marginalRate} prefix={null} step="1"  onUpdate={update}
-                hint="Your combined top tax bracket — the rate on your next dollar of income. Drives tax-advantaged savings estimates." />
+                hint="Your combined top tax bracket — the rate on your next dollar of income. Drives tax-advantaged savings estimates. Import a W-2 below to set this from your actual wages instead of guessing." />
             </div>
+
+            {/* W-2 capture → parsed marginal rate. Box 1 (wages) locates the federal
+                bracket via the shared bracketPosition engine, replacing the
+                hand-entered rate above with a figure off the actual return. */}
+            {(() => {
+              const w2 = profile.taxes.w2 || { box1: 0, box2: 0 };
+              const filing = profile.taxes.filingStatus === 'single' ? 'single' : 'mfj';
+              const res = w2Position({ box1: w2.box1, box2: w2.box2, filingStatus: filing });
+              const hasW2 = (Number(w2.box1) || 0) > 0;
+              const applied = hasW2 && Number(profile.taxes.marginalRate) === res.marginalRatePct;
+              return (
+                <div style={{ marginTop: 12, border: '1px solid var(--border)', borderRadius: 6, padding: 12, background: 'var(--surface)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 10 }}>
+                    <span className="px-eyebrow" style={{ margin: 0 }}>Import from W-2</span>
+                    <FieldHint text="Enter Box 1 (wages, tips, other comp) and Box 2 (federal income tax withheld) from your W-2. We locate your federal bracket from Box 1 and offer it as your marginal rate." />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <NumField label="Box 1 — wages, tips, other comp" path="taxes.w2.box1" value={w2.box1} step="1000" onUpdate={update} />
+                    <NumField label="Box 2 — federal income tax withheld" path="taxes.w2.box2" value={w2.box2} step="100" onUpdate={update} />
+                  </div>
+                  {hasW2 && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 10 }}>
+                      <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.5 }}>
+                        Box 1 lands in the <b>{res.marginalRatePct}%</b> federal bracket
+                        {res.withholdingRate > 0 && <> · withheld <b>{Math.round(res.withholdingRate * 100)}%</b> of wages</>}.
+                      </div>
+                      <button className="px-btn px-btn-sm" disabled={applied} style={{ whiteSpace: 'nowrap' }}
+                        onClick={() => update('taxes.marginalRate', res.marginalRatePct)}>
+                        {applied ? 'Applied' : `Use ${res.marginalRatePct}%`}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </section>
 
           {/* Funding goals — education / home / custom, tracked to a target date */}

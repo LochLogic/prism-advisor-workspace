@@ -38,7 +38,7 @@ const defaultProfile = {
     hsaContrib: 4400, iraContributed: 7000, iraLimit: 7000,
     fourohonekContributed: 23500, fourohonekLimit: 23500, employerMatchPct: 5,
   },
-  taxes:   { marginalRate: 24, filingStatus: 'mfj', state: 'CA' },
+  taxes:   { marginalRate: 24, filingStatus: 'mfj', state: 'CA', w2: { box1: 0, box2: 0 } },
   // Taxable set so the demo's total invested exceeds managed AUM ($4.28M) — this
   // makes the W6 asset-truth strip show a real "managed + held-away = total" split.
   taxable: { balance: 3_200_000, monthlyContrib: 8500 },
@@ -99,7 +99,7 @@ const emptyProfile = {
     hsaContrib: 0, iraContributed: 0, iraLimit: 7000,
     fourohonekContributed: 0, fourohonekLimit: 23500, employerMatchPct: 0,
   },
-  taxes:   { marginalRate: 24, filingStatus: 'mfj', state: '' },
+  taxes:   { marginalRate: 24, filingStatus: 'mfj', state: '', w2: { box1: 0, box2: 0 } },
   taxable: { balance: 0, monthlyContrib: 0 },
   goals:   { age: 45, retireAt: 65, items: [] },
   incomeStreams: [],

@@ -503,6 +503,27 @@ console.log('calc-core unit tests\n');
     'bracketPosition: top bracket has no headroom ceiling and no next rate');
 }
 
+/* ── w2Position (W-2 capture → parsed marginal rate) ────────────────── */
+{
+  // MFJ W-2: Box 1 $150k wages → taxable 120k → 22% band (matches bracketPosition).
+  // Box 2 $18k withheld → 12% effective federal withholding (18,000 / 150,000).
+  const w = C.w2Position({ box1: 150_000, box2: 18_000, filingStatus: 'mfj' });
+  assert(w.wages === 150_000 && w.withheld === 18_000, 'w2Position: passes box1/box2 through as wages/withheld');
+  assert(w.marginalRatePct === 22, 'w2Position: marginal rate parsed from Box 1 via bracketPosition (whole percent)');
+  assert(near(w.withholdingRate, 0.12), 'w2Position: effective withholding = Box 2 / Box 1');
+  assert(near(w.bracket.marginalRate, 0.22), 'w2Position: exposes the underlying bracketPosition result');
+
+  // Filing status collapses to the two bracket tables (mfs/hoh → mfj).
+  const single = C.w2Position({ box1: 60_000, box2: 0, filingStatus: 'single' });
+  assert(single.filingStatus === 'single' && single.marginalRatePct === 12,
+    'w2Position: single Box-1 $60k → 12% band');
+
+  // Empty / zero W-2 is safe: 0 wages → first band, no withholding rate.
+  const z = C.w2Position({});
+  assert(z.wages === 0 && z.withholdingRate === 0 && z.marginalRatePct === 10,
+    'w2Position: empty capture defaults to the first band with no withholding');
+}
+
 /* ── termLifePremium (illustrative coverage cost) ───────────────────── */
 {
   const p = C.termLifePremium({ coverage: 1_000_000, age: 45 });

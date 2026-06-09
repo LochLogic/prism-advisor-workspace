@@ -2,7 +2,7 @@
 
 > **Purpose:** condensed router for AI/dev work. Tells you *which* file owns a
 > concern and what it exports — not every line. Read the named file for deep logic.
-> **Last synced:** 2026-06-09 round-5 code-quality + parity-finish sprint. **Regenerate when:** `build-files.mjs`
+> **Last synced:** 2026-06-09 round-6 W-2 import sprint. **Regenerate when:** `build-files.mjs`
 > load order changes, a `src/*` file is added/split, or `window.db`/`PrismCalc` gain methods.
 
 ---
@@ -103,7 +103,9 @@ perfPeriods, debtPayoffMonths, hsaProjection, monteCarlo, rothLadder, estateProj
 retirementReadiness, goalFunding, annualFeeForAum, lifeCoverageGap, assetComposition,
 riskProfile, RISK_ALLOCATIONS, assetLocationPlan` · planning-depth (Tier B):
 `contributionWaterfall, withdrawalSequence, rothConversionWindow, FED_BRACKETS_2025` ·
-client-utility: `bracketPosition` (shared bracket-headroom engine), `termLifePremium`
+client-utility: `bracketPosition` (shared bracket-headroom engine), `w2Position`
+(W-2 Box-1/Box-2 capture → parsed marginal rate via `bracketPosition` + effective
+withholding rate; front-phase tax-data play, round 6), `termLifePremium`
 (illustrative coverage-cost estimate), `yearsToIndependence` (Freedom-Date horizon),
 `debtVsInvest` (pay-down-vs-invest crossover verdict) · front-phase parity (2026-06-09):
 `mortgagePayoff` (P03 accelerator), `hdhpVsPpo` (P04 plan break-even), `megaBackdoorCapacity`
@@ -116,7 +118,9 @@ reserve-months-of-essentials with disability benefit + elimination period).
 ⚠ `FED_BRACKETS_2025`, `RMD_UNIFORM_DIVISORS`, the §415(c) mega-backdoor limit, and SS
 credit/reduction factors are dated assumptions — reindex annually (like `estateProjection`'s exemption).
 Profile JSON gained `equityComp[]` (concentrated positions) and a `pia` field on `social_security`
-income streams; captured in `numbers-panel.jsx`. No migration — profile is a JSON blob.
+income streams; captured in `numbers-panel.jsx`. Round 6 added `taxes.w2 = { box1, box2 }`
+(W-2 capture; the Numbers-drawer "Import from W-2" block derives the marginal rate from it).
+No migration — profile is a JSON blob.
 
 **`store.jsx`** (via `Object.assign(window,…)`): providers `ProfileProvider/useProfile`,
 `TaskProvider/useTasks`, `ViewProvider/useView`, `NotificationProvider/useNotifications`,
