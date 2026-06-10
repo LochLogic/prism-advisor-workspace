@@ -104,8 +104,9 @@ a demo into a "yes," then depth and reach.
 - **Calendar integration — SHIPPED 2026-06-09 (round 10).** Google + Microsoft OAuth
   connect (tokens server-side only in RLS-sealed `calendar_connections`), week-ahead
   agenda card on the advisor dashboard, scheduled meetings auto-pushed to the
-  connected calendar(s); `freebusy` action available server-side. Gated on
-  migration 033 + the Microsoft creds re-add (human queue). *Open refinements: a
+  connected calendar(s); `freebusy` action available server-side. Migration 033
+  applied + both providers' creds synced 2026-06-10 — only the Azure redirect-URI
+  registration remains (human queue). *Open refinements: a
   free/busy picker inside the meeting scheduler; inbound sync of externally
   created events into Prism meetings.*
 - **Zapier / public API** — connect Prism to the rest of a firm's stack.
@@ -170,8 +171,8 @@ a demo into a "yes," then depth and reach.
   headroom, withholding vs. total tax, standard-vs-itemized bunching, 0% LTCG
   harvesting room, interest/dividend tax drag, IRMAA proximity, QCD eligibility,
   SS provisional income. No OCR/upload — keyed lines keep every observation
-  auditable in a client meeting. *Next when wanted:* advisor-facing flags
-  (quick-view + QBR — queued in TODO), a PDF-upload parse, and state tax.
+  auditable in a client meeting. Advisor-facing flags (quick-view + QBR) shipped
+  2026-06-10 round 11. *Next when wanted:* a PDF-upload parse and state tax.
 - **AI relationship assistant (Gemini) — SHIPPED 2026-06-09** (`ai-assist` edge fn,
   advisor-JWT-gated, key server-side only, every call audited). Four surfaces: AI
   draft in the advisor's message compose, household summary + review talking points
@@ -181,18 +182,20 @@ a demo into a "yes," then depth and reach.
   replies on flagged questions, a QBR-narrative generator for the print packet, and
   cost/latency telemetry once a design partner uses it in anger.
 
-### Advisor-workflow review (2026-06-09) — the "so what" gap
+### Advisor-workflow review (2026-06-09) — the "so what" gap — ALL FIVE RESOLVED
 A seat-of-the-advisor walkthrough (prospect → onboard → plan → meet → bill → comply)
-found the product strong on *diagnosis* and thin on *follow-through*. Five findings,
-all queued in TODO: (1) **insight → action hooks** — tools render verdicts but only
-the SS optimizer writes back to the plan; findings should become agenda items/tasks
-in one click; (2) **document-request flow** — the single most common advisor ask
-(send me your statement/trust doc) has no answer; the vault only takes unprompted
-uploads; (3) **advisor-facing 1040 flags** — the new tax insights render client-side
-only; (4) **prospect proposal packet** — prospect mode lacks a branded closing
-output; (5) **portal fee transparency** — approved invoices never reach the client.
-The theme to carry into future builds: every analytic surface should end in a
-trackable next step, not a read-out.
+found the product strong on *diagnosis* and thin on *follow-through*. Five findings:
+(1) **insight → action hooks — SHIPPED 2026-06-10 (round 11):** advisor-only
+`InsightAction` ("Add to agenda") on the coverage-gap, debt-vs-invest, and
+Roth-window verdicts plus a per-observation "Task" hook on every non-info 1040
+observation — one click creates a client-linked CRM task; (2) **document-request
+flow — SHIPPED round 8**; (3) **advisor-facing 1040 flags — SHIPPED 2026-06-10
+(round 11):** a "1040 flags" strip in the client quick-view (marginal/effective/
+headroom + top non-info observations) and the same observations carried into the
+QBR's Plan flags; (4) **prospect proposal packet — SHIPPED round 8**;
+(5) **portal fee transparency — was already live** (client invoice card with
+download shipped 2026-05-29; the finding was stale). The standing theme: every
+analytic surface should end in a trackable next step, not a read-out.
 
 ### Tier C — Reach & retention
 - **Client PWA + push** — installable client portal + push on new
@@ -254,9 +257,13 @@ Still open: *(none — the bulk-import batch RPC shipped 2026-06-09 round 10:
 per-row fallback while the migration is pending.)*
 
 ### UX backlog (optional, low)
-- Roster swipe actions / richer mobile detail (cards already shipped).
-- Housing ratio coaching + field hints/tooltips (FinFire donors — confirm they fit
-  the advisor voice before porting).
+- ~~Roster swipe actions~~ — SHIPPED 2026-06-10 (round 11): left-swipe on a mobile
+  roster card reveals quick view / roadmap / numbers (touch-only; desktop table
+  untouched).
+- ~~Housing ratio coaching + field hints~~ — SHIPPED 2026-06-10 (round 11), FinFire
+  donors ported to the Numbers drawer: housing-cost-vs-take-home strip with the
+  ~30% guideline marker (On target / A bit high / Stretched) + hints on all five
+  housing fields.
 - **Guardrail:** protect the high-value paths in any future refactor — 1-click demo,
   notification/alert deep-linking, inline question replies, single-screen client
   portal, deep-link routing, and ⌘K command palette.

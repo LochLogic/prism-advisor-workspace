@@ -85,10 +85,28 @@ const BENCHMARKS = [
 const INVOICE_STATUS_TONE = { draft: 'var(--ink-mute)', approved: 'var(--forest)', paid: 'var(--forest)', void: 'var(--ink-faint)' };
 
 /* ─── Roster row ─────────────────────────────────────────────────── */
+/* On phones the row renders as a stacked card (styles.css ≤680px); a left
+   swipe reveals quick actions (quick view · roadmap · numbers). Touch-only —
+   the action strip never renders on desktop, so the table shape is unchanged. */
 const RosterRow = ({ client, onOpen }) => {
   const phase = phaseLabel(client.phase);
+  const { openClientPortal, openClientNumbers } = useView();
+  const [swiped, setSwiped] = useStateAdv(false);
+  const touchRef = React.useRef(null);
+  const onTouchStart = (e) => { const t = e.touches[0]; touchRef.current = { x: t.clientX, y: t.clientY }; };
+  const onTouchEnd = (e) => {
+    const s = touchRef.current; if (!s) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - s.x, dy = t.clientY - s.y;
+    if (Math.abs(dy) < 40) {
+      if (dx < -40) setSwiped(true);
+      else if (dx > 40) setSwiped(false);
+    }
+    touchRef.current = null;
+  };
   return (
-    <tr onClick={() => onOpen(client)}>
+    <tr onClick={() => { if (swiped) { setSwiped(false); return; } onOpen(client); }}
+      onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
       <td>
         <div className="px-client-cell">
           <ClientAvatar client={client} size={32} />
@@ -143,6 +161,21 @@ const RosterRow = ({ client, onOpen }) => {
       <td className="is-num px-hide-mobile">
         <Sparkline seed={client.id.charCodeAt(2) + client.id.charCodeAt(3)} trend={client.recent ? 'up' : 'flat'} color="var(--ink-faint)" width={48} height={16} />
       </td>
+      {swiped && (
+        <td className="px-swipe-actions">
+          <button className="px-btn px-btn-sm px-btn-ghost" onClick={(e) => { e.stopPropagation(); setSwiped(false); onOpen(client); }}>
+            <Icons.Eye size={12} /> Quick view
+          </button>
+          <button className="px-btn px-btn-sm px-btn-ghost" onClick={(e) => { e.stopPropagation(); setSwiped(false); openClientPortal(client); }}>
+            <Icons.ArrowRight size={12} /> Roadmap
+          </button>
+          {!client.isProspect && (
+            <button className="px-btn px-btn-sm px-btn-ghost" onClick={(e) => { e.stopPropagation(); setSwiped(false); openClientNumbers(client); }}>
+              <Icons.Calculator size={12} /> Numbers
+            </button>
+          )}
+        </td>
+      )}
     </tr>
   );
 };

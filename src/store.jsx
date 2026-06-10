@@ -1667,8 +1667,13 @@ function printQBRReport(opts) {
   // Plan flags — concentrated equity comp + the projected first RMD (advisor
   // talking points the front sections don't carry; rendered only when present).
   const _planFlagsHtml = (pf) => {
-    if (!pf || (!pf.equityConcentration && !pf.rmd)) return '';
+    if (!pf || (!pf.equityConcentration && !pf.rmd && !(pf.tax1040 || []).length)) return '';
     const lines = [];
+    // 1040 observations (Holistiplan-lite) — the same flags the client's
+    // tax-return tool shows, carried into the review packet (top 3, non-info).
+    for (const ob of (pf.tax1040 || []).slice(0, 3)) {
+      lines.push(`<div class="rpt-p">1040 &middot; <b>${escapeHtml(ob.title)}</b> — ${escapeHtml(ob.detail)}</div>`);
+    }
     if (pf.equityConcentration) {
       const ec = pf.equityConcentration;
       lines.push(`<div class="rpt-p">Concentrated position${pf.equityTicker ? ` (${escapeHtml(pf.equityTicker)})` : ''}: <b>${ec.concentrationPct.toFixed(0)}% of invested assets</b>${ec.concentrated ? ` — above the ${ec.thresholdPct}% guideline` : ''} &middot; embedded gain ${fmt$(ec.gain, { short: true })} &middot; est. tax to trim to ${ec.thresholdPct}% ≈ ${fmt$(ec.taxToTrim, { short: true })}.</div>`);

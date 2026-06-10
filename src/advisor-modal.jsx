@@ -1141,7 +1141,13 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     const rmd = (age > 0 && age < 73 && deferred > 0) ? C.rmdProjection?.({
       taxDeferredBalance: deferred, currentAge: age,
       marginalRatePct: Number(pd.taxes?.marginalRate) || 22 }) : null;
-    return { equityConcentration, equityTicker: largest?.ticker || '', rmd };
+    // 1040 observations (non-info) — what the client's tax-return tool flags,
+    // carried into the QBR's Plan flags so the advisor leads with it.
+    const t1040 = pd.taxes?.t1040 ? C.tax1040Insights?.({
+      filingStatus: pd.taxes?.filingStatus === 'single' ? 'single' : 'mfj',
+      age: age || 50, lines: pd.taxes.t1040 }) : null;
+    const tax1040 = (t1040?.observations || []).filter(ob => ob.tone !== 'info');
+    return { equityConcentration, equityTicker: largest?.ticker || '', rmd, tax1040 };
   };
 
   /* QBR packet (C4) — assemble a client-ready review from data already on file */
@@ -1285,6 +1291,37 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
 
   return (
     <Modal isOpen={!!client} onClose={onClose} className="px-modal-client">
+      {/* ── Archive confirmation — front and center, not buried in a tab ── */}
+      {confirmArchive && (
+        <div role="alertdialog" aria-modal="true" aria-label={`Archive ${client.shortName}?`}
+          style={{ position: 'absolute', inset: 0, zIndex: 6, background: 'rgba(28,46,74,.45)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'inherit', padding: 24 }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 10,
+            padding: '26px 28px', maxWidth: 380, textAlign: 'center', boxShadow: '0 16px 40px rgba(0,0,0,.25)' }}>
+            <div style={{ width: 40, height: 40, margin: '0 auto 12px', borderRadius: '50%',
+              background: 'var(--brick-soft, rgba(140,61,61,.12))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Icons.X size={18} style={{ color: 'var(--brick)' }} />
+            </div>
+            <h3 style={{ fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 500, color: 'var(--ink)', margin: '0 0 8px' }}>
+              Archive {client.shortName}?
+            </h3>
+            <p style={{ fontSize: 12.5, color: 'var(--ink-mute)', lineHeight: 1.55, margin: '0 0 18px' }}>
+              They leave your roster and stop counting toward your book. Nothing is deleted —
+              the record is retained for compliance and can be restored.
+            </p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+              <button className="px-btn px-btn-ghost" onClick={() => setConfirmArchive(false)} disabled={archiving}>
+                Keep client
+              </button>
+              <button className="px-btn" onClick={archiveClient} disabled={archiving}
+                style={{ background: 'var(--brick)', color: '#fff', borderColor: 'var(--brick)' }}>
+                {archiving ? 'Archiving…' : 'Archive client'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Header ── */}
       <div style={{ padding: '28px 28px 0' }}>
         <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginBottom: 18 }}>
@@ -1321,12 +1358,12 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
               <Icons.Download size={12} /> Print
             </button>
             {/* Discoverable path to removing a household (it archives — RLS keeps
-                the row, the roster drops it). Jumps to the Edit tab with the
-                confirm row armed; the actual destructive click still lives there. */}
+                the row, the roster drops it). Opens the centered confirmation
+                overlay; the destructive click lives there. */}
             {isLiveClient && (
               <button className="px-btn px-btn-sm px-btn-ghost" style={{ color: 'var(--brick)' }}
                 aria-label="Archive this client"
-                onClick={() => { setTab('edit'); setConfirmArchive(true); }}>
+                onClick={() => setConfirmArchive(true)}>
                 <Icons.X size={12} /> Archive
               </button>
             )}
@@ -1455,6 +1492,49 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                     {rp.allocation.equity}/{rp.allocation.fixedIncome}/{rp.allocation.cash} eq·fi·cash
                     <span style={{ fontWeight: 600, color: tone, border: `1px solid ${tone}`, borderRadius: 20, padding: '1px 9px' }}>{rp.band}</span>
                   </span>
+                </div>
+              );
+            })()}
+
+            {/* 1040 flags — what the client's tax-return tool shows them, surfaced
+                advisor-side (top observations off the captured 1040 lines) */}
+            {(() => {
+              const lines = profileData?.taxes?.t1040;
+              if (!lines || !window.PrismCalc?.tax1040Insights) return null;
+              const m = Array.isArray(profileData.members) ? profileData.members : [];
+              const primary = m.find(x => x.role === 'primary') || m[0];
+              const age = advMemberAge(primary) || Number(profileData.goals?.age || 0) || 50;
+              const filing = profileData.taxes?.filingStatus === 'single' ? 'single' : 'mfj';
+              const res = window.PrismCalc.tax1040Insights({ filingStatus: filing, age, lines });
+              if (!res) return null;
+              const flags = res.observations.filter(o => o.tone !== 'info').slice(0, 3);
+              const TONE = { opportunity: 'var(--forest)', watch: 'var(--gold)' };
+              return (
+                <div style={{ marginBottom: 16, padding: '10px 12px', background: 'var(--bg-elev)', borderRadius: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: flags.length ? 8 : 0 }}>
+                    <span style={LABEL_STYLE}>1040 flags</span>
+                    <span style={{ fontSize: 12, color: 'var(--ink-mute)' }}>
+                      {Math.round(res.marginalRate * 100)}% marginal
+                      {res.effectiveRate != null ? ` · ${Math.round(res.effectiveRate * 100)}% effective` : ''}
+                      {isFinite(res.headroom) ? ` · ${fmt$(res.headroom, { short: true })} headroom` : ''}
+                    </span>
+                  </div>
+                  {flags.map(o => (
+                    <div key={o.id} style={{ display: 'flex', gap: 7, alignItems: 'baseline', fontSize: 12, padding: '3px 0' }}>
+                      <span style={{ color: TONE[o.tone] || 'var(--ink-mute)', fontSize: 9 }}>●</span>
+                      <span style={{ color: 'var(--ink)' }}>{o.title}</span>
+                    </div>
+                  ))}
+                  {flags.length > 0 && (
+                    <div style={{ fontSize: 11, color: 'var(--ink-faint)', marginTop: 5 }}>
+                      The same observations the client sees in their roadmap's tax-return tool.
+                    </div>
+                  )}
+                  {flags.length === 0 && (
+                    <div style={{ fontSize: 11.5, color: 'var(--ink-faint)', fontStyle: 'italic', marginTop: 4 }}>
+                      Nothing flagged from the captured lines.
+                    </div>
+                  )}
                 </div>
               );
             })()}
@@ -2282,21 +2362,10 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
             </div>
 
             <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', alignItems: 'center' }}>
-              {confirmArchive ? (
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <span style={{ fontSize: 12, color: 'var(--brick)', fontStyle: 'italic' }}>Archive {client.shortName}?</span>
-                  <button className="px-btn px-btn-sm px-btn-ghost" style={{ color: 'var(--brick)' }}
-                    onClick={archiveClient} disabled={archiving}>
-                    {archiving ? 'Archiving…' : 'Confirm'}
-                  </button>
-                  <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => setConfirmArchive(false)}>Cancel</button>
-                </div>
-              ) : (
-                <button className="px-btn px-btn-sm px-btn-ghost" style={{ color: 'var(--brick)' }}
-                  onClick={() => setConfirmArchive(true)}>
-                  Archive client
-                </button>
-              )}
+              <button className="px-btn px-btn-sm px-btn-ghost" style={{ color: 'var(--brick)' }}
+                onClick={() => setConfirmArchive(true)}>
+                Archive client
+              </button>
               <button className="px-btn px-btn-primary" onClick={saveEdit} disabled={savingEdit}>
                 {savingEdit ? 'Saving…' : 'Save changes'}
               </button>

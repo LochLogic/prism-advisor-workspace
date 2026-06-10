@@ -12,6 +12,51 @@
 
 ---
 
+## 2026-06-10 (round 11) — Insight → action follow-through + UX polish
+
+Four TODO items plus a founder-feedback fix, shipped as one bundle. **No migration,
+no edge-function changes** (no gated deploy needed — Cloudflare picks up the static
+bundle on merge). Build · lint · calc · smoke green; agenda hooks, 1040 tool buttons,
+and housing coaching verified in the live demo preview. Migrations 033 + 034 were
+hand-applied by the founder before this round — the live project is fully in sync.
+
+**Founder feedback: archive confirmation front-and-center** — archiving a client now
+raises a centered in-modal `alertdialog` overlay (icon, "nothing is deleted" retention
+copy, Keep client / Archive client) instead of the old inline confirm buried at the
+bottom of the Edit tab. Both the header Archive button and the Edit-tab button arm it.
+
+**Insight → action hooks (advisor-POV review, top finding)** — new advisor-only
+`InsightAction` component (calculators.jsx): one click turns a tool verdict into a
+client-linked CRM task (`db.createTask`, audit-logged; demo mode → optimistic toast).
+Wired to: coverage-gap verdict (gap + est. premium in the task detail), debt-vs-invest
+(high-APR balances to prioritize), Roth-conversion window (annual amount + ages +
+est. tax), and a compact per-observation "Task" button on every non-info 1040
+observation. Hidden for clients — tools stay client-safe.
+
+**Advisor-facing 1040 flags** — the client quick-view Overview gains a "1040 flags"
+strip (marginal/effective rate + bracket headroom + top-3 non-info `tax1040Insights`
+observations, computed from the loaded profile); `advPlanFlags` now carries the same
+observations into the QBR's **Plan flags** section (`printQBRReport` renders top 3).
+
+**Portal fee transparency — found already shipped (stale TODO)** — the client portal
+has rendered approved/paid invoices with per-invoice download since 2026-05-29
+(`Billing polish: branded invoice PDF + client invoice visibility`, client-portal.jsx
+"Advisory invoices" card + `inv_client_read` RLS from migration 014). Item deleted.
+
+**UX backlog (both FinFire-donor items)** — (1) Numbers-drawer housing: ratio
+coaching strip (housing outflow vs take-home against the ~30% guideline, marker on
+the track, On target / A bit high / Stretched) + field hints on payment/rent, home
+value, mortgage balance, APR, and escrow; (2) roster swipe actions: left-swipe on a
+mobile roster card reveals Quick view / Roadmap / Numbers (touch-only `px-swipe-actions`
+strip; desktop table untouched).
+
+**Ops** — Azure/Microsoft credentials landed in `docs/DocuSign.txt` (gitignored):
+`MS_OAUTH_CLIENT_ID/SECRET/TENANT` set as GitHub repo secrets and synced to Supabase
+via the gated workflow. **Remaining (your queue):** register the
+`https://prismaw.com/oauth/microsoft/callback` redirect URI in the Azure app.
+
+---
+
 ## 2026-06-09 (round 10) — Calendar sync (Google/Microsoft OAuth) + bulk-import RPC
 
 The calendar wedge item plus the last open code-quality item, riding one migration
