@@ -1303,6 +1303,71 @@ async function dbAiAssist(action, context = {}, file = null) {
   } catch (e) { console.warn('[db] aiAssist:', e.message); return null; }
 }
 
+/* ─── Calendar sync (Google / Microsoft, server-side tokens) ─────────
+   OAuth tokens never reach the browser: calendar-oauth handles the consent
+   handshake + connection lifecycle, calendar-events reads/writes the
+   connected calendars. Both are JWT-verified edge functions. */
+async function _calInvoke(fn, body) {
+  if (!_sb()) return null;
+  try {
+    const { data, error } = await _sb().functions.invoke(fn, { body });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    return data;
+  } catch (e) {
+    // "not connected" is an expected state, not a fault worth console noise.
+    if (!/not_connected/.test(e.message)) console.warn(`[db] ${fn}:`, e.message);
+    return { error: e.message };
+  }
+}
+
+// → [{provider, email, connected_at}] | null (demo / unavailable)
+async function dbGetCalendarStatus() {
+  const r = await _calInvoke('calendar-oauth', { action: 'status' });
+  return r && !r.error ? r.connections : null;
+}
+
+// Kick off the consent flow: store a CSRF state, get the provider URL, go.
+async function dbConnectCalendar(provider) {
+  const state = crypto.randomUUID();
+  try { sessionStorage.setItem('px_cal_oauth_state', state); } catch {}
+  const r = await _calInvoke('calendar-oauth', { action: 'auth_url', provider, state });
+  if (!r || r.error || !r.url) return { error: r?.error || 'Calendar connect unavailable.' };
+  window.location.assign(r.url);
+  return { ok: true };
+}
+
+async function dbDisconnectCalendar(provider) {
+  return await _calInvoke('calendar-oauth', { action: 'disconnect', provider });
+}
+
+// → { events: [{provider,title,start,end,allDay,location,link}] } | { error }
+async function dbGetCalendarEvents(days = 7) {
+  return await _calInvoke('calendar-events', { action: 'upcoming', days });
+}
+
+// Push an event (e.g. a scheduled client meeting) to the connected calendar(s).
+async function dbCreateCalendarEvent({ title, start, end, description, location, provider }) {
+  return await _calInvoke('calendar-events', { action: 'create', title, start, end, description, location, provider });
+}
+
+/* ─── Bulk client import (px_bulk_create_clients, migration 034) ─────
+   One transactional round-trip per batch instead of N sequential inserts.
+   Returns the created client rows, or null if the RPC isn't available yet
+   (migration unapplied) — the caller falls back to the per-row path. */
+async function dbBulkCreateClients(rows) {
+  if (!_sb() || !Array.isArray(rows) || !rows.length) return null;
+  try {
+    const out = [];
+    for (let i = 0; i < rows.length; i += 200) {
+      const { data, error } = await _sb().rpc('px_bulk_create_clients', { p_rows: rows.slice(i, i + 200) });
+      if (error) throw error;
+      out.push(...(data || []));
+    }
+    return out;
+  } catch (e) { console.warn('[db] bulkCreateClients:', e.message); return null; }
+}
+
 window.db = {
   getClients:          dbGetClients,
   getBookTotals:       dbGetBookTotals,
@@ -1374,6 +1439,12 @@ window.db = {
   updateFirmBrand:     dbUpdateFirmBrand,
   getBrandForSlug:     dbGetBrandForSlug,
   aiAssist:            dbAiAssist,
+  getCalendarStatus:   dbGetCalendarStatus,
+  connectCalendar:     dbConnectCalendar,
+  disconnectCalendar:  dbDisconnectCalendar,
+  getCalendarEvents:   dbGetCalendarEvents,
+  createCalendarEvent: dbCreateCalendarEvent,
+  bulkCreateClients:   dbBulkCreateClients,
   getTasks:            dbGetTasks,
   mapTask,
   createTask:          dbCreateTask,

@@ -73,6 +73,14 @@ try {
   writeFileSync('_site/login.html',        bust('login.html'));
   writeFileSync('_site/signup.html',       bust('signup.html'));
 
+  // OAuth callback page — one source file served at both provider redirect
+  // URIs (the page reads the provider from its own path). Registered in
+  // Google Cloud / Azure as https://prismaw.com/oauth/{google|microsoft}/callback.
+  for (const prov of ['google', 'microsoft']) {
+    mkdirSync(`_site/oauth/${prov}/callback`, { recursive: true });
+    writeFileSync(`_site/oauth/${prov}/callback/index.html`, bust('oauth-callback.html'));
+  }
+
   // Static legal + security pages (no bundle refs — plain copy).
   for (const p of ['privacy.html', 'terms.html', 'dpa.html', 'security.html']) {
     copyFileSync(p, `_site/${p}`);
@@ -105,7 +113,7 @@ try {
   //   app's dynamic inline styles keep working. The print report (store.jsx) links a
   //   same-origin /src/print.css, which 'self' covers.
   const inlineHashes = new Set();
-  for (const html of [bust('landing.html'), bust('index.html'), bust('portal.html'), bust('login.html'), bust('signup.html')]) {
+  for (const html of [bust('landing.html'), bust('index.html'), bust('portal.html'), bust('login.html'), bust('signup.html'), bust('oauth-callback.html')]) {
     const re = /<script>([\s\S]*?)<\/script>/g;   // bare <script> only — skips src= and application/ld+json
     let m;
     while ((m = re.exec(html)) !== null) {
@@ -127,7 +135,7 @@ try {
   // Inline <style> hashes over every served page that has a <style> block.
   const styleHashes = new Set();
   const styleHostHtml = [
-    bust('landing.html'), bust('login.html'), bust('signup.html'),
+    bust('landing.html'), bust('login.html'), bust('signup.html'), bust('oauth-callback.html'),
     readFileSync('privacy.html', 'utf8'), readFileSync('terms.html', 'utf8'),
     readFileSync('dpa.html', 'utf8'), readFileSync('security.html', 'utf8'),
     ...livePages.map(renderPage),

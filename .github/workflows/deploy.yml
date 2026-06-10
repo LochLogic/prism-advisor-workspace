@@ -55,7 +55,7 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
-          for fn in ai-assist create-checkout-session docusign-connect docusign-envelope \
+          for fn in ai-assist calendar-events calendar-oauth create-checkout-session docusign-connect docusign-envelope \
                     error-digest generate-invoices health \
                     log-error plaid-create-link-token plaid-exchange-token \
                     stripe-webhook worm-export; do

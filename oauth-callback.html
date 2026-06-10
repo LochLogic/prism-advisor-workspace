@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>Prism — Connecting your calendar…</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231c2e4a' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M12 2 3 20h18Z'/><path d='m12 2 4 9-9 4'/></svg>" />
+<script src="/vendor/supabase.js"></script>
+<script src="/src/supabase-client.js"></script>
+<style>
+  :root { --bg:#fafaf7; --ink:#1c2e4a; --ink-mute:#51708a; --border:#e4dfd0; --brick:#8c3d3d; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:var(--bg);
+         min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; }
+  .card { background:#fff; border:1px solid var(--border); border-radius:10px; padding:32px; max-width:420px; text-align:center; }
+  h1 { font-size:17px; font-weight:600; color:var(--ink); margin-bottom:8px; }
+  p { font-size:13px; color:var(--ink-mute); line-height:1.5; }
+  .err { color:var(--brick); }
+  .spin { width:22px; height:22px; margin:0 auto 14px; border:2.5px solid var(--border);
+          border-top-color:var(--ink); border-radius:50%; animation:s .8s linear infinite; }
+  @keyframes s { to { transform:rotate(360deg); } }
+  a { color:var(--ink); }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="spin" id="spin"></div>
+  <h1 id="t">Connecting your calendar…</h1>
+  <p id="m">One moment — finishing the secure handshake.</p>
+</div>
+<script>
+(async function () {
+  var t = document.getElementById('t'), m = document.getElementById('m'), spin = document.getElementById('spin');
+  function fail(msg) {
+    spin.style.display = 'none';
+    t.textContent = 'Calendar connection failed';
+    m.className = 'err';
+    m.innerHTML = '';
+    m.appendChild(document.createTextNode(msg + ' '));
+    var a = document.createElement('a'); a.href = '/app'; a.textContent = 'Back to Prism';
+    m.appendChild(a);
+  }
+  var provider = location.pathname.indexOf('/oauth/microsoft/') === 0 ? 'microsoft' : 'google';
+  var q = new URLSearchParams(location.search);
+  if (q.get('error')) return fail(q.get('error_description') || q.get('error'));
+  var code = q.get('code');
+  if (!code) return fail('No authorization code was returned.');
+  var expected = sessionStorage.getItem('px_cal_oauth_state');
+  if (expected && q.get('state') !== expected) return fail('Security check failed (state mismatch) — please try connecting again.');
+  sessionStorage.removeItem('px_cal_oauth_state');
+  if (!window.__sb) return fail('Could not load the app client.');
+  var sess = (await window.__sb.auth.getSession()).data.session;
+  if (!sess) return fail('You are signed out — sign in to Prism, then connect the calendar again.');
+  try {
+    var r = await window.__sb.functions.invoke('calendar-oauth', { body: { action: 'exchange', provider: provider, code: code } });
+    if (r.error || (r.data && r.data.error)) return fail((r.error && r.error.message) || r.data.error);
+    t.textContent = 'Calendar connected';
+    m.textContent = 'Taking you back to your dashboard…';
+    location.replace('/app#/advisor?calendar=connected');
+  } catch (e) { fail(e.message || 'Unexpected error.'); }
+})();
+</script>
+</body>
+</html>

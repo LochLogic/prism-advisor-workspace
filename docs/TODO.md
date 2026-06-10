@@ -8,9 +8,9 @@
 > queue** (money, credentials, external accounts, legal, host/dashboard settings I
 > can't reach).
 >
-> Baseline reset 2026-06-08. All migrations through `031` are applied, the gated edge
+> Baseline reset 2026-06-08. All migrations through `032` are applied, the gated edge
 > deploy is done, and Realtime-RLS + the `CRON_SECRET` Vault entry are verified — the
-> repo and the live project are in sync.
+> repo and the live project are in sync except migrations `033`/`034` (below).
 
 ---
 
@@ -30,19 +30,12 @@ independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
 - [ ] **Advisor-approval commit gate for client ledger edits** — opt-in draft → review
   → approve flow (pending changeset; per-firm toggle, default OFF). Schema-touching;
   lean on `007_versioning_crm`.
-- [ ] **Calendar integration (Google/Outlook)** — two-way sync, free/busy.
-  *↔ blocked-by-you: OAuth apps.*
 - [ ] **Zapier / public API.**
 - [ ] **Stripe webhook retry-storm hardening** (C0) — `stripe-webhook` returns HTTP
   400 for any exception → Stripe retries ~3 days even for unrecoverable cases. Return
   200 for permanent/unprocessable, 4xx/5xx only for retryable. *↔ money-adjacent;
   deferred by decision — needs the gated `stripe-webhook` edge redeploy with your go.
   Repo intentionally left in sync with what's deployed.*
-- [ ] **Bulk-import batch RPC** (last open code-quality item) — server-side batch
-  insert for CSV imports over a threshold (today N sequential round-trips,
-  non-transactional). Deliberately deferred 2026-06-09: needs a hand-applied
-  migration (`px_bulk_create_clients`), so it ships when a migration is queued
-  anyway. *(The other ten 2026-06-09 code-quality items shipped in round 7.)*
 - [ ] **Insight → action hooks** (2026-06-09 advisor-POV review, top finding) — the
   planning tools diagnose but mostly dead-end: only the SS claiming optimizer writes
   back to the plan. Add a lightweight "Add to agenda / create task" affordance to the
@@ -68,13 +61,23 @@ Things I genuinely can't do — they cost money, need your identity/credentials,
 in dashboards I can't reach. **Bold = the hard blockers gating any live client.**
 Project ref: `phabxcijbbphfxvjedfj` · Domain: `prismaw.com`.
 
-### Apply migration 032 (white-label branding) — **gates the new Branding section**
-- [ ] Run [`supabase/migrations/032_firm_branding.sql`](../supabase/migrations/032_firm_branding.sql)
-  in the Supabase SQL editor (the operating model — migrations are hand-applied).
-  Until then: the firm-admin Branding form saves fail gracefully (no `firms` update
-  policy yet) and subdomain pre-auth branding no-ops (`px_brand_for_slug` missing).
-  Everything else in the 2026-06-09 round-4 ship works without it; the `ai-assist`
-  edge function deploy is independent and handled via the gated deploy workflow.
+### Apply migrations 033 + 034 — **gates calendar sync + fast bulk import**
+- [ ] Run [`033_calendar_connections.sql`](../supabase/migrations/033_calendar_connections.sql)
+  then [`034_bulk_create_clients.sql`](../supabase/migrations/034_bulk_create_clients.sql)
+  in the Supabase SQL editor (hand-applied, the operating model). Until then both
+  fail gracefully: the calendar card's connect flow errors politely, and CSV
+  imports fall back to the existing per-row path.
+
+### Finish Microsoft calendar setup — **Google is live-ready, Microsoft isn't**
+- [ ] **Re-add the Azure credentials** — the Microsoft block (client ID, secret,
+  tenant/directory ID) never made it into `docs/DocuSign.txt` (only Google +
+  DocuSign are in the saved file). Drop them in again and say the word, or set
+  GitHub repo secrets `MS_OAUTH_CLIENT_ID`, `MS_OAUTH_CLIENT_SECRET`,
+  `MS_OAUTH_TENANT` yourself — the gated **Sync edge secrets** workflow pushes
+  whatever is present to Supabase.
+- [ ] In the Azure app registration, add the redirect URI
+  `https://prismaw.com/oauth/microsoft/callback` (Web platform) — the Microsoft
+  twin of the Google one you already registered.
 
 ### Infrastructure to production grade — **the #1 hard blocker**
 - [ ] **Upgrade Supabase to Pro + enable PITR / daily backups.** Free tier auto-pauses
@@ -112,13 +115,6 @@ Project ref: `phabxcijbbphfxvjedfj` · Domain: `prismaw.com`.
 ### External credentials that unblock my feature work
 Each drops into Supabase Edge Function secrets (or tell me the channel) and I build
 against it:
-- [ ] **Google + Microsoft OAuth apps** → unblocks **calendar integration**. Google:
-  Cloud Console → enable Calendar API → OAuth consent (External) → Web-app client →
-  redirect `https://prismaw.com/oauth/google/callback`; hand me Client ID + secret.
-  Microsoft (lower priority): needs a free Entra tenant first (M365 Dev Program or
-  free Azure) → App registration (multi-tenant) → `Calendars.ReadWrite` +
-  `offline_access`; hand me app/client/tenant ids + secret. Scopes are read/write
-  calendar + offline only.
 - [ ] **VAPID keypair** (web-push) → unblocks **client PWA push**. I can generate the
   pair and hand you the split if you'd rather.
 - [ ] *(Optional)* a **scrubbed CRM export** (Wealthbox/Redtail/Orion CSV) in

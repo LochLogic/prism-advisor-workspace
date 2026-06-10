@@ -26,6 +26,13 @@ verify_jwt = true
 [functions.ai-assist]
 verify_jwt = true
 
+# Advisor calendar sync (Google/Microsoft) — connection lifecycle + events.
+[functions.calendar-oauth]
+verify_jwt = true
+
+[functions.calendar-events]
+verify_jwt = true
+
 # Public/system/cron functions. NOTE: generate-invoices and worm-export accept
 # BOTH a pg_cron call (x-cron-secret, no JWT) and an admin call (validated in
 # code via supa.auth.getUser), so the platform gate must be OFF or the cron path

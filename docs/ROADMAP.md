@@ -101,8 +101,13 @@ a demo into a "yes," then depth and reach.
   CSS vars (`--brand` et al.) over both bundles. *Open refinement: the static
   login/landing pages stay Prism-branded pre-auth (theming lives in the app/portal
   bundles); brand the login page when a partner asks.*
-- **Calendar integration** (Google / Outlook two-way sync, free/busy) — removes a
-  rip-and-replace objection. *Needs OAuth apps (human queue).*
+- **Calendar integration — SHIPPED 2026-06-09 (round 10).** Google + Microsoft OAuth
+  connect (tokens server-side only in RLS-sealed `calendar_connections`), week-ahead
+  agenda card on the advisor dashboard, scheduled meetings auto-pushed to the
+  connected calendar(s); `freebusy` action available server-side. Gated on
+  migration 033 + the Microsoft creds re-add (human queue). *Open refinements: a
+  free/busy picker inside the meeting scheduler; inbound sync of externally
+  created events into Prism meetings.*
 - **Zapier / public API** — connect Prism to the rest of a firm's stack.
 
 ### Tier B — Wedge deepeners (retire a paid tool)
@@ -244,10 +249,9 @@ themselves audited; books-and-records artifacts never hard-delete); lint now has
 bundle-structure guards (src/ coverage ↔ `build-files.mjs`, portal-isolation
 assert — the practical form of the load-order guard).
 
-Still open:
-- Bulk import: server-side batch RPC for imports over a threshold (today N sequential
-  round-trips, non-transactional). Migration-gated — ship with the next queued
-  migration (see TODO).
+Still open: *(none — the bulk-import batch RPC shipped 2026-06-09 round 10:
+`px_bulk_create_clients`, migration 034, transactional 200-row batches with a
+per-row fallback while the migration is pending.)*
 
 ### UX backlog (optional, low)
 - Roster swipe actions / richer mobile detail (cards already shipped).
