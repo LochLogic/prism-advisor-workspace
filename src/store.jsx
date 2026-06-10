@@ -491,21 +491,26 @@ const useProfile = () => useContext(ProfileContext);
 /* ─── Phase / task progress ───────────────────────────────────────── */
 const TaskContext = createContext(null);
 
-function TaskProvider({ children }) {
-  const { activeClientId } = useView();
-  const { role, authUser } = (window.useAuth?.() || {});
-
-  const mockSeed = () => {
-    const seed = {};
-    phasesData.forEach((p, i) => {
-      seed[p.id] = {};
-      p.tasks.forEach((t, ti) => {
-        if (i < 4) seed[p.id][t.id] = true;
-        else if (i === 4 && ti < 2) seed[p.id][t.id] = true;
-      });
+// Phase-aware demo task seed: a mock client's roadmap reflects ITS phase —
+// earlier phases complete, two tasks into the current one, nothing beyond.
+// (Was a fixed mid-P05 seed for every demo client, so a P01 household showed
+// tasks done through P05 — founder-reported bug, fixed 2026-06-10.)
+function demoTaskSeed(phase = 4) {
+  const p = Math.max(0, Math.min(Number(phase) || 0, phasesData.length - 1));
+  const seed = {};
+  phasesData.forEach((ph, i) => {
+    seed[ph.id] = {};
+    ph.tasks.forEach((t, ti) => {
+      if (i < p) seed[ph.id][t.id] = true;
+      else if (i === p && ti < 2) seed[ph.id][t.id] = true;
     });
-    return seed;
-  };
+  });
+  return seed;
+}
+
+function TaskProvider({ children }) {
+  const { activeClientId, activeClient } = useView();
+  const { role, authUser } = (window.useAuth?.() || {});
 
   const [taskStates, setTaskStates] = useState({});
   const [openPhases, setOpenPhases] = useState({ 4: true });
@@ -524,7 +529,7 @@ function TaskProvider({ children }) {
       // Mock/demo — load from namespaced localStorage. The demo mid-journey
       // seed is for the sample household only; a prospect with no saved state
       // starts blank (createProspect seeds its chosen starting phase).
-      const fallback = () => isProspectId(activeClientId) ? {} : mockSeed();
+      const fallback = () => isProspectId(activeClientId) ? {} : demoTaskSeed(activeClient?.phase);
       try {
         const saved = JSON.parse(localStorage.getItem(`px_tasks:${activeClientId}`));
         setTaskStates(saved || fallback());
@@ -1881,7 +1886,7 @@ function printInvoiceReport(invoice, clientName, advisorFirm) {
 
 Object.assign(window, {
   ProfileProvider, useProfile, emptyProfile, mergeProfile, openEstateSample,
-  TaskProvider, useTasks,
+  TaskProvider, useTasks, demoTaskSeed,
   ViewProvider, useView,
   NotificationProvider, useNotifications,
   useTheme,

@@ -20,6 +20,18 @@ bundle on merge). Build · lint · calc · smoke green; agenda hooks, 1040 tool 
 and housing coaching verified in the live demo preview. Migrations 033 + 034 were
 hand-applied by the founder before this round — the live project is fully in sync.
 
+**Founder bug: demo roadmap ignored the client's phase** — `TaskProvider`'s demo
+fallback seeded a fixed mid-P05 progress for EVERY mock client, so a P01/P03
+household's quick-view said one phase while the roadmap showed tasks complete
+through P05. Replaced with phase-aware `demoTaskSeed(phase)` (earlier phases
+complete, two tasks into the current one, nothing beyond; exported on window).
+Live clients were never affected — their states come from `task_states`.
+
+**Founder feedback: Current-Horizon subtask line** — the quick-view "Current
+Horizon" tile now carries a second line: `done/total · next: <subtask>` (or
+"phase complete"), loaded from the same sources as the roadmap (DB for live,
+localStorage → phase-aware seed for demo).
+
 **Founder feedback: archive confirmation front-and-center** — archiving a client now
 raises a centered in-modal `alertdialog` overlay (icon, "nothing is deleted" retention
 copy, Keep client / Archive client) instead of the old inline confirm buried at the

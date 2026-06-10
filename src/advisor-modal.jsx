@@ -840,6 +840,33 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     }
   }, [client?.id]);
 
+  // Roadmap task states for the Current-Horizon tile (next open subtask).
+  // Same sources as TaskProvider: DB for live clients, localStorage → the
+  // phase-aware demo seed for mock households.
+  const [qvTasks, setQvTasks] = useStateAdv(null);
+  React.useEffect(() => {
+    setQvTasks(null);
+    if (!client) return;
+    if (window.db?.isUUID(client.id)) {
+      window.db.getTaskStates(client.id).then(s => setQvTasks(s || {}));
+    } else {
+      try {
+        const saved = JSON.parse(localStorage.getItem(`px_tasks:${client.id}`));
+        setQvTasks(saved || window.demoTaskSeed?.(client.phase) || {});
+      } catch { setQvTasks(window.demoTaskSeed?.(client.phase) || {}); }
+    }
+  }, [client?.id]);
+
+  // "Where are they in the phase" — done count + the next open subtask.
+  const horizonSub = React.useMemo(() => {
+    const p = (window.phasesData || [])[client?.phase];
+    if (!p || !qvTasks) return null;
+    const states = qvTasks[p.id] || {};
+    const done = p.tasks.filter(t => states[t.id]).length;
+    const next = p.tasks.find(t => !states[t.id]);
+    return { done, total: p.tasks.length, next: next?.label || null };
+  }, [client?.phase, qvTasks]);
+
   // Mark the client's messages read when the advisor opens the Messages tab.
   React.useEffect(() => {
     if (tab === 'messages' && client && window.db?.isUUID(client.id)) {
@@ -1437,12 +1464,21 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
               {[
                 { label: 'AUM', value: client.aum ? fmt$(client.aum, { short: true }) : '—', color: 'var(--ink)' },
-                { label: 'Current Horizon', value: `P${phase.num} · ${phase.title}`, color: 'var(--ink)', small: true },
+                { label: 'Current Horizon', value: `P${phase.num} · ${phase.title}`, color: 'var(--ink)', small: true,
+                  sub: horizonSub ? (horizonSub.next
+                    ? `${horizonSub.done}/${horizonSub.total} · next: ${horizonSub.next}`
+                    : `${horizonSub.done}/${horizonSub.total} · phase complete`) : null },
                 { label: 'Uninvested cash', value: client.uninvestedCash ? fmt$(client.uninvestedCash, { short: true }) : '—', color: client.uninvestedCash > 80_000 ? 'var(--brick)' : 'var(--ink)' },
-              ].map(({ label, value, color, small }) => (
+              ].map(({ label, value, color, small, sub }) => (
                 <div key={label} style={{ padding: 12, background: 'var(--bg-elev)', borderRadius: 6 }}>
                   <div className="px-portstat-label">{label}</div>
                   <div style={{ fontFamily: 'var(--serif)', fontSize: small ? 14 : 19, fontWeight: 500, color, marginTop: 5, lineHeight: 1.3 }}>{value}</div>
+                  {sub && (
+                    <div title={sub} style={{ fontSize: 10.5, color: 'var(--ink-mute)', marginTop: 4, lineHeight: 1.35,
+                      display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                      {sub}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
