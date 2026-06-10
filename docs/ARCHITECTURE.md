@@ -2,7 +2,7 @@
 
 > **Purpose:** condensed router for AI/dev work. Tells you *which* file owns a
 > concern and what it exports — not every line. Read the named file for deep logic.
-> **Last synced:** 2026-06-09 round-9 sprint (Numbers-drawer UX · prospect-flow fixes · W-2s · estate samples). **Regenerate when:** `build-files.mjs`
+> **Last synced:** 2026-06-09 round-10 sprint (calendar sync · bulk-import RPC). **Regenerate when:** `build-files.mjs`
 > load order changes, a `src/*` file is added/split, or `window.db`/`PrismCalc` gain methods.
 
 ---
@@ -63,9 +63,9 @@ src/
   styles.css / print.css   hand-authored CSS (print.css = report/invoice print layout)
 
 supabase/
-  migrations/001-032   schema evolution (names are self-describing; 001 = base schema)
+  migrations/001-034   schema evolution (names are self-describing; 001 = base schema)
   functions/           Edge Functions (Deno) — see §6
-  functions/_shared/   auth.ts, cors.ts, docusign.ts, fees.ts (canonical BACKEND fee math)
+  functions/_shared/   auth.ts, cors.ts, docusign.ts, calendar.ts (provider plumbing), fees.ts (canonical BACKEND fee math)
   tests/               integration.sql, rls_isolation.sql (tenant-isolation proofs)
   config.toml
 
@@ -97,6 +97,10 @@ e2e/demo.spec.ts       Playwright smoke
 - Misc: `getPhases, getBalanceHistory, getBookBalanceHistory, getTasks/createTask/updateTask/deleteTask, isUUID, timeAgo`
 - Branding/AI (2026-06-09): `getFirmBrand, updateFirmBrand, getBrandForSlug` (anon RPC
   `px_brand_for_slug`, migration 032), `aiAssist(action, context)` → `ai-assist` edge fn
+- Calendar (round 10): `getCalendarStatus, connectCalendar(provider), disconnectCalendar,
+  getCalendarEvents(days), createCalendarEvent` → `calendar-oauth`/`calendar-events` edge
+  fns (tokens server-side only, `calendar_connections` migration 033); `bulkCreateClients`
+  → `px_bulk_create_clients` RPC (migration 034; importer falls back per-row if missing)
 
 **`window.PrismCalc`** (`src/calc-core.cjs`) — pure financial math (frontend copy; backend
 copy is `functions/_shared/fees.ts`): `monthlyExpenseTotal, buildValueSeries, modifiedDietz,
@@ -185,6 +189,8 @@ mirrored in `src/brand-boot.js` for the pre-auth pages).
 | `plaid-create-link-token` / `plaid-exchange-token` | Plaid Link → import account balances |
 | `worm-export` | SEC 17a-4 audit-log retention export → private bucket |
 | `ai-assist` | Advisor JWT → Gemini (server-side key): draft_reply / household_summary / talking_points / attention / w2_extract (round 9 — base64 image/PDF ≤4 MB via `file`, JSON box extraction) |
+| `calendar-oauth` | Advisor JWT → Google/Microsoft calendar connect lifecycle (auth_url / exchange / status / disconnect); tokens → `calendar_connections` (service-role only) |
+| `calendar-events` | Advisor JWT → upcoming / freebusy / create across connected calendars; auto token refresh. Callback pages: `/oauth/{google,microsoft}/callback` (one `oauth-callback.html`, written twice by build.mjs) |
 | `log-error` | Public sink for client error reporter |
 | `error-digest` | Cluster new client_errors → Slack alert |
 | `health` | Pipeline liveness probe |

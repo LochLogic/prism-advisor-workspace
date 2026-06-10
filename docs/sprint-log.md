@@ -12,6 +12,55 @@
 
 ---
 
+## 2026-06-09 (round 10) — Calendar sync (Google/Microsoft OAuth) + bulk-import RPC
+
+The calendar wedge item plus the last open code-quality item, riding one migration
+train. **Two hand-apply migrations queued (033, 034)** and **two new edge functions**
+(`calendar-oauth`, `calendar-events`) deployed via the gated workflow. Build · lint ·
+calc · smoke green.
+
+**Calendar integration (Google + Microsoft)**
+- **Migration 033 — `calendar_connections`**: per-advisor OAuth tokens; RLS enabled
+  with ZERO policies (service-role only — tokens never cross the API boundary; do
+  not add client-facing policies).
+- **Edge fn `calendar-oauth`** (JWT): `auth_url` / `exchange` / `status` /
+  `disconnect` (best-effort Google revoke). **Edge fn `calendar-events`** (JWT):
+  `upcoming` (merged + sorted across providers; per-connection failures degrade to
+  warnings), `freebusy` (busy blocks), `create` (push an event; refresh-token
+  rotation persisted). Shared plumbing in `functions/_shared/calendar.ts`.
+- **Callback page**: one static `oauth-callback.html` served at BOTH
+  `/oauth/google/callback` and `/oauth/microsoft/callback` (build.mjs writes both;
+  the page reads the provider from its own path, checks the sessionStorage CSRF
+  `state`, calls `exchange` with the signed-in session, bounces back to `/app`).
+  Its inline script + style are CSP-hashed like every other served page.
+- **Frontend**: `db.getCalendarStatus / connectCalendar / disconnectCalendar /
+  getCalendarEvents / createCalendarEvent`; a "This week" CalendarCard on the
+  advisor dashboard sidebar (connect buttons → 7-day agenda; demo agenda in demo
+  mode); scheduling a future meeting in the client preview auto-pushes it to the
+  connected calendar(s) (fire-and-forget; "not_connected" is silent).
+- **Secrets pipeline**: new gated `sync-secrets.yml` workflow pushes
+  `GOOGLE_OAUTH_CLIENT_ID/SECRET` + `MS_OAUTH_CLIENT_ID/SECRET/TENANT` from GitHub
+  repo secrets into Supabase edge secrets (skips empties; values never logged).
+  Google repo secrets are set. **Microsoft creds never made it into
+  docs/DocuSign.txt — re-add (human queue)**, and register the
+  `/oauth/microsoft/callback` redirect URI in Azure.
+
+**Bulk-import batch RPC (last open 2026-06-09 code-quality item)**
+- **Migration 034 — `px_bulk_create_clients(jsonb)`**: SECURITY INVOKER (RLS does
+  the authz; identity from the session, never the payload), one transaction per
+  call — client insert + imported profile + placeholder AUM account + totals +
+  `px_audit` per row, ≤500 rows/call.
+- **Frontend**: CSV imports ≥20 rows go through the RPC in 200-row batches; if the
+  RPC is missing (migration unapplied) the importer silently falls back to the
+  existing per-row path.
+
+**Human hand-off** (mirrored in TODO): apply migrations 033 + 034 in the SQL
+editor; re-add the Azure/Microsoft credentials; add the Microsoft redirect URI;
+the Sync edge secrets + deploy workflows handle the rest. Google is otherwise
+live-ready end to end.
+
+---
+
 ## 2026-06-09 (round 9) — Founder feedback batch: Numbers-drawer UX + prospect-flow fixes
 
 Eleven direct founder-feedback items in one pass. Build · lint · calc · smoke green;

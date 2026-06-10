@@ -332,6 +332,137 @@ const FlaggedQuestion = ({ q, onDismiss, clients, authUser, onOpenClient }) => {
   );
 };
 
+/* ─── Calendar (Google / Outlook sync) ───────────────────────────── */
+const CAL_PROVIDERS = [
+  { id: 'google',    label: 'Google Calendar' },
+  { id: 'microsoft', label: 'Outlook Calendar' },
+];
+
+const _calDayLabel = (iso) => {
+  const d = new Date(iso), today = new Date();
+  const day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((day(d) - day(today)) / 86400000);
+  if (diff === 0) return 'Today';
+  if (diff === 1) return 'Tomorrow';
+  return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+};
+const _calTime = (iso) => new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+
+const DEMO_CAL_EVENTS = (() => {
+  const at = (days, h, dur) => {
+    const s = new Date(); s.setDate(s.getDate() + days); s.setHours(h, 0, 0, 0);
+    return { start: s.toISOString(), end: new Date(s.getTime() + dur * 60000).toISOString() };
+  };
+  return [
+    { id: 'd1', provider: 'google', title: 'Quarterly review — The Hartwells', allDay: false, link: null, ...at(0, 14, 60) },
+    { id: 'd2', provider: 'google', title: 'Intro call — Rivera prospect',     allDay: false, link: null, ...at(1, 10, 30) },
+    { id: 'd3', provider: 'google', title: 'Roth conversion walkthrough — The Okafors', allDay: false, link: null, ...at(3, 15, 45) },
+  ];
+})();
+
+const CalendarCard = ({ isLive }) => {
+  const [conns, setConns]   = useStateAdv(null);  // null = loading · [] = none connected
+  const [events, setEvents] = useStateAdv(null);
+  const [err, setErr]       = useStateAdv('');
+  const [busy, setBusy]     = useStateAdv(false);
+
+  const load = React.useCallback(async () => {
+    if (!isLive) { setConns([{ provider: 'google', email: 'you@yourfirm.com' }]); setEvents(DEMO_CAL_EVENTS); return; }
+    const c = await window.db.getCalendarStatus();
+    setConns(c || []);
+    if (c && c.length) {
+      const r = await window.db.getCalendarEvents(7);
+      if (r && !r.error) setEvents(r.events || []);
+      else setErr(r?.error === 'not_connected' ? '' : (r?.error || ''));
+    }
+  }, [isLive]);
+  React.useEffect(() => { load(); }, [load]);
+
+  const connect = async (provider) => {
+    setBusy(true); setErr('');
+    const r = await window.db.connectCalendar(provider); // navigates away on success
+    if (r?.error) { setErr(r.error); setBusy(false); }
+  };
+  const disconnect = async (provider) => {
+    if (!window.confirm('Disconnect this calendar? Prism keeps no copy of its events.')) return;
+    await window.db.disconnectCalendar(provider);
+    setEvents(null); load();
+  };
+
+  const connected = conns || [];
+  return (
+    <div className="px-side-section">
+      <div className="px-side-head">
+        <h3><Icons.Calendar size={13} style={{ verticalAlign: 'middle', marginRight: 4, color: 'var(--gold)' }} /> This week</h3>
+        {connected.length > 0 && <span className="px-side-count">{(events || []).length} event{(events || []).length !== 1 ? 's' : ''}</span>}
+      </div>
+
+      {err && <div style={{ fontSize: 11.5, color: 'var(--brick)', marginBottom: 8 }}>{err}</div>}
+
+      {conns === null ? (
+        <div style={{ padding: '12px 0', fontSize: 12, color: 'var(--ink-faint)', fontStyle: 'italic' }}>Checking calendar…</div>
+      ) : connected.length === 0 ? (
+        <div style={{ padding: '6px 0 2px' }}>
+          <div style={{ fontSize: 12, color: 'var(--ink-mute)', lineHeight: 1.5, marginBottom: 10 }}>
+            Connect your calendar to see the week ahead and push scheduled client meetings automatically.
+          </div>
+          {CAL_PROVIDERS.map(p => (
+            <button key={p.id} className="px-btn px-btn-sm px-btn-ghost" disabled={busy}
+              style={{ width: '100%', justifyContent: 'center', marginBottom: 6 }}
+              onClick={() => connect(p.id)}>
+              <Icons.Calendar size={12} /> Connect {p.label}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <>
+          {(events || []).slice(0, 6).map(e => (
+            <div key={`${e.provider}-${e.id}`} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '7px 0', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ flexShrink: 0, width: 64 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-2)' }}>{_calDayLabel(e.start)}</div>
+                <div style={{ fontSize: 10.5, color: 'var(--ink-faint)' }}>{e.allDay ? 'All day' : _calTime(e.start)}</div>
+              </div>
+              <div style={{ flex: 1, minWidth: 0, fontSize: 12, color: 'var(--ink)', lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {e.title}
+              </div>
+              {e.link && (
+                <a href={e.link} target="_blank" rel="noopener noreferrer" title="Open in calendar"
+                  style={{ flexShrink: 0, color: 'var(--ink-faint)', marginTop: 2 }}>
+                  <Icons.ExternalLink size={11} />
+                </a>
+              )}
+            </div>
+          ))}
+          {events !== null && events.length === 0 && (
+            <div style={{ padding: '12px 0', textAlign: 'center', color: 'var(--ink-faint)', fontStyle: 'italic', fontSize: 12.5 }}>
+              Nothing on the calendar this week.
+            </div>
+          )}
+          <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+            {connected.map(c => (
+              <span key={c.provider} title={c.email || ''} style={{ fontSize: 10.5, color: 'var(--ink-faint)' }}>
+                {CAL_PROVIDERS.find(p => p.id === c.provider)?.label || c.provider}
+                {isLive && (
+                  <button onClick={() => disconnect(c.provider)} title="Disconnect"
+                    style={{ border: 'none', background: 'none', color: 'var(--ink-faint)', cursor: 'pointer', fontSize: 10.5, padding: '0 2px', textDecoration: 'underline' }}>
+                    ×
+                  </button>
+                )}
+              </span>
+            ))}
+            {isLive && connected.length < CAL_PROVIDERS.length && (
+              <button className="px-btn px-btn-sm px-btn-ghost" disabled={busy} style={{ marginLeft: 'auto' }}
+                onClick={() => connect(CAL_PROVIDERS.find(p => !connected.some(c => c.provider === p.id)).id)}>
+                + {CAL_PROVIDERS.find(p => !connected.some(c => c.provider === p.id)).label.split(' ')[0]}
+              </button>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
 /* ─── Roster section ─────────────────────────────────────────────── */
 /* ─── Pipeline board (CRM) ───────────────────────────────────────── */
 const PipelineBoard = ({ clients, onOpen, onMove }) => (
@@ -1009,6 +1140,9 @@ const AdvisorDashboard = () => {
             }}
           />
         </div>
+
+        {/* Calendar — week ahead from the connected Google/Outlook calendar */}
+        <CalendarCard isLive={isLiveMode} />
 
         {/* Tasks — next actions across the book (CRM) */}
         {(isLiveMode || isDemo) && (

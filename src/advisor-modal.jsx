@@ -445,6 +445,43 @@ const BulkImportModal = ({ isOpen, onClose, advisorId, firmId, onImported }) => 
     if (!advisorId || !firmId) { setError('Importing needs a live session.'); return; }
     setStep('importing'); setProgress(0);
     const created = [], errors = [];
+
+    // Larger files go through px_bulk_create_clients (one transactional
+    // round-trip per 200-row batch, migration 034). If the RPC isn't there
+    // yet, fall through to the per-row path below.
+    if (rows.length >= 20) {
+      const payload = [];
+      let skipped = 0;
+      for (const r of rows) {
+        const f = buildRow(r);
+        if (!f.household_name) { skipped++; continue; }
+        const partial = {};
+        if (f.monthlyTakehome   != null) partial.income     = { monthlyTakehome: f.monthlyTakehome };
+        if (f.emergency         != null) partial.savings    = { emergency: f.emergency };
+        if (f.taxableBalance    != null) partial.taxable    = { balance: f.taxableBalance };
+        if (f.retirementBalance != null) partial.retirement = { fourohonekBalance: f.retirementBalance };
+        payload.push({
+          household_name: f.household_name,
+          short_name:     f.short_name || '',
+          household_tag:  f.household_tag || '',
+          aum:            (f.aum != null && f.aum > 0) ? f.aum : null,
+          profile:        (Object.keys(partial).length && window.mergeProfile)
+                            ? window.mergeProfile(window.emptyProfile, partial) : null,
+        });
+      }
+      const bulk = payload.length ? await window.db.bulkCreateClients(payload) : [];
+      if (bulk) {
+        const mapped = bulk.map(window.db.mapClient);
+        if (skipped) errors.push(`Skipped ${skipped} row${skipped !== 1 ? 's' : ''} with no household name`);
+        setProgress(rows.length);
+        if (mapped.length) onImported(mapped);
+        setResult({ created: mapped.length, failed: skipped, errors });
+        setStep('done');
+        return;
+      }
+      // RPC unavailable (e.g. migration not applied yet) — per-row fallback.
+    }
+
     for (let i = 0; i < rows.length; i++) {
       const f = buildRow(rows[i]);
       setProgress(i + 1);
@@ -975,6 +1012,17 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
       setMeetings(prev => [row, ...(prev || [])]);
       setMeetingForm(null);
       showToast(status === 'confirmed' ? 'Meeting scheduled' : 'Meeting logged');
+      // Push scheduled meetings to the advisor's connected calendar(s).
+      // Fire-and-forget: a missing connection ("not_connected") is a no-op.
+      if (status === 'confirmed' && window.db.isUUID(client.id)) {
+        const durMin = Number(row.duration_min) || 60;
+        window.db.createCalendarEvent({
+          title: `Client meeting — ${client.name || client.shortName || 'household'}`,
+          start: row.met_at,
+          end: new Date(new Date(row.met_at).getTime() + durMin * 60000).toISOString(),
+          description: row.notes || 'Scheduled in Prism.',
+        }).then(r => { if (r?.ok) showToast('Added to your calendar'); });
+      }
     } else {
       showToast('Could not save meeting — check console');
     }
