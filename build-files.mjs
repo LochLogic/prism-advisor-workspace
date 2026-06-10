@@ -33,6 +33,7 @@ export const sourceFiles = [
   'src/advisor-modal.jsx',
   'src/advisor-dashboard.jsx',
   'src/firm-admin.jsx',
+  'src/platform-admin.jsx',
   'src/app.jsx',
 ];
 

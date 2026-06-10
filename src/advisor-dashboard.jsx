@@ -688,6 +688,90 @@ const EmptyRoster = ({ onAddClient, onAddProspect, onAddSample, onImport, sampli
 
 
 /* ─── Main Advisor Dashboard ─────────────────────────────────────── */
+/* ─── Client ledger updates awaiting review (commit gate, migration 036) ───
+   Shown only when the firm has the approval gate on AND a client draft exists
+   (the section stays silent otherwise — the gate is per-firm opt-in, default
+   OFF). Approve writes the proposed profile through the advisor's own RLS
+   path; decline returns it to the client with a note. */
+const LedgerApprovalCard = ({ row, authUser, onDone, onOpenClient, clients }) => {
+  const [expanded, setExpanded] = React.useState(false);
+  const [declining, setDeclining] = React.useState(false);
+  const [note, setNote] = React.useState('');
+  const [busy, setBusy] = React.useState(false);
+  const [current, setCurrent] = React.useState(undefined); // saved profile, for the section diff
+  const name = row.clients?.short_name || row.clients?.household_name || 'Client';
+  const client = (clients || []).find(c => c.id === row.client_id);
+
+  React.useEffect(() => {
+    if (!expanded || current !== undefined) return;
+    window.db.getProfile(row.client_id).then(p => setCurrent(p || {}));
+  }, [expanded]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const SECTION_LABELS = { members: 'Household', income: 'Income', incomeStreams: 'Income streams',
+    expenses: 'Expenses', debts: 'Debts', savings: 'Savings', retirement: 'Retirement',
+    taxable: 'Taxable investing', housing: 'Housing', properties: 'Properties', insurance: 'Insurance',
+    goals: 'Goals', estate: 'Estate', taxes: 'Taxes', equityComp: 'Equity comp', risk: 'Risk profile' };
+  const changedSections = React.useMemo(() => {
+    if (!current) return null;
+    const keys = new Set([...Object.keys(row.payload || {}), ...Object.keys(current || {})]);
+    return [...keys]
+      .filter(k => JSON.stringify(row.payload?.[k]) !== JSON.stringify(current?.[k]))
+      .map(k => SECTION_LABELS[k] || k);
+  }, [current, row.payload]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const decide = async (approve) => {
+    setBusy(true);
+    const out = await window.db.reviewLedgerChange(row, authUser?.id, approve, approve ? null : note.trim());
+    setBusy(false);
+    if (out) onDone(row.id, approve);
+  };
+
+  return (
+    <div className="px-card" style={{ padding: '10px 12px', marginBottom: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', cursor: client ? 'pointer' : 'default' }}
+            onClick={() => client && onOpenClient(client)}
+            title={client ? `Open ${name}` : undefined}>{name}</div>
+          <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 1 }}>
+            Updated their numbers {window.db.timeAgo ? window.db.timeAgo(row.updated_at) : ''}
+          </div>
+        </div>
+        <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => setExpanded(v => !v)}>
+          {expanded ? 'Hide' : 'What changed'}
+        </button>
+      </div>
+      {expanded && (
+        <div style={{ fontSize: 11.5, color: 'var(--ink-mute)', margin: '8px 0 2px' }}>
+          {changedSections === null ? 'Comparing…'
+            : changedSections.length === 0 ? 'No differences from the saved profile — safe to approve.'
+            : <>Changed: <b style={{ color: 'var(--ink)' }}>{changedSections.join(', ')}</b>. Open the household's Numbers drawer for the full picture.</>}
+        </div>
+      )}
+      {declining ? (
+        <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+          <input className="px-input" style={{ flex: 1, fontSize: 12 }} value={note} autoFocus
+            placeholder="A short note for the client (optional)"
+            onChange={e => setNote(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') decide(false); }} />
+          <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => setDeclining(false)}>Cancel</button>
+          <button className="px-btn px-btn-sm px-btn-ghost" style={{ color: 'var(--brick)' }} disabled={busy}
+            onClick={() => decide(false)}>Return</button>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+          <button className="px-btn px-btn-sm px-btn-primary" disabled={busy} onClick={() => decide(true)}>
+            <Icons.Check size={11} /> {busy ? 'Saving…' : 'Approve & save'}
+          </button>
+          <button className="px-btn px-btn-sm px-btn-ghost" disabled={busy} onClick={() => setDeclining(true)}>
+            Return with note
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const AdvisorDashboard = () => {
   const { authUser, isDemo } = useAuth();
   const { openClientPortal, showToast, activeClientId, activeClient, setActiveClient } = useView();
@@ -709,6 +793,7 @@ const AdvisorDashboard = () => {
   const [dbQuestions,   setDbQuestions]   = useStateAdv(undefined);
   const [dbTasks,       setDbTasks]       = useStateAdv(undefined);
   const [dbTotals,      setDbTotals]      = useStateAdv(null);
+  const [dbLedgerDrafts, setDbLedgerDrafts] = useStateAdv([]);
 
   // Fetch from Supabase when advisor auth record is available
   React.useEffect(() => {
@@ -729,6 +814,9 @@ const AdvisorDashboard = () => {
     window.db.getTasks(id, { includeDone: false }).then(rows => {
       setDbTasks(rows ? rows.map(window.db.mapTask) : []);
     });
+    // Approval-gate inbox (null until migration 036 / when the gate is off —
+    // the section renders nothing in that case).
+    window.db.getPendingLedgerChanges?.().then(rows => setDbLedgerDrafts(rows || []));
   }, [authUser?.id]);
 
   const [demoDoneTasks, setDemoDoneTasks] = useStateAdv(new Set());
@@ -1220,6 +1308,23 @@ const AdvisorDashboard = () => {
                 No open tasks — you're clear.
               </div>
             )}
+          </div>
+        )}
+
+        {dbLedgerDrafts.length > 0 && (
+          <div className="px-side-section">
+            <div className="px-side-head">
+              <h3><Icons.Check size={13} style={{ verticalAlign: 'middle', marginRight: 4, color: 'var(--gold)' }} /> Client updates to review</h3>
+              <span className="px-side-count">{dbLedgerDrafts.length} waiting</span>
+            </div>
+            {dbLedgerDrafts.map(row => (
+              <LedgerApprovalCard key={row.id} row={row} authUser={authUser}
+                clients={activeClients} onOpenClient={openClientPortal}
+                onDone={(id, approved) => {
+                  setDbLedgerDrafts(prev => prev.filter(r => r.id !== id));
+                  showToast(approved ? 'Approved — household profile updated' : 'Returned to the client with your note');
+                }} />
+            ))}
           </div>
         )}
 

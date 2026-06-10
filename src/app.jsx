@@ -3,13 +3,13 @@
 // Captured once at load (before React rewrites the hash): did the user arrive on
 // an explicit deep link? If so, role-based view-homing must not override it.
 const __pxHadDeepLink = typeof window !== 'undefined'
-  && /^#\/(advisor|admin|client)/.test(window.location.hash || '');
+  && /^#\/(advisor|admin|client|platform)/.test(window.location.hash || '');
 
 /* LoadingScreen, NotificationBell, SecurityModal, AccountChip now live in
    src/shell.jsx (shared by the advisor app and the client portal). */
 
 /* ─── Topbar ──────────────────────────────────────────────────────── */
-const Topbar = ({ onOpenNumbers, dark, toggleTheme }) => {
+const Topbar = ({ onOpenNumbers, dark, toggleTheme, platformOwner }) => {
   const { view, setView, activeClient, setActiveClient } = useView();
   const { role, isDemo } = useAuth();
   const brand = useFirmBrand();
@@ -32,7 +32,7 @@ const Topbar = ({ onOpenNumbers, dark, toggleTheme }) => {
           : <div className="px-brand-mark"><Icons.Prism size={15} /></div>}
         <div>
           <div className="px-brand-name">{brand?.name || 'Prism'}</div>
-          <div className="px-brand-sub">{view === 'client' ? 'Client Portal' : view === 'admin' ? 'Firm Admin' : 'Advisor Workspace'}</div>
+          <div className="px-brand-sub">{view === 'client' ? 'Client Portal' : view === 'admin' ? 'Firm Admin' : view === 'platform' ? 'Platform Owner' : 'Advisor Workspace'}</div>
         </div>
       </div>
 
@@ -57,6 +57,14 @@ const Topbar = ({ onOpenNumbers, dark, toggleTheme }) => {
               onClick={() => setView('admin')}
               role="tab" aria-selected={view === 'admin'} aria-label="Firm admin view">
               <Icons.Building size={13} /> <span className="px-vs-label">Admin</span>
+            </button>
+          )}
+          {platformOwner && (
+            <button
+              className={view === 'platform' ? 'is-on' : ''}
+              onClick={() => setView('platform')}
+              role="tab" aria-selected={view === 'platform'} aria-label="Platform owner view">
+              <Icons.Prism size={13} /> <span className="px-vs-label">Platform</span>
             </button>
           )}
         </div>
@@ -420,8 +428,17 @@ function CommandPalette() {
 /* ─── App inner (all providers are already mounted above) ─────────── */
 function AppInner() {
   const { view, setView, activeClientId, numbersOpen, openNumbers, closeNumbers } = useView();
-  const { loading, session, role, isDemo, signOut } = useAuth();
+  const { loading, session, role, isDemo, signOut, authUser } = useAuth();
   const { dark, toggleTheme } = useTheme();
+
+  // Platform-owner probe (founder tier). One cheap `whoami` per session; the
+  // edge function checks the px_platform_owners allowlist server-side. Only
+  // advisor/admin sessions even ask — clients and demo never do.
+  const [platformOwner, setPlatformOwner] = React.useState(false);
+  React.useEffect(() => {
+    if (isDemo || !(role === 'advisor' || role === 'admin')) return;
+    window.db.platformAdmin?.('whoami').then(r => setPlatformOwner(r?.owner === true));
+  }, [role, isDemo]);
 
   // Route users to their natural home view on first load.
   // Demo opens on the wedge — the client lifecycle roadmap — not the admin grid,
@@ -462,11 +479,33 @@ function AppInner() {
     return <LoadingScreen />;
   }
 
+  // Suspended firm (platform tier, migration 035): the advisor workspace locks
+  // until the platform owner reactivates. Data is retained, nothing is deleted.
+  if (!isDemo && (role === 'advisor' || role === 'admin') && authUser?.firms?.status === 'suspended') {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', gap: 14, padding: 32, textAlign: 'center' }}>
+        <Icons.Lock size={22} style={{ color: 'var(--ink-faint)' }} />
+        <div style={{ fontFamily: 'var(--serif)', fontSize: 20, fontWeight: 500, color: 'var(--ink)' }}>
+          This workspace is paused
+        </div>
+        <div style={{ fontSize: 13.5, color: 'var(--ink-mute)', lineHeight: 1.55, maxWidth: 400 }}>
+          Your firm's Prism workspace has been suspended by the platform. Your data is intact —
+          contact Prism support to restore access.
+        </div>
+        <button className="px-btn px-btn-ghost" onClick={signOut}>
+          <Icons.ArrowRight size={12} style={{ transform: 'rotate(180deg)' }} /> Sign out
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="px-app">
-      <Topbar onOpenNumbers={openNumbers} dark={dark} toggleTheme={toggleTheme} />
+      <Topbar onOpenNumbers={openNumbers} dark={dark} toggleTheme={toggleTheme} platformOwner={platformOwner} />
       <CommandPalette />
-      {view === 'admin'   ? <FirmAdminDashboard />
+      {view === 'platform' ? <PlatformOwnerDashboard />
+       : view === 'admin'   ? <FirmAdminDashboard />
        : view === 'advisor' ? <AdvisorDashboard />
        : <ClientPortal onOpenNumbers={openNumbers} />}
       <NumbersDrawer isOpen={numbersOpen} onClose={closeNumbers} />

@@ -1351,6 +1351,150 @@ async function dbCreateCalendarEvent({ title, start, end, description, location,
   return await _calInvoke('calendar-events', { action: 'create', title, start, end, description, location, provider });
 }
 
+/* ─── Platform owner (founder tier, migration 035) ───────────────────
+   All authorization lives server-side: the platform-admin edge function checks
+   the caller's auth uid against px_platform_owners and runs on the service
+   role. The browser only ever sees the results. `whoami` is the cheap probe
+   the app uses to decide whether to show the Platform tab at all. */
+async function dbPlatformAdmin(action, payload = {}) {
+  if (!_sb()) return null;
+  try {
+    const { data, error } = await _sb().functions.invoke('platform-admin', { body: { action, ...payload } });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    return data;
+  } catch (e) {
+    // Non-owners probing `whoami` is the normal case — keep the console quiet.
+    if (action !== 'whoami') console.warn('[db] platformAdmin:', e.message);
+    return { error: e.message };
+  }
+}
+
+/* ─── Advisor-approval commit gate for client ledger edits (migration 036) ───
+   Per-firm, default OFF. When ON, a client's profile saves become ONE open
+   draft row in pending_ledger_changes (upserted in place on every autosave);
+   the advisor approves (which writes the profile through their own RLS-scoped
+   saveProfile, keeping profile_versions/audit intact) or declines with a note. */
+async function dbGetLedgerGate() {
+  if (!_sb()) return false;
+  try {
+    const { data, error } = await _sb().rpc('px_ledger_gate');
+    if (error) throw error;
+    return data === true;
+  } catch (e) { return false; } // migration unapplied / demo → gate off
+}
+
+async function dbSetLedgerGate(firmId, on) {
+  if (!_sb() || !isUUID(firmId)) return null;
+  try {
+    const { data, error } = await _sb().from('firms')
+      .update({ ledger_approval_required: !!on }).eq('id', firmId)
+      .select('id, ledger_approval_required').single();
+    if (error) throw error;
+    dbAudit('firm.ledger_gate', { entityType: 'firm', entityId: firmId,
+      summary: `Client ledger-edit approvals turned ${on ? 'ON' : 'OFF'}` });
+    return data;
+  } catch (e) { console.warn('[db] setLedgerGate:', e.message); return null; }
+}
+
+async function dbGetFirmLedgerGate() {
+  if (!_sb()) return null;
+  try {
+    const { data, error } = await _sb().from('firms').select('id, ledger_approval_required').maybeSingle();
+    if (error) throw error;
+    return data;
+  } catch (e) { return null; } // column absent until 036 is applied
+}
+
+const PLC_COLS = 'id, client_id, firm_id, payload, status, review_note, created_at, updated_at';
+
+async function dbGetPendingLedgerChange(clientId) {
+  if (!_sb() || !isUUID(clientId)) return null;
+  try {
+    // The client's banner also wants the most recent decision, so fetch the
+    // newest open-or-decided row: an open draft wins; else the last review.
+    const { data, error } = await _sb().from('pending_ledger_changes')
+      .select(PLC_COLS).eq('client_id', clientId)
+      .order('updated_at', { ascending: false }).limit(3);
+    if (error) throw error;
+    const rows = data || [];
+    return rows.find(r => r.status === 'pending') || rows[0] || null;
+  } catch (e) { return null; }
+}
+
+async function dbSubmitLedgerChange(clientId, payload) {
+  if (!_sb() || !isUUID(clientId)) return null;
+  try {
+    const now = new Date().toISOString();
+    const { data: open } = await _sb().from('pending_ledger_changes')
+      .select('id').eq('client_id', clientId).eq('status', 'pending').maybeSingle();
+    let row;
+    if (open) {
+      const { data, error } = await _sb().from('pending_ledger_changes')
+        .update({ payload, updated_at: now }).eq('id', open.id).select(PLC_COLS).single();
+      if (error) throw error;
+      row = data;
+    } else {
+      const { data, error } = await _sb().from('pending_ledger_changes')
+        .insert({ client_id: clientId, firm_id: window.__pxAuthActor?.firm_id || null,
+                  author_auth_id: window.__pxAuthActor?.id || null, payload })
+        .select(PLC_COLS).single();
+      if (error) throw error;
+      row = data;
+      dbAudit('ledger.draft', { entityType: 'pending_ledger_change', entityId: row.id, clientId,
+        summary: 'Client submitted ledger updates for advisor review' });
+    }
+    return row;
+  } catch (e) { console.warn('[db] submitLedgerChange:', e.message); return null; }
+}
+
+async function dbWithdrawLedgerChange(id, clientId) {
+  if (!_sb() || !isUUID(id)) return null;
+  try {
+    const { data, error } = await _sb().from('pending_ledger_changes')
+      .update({ status: 'withdrawn', updated_at: new Date().toISOString() })
+      .eq('id', id).select(PLC_COLS).single();
+    if (error) throw error;
+    dbAudit('ledger.withdraw', { entityType: 'pending_ledger_change', entityId: id, clientId,
+      summary: 'Client withdrew their draft ledger updates' });
+    return data;
+  } catch (e) { console.warn('[db] withdrawLedgerChange:', e.message); return null; }
+}
+
+// Advisor inbox: every open draft across their book (RLS scopes the rows).
+async function dbGetPendingLedgerChanges() {
+  if (!_sb()) return null;
+  try {
+    const { data, error } = await _sb().from('pending_ledger_changes')
+      .select(`${PLC_COLS}, clients(short_name, household_name)`)
+      .eq('status', 'pending').order('updated_at', { ascending: false });
+    if (error) throw error;
+    return data;
+  } catch (e) { return null; } // table absent until 036 is applied
+}
+
+// Approve = write the proposed profile through the advisor's own RLS path
+// (saveProfile → profile_versions + audit), THEN close the draft. Decline just
+// closes it with the advisor's note.
+async function dbReviewLedgerChange(row, advisorId, approve, note) {
+  if (!_sb() || !isUUID(row?.id)) return null;
+  try {
+    if (approve) await dbSaveProfile(row.client_id, row.payload);
+    const { data, error } = await _sb().from('pending_ledger_changes')
+      .update({ status: approve ? 'approved' : 'rejected',
+                review_note: note || null,
+                reviewed_by: isUUID(advisorId) ? advisorId : null,
+                reviewed_at: new Date().toISOString(),
+                updated_at: new Date().toISOString() })
+      .eq('id', row.id).select(PLC_COLS).single();
+    if (error) throw error;
+    dbAudit(approve ? 'ledger.approve' : 'ledger.reject', {
+      entityType: 'pending_ledger_change', entityId: row.id, clientId: row.client_id,
+      summary: `${approve ? 'Approved' : 'Declined'} client ledger updates${note ? ` — ${String(note).slice(0, 140)}` : ''}` });
+    return data;
+  } catch (e) { console.warn('[db] reviewLedgerChange:', e.message); return null; }
+}
+
 /* ─── Bulk client import (px_bulk_create_clients, migration 034) ─────
    One transactional round-trip per batch instead of N sequential inserts.
    Returns the created client rows, or null if the RPC isn't available yet
@@ -1445,6 +1589,15 @@ window.db = {
   getCalendarEvents:   dbGetCalendarEvents,
   createCalendarEvent: dbCreateCalendarEvent,
   bulkCreateClients:   dbBulkCreateClients,
+  platformAdmin:       dbPlatformAdmin,
+  getLedgerGate:       dbGetLedgerGate,
+  setLedgerGate:       dbSetLedgerGate,
+  getFirmLedgerGate:   dbGetFirmLedgerGate,
+  getPendingLedgerChange:  dbGetPendingLedgerChange,
+  submitLedgerChange:      dbSubmitLedgerChange,
+  withdrawLedgerChange:    dbWithdrawLedgerChange,
+  getPendingLedgerChanges: dbGetPendingLedgerChanges,
+  reviewLedgerChange:      dbReviewLedgerChange,
   getTasks:            dbGetTasks,
   mapTask,
   createTask:          dbCreateTask,

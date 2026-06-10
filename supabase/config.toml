@@ -26,6 +26,11 @@ verify_jwt = true
 [functions.ai-assist]
 verify_jwt = true
 
+# Founder-only platform tier — the px_platform_owners allowlist is the real
+# authorization; the platform JWT gate stays on in front of it.
+[functions.platform-admin]
+verify_jwt = true
+
 # Advisor calendar sync (Google/Microsoft) — connection lifecycle + events.
 [functions.calendar-oauth]
 verify_jwt = true
