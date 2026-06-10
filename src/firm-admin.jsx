@@ -2,7 +2,7 @@
 // Shares the global bundle scope; references AUDIT_ACTION_LABELS from advisor-dashboard.jsx at render time.
 
 const FirmAdminDashboard = () => {
-  const { authUser } = useAuth();
+  const { authUser, setAuthUser } = useAuth();
   const { showToast, setView } = useView();
   const [advisors,     setAdvisors]     = useStateAdv(undefined);
   const [firmClients,  setFirmClients]  = useStateAdv(undefined);
@@ -57,12 +57,16 @@ const FirmAdminDashboard = () => {
   };
   const saveBrand = async () => {
     if (!brandForm) return;
+    if (!brandForm.name?.trim()) { showToast('The firm needs a name'); return; }
     setBrandSaving(true);
     const row = await window.db.updateFirmBrand(authUser.firm_id, brandForm);
     setBrandSaving(false);
     if (row) {
       setBrand(row); setBrandForm(null);
       window.applyFirmBrand?.(row);
+      // The header + account chip read authUser.firms.name — mirror the rename
+      // into context so it updates without a reload.
+      setAuthUser?.(u => (u ? { ...u, firms: { ...(u.firms || {}), name: row.name } } : u));
       showToast('Branding saved — your portal now carries the firm brand');
     } else showToast('Could not save branding — check console');
   };
@@ -245,6 +249,7 @@ const FirmAdminDashboard = () => {
             <div className="px-section-tools">
               <button className="px-btn px-btn-sm px-btn-ghost" disabled={!brand}
                 onClick={() => setBrandForm({
+                  name: brand?.name || firmName,
                   brand_color: brand?.brand_color || '#1c2e4a',
                   logo_url: brand?.logo_url || null,
                   show_powered_by: brand?.show_powered_by !== false,
@@ -280,6 +285,16 @@ const FirmAdminDashboard = () => {
         ) : (
           <div style={{ padding: 14, background: 'var(--bg-elev)', borderRadius: 8, marginBottom: 24 }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '10px 14px', alignItems: 'center', maxWidth: 560 }}>
+              <label style={{ fontSize: 12.5, color: 'var(--ink-mute)' }} htmlFor="px-brand-name">Firm name</label>
+              <div>
+                <input id="px-brand-name" className="px-input" style={{ width: '100%', maxWidth: 320 }}
+                  value={brandForm.name || ''} placeholder="Firm name"
+                  onChange={e => setBrandForm(f => ({ ...f, name: e.target.value }))} />
+                <div style={{ fontSize: 11, color: 'var(--ink-faint)', marginTop: 3 }}>
+                  Shown across the workspace and every client portal. Renames here cover a rebrand or
+                  acquisition; your portal address ({brand?.slug || 'slug'}.prismaw.com) stays the same.
+                </div>
+              </div>
               <label style={{ fontSize: 12.5, color: 'var(--ink-mute)' }} htmlFor="px-brand-color">Accent color</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <input id="px-brand-color" type="color" value={brandForm.brand_color}

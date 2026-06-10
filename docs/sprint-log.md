@@ -12,6 +12,36 @@
 
 ---
 
+## 2026-06-10 (round 12c) — Status-guard hotfix + name/rebrand editing (founder feedback)
+
+Founder go-live feedback, same day. **One hand-apply migration (037), no edge
+changes.**
+
+**Bug: branding saves broke after 035** — 035's `px_guard_firm_status` trigger
+ran `auth.role()` on every `firms` update; in the live project that call made
+every browser-side firm update fail (branding save, and it would have hit the
+036 Workflow toggle too). Migration 037 rewrites the guard defensively: the JWT
+is only inspected when `status` actually changes, read via plain
+`current_setting('request.jwt.claims')` (no auth-helper dependency, exceptions
+swallowed to ''). Founder symptom: "save branding option for color and logo
+don't work."
+
+**Feature gap: identity editing** — (1) **Firm rename** (rebrand/acquisition):
+the firm-admin Branding form gains a "Firm name" field; `db.updateFirmBrand`
+accepts a non-empty `name`; the rename mirrors into `authUser.firms.name` so
+the header/chip update without reload. Slug (portal subdomain) intentionally
+stays immutable. (2) **Advisor name & credentials** (marriage/name changes):
+the account-chip menu gains an "Edit name & credentials" editor → new
+`db.updateAdvisorProfile` (advisors_update_self RLS, audit-logged
+`advisor.profile`); `auth.jsx` now selects `credentials` so the editor
+pre-fills.
+
+**Also clarified (no code):** the "name your firm" screen only appears for auth
+users with no DB record — the founder's email already held an early advisor
+row, so sign-in landed in that firm; the rename field is the intended remedy.
+
+---
+
 ## 2026-06-10 (round 12b) — Token savers + VAPID keypair (PWA-push unblock)
 
 Sprint-value addendum to round 12. **No migration, no edge-function changes**

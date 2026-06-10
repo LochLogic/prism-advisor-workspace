@@ -1272,11 +1272,34 @@ async function dbUpdateFirmBrand(firmId, patch) {
     for (const k of ['brand_color', 'logo_url', 'show_powered_by']) {
       if (k in patch) allowed[k] = patch[k];
     }
+    // Firm display name is editable too (rebrand / acquisition) — but never
+    // blanked: an empty submission keeps the current name.
+    if (typeof patch.name === 'string' && patch.name.trim()) allowed.name = patch.name.trim();
     const { data, error } = await _sb().from('firms').update(allowed).eq('id', firmId).select(BRAND_COLS).single();
     if (error) throw error;
     dbAudit('firm.brand', { entityType: 'firm', entityId: firmId, summary: 'Firm branding updated' });
     return data;
   } catch (e) { console.warn('[db] updateFirmBrand:', e.message); return null; }
+}
+
+// The signed-in advisor's own profile fields (advisors_update_self RLS):
+// display name (marriage/name changes), credentials, client-facing honorific.
+async function dbUpdateAdvisorProfile(advisorId, patch) {
+  if (!_sb() || !isUUID(advisorId)) return null;
+  try {
+    const allowed = {};
+    if (typeof patch.full_name === 'string' && patch.full_name.trim()) allowed.full_name = patch.full_name.trim();
+    if ('credentials' in patch) allowed.credentials = (patch.credentials || '').trim() || null;
+    if ('honorific' in patch)   allowed.honorific   = patch.honorific || null;
+    if (!Object.keys(allowed).length) return null;
+    const { data, error } = await _sb().from('advisors')
+      .update(allowed).eq('id', advisorId)
+      .select('id, full_name, honorific, credentials').single();
+    if (error) throw error;
+    dbAudit('advisor.profile', { entityType: 'advisor', entityId: advisorId,
+      summary: `Updated own advisor profile (${Object.keys(allowed).join(', ')})` });
+    return data;
+  } catch (e) { console.warn('[db] updateAdvisorProfile:', e.message); return null; }
 }
 
 async function dbGetBrandForSlug(slug) {
@@ -1582,6 +1605,7 @@ window.db = {
   getFirmBrand:        dbGetFirmBrand,
   updateFirmBrand:     dbUpdateFirmBrand,
   getBrandForSlug:     dbGetBrandForSlug,
+  updateAdvisorProfile: dbUpdateAdvisorProfile,
   aiAssist:            dbAiAssist,
   getCalendarStatus:   dbGetCalendarStatus,
   connectCalendar:     dbConnectCalendar,
