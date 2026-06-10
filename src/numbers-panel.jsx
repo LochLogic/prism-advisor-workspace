@@ -114,7 +114,8 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
   const { profile, update, setProfile, undoEdit, undoDepth, totalExpenses, surplus, netWorth,
           isOwner, homeEquity, mortgagePrincipalMonthly, mortgageInterestMonthly, escrowMonthly,
-          propertiesEquity, primaryMember, planningAge, grossMonthlyIncome, effectiveTakehome } = useProfile();
+          propertiesEquity, primaryMember, planningAge, grossMonthlyIncome, effectiveTakehome,
+          ledgerGate, pendingChange, withdrawPendingChange } = useProfile();
   const { activeClientId } = useView();
   const hasIncomeSources = (profile.income.sources || []).length > 0;
   // Contributions section entry period — display-only; storage stays annual.
@@ -306,6 +307,39 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
             </button>
           </div>
         </div>
+        {/* Advisor-approval gate (clients only, per-firm opt-in). Informs without
+            discouraging: editing stays fully open; the strip just explains where
+            the numbers go and reflects the advisor's last decision. */}
+        {ledgerGate && window.__pxAuthActor?.role === 'client' && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+            padding: '8px 16px', borderBottom: '1px solid var(--border)', fontSize: 11.5,
+            background: pendingChange?.status === 'rejected' ? 'var(--gold-soft, var(--bg-elev))' : 'var(--bg-elev)',
+            color: 'var(--ink-mute)' }}>
+            {pendingChange?.status === 'pending' ? (
+              <>
+                <span>
+                  <Icons.Info size={11} style={{ verticalAlign: '-1px', marginRight: 5 }} />
+                  Your updates are with your advisor to review — keep editing anytime; they'll see the latest version.
+                </span>
+                <button className="px-btn px-btn-sm px-btn-ghost" onClick={withdrawPendingChange}
+                  style={{ padding: '3px 9px', whiteSpace: 'nowrap' }} title="Withdraw the updates awaiting review">
+                  Withdraw
+                </button>
+              </>
+            ) : pendingChange?.status === 'rejected' ? (
+              <span>
+                Your advisor returned these updates{pendingChange.review_note ? <> — “{pendingChange.review_note}”</> : ''}. Adjust and save again whenever you're ready.
+              </span>
+            ) : pendingChange?.status === 'approved' ? (
+              <span style={{ color: 'var(--forest)' }}>
+                <Icons.Check size={11} style={{ verticalAlign: '-1px', marginRight: 5 }} />
+                Your advisor confirmed your latest updates — your plan reflects them now.
+              </span>
+            ) : (
+              <span>Updates you save here go to your advisor to confirm before they update your plan.</span>
+            )}
+          </div>
+        )}
         {dirtyCount > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
             padding: '8px 16px', background: 'var(--bg-elev)', borderBottom: '1px solid var(--border)',

@@ -18,6 +18,9 @@ const FirmAdminDashboard = () => {
   const [brandSaving,  setBrandSaving]  = useStateAdv(false);
   const [packetBusy,   setPacketBusy]   = useStateAdv(false);
   const [packetDays,   setPacketDays]   = useStateAdv('365');
+  // Advisor-approval gate for client ledger edits (migration 036). null =
+  // unknown (column not yet migrated / loading) → control hidden.
+  const [ledgerGate,   setLedgerGate]   = useStateAdv(null);
 
   React.useEffect(() => {
     if (!authUser?.id || !window.db) return;
@@ -28,7 +31,19 @@ const FirmAdminDashboard = () => {
     window.db.getFeeSchedules().then(rows => setFeeSchedules(rows || []));
     window.db.getInvoices({}).then(rows => setInvoices(rows || []));
     window.db.getFirmBrand?.().then(b => { if (b) setBrand(b); });
+    window.db.getFirmLedgerGate?.().then(r => {
+      if (r && typeof r.ledger_approval_required === 'boolean') setLedgerGate(r.ledger_approval_required);
+    });
   }, [authUser?.id]);
+
+  const toggleLedgerGate = async () => {
+    const next = !ledgerGate;
+    setLedgerGate(next); // optimistic — revert below on failure
+    const row = await window.db.setLedgerGate(authUser.firm_id, next);
+    if (!row) { setLedgerGate(!next); showToast('Could not update the approval setting'); }
+    else showToast(next ? 'Client ledger edits now route to the advisor for approval'
+                        : 'Clients save ledger edits directly again');
+  };
 
   // ── White-label branding ──
   const BRAND_LOGO_MAX = 200 * 1024; // data-URI stored in firms.logo_url; CSP img-src allows data:
@@ -304,6 +319,30 @@ const FirmAdminDashboard = () => {
               </button>
             </div>
           </div>
+        )}
+
+        {/* ── Workflow controls ── */}
+        {ledgerGate !== null && (
+          <>
+            <div className="px-section-head">
+              <h2>Workflow <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--ink-mute)', marginLeft: 6 }}>firm-wide</span></h2>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 14px',
+              background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, marginBottom: 24 }}>
+              <Icons.Check size={16} style={{ color: ledgerGate ? 'var(--forest)' : 'var(--ink-faint)', flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>Advisor approval for client ledger edits</div>
+                <div style={{ fontSize: 12, color: 'var(--ink-mute)', marginTop: 2 }}>
+                  When on, a client's "Your numbers" updates wait as a draft until their advisor approves them —
+                  the advisor sees drafts on the dashboard, and every decision lands in the audit trail. Advisors' own edits are never held.
+                </div>
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--ink)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                <input type="checkbox" checked={ledgerGate} onChange={toggleLedgerGate} />
+                {ledgerGate ? 'Required' : 'Off'}
+              </label>
+            </div>
+          </>
         )}
 
         <div className="px-section-head">

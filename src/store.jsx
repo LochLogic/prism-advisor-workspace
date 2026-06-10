@@ -191,10 +191,40 @@ function ProfileProvider({ children }) {
   // load's own echo, not a user edit, and must not be written back.
   const skipNextSave = React.useRef(false);
 
+  // ── Advisor-approval commit gate (migration 036) ─────────────────
+  // Per-firm, default OFF, and only ever gating CLIENT actors — advisors are
+  // the approvers, so their edits always write directly. When the gate is on,
+  // a client's saves route into ONE open draft row (pending_ledger_changes)
+  // that their advisor approves or declines; the draft is also what reloads,
+  // so the client's working copy survives the review window.
+  const isClientActor = () => window.__pxAuthActor?.role === 'client';
+  const [pendingChange, setPendingChange] = useState(null); // client's own draft / last decision
+  const [ledgerGate, setLedgerGate] = useState(false);
+  const gateRef = React.useRef(false);
+  const setGate = (on) => { gateRef.current = !!on; setLedgerGate(!!on); };
+
+  // Single write path: every persist (debounced, flushed, or unmount) routes
+  // here so the gate can never be bypassed by one of the three call sites.
+  const persistProfile = (clientId, profileData) => {
+    if (gateRef.current && isClientActor()) {
+      window.db.submitLedgerChange(clientId, profileData)
+        .then(row => { if (row) setPendingChange(row); });
+    } else {
+      window.db.saveProfile(clientId, profileData);
+    }
+  };
+
+  const withdrawPendingChange = React.useCallback(async () => {
+    const row = pendingChange;
+    if (!row || row.status !== 'pending') return;
+    const out = await window.db.withdrawLedgerChange(row.id, row.client_id);
+    if (out) setPendingChange(out);
+  }, [pendingChange]);
+
   const flushPendingSave = () => {
     const p = pendingSave.current;
     pendingSave.current = null;
-    if (p && window.db?.isUUID(p.clientId)) window.db.saveProfile(p.clientId, p.profile);
+    if (p && window.db?.isUUID(p.clientId)) persistProfile(p.clientId, p.profile);
   };
   // Flush any pending save on unmount (e.g. sign-out / app teardown).
   useEffect(() => () => flushPendingSave(), []);
@@ -210,12 +240,26 @@ function ProfileProvider({ children }) {
       // the roadmap and calculators render instead of crashing on undefined.
       isLoading.current = true;
       _setProfile(emptyProfile);
-      window.db.getProfile(activeClientId).then(data => {
+      // Resolve the approval gate alongside the profile. Only client actors pay
+      // the extra round-trips; everyone else keeps the single getProfile read.
+      const gated = isClientActor();
+      setGate(false); setPendingChange(null);
+      Promise.all([
+        window.db.getProfile(activeClientId),
+        gated ? window.db.getLedgerGate() : false,
+        gated ? window.db.getPendingLedgerChange(activeClientId) : null,
+      ]).then(([data, gateOn, pending]) => {
+        setGate(gateOn);
+        if (pending) setPendingChange(pending);
         // The persist effect (keyed on [profile]) fires once more for this set —
         // after isLoading is already false — so flag it to skip that one run:
         // it would only write back the bytes we just read.
         skipNextSave.current = true;
-        _setProfile(mergeProfile(emptyProfile, data));
+        // An open draft IS the client's working copy — load it over the
+        // approved profile so their in-review edits don't silently vanish.
+        const base = mergeProfile(emptyProfile, data);
+        _setProfile(gateOn && pending?.status === 'pending'
+          ? mergeProfile(base, pending.payload) : base);
         isLoading.current = false;
       }).catch(() => { isLoading.current = false; });
     } else {
@@ -236,7 +280,7 @@ function ProfileProvider({ children }) {
       clearTimeout(dbSaveTimer.current);
       pendingSave.current = { clientId: activeClientId, profile };
       dbSaveTimer.current = setTimeout(() => {
-        window.db.saveProfile(activeClientId, profile);
+        persistProfile(activeClientId, profile);
         pendingSave.current = null;
       }, 1500);
     } else {
@@ -477,8 +521,9 @@ function ProfileProvider({ children }) {
   // of `profile` + `activeClientId` (the latter only via the Monte Carlo seed), so
   // keying on those two prevents a new value object — and a re-render of every
   // profile consumer — when a parent provider re-renders without a profile change.
-  const value = useMemo(() => ({ profile, setProfile, update, undoEdit, undoDepth, ...metrics }),
-    [profile, activeClientId, undoDepth]); // eslint-disable-line react-hooks/exhaustive-deps
+  const value = useMemo(() => ({ profile, setProfile, update, undoEdit, undoDepth,
+      ledgerGate, pendingChange, withdrawPendingChange, ...metrics }),
+    [profile, activeClientId, undoDepth, ledgerGate, pendingChange]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <ProfileContext.Provider value={value}>
@@ -629,7 +674,7 @@ function parseHashRoute() {
     const h = (window.location.hash || '').replace(/^#\/?/, '');
     if (!h) return null;
     const [v, id, ph] = h.split('/');
-    const view = (v === 'advisor' || v === 'admin' || v === 'client') ? v : null;
+    const view = (v === 'advisor' || v === 'admin' || v === 'client' || v === 'platform') ? v : null;
     if (!view) return null;
     const clientId = id || null;
     const pendingPhaseId = (ph && /^p\d+$/.test(ph)) ? parseInt(ph.slice(1), 10) : null;

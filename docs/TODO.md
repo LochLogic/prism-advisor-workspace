@@ -19,14 +19,6 @@
 Sequenced to the north star — onboard a first paying advisor. Each item is
 independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
 
-- [ ] **Platform-owner dashboard** (founder ask 2026-06-10) — a tier ABOVE firm
-  admin: one founder-only view to administer firms and solo advisors (firm list +
-  plan/seat stats, advisor roster, provision/suspend). Safe shape: leave every
-  existing RLS policy untouched; add a `px_platform_owners` allowlist table + a
-  service-role edge function (caller's auth uid checked against the allowlist)
-  feeding a new gated view in the advisor bundle. Migration + edge fn + view ≈ one
-  round. *Decide first: which actions it needs day-one (read-only stats vs.
-  provision/suspend/billing overrides).*
 - [ ] **Advisor MFA (TOTP)** — enforce in the advisor auth path. *↔ may need a
   Supabase Auth toggle (your queue).*
 - [ ] **Product analytics events** — first-party activation events (login, invite,
@@ -35,9 +27,6 @@ independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
   esp. the firm-admin cross-firm read).
 - [ ] **Client PWA + push** — installable portal + push on new message/task/document.
   *↔ blocked-by-you: VAPID keypair.*
-- [ ] **Advisor-approval commit gate for client ledger edits** — opt-in draft → review
-  → approve flow (pending changeset; per-firm toggle, default OFF). Schema-touching;
-  lean on `007_versioning_crm`.
 - [ ] **Zapier / public API.**
 - [ ] **Stripe webhook retry-storm hardening** (C0) — `stripe-webhook` returns HTTP
   400 for any exception → Stripe retries ~3 days even for unrecoverable cases. Return
@@ -54,6 +43,17 @@ ROADMAP and is built only when a partner asks — not queued here.*
 Things I genuinely can't do — they cost money, need your identity/credentials, or live
 in dashboards I can't reach. **Bold = the hard blockers gating any live client.**
 Project ref: `phabxcijbbphfxvjedfj` · Domain: `prismaw.com`.
+
+### Round-12 go-live — two SQL-editor pastes (shipped 2026-06-10, code is LIVE)
+- [ ] **Apply migrations 035 + 036** in the Supabase SQL editor, in order:
+  [`035_platform_owner.sql`](../supabase/migrations/035_platform_owner.sql) then
+  [`036_ledger_approvals.sql`](../supabase/migrations/036_ledger_approvals.sql).
+  Until applied, everything degrades quietly: no Platform tab, no Workflow toggle,
+  client edits keep saving directly.
+- [ ] **Seed yourself as platform owner** (one row; your auth uid is in
+  Supabase → Authentication → Users):
+  `insert into px_platform_owners (auth_user_id, email) values ('<your-auth-uid>', '<your-email>');`
+  Then the **Platform** tab appears in your advisor topbar (or deep-link `#/platform`).
 
 ### Finish Microsoft calendar setup — one Azure click left
 - [ ] In the Azure app registration, add the redirect URI

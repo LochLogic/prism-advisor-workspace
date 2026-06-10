@@ -12,6 +12,49 @@
 
 ---
 
+## 2026-06-10 (round 12) — Platform-owner tier + ledger-edit approval gate
+
+Two Claude-queue items shipped as one bundle. **Two hand-apply migrations (035, 036)
+and one new edge function (`platform-admin`, deployed via the gated workflow)** —
+the human hand-off is in TODO ("Round-12 go-live"). Everything degrades quietly
+until the migrations land: no Platform tab, no Workflow toggle, client edits keep
+saving directly. Build · lint · calc · smoke green; platform deep-link/denied
+states and the Numbers drawer verified in the demo preview.
+
+**Platform-owner dashboard (founder ask 2026-06-10)** — founder tier above firm
+admin, built to the safe shape: zero RLS changes. Migration 035 adds the
+`px_platform_owners` allowlist (RLS on, no policies → service-role only) and
+`firms.status` (active|suspended, guarded by a trigger so a firm admin can't flip
+it from the browser). New `platform-admin` edge function (JWT + allowlist check,
+service role): `whoami` probe, `overview` (firms + plan/seats/Stripe status +
+advisor/client counts), `provision_firm` (invite-or-link the firm admin),
+`suspend_firm`/`reactivate_firm`, `set_plan` billing override — all audit-logged
+as `platform.*`. New `src/platform-admin.jsx` view (advisor bundle only) on a
+gated **Platform** topbar tab / `#/platform` route; suspended firms see a
+"workspace paused" lock screen (data retained). `db.platformAdmin`; fn added to
+`deploy.yml` + `config.toml` (verify_jwt on). Sign-in reads `firms.status` via a
+separate non-fatal query so the un-migrated column can't break login.
+
+**Advisor-approval commit gate for client ledger edits** — opt-in per-firm,
+default OFF (new firm-admin "Workflow" section; `firms.ledger_approval_required`,
+migration 036). When ON, a CLIENT's profile autosaves route into ONE open draft
+row in `pending_ledger_changes` (repeated saves update in place; partial unique
+index enforces one open draft per client). RLS: client inserts/edits/withdraws
+only their own pending draft (can never set approved), advisor + firm admin read,
+the client's advisor decides. The portal drawer carries a status strip (in
+review · returned with the advisor's note · confirmed — informative, not
+discouraging, per the tone rule) and the draft reloads as the client's working
+copy. Advisor dashboard gains a "Client updates to review" inbox: section-level
+diff vs the saved profile, **Approve & save** (writes through the advisor's own
+RLS saveProfile → profile_versions + audit stay intact), **Return with note**.
+Clients read the gate through the `px_ledger_gate()` security-definer RPC (they
+can't see `firms`). New db surface: `getLedgerGate/setLedgerGate/getFirmLedgerGate/
+getPendingLedgerChange(s)/submitLedgerChange/withdrawLedgerChange/reviewLedgerChange`.
+All persists route through one `persistProfile` helper in `ProfileProvider` so
+the debounce, flush, and unmount paths can't bypass the gate.
+
+---
+
 ## 2026-06-10 (round 11) — Insight → action follow-through + UX polish
 
 Four TODO items plus a founder-feedback fix, shipped as one bundle. **No migration,

@@ -214,13 +214,28 @@ analytic surface should end in a trackable next step, not a read-out.
 ### Trust & control
 - **Advisor MFA (TOTP)** — enforce in the advisor auth path (Supabase Auth supports
   it). *May need a Supabase Auth toggle.*
-- **Advisor-approval commit gate for client ledger edits** — today a client's
-  Numbers-drawer edits auto-save straight into the shared profile (a lightweight
-  undo + revert-all is the current safety net). Add an opt-in **draft → review →
-  approve** flow: client edits stage as a pending changeset; the advisor approves
-  per-field or wholesale before they mutate the plan. Schema-touching (lean on
-  `007_versioning_crm`); ship behind a per-firm toggle, **default OFF** to preserve
-  frictionless co-editing.
+- **Advisor-approval commit gate for client ledger edits — SHIPPED 2026-06-10
+  (round 12).** Opt-in per-firm toggle (firm-admin "Workflow" section, default OFF).
+  When on, a client's Numbers-drawer saves route into ONE open draft row
+  (`pending_ledger_changes`, migration 036 — repeated autosaves update in place);
+  the draft is also what reloads, so the client's working copy survives review.
+  The advisor sees a "Client updates to review" inbox on the dashboard with a
+  section-level diff, and **Approve & save** writes the profile through the
+  advisor's own RLS path (profile_versions + audit intact) while **Return with
+  note** sends it back with a message the client sees in the drawer. Advisor edits
+  are never gated. *Next when wanted:* per-field approval, realtime nudge on new
+  drafts.
+- **Platform-owner dashboard — SHIPPED 2026-06-10 (round 12).** Founder tier above
+  firm admin (founder ask 2026-06-10), built to the safe shape: no RLS policy was
+  touched — a `px_platform_owners` allowlist (migration 035, service-role-only) gates
+  the new `platform-admin` edge function, and a gated `#/platform` view in the
+  advisor bundle renders it. Day-one actions: firm overview (plan/seats/Stripe
+  status/advisor + client counts), provision a firm (Supabase invite or link to an
+  existing account, lands as firm admin), suspend/reactivate (advisor workspace
+  locks behind a "workspace paused" screen; a trigger stops a firm admin
+  un-suspending themself), and billing overrides (plan + seats). Every action is
+  audit-logged as `platform.*`. *Next when wanted:* read-only client drill-in,
+  Stripe subscription override, platform-level usage stats.
 
 ### Observability & scale
 - **Product analytics** — first-party activation events (login, invite, message,

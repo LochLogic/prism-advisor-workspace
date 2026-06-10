@@ -2,7 +2,7 @@
 
 > **Purpose:** condensed router for AI/dev work. Tells you *which* file owns a
 > concern and what it exports — not every line. Read the named file for deep logic.
-> **Last synced:** 2026-06-10 round-11 sprint (insight→action hooks · 1040 flags · UX polish). **Regenerate when:** `build-files.mjs`
+> **Last synced:** 2026-06-10 round-12 sprint (platform-owner tier · ledger-edit approval gate). **Regenerate when:** `build-files.mjs`
 > load order changes, a `src/*` file is added/split, or `window.db`/`PrismCalc` gain methods.
 
 ---
@@ -23,7 +23,7 @@ Static hosting = **Cloudflare Workers**. See [memory: project-architecture].
 - **Two bundles, one source pool** (`build.mjs`):
   - `dist/bundle.js` → `/app` — advisor/admin app (all files).
   - `dist/portal.js` → `/portal` — slim client portal; **excludes** advisor-modal,
-    advisor-dashboard, firm-admin (smaller payload + smaller client attack surface).
+    advisor-dashboard, firm-admin, platform-admin (smaller payload + smaller client attack surface).
 - **Load order = dependency order.** Adding a file means editing `build-files.mjs`
   (single source of truth, also consumed by the linter so they can't drift).
 - **Demo mode:** if Supabase CDN fails or `px_demo` flag set, auth is bypassed,
@@ -58,13 +58,14 @@ src/
   client-portal.jsx    window.ClientPortal — View B: client roadmap, phase cards, Discuss-with-Advisor
   advisor-modal.jsx    NewClientModal + ClientPreviewModal (advisor bundle only)
   advisor-dashboard.jsx window.AdvisorDashboard — View A: KPIs, roster, alerts, flagged-Q inbox
-  firm-admin.jsx       window.FirmAdminDashboard — advisor mgmt, firm clients, fee schedules, audit log
+  firm-admin.jsx       window.FirmAdminDashboard — advisor mgmt, firm clients, fee schedules, audit log, ledger-gate toggle
+  platform-admin.jsx   window.PlatformOwnerDashboard — founder tier (#/platform): firm overview, provision/suspend, plan overrides
   app.jsx              window.App — advisor entry: auth gate, topbar, view switch
   portal-app.jsx       window.PortalApp — slim client entry (/portal bundle)
   styles.css / print.css   hand-authored CSS (print.css = report/invoice print layout)
 
 supabase/
-  migrations/001-034   schema evolution (names are self-describing; 001 = base schema)
+  migrations/001-036   schema evolution (names are self-describing; 001 = base schema)
   functions/           Edge Functions (Deno) — see §6
   functions/_shared/   auth.ts, cors.ts, docusign.ts, calendar.ts (provider plumbing), fees.ts (canonical BACKEND fee math)
   tests/               integration.sql, rls_isolation.sql (tenant-isolation proofs)
@@ -102,6 +103,14 @@ e2e/demo.spec.ts       Playwright smoke
   getCalendarEvents(days), createCalendarEvent` → `calendar-oauth`/`calendar-events` edge
   fns (tokens server-side only, `calendar_connections` migration 033); `bulkCreateClients`
   → `px_bulk_create_clients` RPC (migration 034; importer falls back per-row if missing)
+- Platform tier (round 12): `platformAdmin(action, payload)` → `platform-admin` edge fn
+  (px_platform_owners allowlist, migration 035; `whoami` is the cheap owner probe)
+- Ledger approval gate (round 12, migration 036): `getLedgerGate` (px_ledger_gate RPC —
+  client-safe), `setLedgerGate/getFirmLedgerGate` (firms.ledger_approval_required),
+  `getPendingLedgerChange(clientId)`, `submitLedgerChange` (one open draft per client,
+  upserted in place), `withdrawLedgerChange`, `getPendingLedgerChanges` (advisor inbox),
+  `reviewLedgerChange(row, advisorId, approve, note)` (approve = saveProfile then close).
+  All methods no-op/return null until the migration is applied.
 
 **`window.PrismCalc`** (`src/calc-core.cjs`) — pure financial math (frontend copy; backend
 copy is `functions/_shared/fees.ts`): `monthlyExpenseTotal, buildValueSeries, modifiedDietz,
@@ -190,6 +199,7 @@ mirrored in `src/brand-boot.js` for the pre-auth pages).
 | `plaid-create-link-token` / `plaid-exchange-token` | Plaid Link → import account balances |
 | `worm-export` | SEC 17a-4 audit-log retention export → private bucket |
 | `ai-assist` | Advisor JWT → Gemini (server-side key): draft_reply / household_summary / talking_points / attention / w2_extract (round 9 — base64 image/PDF ≤4 MB via `file`, JSON box extraction) |
+| `platform-admin` | Founder JWT checked against px_platform_owners → service-role firm administration: whoami / overview / firm_detail / provision_firm / suspend_firm / reactivate_firm / set_plan (all audit-logged `platform.*`) |
 | `calendar-oauth` | Advisor JWT → Google/Microsoft calendar connect lifecycle (auth_url / exchange / status / disconnect); tokens → `calendar_connections` (service-role only) |
 | `calendar-events` | Advisor JWT → upcoming / freebusy / create across connected calendars; auto token refresh. Callback pages: `/oauth/{google,microsoft}/callback` (one `oauth-callback.html`, written twice by build.mjs) |
 | `log-error` | Public sink for client error reporter |

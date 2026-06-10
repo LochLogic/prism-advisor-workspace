@@ -20,7 +20,7 @@ Backend = Supabase (Postgres + RLS + Deno edge functions). Hosting = Cloudflare 
   may only reference names from files **above** it.
 - Frontend `src/calc-core.cjs` (`PrismCalc`) and backend `supabase/functions/_shared/fees.ts`
   are parallel fee implementations — change both together.
-- The `/portal` bundle must never reference advisor-only files (advisor-modal/dashboard/firm-admin).
+- The `/portal` bundle must never reference advisor-only files (advisor-modal/dashboard/firm-admin/platform-admin).
 
 ## Commands
 `npm run build` · `npm test` (build+smoke+calc) · `npm run lint` · `npm run test:rls` · `npm run test:e2e`.
