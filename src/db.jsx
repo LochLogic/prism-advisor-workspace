@@ -1291,11 +1291,13 @@ async function dbGetBrandForSlug(slug) {
 /* ─── AI relationship assistant (Gemini, server-side) ────────────────
    The key never reaches the browser: the ai-assist edge function validates the
    advisor JWT, builds the prompt, and calls Gemini. `action` is one of
-   draft_reply | household_summary | talking_points | attention. */
-async function dbAiAssist(action, context = {}) {
+   draft_reply | household_summary | talking_points | attention | w2_extract.
+   `file` (optional): { data: base64, mimeType } — used by w2_extract to send an
+   uploaded form image/PDF to Gemini server-side, outside the 24 KB context cap. */
+async function dbAiAssist(action, context = {}, file = null) {
   if (!_sb()) return null;
   try {
-    const { data, error } = await _sb().functions.invoke('ai-assist', { body: { action, context } });
+    const { data, error } = await _sb().functions.invoke('ai-assist', { body: { action, context, ...(file ? { file } : {}) } });
     if (error || data?.error) throw new Error(error?.message || data?.error);
     return data?.text || null;
   } catch (e) { console.warn('[db] aiAssist:', e.message); return null; }

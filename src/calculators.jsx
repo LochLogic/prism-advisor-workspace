@@ -458,7 +458,10 @@ const BracketHeadroomTool = () => {
   const defaultFiling = profile.taxes?.filingStatus === 'single' ? 'single' : 'mfj';
   // Prefer the parsed W-2 Box-1 wages when captured — the figure off the actual
   // return beats the ledger estimate; fall back to gross/take-home when no W-2.
-  const w2Wages = Number(profile.taxes?.w2?.box1) || 0;
+  // Sums all household W-2s (taxes.w2s[]); legacy single taxes.w2 still counts.
+  const w2Wages = (Array.isArray(profile.taxes?.w2s) ? profile.taxes.w2s
+    : (profile.taxes?.w2 ? [profile.taxes.w2] : []))
+    .reduce((a, w) => a + (Number(w?.box1) || 0), 0);
   const [income, setIncome] = useStateC(w2Wages > 0 ? w2Wages : Math.round(((grossAnnualIncome || (effectiveTakehome || 0) * 12)) / 1000) * 1000);
   const [filing, setFiling] = useStateC(defaultFiling);
 

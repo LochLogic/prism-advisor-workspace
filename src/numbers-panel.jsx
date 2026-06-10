@@ -81,6 +81,23 @@ const US_STATES = [
   ['WA','Washington'],['WV','West Virginia'],['WI','Wisconsin'],['WY','Wyoming'],
 ];
 
+// Numeric input that never traps a leading zero. The stored value is a number
+// (0 for "nothing yet"), but rendering that 0 into a controlled input means the
+// first keystroke lands AFTER it ("05"). So: render '' for 0/empty with a "0"
+// placeholder, hold the raw string in a local draft while the field is being
+// edited (so intermediate states like "0." survive), and commit the parsed
+// number on every change. Blur drops the draft and re-syncs to the stored value.
+const NumInput = ({ value, onCommit, step, placeholder = '0', ...rest }) => {
+  const [draft, setDraft] = React.useState(null);
+  const settled = (value === 0 || value == null || value === '') ? '' : String(value);
+  return (
+    <input type="number" value={draft != null ? draft : settled} step={step} placeholder={placeholder}
+      onChange={(e) => { setDraft(e.target.value); onCommit(e.target.value === '' ? 0 : (parseFloat(e.target.value) || 0)); }}
+      onBlur={() => setDraft(null)}
+      {...rest} />
+  );
+};
+
 // NumField must be at module scope — defining it inside a component
 // causes React to remount the input on every render, losing focus mid-edit.
 const NumField = ({ label, path, value, prefix = '$', step = 100, onUpdate, hint }) => (
@@ -88,12 +105,7 @@ const NumField = ({ label, path, value, prefix = '$', step = 100, onUpdate, hint
     <span className="px-field-label">{label}{hint && <FieldHint text={hint} />}</span>
     <div className="px-input-affix">
       {prefix && <span className="px-affix">{prefix}</span>}
-      <input
-        type="number"
-        value={value}
-        step={step}
-        onChange={(e) => onUpdate(path, parseFloat(e.target.value) || 0)}
-      />
+      <NumInput value={value} step={step} onCommit={(v) => onUpdate(path, v)} />
     </div>
   </label>
 );
@@ -105,6 +117,8 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
           propertiesEquity, primaryMember, planningAge, grossMonthlyIncome, effectiveTakehome } = useProfile();
   const { activeClientId } = useView();
   const hasIncomeSources = (profile.income.sources || []).length > 0;
+  // Contributions section entry period — display-only; storage stays annual.
+  const [contribFreq, setContribFreq] = React.useState('yr');
 
   // Estate-category vault documents, for the "link a document" picker below. A
   // linked doc is what marks an estate item "Complete & shared" (solid green,
@@ -182,6 +196,54 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
   const removeInsurance = (id) => setProfile(p => ({ ...p, insurance: ins(p).filter(i => i.id !== id) }));
   const updateInsurance = (id, field, value) => setProfile(p => ({
     ...p, insurance: ins(p).map(i => i.id === id ? { ...i, [field]: value } : i) }));
+
+  // ── W-2s — one per earner/job (primary, spouse, second job) ──
+  // Stored as taxes.w2s[]; the legacy single taxes.w2 (round 6) is surfaced as
+  // the first entry until the list is first edited, so old profiles carry over.
+  const w2s = (p) => {
+    if (Array.isArray(p.taxes?.w2s)) return p.taxes.w2s;
+    const legacy = p.taxes?.w2;
+    return ((Number(legacy?.box1) || 0) > 0 || (Number(legacy?.box2) || 0) > 0)
+      ? [{ id: 'w2-1', label: '', box1: Number(legacy.box1) || 0, box2: Number(legacy.box2) || 0 }]
+      : [];
+  };
+  const setW2List = (arr) => update('taxes.w2s', arr);
+  const addW2 = (seed = {}) => setW2List([...w2s(profile),
+    { id: `w2${Date.now()}`, label: '', box1: 0, box2: 0, ...seed }]);
+  const removeW2 = (id) => setW2List(w2s(profile).filter(w => w.id !== id));
+  const updateW2 = (id, field, v) => setW2List(w2s(profile).map(w => w.id === id ? { ...w, [field]: v } : w));
+
+  // AI W-2 import: read the uploaded image/PDF in the browser, send it to the
+  // ai-assist edge function (advisor JWT; the Gemini key stays server-side),
+  // and add a W-2 entry from the extracted boxes. Advisor-side only — the
+  // edge function rejects client JWTs.
+  const { showToast } = useView() || {};
+  const [w2Importing, setW2Importing] = React.useState(false);
+  const w2FileRef = React.useRef(null);
+  const canAiImportW2 = ['advisor', 'admin'].includes(window.__pxAuthActor?.role);
+  const importW2File = async (file) => {
+    if (!file || w2Importing) return;
+    if (file.size > 4 * 1024 * 1024) { showToast?.('That file is over 4 MB — try a smaller scan'); return; }
+    setW2Importing(true);
+    try {
+      const b64 = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(String(r.result).split(',')[1] || '');
+        r.onerror = rej;
+        r.readAsDataURL(file);
+      });
+      const text = await window.db.aiAssist('w2_extract', {}, { data: b64, mimeType: file.type || 'application/pdf' });
+      const parsed = JSON.parse(String(text || '').replace(/```json|```/g, '').trim());
+      if (!parsed || !((Number(parsed.box1) || 0) > 0)) throw new Error('no W-2 boxes found');
+      addW2({ label: parsed.employer || file.name, box1: Number(parsed.box1) || 0, box2: Number(parsed.box2) || 0 });
+      showToast?.('W-2 imported — double-check the boxes against the form');
+    } catch {
+      showToast?.("Couldn't read that W-2 — enter the boxes manually");
+    } finally {
+      setW2Importing(false);
+      if (w2FileRef.current) w2FileRef.current.value = '';
+    }
+  };
 
   // ── Estate checklist (will / trust / POA / directive / beneficiaries) ──
   const updateEstate = (key, field, value) => setProfile(p => ({
@@ -372,8 +434,8 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                 <label className="px-field">
                   <span className="px-field-label">Amount / mo</span>
                   <div className="px-input-affix"><span className="px-affix">$</span>
-                    <input type="number" value={s.monthlyGross} step="500"
-                      onChange={(e) => updateSource(s.id, 'monthlyGross', parseFloat(e.target.value) || 0)} /></div>
+                    <NumInput value={s.monthlyGross} step="500"
+                      onCommit={(v) => updateSource(s.id, 'monthlyGross', v)} /></div>
                 </label>
                 <button onClick={() => removeSource(s.id)} aria-label="Remove source"
                   style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', padding: '0 0 9px', lineHeight: 1 }}>
@@ -405,8 +467,23 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                 <NumField label="Mortgage balance" path="housing.mortgageBalance" value={profile.housing.mortgageBalance} step="5000" onUpdate={update}/>
                 <NumField label="Mortgage rate (%)" path="housing.mortgageApr" value={profile.housing.mortgageApr} prefix={null} step="0.1" onUpdate={update}/>
                 <NumField label="Taxes + ins / mo" path="housing.escrowMonthly" value={profile.housing.escrowMonthly} step="50" onUpdate={update}/>
+                <NumField label="Loan term (yrs)" path="housing.termYears" value={profile.housing.termYears} prefix={null} step="5" onUpdate={update}
+                  hint="Original mortgage term — 30 or 15 for most loans. Optional, but with the start year it anchors the scheduled payoff date and the payoff-accelerator tool." />
+                <NumField label="Year loan started" path="housing.startYear" value={profile.housing.startYear} prefix={null} step="1" onUpdate={update}
+                  hint="The year the mortgage (or latest refinance) originated. Optional — used with the term to show where you are in the amortization schedule." />
               </>}
             </div>
+            {isOwner && Number(profile.housing.termYears) > 0 && Number(profile.housing.startYear) > 1900 && (() => {
+              const payoffYear = Number(profile.housing.startYear) + Number(profile.housing.termYears);
+              const yearsLeft = Math.max(0, payoffYear - new Date().getFullYear());
+              const yearsIn = Math.max(0, Number(profile.housing.termYears) - yearsLeft);
+              return (
+                <div className="px-split-equity" style={{ marginTop: 8 }}>
+                  <span>Scheduled payoff · year {yearsIn} of {profile.housing.termYears}</span>
+                  <strong>{payoffYear}{yearsLeft > 0 ? ` · ${yearsLeft} yrs left` : ' · done'}</strong>
+                </div>
+              );
+            })()}
             {isOwner && Number(profile.expenses.housing) > 0 && (() => {
               const pr = mortgagePrincipalMonthly, intr = mortgageInterestMonthly, esc = escrowMonthly;
               const tot = Math.max(1, pr + intr + esc);
@@ -478,27 +555,27 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                     <label className="px-field">
                       <span className="px-field-label">Market value</span>
                       <div className="px-input-affix"><span className="px-affix">$</span>
-                        <input type="number" value={p.value} step="5000"
-                          onChange={(e) => updateProperty(p.id, 'value', parseFloat(e.target.value) || 0)} /></div>
+                        <NumInput value={p.value} step="5000"
+                          onCommit={(v) => updateProperty(p.id, 'value', v)} /></div>
                     </label>
                     <label className="px-field">
                       <span className="px-field-label">Mortgage balance</span>
                       <div className="px-input-affix"><span className="px-affix">$</span>
-                        <input type="number" value={p.mortgageBalance} step="5000"
-                          onChange={(e) => updateProperty(p.id, 'mortgageBalance', parseFloat(e.target.value) || 0)} /></div>
+                        <NumInput value={p.mortgageBalance} step="5000"
+                          onCommit={(v) => updateProperty(p.id, 'mortgageBalance', v)} /></div>
                     </label>
                     <label className="px-field">
                       <span className="px-field-label">Payment / mo</span>
                       <div className="px-input-affix"><span className="px-affix">$</span>
-                        <input type="number" value={p.paymentMonthly} step="50"
-                          onChange={(e) => updateProperty(p.id, 'paymentMonthly', parseFloat(e.target.value) || 0)} /></div>
+                        <NumInput value={p.paymentMonthly} step="50"
+                          onCommit={(v) => updateProperty(p.id, 'paymentMonthly', v)} /></div>
                     </label>
                     {isRental && (
                       <label className="px-field">
                         <span className="px-field-label">Rental income / mo</span>
                         <div className="px-input-affix"><span className="px-affix">$</span>
-                          <input type="number" value={p.rentalIncomeMonthly} step="50"
-                            onChange={(e) => updateProperty(p.id, 'rentalIncomeMonthly', parseFloat(e.target.value) || 0)} /></div>
+                          <NumInput value={p.rentalIncomeMonthly} step="50"
+                            onCommit={(v) => updateProperty(p.id, 'rentalIncomeMonthly', v)} /></div>
                       </label>
                     )}
                   </div>
@@ -545,8 +622,8 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                 <label className="px-field">
                   <span className="px-field-label">Amount / mo</span>
                   <div className="px-input-affix"><span className="px-affix">$</span>
-                    <input type="number" value={c.amount} step="50"
-                      onChange={(e) => updateCustomExpense(c.id, 'amount', parseFloat(e.target.value) || 0)} /></div>
+                    <NumInput value={c.amount} step="50"
+                      onCommit={(v) => updateCustomExpense(c.id, 'amount', v)} /></div>
                 </label>
                 <button onClick={() => removeCustomExpense(c.id)} aria-label="Remove box"
                   style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', padding: '0 0 9px', lineHeight: 1 }}>
@@ -600,15 +677,15 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                     <span className="px-field-label">Balance</span>
                     <div className="px-input-affix">
                       <span className="px-affix">$</span>
-                      <input type="number" value={d.balance} step="100"
-                        onChange={(e) => updateDebt(d.id, 'balance', parseFloat(e.target.value) || 0)} />
+                      <NumInput value={d.balance} step="100"
+                        onCommit={(v) => updateDebt(d.id, 'balance', v)} />
                     </div>
                   </label>
                   <label className="px-field">
                     <span className="px-field-label">APR</span>
                     <div className="px-input-affix">
-                      <input type="number" value={d.apr} step="0.1"
-                        onChange={(e) => updateDebt(d.id, 'apr', parseFloat(e.target.value) || 0)} />
+                      <NumInput value={d.apr} step="0.1"
+                        onCommit={(v) => updateDebt(d.id, 'apr', v)} />
                       <span className="px-affix px-affix-r">%</span>
                     </div>
                   </label>
@@ -616,8 +693,8 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                     <span className="px-field-label">Min / mo</span>
                     <div className="px-input-affix">
                       <span className="px-affix">$</span>
-                      <input type="number" value={d.min} step="10"
-                        onChange={(e) => updateDebt(d.id, 'min', parseFloat(e.target.value) || 0)} />
+                      <NumInput value={d.min} step="10"
+                        onCommit={(v) => updateDebt(d.id, 'min', v)} />
                     </div>
                   </label>
                 </div>
@@ -635,12 +712,32 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
               <NumField label="Roth IRA balance" path="retirement.rothBalance" value={profile.retirement.rothBalance} step="500"  onUpdate={update}/>
               <NumField label="HSA contrib / yr" path="retirement.hsaContrib" value={profile.retirement.hsaContrib} step="100"  onUpdate={update}/>
             </div>
-            <div className="px-field-label" style={{ marginTop: 14, marginBottom: 8 }}>Contributions &amp; employer match</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 14, marginBottom: 8, gap: 8 }}>
+              <span className="px-field-label" style={{ margin: 0 }}>Contributions &amp; employer match</span>
+              {/* Per-month / per-year entry toggle. Stored values are ALWAYS annual —
+                  the monthly view just divides for display and multiplies on commit,
+                  so every calculator keeps reading the same annual figures. */}
+              <div className="px-seg" role="tablist" aria-label="Contribution entry period" style={{ margin: 0 }}>
+                <button type="button" role="tab" aria-selected={contribFreq === 'mo'} className={`px-seg-btn ${contribFreq === 'mo' ? 'is-on' : ''}`}
+                  onClick={() => setContribFreq('mo')}>Per month</button>
+                <button type="button" role="tab" aria-selected={contribFreq === 'yr'} className={`px-seg-btn ${contribFreq === 'yr' ? 'is-on' : ''}`}
+                  onClick={() => setContribFreq('yr')}>Per year</button>
+              </div>
+            </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <NumField label="401(k) contributed / yr" path="retirement.fourohonekContributed" value={profile.retirement.fourohonekContributed} step="500" onUpdate={update}/>
-              <NumField label="401(k) limit / yr" path="retirement.fourohonekLimit" value={profile.retirement.fourohonekLimit} step="500" onUpdate={update}/>
-              <NumField label="IRA contributed / yr" path="retirement.iraContributed" value={profile.retirement.iraContributed} step="500" onUpdate={update}/>
-              <NumField label="IRA limit / yr" path="retirement.iraLimit" value={profile.retirement.iraLimit} step="500" onUpdate={update}/>
+              {[
+                ['401(k) contributed', 'retirement.fourohonekContributed', profile.retirement.fourohonekContributed],
+                ['401(k) limit',       'retirement.fourohonekLimit',       profile.retirement.fourohonekLimit],
+                ['IRA contributed',    'retirement.iraContributed',        profile.retirement.iraContributed],
+                ['IRA limit',          'retirement.iraLimit',              profile.retirement.iraLimit],
+              ].map(([label, path, annual]) => (
+                <NumField key={path}
+                  label={`${label} / ${contribFreq}`}
+                  path={path}
+                  step={contribFreq === 'mo' ? '50' : '500'}
+                  value={contribFreq === 'mo' ? Math.round(((Number(annual) || 0) / 12) * 100) / 100 : annual}
+                  onUpdate={(p, v) => update(p, contribFreq === 'mo' ? Math.round(v * 12) : v)} />
+              ))}
               <NumField label="Employer match (%)" path="retirement.employerMatchPct" value={profile.retirement.employerMatchPct} prefix={null} step="0.5" onUpdate={update}/>
             </div>
           </section>
@@ -681,20 +778,20 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                   <label className="px-field">
                     <span className="px-field-label">Amount / mo</span>
                     <div className="px-input-affix"><span className="px-affix">$</span>
-                      <input type="number" value={s.monthlyAmount} step="100"
-                        onChange={(e) => updateStream(s.id, 'monthlyAmount', parseFloat(e.target.value) || 0)} /></div>
+                      <NumInput value={s.monthlyAmount} step="100"
+                        onCommit={(v) => updateStream(s.id, 'monthlyAmount', v)} /></div>
                   </label>
                   <label className="px-field">
                     <span className="px-field-label">Starts at age</span>
                     <div className="px-input-affix">
-                      <input type="number" value={s.startAge} step="1" min="0"
-                        onChange={(e) => updateStream(s.id, 'startAge', parseInt(e.target.value) || 0)} /></div>
+                      <NumInput value={s.startAge} step="1" min="0"
+                        onCommit={(v) => updateStream(s.id, 'startAge', Math.round(v))} /></div>
                   </label>
                   <label className="px-field">
                     <span className="px-field-label">Annual COLA (%)</span>
                     <div className="px-input-affix">
-                      <input type="number" value={s.colaPct} step="0.1"
-                        onChange={(e) => updateStream(s.id, 'colaPct', parseFloat(e.target.value) || 0)} />
+                      <NumInput value={s.colaPct} step="0.1"
+                        onCommit={(v) => updateStream(s.id, 'colaPct', v)} />
                       <span className="px-affix px-affix-r">%</span></div>
                   </label>
                   {s.type === 'social_security' && (
@@ -704,8 +801,8 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                         <FieldHint text="Your Primary Insurance Amount: the monthly Social Security benefit at full retirement age (67), from your SSA statement. Powers the claiming-age (62 / 67 / 70) optimizer." />
                       </span>
                       <div className="px-input-affix"><span className="px-affix">$</span>
-                        <input type="number" value={s.pia ?? ''} step="100" placeholder="from SSA statement"
-                          onChange={(e) => updateStream(s.id, 'pia', parseFloat(e.target.value) || 0)} /></div>
+                        <NumInput value={s.pia ?? ''} step="100" placeholder="from SSA statement"
+                          onCommit={(v) => updateStream(s.id, 'pia', v)} /></div>
                     </label>
                   )}
                 </div>
@@ -760,8 +857,8 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                   <label className="px-field">
                     <span className="px-field-label">Vested value</span>
                     <div className="px-input-affix"><span className="px-affix">$</span>
-                      <input type="number" value={e.positionValue} step="5000"
-                        onChange={(ev) => updateEquity(e.id, 'positionValue', parseFloat(ev.target.value) || 0)} /></div>
+                      <NumInput value={e.positionValue} step="5000"
+                        onCommit={(v) => updateEquity(e.id, 'positionValue', v)} /></div>
                   </label>
                   <label className="px-field">
                     <span className="px-field-label">
@@ -769,8 +866,8 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                       <FieldHint text="What you paid (or the value when RSUs vested and were taxed). Vested value − cost basis = the unrealized gain that diversifying would realize." />
                     </span>
                     <div className="px-input-affix"><span className="px-affix">$</span>
-                      <input type="number" value={e.costBasis} step="5000"
-                        onChange={(ev) => updateEquity(e.id, 'costBasis', parseFloat(ev.target.value) || 0)} /></div>
+                      <NumInput value={e.costBasis} step="5000"
+                        onCommit={(v) => updateEquity(e.id, 'costBasis', v)} /></div>
                   </label>
                   <label className="px-field">
                     <span className="px-field-label">
@@ -778,8 +875,8 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                       <FieldHint text="Grants not yet vested. They add to the position (and to ordinary income) as they vest, so concentration tends to rebuild without a plan." />
                     </span>
                     <div className="px-input-affix"><span className="px-affix">$</span>
-                      <input type="number" value={e.unvestedValue} step="5000"
-                        onChange={(ev) => updateEquity(e.id, 'unvestedValue', parseFloat(ev.target.value) || 0)} /></div>
+                      <NumInput value={e.unvestedValue} step="5000"
+                        onCommit={(v) => updateEquity(e.id, 'unvestedValue', v)} /></div>
                   </label>
                 </div>
               </div>
@@ -821,22 +918,31 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                   </label>
                   <label className="px-field">
                     <span className="px-field-label">Owner</span>
-                    <div className="px-input-affix">
-                      <input type="text" value={i.owner} placeholder="Who's covered"
-                        onChange={(e) => updateInsurance(i.id, 'owner', e.target.value)} />
-                    </div>
+                    {/* Tied to the household members entered at the top of this drawer.
+                        A legacy free-text owner that doesn't match a member stays
+                        selectable so old profiles don't silently lose the value. */}
+                    <select className="px-select" value={i.owner || ''}
+                      onChange={(e) => updateInsurance(i.id, 'owner', e.target.value)}>
+                      <option value="">Who's covered…</option>
+                      {(profile.members || []).filter(m => (m.name || '').trim()).map(m => (
+                        <option key={m.id} value={m.name}>{m.name}</option>
+                      ))}
+                      {i.owner && !(profile.members || []).some(m => m.name === i.owner) && (
+                        <option value={i.owner}>{i.owner}</option>
+                      )}
+                    </select>
                   </label>
                   <label className="px-field">
                     <span className="px-field-label">Coverage</span>
                     <div className="px-input-affix"><span className="px-affix">$</span>
-                      <input type="number" value={i.coverageAmount} step="10000"
-                        onChange={(e) => updateInsurance(i.id, 'coverageAmount', parseFloat(e.target.value) || 0)} /></div>
+                      <NumInput value={i.coverageAmount} step="10000"
+                        onCommit={(v) => updateInsurance(i.id, 'coverageAmount', v)} /></div>
                   </label>
                   <label className="px-field">
                     <span className="px-field-label">Premium / mo</span>
                     <div className="px-input-affix"><span className="px-affix">$</span>
-                      <input type="number" value={i.premiumMonthly} step="10"
-                        onChange={(e) => updateInsurance(i.id, 'premiumMonthly', parseFloat(e.target.value) || 0)} /></div>
+                      <NumInput value={i.premiumMonthly} step="10"
+                        onCommit={(v) => updateInsurance(i.id, 'premiumMonthly', v)} /></div>
                   </label>
                 </div>
               </div>
@@ -865,6 +971,14 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                         onChange={(e) => updateEstate(key, 'lastReviewed', e.target.value)} />
                     </label>
                   </div>
+                  {/* Not done yet → offer the illustrative sample (discussion aid,
+                      bannered as not-a-legal-document) to anchor the conversation. */}
+                  {!isComplete && (
+                    <button className="px-btn px-btn-sm px-btn-ghost" style={{ padding: '2px 8px', marginTop: 4, fontSize: 10.5 }}
+                      onClick={() => window.openEstateSample?.(key)}>
+                      <Icons.FileText size={10} /> View sample {label.toLowerCase()}
+                    </button>
+                  )}
                   {/* Shared items link to a vault document the client can open. */}
                   {isComplete && (
                     <label className="px-field" style={{ marginTop: 6 }}>
@@ -915,29 +1029,72 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                 hint="Your combined top tax bracket — the rate on your next dollar of income. Drives tax-advantaged savings estimates. Import a W-2 below to set this from your actual wages instead of guessing." />
             </div>
 
-            {/* W-2 capture → parsed marginal rate. Box 1 (wages) locates the federal
-                bracket via the shared bracketPosition engine, replacing the
-                hand-entered rate above with a figure off the actual return. */}
+            {/* W-2 capture → parsed marginal rate. One entry per earner/job —
+                spouse W-2s and second jobs each get a line; the COMBINED Box 1
+                locates the household's federal bracket via the shared
+                bracketPosition engine (right answer for a joint return). */}
             {(() => {
-              const w2 = profile.taxes.w2 || { box1: 0, box2: 0 };
+              const list = w2s(profile);
+              const box1 = list.reduce((a, w) => a + (Number(w.box1) || 0), 0);
+              const box2 = list.reduce((a, w) => a + (Number(w.box2) || 0), 0);
               const filing = profile.taxes.filingStatus === 'single' ? 'single' : 'mfj';
-              const res = w2Position({ box1: w2.box1, box2: w2.box2, filingStatus: filing });
-              const hasW2 = (Number(w2.box1) || 0) > 0;
+              const res = w2Position({ box1, box2, filingStatus: filing });
+              const hasW2 = box1 > 0;
               const applied = hasW2 && Number(profile.taxes.marginalRate) === res.marginalRatePct;
               return (
                 <div style={{ marginTop: 12, border: '1px solid var(--border)', borderRadius: 6, padding: 12, background: 'var(--surface)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 10 }}>
-                    <span className="px-eyebrow" style={{ margin: 0 }}>Import from W-2</span>
-                    <FieldHint text="Enter Box 1 (wages, tips, other comp) and Box 2 (federal income tax withheld) from your W-2. We locate your federal bracket from Box 1 and offer it as your marginal rate." />
+                    <span className="px-eyebrow" style={{ margin: 0 }}>Import from W-2{list.length > 1 ? 's' : ''}</span>
+                    <FieldHint text="One entry per W-2 — add a spouse's W-2 or a second job. Box 1 (wages, tips, other comp) and Box 2 (federal income tax withheld) come straight off each form; combined wages locate the household's federal bracket." />
+                    <span style={{ flex: 1 }} />
+                    {canAiImportW2 && (
+                      <>
+                        <input ref={w2FileRef} type="file" accept="image/*,application/pdf" style={{ display: 'none' }}
+                          onChange={(e) => importW2File(e.target.files?.[0])} />
+                        <button className="px-btn px-btn-sm px-btn-ghost" style={{ padding: '3px 8px', whiteSpace: 'nowrap' }}
+                          disabled={w2Importing} onClick={() => w2FileRef.current?.click()}>
+                          <Icons.Upload size={10} /> {w2Importing ? 'Reading…' : 'Upload W-2'}
+                        </button>
+                      </>
+                    )}
+                    <button className="px-btn px-btn-sm px-btn-ghost" style={{ padding: '3px 8px', whiteSpace: 'nowrap' }} onClick={() => addW2()}>
+                      <Icons.Plus size={10} /> Add W-2
+                    </button>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                    <NumField label="Box 1 — wages, tips, other comp" path="taxes.w2.box1" value={w2.box1} step="1000" onUpdate={update} />
-                    <NumField label="Box 2 — federal income tax withheld" path="taxes.w2.box2" value={w2.box2} step="100" onUpdate={update} />
-                  </div>
+                  {list.length === 0 && (
+                    <div style={{ padding: '6px 0', textAlign: 'center', color: 'var(--ink-faint)', fontStyle: 'italic', fontSize: 12 }}>
+                      Add a W-2 per earner — we'll set the marginal rate from actual wages instead of a guess.
+                    </div>
+                  )}
+                  {list.map(w => (
+                    <div key={w.id} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 10, marginBottom: 8, background: 'var(--bg)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                        <input type="text" value={w.label} placeholder="Whose W-2 / employer (e.g. Dana — Acme Corp)"
+                          onChange={(e) => updateW2(w.id, 'label', e.target.value)}
+                          style={{ fontFamily: 'var(--serif)', fontSize: 13, fontWeight: 500, background: 'none', border: 'none', color: 'var(--ink)', outline: 'none', flex: 1 }} />
+                        <button onClick={() => removeW2(w.id)} title="Remove" aria-label="Remove W-2"
+                          style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', padding: '2px 6px', lineHeight: 1 }}>
+                          <Icons.X size={12} />
+                        </button>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                        <label className="px-field">
+                          <span className="px-field-label">Box 1 — wages, tips, other comp</span>
+                          <div className="px-input-affix"><span className="px-affix">$</span>
+                            <NumInput value={w.box1} step="1000" onCommit={(v) => updateW2(w.id, 'box1', v)} /></div>
+                        </label>
+                        <label className="px-field">
+                          <span className="px-field-label">Box 2 — federal tax withheld</span>
+                          <div className="px-input-affix"><span className="px-affix">$</span>
+                            <NumInput value={w.box2} step="100" onCommit={(v) => updateW2(w.id, 'box2', v)} /></div>
+                        </label>
+                      </div>
+                    </div>
+                  ))}
                   {hasW2 && (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 10 }}>
                       <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.5 }}>
-                        Box 1 lands in the <b>{res.marginalRatePct}%</b> federal bracket
+                        {list.length > 1 ? 'Combined wages land' : 'Box 1 lands'} in the <b>{res.marginalRatePct}%</b> federal bracket
                         {res.withholdingRate > 0 && <> · withheld <b>{Math.round(res.withholdingRate * 100)}%</b> of wages</>}.
                       </div>
                       <button className="px-btn px-btn-sm" disabled={applied} style={{ whiteSpace: 'nowrap' }}
@@ -1044,20 +1201,20 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                   <label className="px-field">
                     <span className="px-field-label">Target amount</span>
                     <div className="px-input-affix"><span className="px-affix">$</span>
-                      <input type="number" value={g.targetAmount} step="1000"
-                        onChange={(e) => updateGoal(g.id, 'targetAmount', parseFloat(e.target.value) || 0)} /></div>
+                      <NumInput value={g.targetAmount} step="1000"
+                        onCommit={(v) => updateGoal(g.id, 'targetAmount', v)} /></div>
                   </label>
                   <label className="px-field">
                     <span className="px-field-label">Saved so far</span>
                     <div className="px-input-affix"><span className="px-affix">$</span>
-                      <input type="number" value={g.currentFunding} step="1000"
-                        onChange={(e) => updateGoal(g.id, 'currentFunding', parseFloat(e.target.value) || 0)} /></div>
+                      <NumInput value={g.currentFunding} step="1000"
+                        onCommit={(v) => updateGoal(g.id, 'currentFunding', v)} /></div>
                   </label>
                   <label className="px-field" style={{ gridColumn: '1 / -1' }}>
                     <span className="px-field-label">Monthly contribution</span>
                     <div className="px-input-affix"><span className="px-affix">$</span>
-                      <input type="number" value={g.monthlyContribution} step="50"
-                        onChange={(e) => updateGoal(g.id, 'monthlyContribution', parseFloat(e.target.value) || 0)} /></div>
+                      <NumInput value={g.monthlyContribution} step="50"
+                        onCommit={(v) => updateGoal(g.id, 'monthlyContribution', v)} /></div>
                   </label>
                 </div>
               </div>

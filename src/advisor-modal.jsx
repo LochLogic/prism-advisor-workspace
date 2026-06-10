@@ -1272,6 +1272,16 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
               onClick={() => window.printClientReport?.(client, phase, meetings || [])}>
               <Icons.Download size={12} /> Print
             </button>
+            {/* Discoverable path to removing a household (it archives — RLS keeps
+                the row, the roster drops it). Jumps to the Edit tab with the
+                confirm row armed; the actual destructive click still lives there. */}
+            {isLiveClient && (
+              <button className="px-btn px-btn-sm px-btn-ghost" style={{ color: 'var(--brick)' }}
+                aria-label="Archive this client"
+                onClick={() => { setTab('edit'); setConfirmArchive(true); }}>
+                <Icons.X size={12} /> Archive
+              </button>
+            )}
             <button className="px-btn px-btn-primary" onClick={openRoadmap}>
               <Icons.Eye size={12} /> View roadmap
             </button>
@@ -1873,7 +1883,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
             firmId={firmId}
             counterpartName={client.shortName || client.name}
             emptyHint={`No messages yet — open the conversation with ${client.shortName || client.name}.`}
-            demoSeed={window.demoMessages ? window.demoMessages() : []}
+            demoSeed={(client.isProspect || !window.demoMessages) ? [] : window.demoMessages()}
             height={360}
             aiContext={aiHouseholdContext()}
           />
