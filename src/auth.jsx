@@ -65,7 +65,7 @@ function AuthProvider({ children }) {
       const phasesReady = mergePhasesWithDB();
       const { data: adv } = await window.__sb
         .from('advisors')
-        .select('id, full_name, honorific, firm_id, email, role, firms(name)')
+        .select('id, full_name, honorific, credentials, firm_id, email, role, firms(name)')
         .eq('auth_user_id', sess.user.id)
         .maybeSingle();
 

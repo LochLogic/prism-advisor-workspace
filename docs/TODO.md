@@ -48,12 +48,13 @@ Things I genuinely can't do — they cost money, need your identity/credentials,
 in dashboards I can't reach. **Bold = the hard blockers gating any live client.**
 Project ref: `phabxcijbbphfxvjedfj` · Domain: `prismaw.com`.
 
-### Round-12 go-live — two SQL-editor pastes (shipped 2026-06-10, code is LIVE)
-- [ ] **Apply migrations 035 + 036** in the Supabase SQL editor, in order:
-  [`035_platform_owner.sql`](../supabase/migrations/035_platform_owner.sql) then
-  [`036_ledger_approvals.sql`](../supabase/migrations/036_ledger_approvals.sql).
-  Until applied, everything degrades quietly: no Platform tab, no Workflow toggle,
-  client edits keep saving directly.
+### Round-12 go-live — SQL-editor pastes (shipped 2026-06-10, code is LIVE)
+- [x] ~~Apply migrations 035 + 036~~ *(done 2026-06-10)*
+- [ ] **Apply migration 037** in the Supabase SQL editor:
+  [`037_firm_status_guard_fix.sql`](../supabase/migrations/037_firm_status_guard_fix.sql) —
+  fixes the 035 status-guard trigger that broke every `firms` update from the
+  browser (your "save branding stopped working" report). One paste; branding
+  saves, the new firm-rename field, and the Workflow toggle all start working.
 - [ ] **Seed yourself as platform owner** (one row; the auth uid is in
   Supabase → Authentication → Users):
   `insert into px_platform_owners (auth_user_id, email) values ('<auth-uid>', '<email>');`

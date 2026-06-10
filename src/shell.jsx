@@ -281,6 +281,21 @@ const AccountChip = ({ view, activeClient }) => {
     setAuthUser?.(u => (u ? { ...u, honorific: h || null } : u));
   };
 
+  // Own-profile editor (name changes — marriage etc. — and credentials).
+  // advisors_update_self RLS scopes the write; context mirrors it instantly.
+  const [profileEdit, setProfileEdit] = React.useState(null); // {full_name, credentials} | null
+  const [profileSaving, setProfileSaving] = React.useState(false);
+  const saveProfileEdit = async () => {
+    if (!authUser?.id || !profileEdit?.full_name?.trim()) return;
+    setProfileSaving(true);
+    const row = await window.db?.updateAdvisorProfile(authUser.id, profileEdit);
+    setProfileSaving(false);
+    if (row) {
+      setAuthUser?.(u => (u ? { ...u, full_name: row.full_name, credentials: row.credentials } : u));
+      setProfileEdit(null);
+    }
+  };
+
   React.useEffect(() => {
     if (!open) return;
     const handleClick = () => setOpen(false);
@@ -366,6 +381,35 @@ const AccountChip = ({ view, activeClient }) => {
 
           {!isDemo && view !== 'client' && authUser && (
             <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
+              {!profileEdit ? (
+                <button
+                  onClick={() => setProfileEdit({ full_name: authUser.full_name || '', credentials: authUser.credentials || '' })}
+                  style={{ width: '100%', padding: 0, marginBottom: 8, textAlign: 'left', background: 'none', border: 'none',
+                    fontSize: 12, color: 'var(--ink)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--sans)' }}>
+                  <Icons.Edit size={12} /> Edit name &amp; credentials
+                </button>
+              ) : (
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 12, color: 'var(--ink)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Icons.Edit size={12} /> Your name &amp; credentials
+                  </div>
+                  <input className="px-input" style={{ width: '100%', marginBottom: 6 }} autoFocus
+                    value={profileEdit.full_name} placeholder="Full name" aria-label="Your full name"
+                    onChange={e => setProfileEdit(p => ({ ...p, full_name: e.target.value }))}
+                    onKeyDown={e => { if (e.key === 'Enter') saveProfileEdit(); }} />
+                  <input className="px-input" style={{ width: '100%', marginBottom: 6 }}
+                    value={profileEdit.credentials} placeholder="Credentials (e.g. CFP®, CFA)" aria-label="Your credentials"
+                    onChange={e => setProfileEdit(p => ({ ...p, credentials: e.target.value }))}
+                    onKeyDown={e => { if (e.key === 'Enter') saveProfileEdit(); }} />
+                  <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                    <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => setProfileEdit(null)}>Cancel</button>
+                    <button className="px-btn px-btn-sm px-btn-primary" onClick={saveProfileEdit}
+                      disabled={profileSaving || !profileEdit.full_name.trim()}>
+                      {profileSaving ? 'Saving…' : 'Save'}
+                    </button>
+                  </div>
+                </div>
+              )}
               <div style={{ fontSize: 12, color: 'var(--ink)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Icons.Edit size={12} /> How clients address you
               </div>
