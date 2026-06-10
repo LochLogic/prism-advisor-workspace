@@ -12,6 +12,37 @@
 
 ---
 
+## 2026-06-10 (round 12b) — Token savers + VAPID keypair (PWA-push unblock)
+
+Sprint-value addendum to round 12. **No migration, no edge-function changes**
+(no gated deploy; Cloudflare picks up the merge), but one gated **sync-secrets
+run** after merge to push the new VAPID secrets to Supabase.
+
+**AI token savers** — (1) `--quiet` / `PX_QUIET=1` mode in `scripts/check.mjs` +
+`scripts/calc.test.mjs` and a new **`npm run test:quiet`**: failures + summary
+counts only (~2 lines instead of ~280 per run; default stays verbose for
+humans/CI). (2) New **`scripts/outline.mjs <file…|--all>`**: top-level
+declarations, `window.*` exports, and line numbers for any source file, so big
+files are navigated from a ~40-line outline + ranged reads instead of full
+reads. Both recorded in CLAUDE.md ("Token savers") so future sessions reach for
+them by default.
+
+**Web-push VAPID keypair (human-queue item taken over)** — P-256 pair generated
+locally (`node:crypto`, private key never printed/committed), stored as GitHub
+Actions secrets `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT`
+(`mailto:support@prismaw.com`), and the gated `sync-secrets.yml` workflow now
+includes the three VAPID names → synced to Supabase edge secrets. The public key
+is recorded on the Client-PWA TODO item (it's the client-side
+`pushManager.subscribe` parameter). **Client PWA + push is now unblocked.**
+
+**Platform-owner seeding guidance** — the TODO go-live block now spells out that
+the `px_platform_owners` insert is a *copy* (a reference to an existing
+auth.users row) and that the account needs an advisor/admin seat to see the
+Platform tab (seed the existing advisor account, or sign up the dedicated
+founder email + provision its workspace first).
+
+---
+
 ## 2026-06-10 (round 12) — Platform-owner tier + ledger-edit approval gate
 
 Two Claude-queue items shipped as one bundle. **Two hand-apply migrations (035, 036)

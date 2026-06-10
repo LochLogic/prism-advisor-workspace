@@ -26,7 +26,11 @@ independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
 - [ ] **RLS-predicate index coverage audit** (`advisor_id`/`firm_id`/`client_id`,
   esp. the firm-admin cross-firm read).
 - [ ] **Client PWA + push** — installable portal + push on new message/task/document.
-  *↔ blocked-by-you: VAPID keypair.*
+  *UNBLOCKED 2026-06-10: VAPID keypair generated and stored — GitHub secrets
+  `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` (mailto:support@prismaw.com),
+  synced to Supabase edge secrets via the gated workflow. Public key (non-secret,
+  goes in the client `pushManager.subscribe` call):
+  `BAfYlDcSv2qsk8-FnhSQm-UET828k21ruVzq7aNRZf_PuDSRGj64EfowCtuAheqesFlyt2U5kdhNITlCSpu2FnQ`.*
 - [ ] **Zapier / public API.**
 - [ ] **Stripe webhook retry-storm hardening** (C0) — `stripe-webhook` returns HTTP
   400 for any exception → Stripe retries ~3 days even for unrecoverable cases. Return
@@ -50,10 +54,16 @@ Project ref: `phabxcijbbphfxvjedfj` · Domain: `prismaw.com`.
   [`036_ledger_approvals.sql`](../supabase/migrations/036_ledger_approvals.sql).
   Until applied, everything degrades quietly: no Platform tab, no Workflow toggle,
   client edits keep saving directly.
-- [ ] **Seed yourself as platform owner** (one row; your auth uid is in
+- [ ] **Seed yourself as platform owner** (one row; the auth uid is in
   Supabase → Authentication → Users):
-  `insert into px_platform_owners (auth_user_id, email) values ('<your-auth-uid>', '<your-email>');`
-  Then the **Platform** tab appears in your advisor topbar (or deep-link `#/platform`).
+  `insert into px_platform_owners (auth_user_id, email) values ('<auth-uid>', '<email>');`
+  Then the **Platform** tab appears in that account's advisor topbar (or deep-link `#/platform`).
+  *Which account:* the allowlist row is a **copy** (a reference to the auth user — the
+  account itself isn't moved or changed). The account must also hold an advisor/admin
+  seat, because the Platform tab lives in the advisor app. Easiest: seed your existing
+  advisor account's uid. If you'd rather keep a dedicated founder identity with the
+  unused email: sign up with it, complete the "name your firm" step (gives it a
+  sandbox firm + admin seat), then copy THAT account's uid into the insert.
 
 ### Finish Microsoft calendar setup — one Azure click left
 - [ ] In the Azure app registration, add the redirect URI
@@ -98,8 +108,6 @@ Project ref: `phabxcijbbphfxvjedfj` · Domain: `prismaw.com`.
 ### External credentials that unblock my feature work
 Each drops into Supabase Edge Function secrets (or tell me the channel) and I build
 against it:
-- [ ] **VAPID keypair** (web-push) → unblocks **client PWA push**. I can generate the
-  pair and hand you the split if you'd rather.
 - [ ] *(Optional)* a **scrubbed CRM export** (Wealthbox/Redtail/Orion CSV) in
   `docs/samples/` so the import mappers are built against reality.
 - [ ] **DocuSign production promotion** — only when going live with real signatures:
