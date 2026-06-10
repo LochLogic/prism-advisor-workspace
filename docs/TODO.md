@@ -8,9 +8,9 @@
 > queue** (money, credentials, external accounts, legal, host/dashboard settings I
 > can't reach).
 >
-> Baseline reset 2026-06-08. All migrations through `032` are applied, the gated edge
+> Baseline reset 2026-06-08. All migrations through `034` are applied, the gated edge
 > deploy is done, and Realtime-RLS + the `CRON_SECRET` Vault entry are verified — the
-> repo and the live project are in sync except migrations `033`/`034` (below).
+> repo and the live project are in sync.
 
 ---
 
@@ -19,6 +19,14 @@
 Sequenced to the north star — onboard a first paying advisor. Each item is
 independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
 
+- [ ] **Platform-owner dashboard** (founder ask 2026-06-10) — a tier ABOVE firm
+  admin: one founder-only view to administer firms and solo advisors (firm list +
+  plan/seat stats, advisor roster, provision/suspend). Safe shape: leave every
+  existing RLS policy untouched; add a `px_platform_owners` allowlist table + a
+  service-role edge function (caller's auth uid checked against the allowlist)
+  feeding a new gated view in the advisor bundle. Migration + edge fn + view ≈ one
+  round. *Decide first: which actions it needs day-one (read-only stats vs.
+  provision/suspend/billing overrides).*
 - [ ] **Advisor MFA (TOTP)** — enforce in the advisor auth path. *↔ may need a
   Supabase Auth toggle (your queue).*
 - [ ] **Product analytics events** — first-party activation events (login, invite,
@@ -36,20 +44,6 @@ independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
   200 for permanent/unprocessable, 4xx/5xx only for retryable. *↔ money-adjacent;
   deferred by decision — needs the gated `stripe-webhook` edge redeploy with your go.
   Repo intentionally left in sync with what's deployed.*
-- [ ] **Insight → action hooks** (2026-06-09 advisor-POV review, top finding) — the
-  planning tools diagnose but mostly dead-end: only the SS claiming optimizer writes
-  back to the plan. Add a lightweight "Add to agenda / create task" affordance to the
-  high-verdict tools (coverage gap, Roth window, debt-vs-invest, 1040 observations)
-  so a tool finding becomes a tracked next step the advisor owns.
-- [ ] **Advisor-facing 1040 flags** (advisor-POV review; extends the round-7 tax
-  feature) — surface the top `tax1040Insights` observations in the client quick-view
-  and as QBR plan flags, so the advisor sees what the client's roadmap tool shows.
-- [ ] **Portal fee transparency** (advisor-POV review, small) — approved/paid
-  invoices never surface client-side. Show them in the client portal (vault or a
-  small billing card) — a fiduciary trust signal.
-- [ ] **UX backlog** (optional) — roster swipe actions; housing ratio coaching + field
-  hints (FinFire donors).
-
 *Partner-gated depth (holdings aggregation, object-lock WORM, module refactor) lives in
 ROADMAP and is built only when a partner asks — not queued here.*
 
@@ -61,23 +55,12 @@ Things I genuinely can't do — they cost money, need your identity/credentials,
 in dashboards I can't reach. **Bold = the hard blockers gating any live client.**
 Project ref: `phabxcijbbphfxvjedfj` · Domain: `prismaw.com`.
 
-### Apply migrations 033 + 034 — **gates calendar sync + fast bulk import**
-- [ ] Run [`033_calendar_connections.sql`](../supabase/migrations/033_calendar_connections.sql)
-  then [`034_bulk_create_clients.sql`](../supabase/migrations/034_bulk_create_clients.sql)
-  in the Supabase SQL editor (hand-applied, the operating model). Until then both
-  fail gracefully: the calendar card's connect flow errors politely, and CSV
-  imports fall back to the existing per-row path.
-
-### Finish Microsoft calendar setup — **Google is live-ready, Microsoft isn't**
-- [ ] **Re-add the Azure credentials** — the Microsoft block (client ID, secret,
-  tenant/directory ID) never made it into `docs/DocuSign.txt` (only Google +
-  DocuSign are in the saved file). Drop them in again and say the word, or set
-  GitHub repo secrets `MS_OAUTH_CLIENT_ID`, `MS_OAUTH_CLIENT_SECRET`,
-  `MS_OAUTH_TENANT` yourself — the gated **Sync edge secrets** workflow pushes
-  whatever is present to Supabase.
+### Finish Microsoft calendar setup — one Azure click left
 - [ ] In the Azure app registration, add the redirect URI
   `https://prismaw.com/oauth/microsoft/callback` (Web platform) — the Microsoft
-  twin of the Google one you already registered.
+  twin of the Google one you already registered. *(Creds are in: the Azure
+  client/tenant/secret are set as repo secrets and synced to Supabase as of
+  2026-06-10 — both providers are otherwise live-ready.)*
 
 ### Infrastructure to production grade — **the #1 hard blocker**
 - [ ] **Upgrade Supabase to Pro + enable PITR / daily backups.** Free tier auto-pauses

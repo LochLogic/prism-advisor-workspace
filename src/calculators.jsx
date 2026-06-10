@@ -26,6 +26,40 @@ const StatCell = ({ label, value, tone, foot, big }) => (
   </div>
 );
 
+/* Insight → action: advisor-only affordance that turns a tool verdict into a
+   CRM task on the dashboard ("Add to agenda"). Hidden for clients — the tools
+   themselves stay client-safe; only the follow-up hook is advisor-side.
+   Demo / non-UUID clients get the optimistic toast (matches addAgendaItem). */
+const InsightAction = ({ title, detail, compact }) => {
+  const { activeClientId, showToast } = useView();
+  const { role, authUser } = useAuth();
+  const [state, setState] = useStateC('idle'); // idle | saving | done
+  if (role !== 'advisor' && role !== 'admin') return null;
+  const add = async () => {
+    if (state !== 'idle') return;
+    setState('saving');
+    if (!window.db.isUUID(activeClientId) || !window.db.isUUID(authUser?.id)) {
+      setState('done'); showToast?.('Added to the meeting agenda'); return;
+    }
+    const row = await window.db.createTask(authUser.id, authUser.firm_id, {
+      title: String(title).slice(0, 160), detail: detail || null,
+      client_id: activeClientId, priority: 'normal',
+    });
+    if (row) { setState('done'); showToast?.('Task created — it’s on your dashboard'); }
+    else { setState('idle'); showToast?.('Could not create the task — check console'); }
+  };
+  const done = state === 'done';
+  return (
+    <button className="px-btn px-btn-sm px-btn-ghost" onClick={add} disabled={state !== 'idle'}
+      title="Create a follow-up task for this household"
+      style={compact ? { padding: '2px 8px', fontSize: 10.5, flexShrink: 0, alignSelf: 'flex-start' } : { marginTop: 12 }}>
+      {done
+        ? <><Icons.Check size={11} /> On the agenda</>
+        : <><Icons.Calendar size={11} /> {compact ? 'Task' : 'Add to agenda'}</>}
+    </button>
+  );
+};
+
 /* ───────────────────── BASIC TOOLS ────────────────────────────────── */
 
 /* Phase 01 · Cash flow */
@@ -256,6 +290,11 @@ const CoverageGapTool = () => {
         rough illustration, not a quote — actual cost depends on age, health, and term. A short
         conversation with your advisor sizes the right policy.
       </div>
+      {!cg.covered && cg.gap > 0 && (
+        <InsightAction
+          title={`Coverage gap — size a ${fmt$(cg.gap, { short: true })} term policy`}
+          detail={`Guideline ${fmt$(cg.recommended, { short: true })} (${multiple}× income + debts − reserve) vs ${fmt$(existing, { short: true })} in place. Est. term premium ≈ ${fmt$(prem.monthly)}/mo.`} />
+      )}
     </ToolShell>
   );
 };
@@ -428,6 +467,11 @@ const DebtVsInvestTool = () => {
           expected market return does. Near the line it's a toss-up where liquidity and peace of mind decide.
         </div>
       </div>
+      {payBalance > 0 && (
+        <InsightAction
+          title={`Debt plan — prioritize ${fmt$(payBalance, { short: true })} of high-APR balances`}
+          detail={`${rows.filter(r => r.verdict === 'pay').map(r => `${r.label} (${fmtPct(r.apr)})`).join(', ')} beat the ${fmtPct(returnPct)} after-tax return bar — direct the marginal dollar there first.`} />
+      )}
     </ToolShell>
   );
 };
@@ -584,12 +628,16 @@ const TaxReturnInsightTool = () => {
           const t = TONE[o.tone] || TONE.info;
           return (
             <div key={o.id} style={{ padding: '10px 12px', background: 'var(--bg-elev)',
-              borderLeft: `3px solid ${t.color}`, borderRadius: 6, marginBottom: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 3 }}>
-                <span style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.05em', color: t.color }}>{t.label}</span>
-                <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)' }}>{o.title}</span>
+              borderLeft: `3px solid ${t.color}`, borderRadius: 6, marginBottom: 8,
+              display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 3 }}>
+                  <span style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.05em', color: t.color }}>{t.label}</span>
+                  <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)' }}>{o.title}</span>
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--ink-mute)', lineHeight: 1.55 }}>{o.detail}</div>
               </div>
-              <div style={{ fontSize: 12, color: 'var(--ink-mute)', lineHeight: 1.55 }}>{o.detail}</div>
+              {o.tone !== 'info' && <InsightAction compact title={`1040 follow-up — ${o.title}`} detail={o.detail} />}
             </div>
           );
         })}
@@ -1130,6 +1178,11 @@ const RothConversionWindowTool = () => {
           years moves tax-deferred dollars to tax-free at a controlled rate, ahead of RMDs and Social Security.
         </div>
       </div>
+      {w.annualConversion > 0 && (
+        <InsightAction
+          title={`Roth window — model ~${fmt$(w.annualConversion, { short: true })}/yr conversions, ages ${w.windowStart}–${w.windowEnd}`}
+          detail={`${w.windowYears}-year window filling the ${Math.round(w.targetBracket * 100)}% bracket: ${fmt$(w.totalConverted, { short: true })} converted, est. tax ${fmt$(w.estTaxCost, { short: true })}. Confirm income assumptions before acting.`} />
+      )}
     </ToolShell>
   );
 };

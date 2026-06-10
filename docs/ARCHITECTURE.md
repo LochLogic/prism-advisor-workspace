@@ -2,7 +2,7 @@
 
 > **Purpose:** condensed router for AI/dev work. Tells you *which* file owns a
 > concern and what it exports — not every line. Read the named file for deep logic.
-> **Last synced:** 2026-06-09 round-10 sprint (calendar sync · bulk-import RPC). **Regenerate when:** `build-files.mjs`
+> **Last synced:** 2026-06-10 round-11 sprint (insight→action hooks · 1040 flags · UX polish). **Regenerate when:** `build-files.mjs`
 > load order changes, a `src/*` file is added/split, or `window.db`/`PrismCalc` gain methods.
 
 ---
@@ -52,7 +52,8 @@ src/
   auth.jsx             window.AuthProvider/useAuth — session, role detection, sign-out
   components.jsx       shared UI: Modal, Avatar, Sparkline, MilestoneAchievedModal, Toast
   shell.jsx            chrome shared by BOTH bundles: LoadingScreen, NotificationBell, AccountChip, 2FA, ErrorBoundary
-  calculators.jsx      basic + advanced advisor tools; `calculators` registry keyed by phase `calc`/`calcs`
+  calculators.jsx      basic + advanced advisor tools; `calculators` registry keyed by phase `calc`/`calcs`;
+                       `InsightAction` (round 11) — advisor-only "Add to agenda" hook turning tool verdicts into CRM tasks
   numbers-panel.jsx    window.NumbersDrawer — household ledger editor (DOB picker, accounts, cashflows)
   client-portal.jsx    window.ClientPortal — View B: client roadmap, phase cards, Discuss-with-Advisor
   advisor-modal.jsx    NewClientModal + ClientPreviewModal (advisor bundle only)

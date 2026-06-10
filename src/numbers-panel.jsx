@@ -461,18 +461,43 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                 onClick={() => update('housing.type', 'own')}>Own — mortgage</button>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <NumField label={isOwner ? 'Total payment / mo' : 'Monthly rent'} path="expenses.housing" value={profile.expenses.housing} onUpdate={update}/>
+              <NumField label={isOwner ? 'Total payment / mo' : 'Monthly rent'} path="expenses.housing" value={profile.expenses.housing} onUpdate={update}
+                hint={isOwner ? 'The full monthly mortgage payment, including taxes & insurance if escrowed.' : 'The monthly rent payment — the guideline is to keep housing near 30% of take-home.'}/>
               {isOwner && <>
-                <NumField label="Home value" path="housing.homeValue" value={profile.housing.homeValue} step="5000" onUpdate={update}/>
-                <NumField label="Mortgage balance" path="housing.mortgageBalance" value={profile.housing.mortgageBalance} step="5000" onUpdate={update}/>
-                <NumField label="Mortgage rate (%)" path="housing.mortgageApr" value={profile.housing.mortgageApr} prefix={null} step="0.1" onUpdate={update}/>
-                <NumField label="Taxes + ins / mo" path="housing.escrowMonthly" value={profile.housing.escrowMonthly} step="50" onUpdate={update}/>
+                <NumField label="Home value" path="housing.homeValue" value={profile.housing.homeValue} step="5000" onUpdate={update}
+                  hint="Current market value — drives the home-equity portion of net worth."/>
+                <NumField label="Mortgage balance" path="housing.mortgageBalance" value={profile.housing.mortgageBalance} step="5000" onUpdate={update}
+                  hint="What's still owed on the loan."/>
+                <NumField label="Mortgage rate (%)" path="housing.mortgageApr" value={profile.housing.mortgageApr} prefix={null} step="0.1" onUpdate={update}
+                  hint="The loan's interest rate — drives the principal/interest split below and the payoff-accelerator tool."/>
+                <NumField label="Taxes + ins / mo" path="housing.escrowMonthly" value={profile.housing.escrowMonthly} step="50" onUpdate={update}
+                  hint="The escrow portion of the payment (property tax + homeowners insurance). Leave 0 if not escrowed."/>
                 <NumField label="Loan term (yrs)" path="housing.termYears" value={profile.housing.termYears} prefix={null} step="5" onUpdate={update}
                   hint="Original mortgage term — 30 or 15 for most loans. Optional, but with the start year it anchors the scheduled payoff date and the payoff-accelerator tool." />
                 <NumField label="Year loan started" path="housing.startYear" value={profile.housing.startYear} prefix={null} step="1" onUpdate={update}
                   hint="The year the mortgage (or latest refinance) originated. Optional — used with the term to show where you are in the amortization schedule." />
               </>}
             </div>
+            {/* Housing-cost ratio coaching (FinFire donor) — outflow vs take-home,
+                against the ~30% guideline. Renters and owners alike. */}
+            {Number(profile.expenses.housing) > 0 && Number(profile.income?.monthlyTakehome) > 0 && (() => {
+              const ratio = (Number(profile.expenses.housing) / Number(profile.income.monthlyTakehome)) * 100;
+              const tone = ratio <= 30 ? 'var(--forest)' : ratio <= 40 ? 'var(--gold)' : 'var(--brick)';
+              const verdict = ratio <= 30 ? 'On target' : ratio <= 40 ? 'A bit high' : 'Stretched';
+              return (
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 11.5, color: 'var(--ink-mute)', marginBottom: 5 }}>
+                    <span>Housing is <strong style={{ color: 'var(--ink)' }}>{Math.round(ratio)}%</strong> of take-home pay</span>
+                    <span style={{ fontWeight: 600, color: tone }}>{verdict}</span>
+                  </div>
+                  <div style={{ position: 'relative', height: 6, background: 'var(--bg-elev)', borderRadius: 3 }}>
+                    <div style={{ height: '100%', width: `${Math.min(100, ratio)}%`, background: tone, borderRadius: 3, transition: 'width .3s' }} />
+                    <span title="30% guideline" style={{ position: 'absolute', left: '30%', top: -2, bottom: -2, width: 2, background: 'var(--border-2)', borderRadius: 1 }} />
+                  </div>
+                  <div style={{ fontSize: 10.5, color: 'var(--ink-faint)', marginTop: 4 }}>Guideline: keep housing near or under ~30% of take-home pay.</div>
+                </div>
+              );
+            })()}
             {isOwner && Number(profile.housing.termYears) > 0 && Number(profile.housing.startYear) > 1900 && (() => {
               const payoffYear = Number(profile.housing.startYear) + Number(profile.housing.termYears);
               const yearsLeft = Math.max(0, payoffYear - new Date().getFullYear());

@@ -491,21 +491,26 @@ const useProfile = () => useContext(ProfileContext);
 /* ─── Phase / task progress ───────────────────────────────────────── */
 const TaskContext = createContext(null);
 
-function TaskProvider({ children }) {
-  const { activeClientId } = useView();
-  const { role, authUser } = (window.useAuth?.() || {});
-
-  const mockSeed = () => {
-    const seed = {};
-    phasesData.forEach((p, i) => {
-      seed[p.id] = {};
-      p.tasks.forEach((t, ti) => {
-        if (i < 4) seed[p.id][t.id] = true;
-        else if (i === 4 && ti < 2) seed[p.id][t.id] = true;
-      });
+// Phase-aware demo task seed: a mock client's roadmap reflects ITS phase —
+// earlier phases complete, two tasks into the current one, nothing beyond.
+// (Was a fixed mid-P05 seed for every demo client, so a P01 household showed
+// tasks done through P05 — founder-reported bug, fixed 2026-06-10.)
+function demoTaskSeed(phase = 4) {
+  const p = Math.max(0, Math.min(Number(phase) || 0, phasesData.length - 1));
+  const seed = {};
+  phasesData.forEach((ph, i) => {
+    seed[ph.id] = {};
+    ph.tasks.forEach((t, ti) => {
+      if (i < p) seed[ph.id][t.id] = true;
+      else if (i === p && ti < 2) seed[ph.id][t.id] = true;
     });
-    return seed;
-  };
+  });
+  return seed;
+}
+
+function TaskProvider({ children }) {
+  const { activeClientId, activeClient } = useView();
+  const { role, authUser } = (window.useAuth?.() || {});
 
   const [taskStates, setTaskStates] = useState({});
   const [openPhases, setOpenPhases] = useState({ 4: true });
@@ -524,7 +529,7 @@ function TaskProvider({ children }) {
       // Mock/demo — load from namespaced localStorage. The demo mid-journey
       // seed is for the sample household only; a prospect with no saved state
       // starts blank (createProspect seeds its chosen starting phase).
-      const fallback = () => isProspectId(activeClientId) ? {} : mockSeed();
+      const fallback = () => isProspectId(activeClientId) ? {} : demoTaskSeed(activeClient?.phase);
       try {
         const saved = JSON.parse(localStorage.getItem(`px_tasks:${activeClientId}`));
         setTaskStates(saved || fallback());
@@ -1667,8 +1672,13 @@ function printQBRReport(opts) {
   // Plan flags — concentrated equity comp + the projected first RMD (advisor
   // talking points the front sections don't carry; rendered only when present).
   const _planFlagsHtml = (pf) => {
-    if (!pf || (!pf.equityConcentration && !pf.rmd)) return '';
+    if (!pf || (!pf.equityConcentration && !pf.rmd && !(pf.tax1040 || []).length)) return '';
     const lines = [];
+    // 1040 observations (Holistiplan-lite) — the same flags the client's
+    // tax-return tool shows, carried into the review packet (top 3, non-info).
+    for (const ob of (pf.tax1040 || []).slice(0, 3)) {
+      lines.push(`<div class="rpt-p">1040 &middot; <b>${escapeHtml(ob.title)}</b> — ${escapeHtml(ob.detail)}</div>`);
+    }
     if (pf.equityConcentration) {
       const ec = pf.equityConcentration;
       lines.push(`<div class="rpt-p">Concentrated position${pf.equityTicker ? ` (${escapeHtml(pf.equityTicker)})` : ''}: <b>${ec.concentrationPct.toFixed(0)}% of invested assets</b>${ec.concentrated ? ` — above the ${ec.thresholdPct}% guideline` : ''} &middot; embedded gain ${fmt$(ec.gain, { short: true })} &middot; est. tax to trim to ${ec.thresholdPct}% ≈ ${fmt$(ec.taxToTrim, { short: true })}.</div>`);
@@ -1876,7 +1886,7 @@ function printInvoiceReport(invoice, clientName, advisorFirm) {
 
 Object.assign(window, {
   ProfileProvider, useProfile, emptyProfile, mergeProfile, openEstateSample,
-  TaskProvider, useTasks,
+  TaskProvider, useTasks, demoTaskSeed,
   ViewProvider, useView,
   NotificationProvider, useNotifications,
   useTheme,
