@@ -12,6 +12,62 @@
 
 ---
 
+## 2026-06-09 (round 9) — Founder feedback batch: Numbers-drawer UX + prospect-flow fixes
+
+Eleven direct founder-feedback items in one pass. Build · lint · calc · smoke green;
+the drawer UX, prospect phase/chat/risk fixes, and estate sample chips verified in the
+live demo preview. **No migration, no secrets, no money.** One **edge-function change**
+(`ai-assist` gains `w2_extract`) — deployed via the gated `deploy.yml` workflow.
+
+**Numbers drawer**
+- **Leading-zero fix.** New module-scope `NumInput` (numbers-panel): renders `''` with
+  a `0` placeholder instead of a literal 0, holds a local draft while editing, commits
+  parsed numbers. `NumField` + every inline numeric input swept onto it.
+- **Mortgage term + start year** (`housing.termYears` / `housing.startYear`, optional)
+  with a scheduled-payoff readout (year N of term, payoff year).
+- **Contributions & employer match: per-month/per-year toggle.** Display-only —
+  storage stays annual (÷12 on display, ×12 on commit), so all calculators are untouched.
+- **Multiple W-2s** — `taxes.w2s[]` (label + box1/box2 per earner/job; legacy single
+  `taxes.w2` surfaces as the first entry). Combined Box 1 drives `w2Position` (right
+  answer for a joint return); the bracket-headroom tool sums all W-2s too.
+- **W-2 auto-import from upload** — advisor-side "Upload W-2" sends the image/PDF
+  (base64, ≤4 MB) to the new `ai-assist` action `w2_extract` (Gemini, temperature 0,
+  JSON response) → adds a pre-filled W-2 entry. Key stays server-side; advisor JWT only.
+- **Protection owner is a dropdown** fed by the household members entered at the top
+  of the drawer (legacy free-text values stay selectable).
+
+**Prospect-flow bugs (all root-caused)**
+- **"Started at phase 1, showed phase 5":** prospects had no `px_tasks` seed, so
+  TaskProvider fell back to the demo household's mid-phase-5 `mockSeed()`. Now
+  `createProspect` seeds completed-phases-before-the-chosen-start, and the mock seed is
+  demo-only (prospects fall back to blank).
+- **Pre-filled sample chat on prospects:** `demoMessages()` was the `MessageThread`
+  demo seed for every non-UUID client. Prospect views now seed empty (portal + quick-view).
+- **"Risk profile went away":** `ProfileProvider` initialized to `defaultProfile`
+  (which includes a *completed sample questionnaire*) and swapped in the prospect's
+  real profile only after the first paint — the sample band flashed, then vanished.
+  Profile state now lazy-initializes from the right source, and prospects merge onto
+  `emptyProfile`, never the demo sample.
+
+**Other**
+- **Estate readiness sample documents.** New `openEstateSample(key)` (store.jsx) opens
+  an illustrative will / revocable trust / POA / healthcare directive / beneficiary
+  review with an unmissable "SAMPLE — for discussion only, not a legal document" banner
+  (`.sample-banner` in print.css; opens without forcing the print dialog via
+  `_openPrint(..., { autoPrint: false })`). Portal estate chips without a linked vault
+  doc now open the sample ("· sample" suffix); the drawer checklist gets "View sample"
+  buttons on not-complete items.
+- **HDHP spelled out** in the Phase-04 task label ("high-deductible health plan (HDHP)").
+- **Archive discoverability:** the client quick-view header gains an "Archive" action
+  (jumps to the Edit tab with the confirm row armed — the destructive click stays behind
+  the confirm).
+
+**Files:** `src/numbers-panel.jsx`, `src/store.jsx`, `src/client-portal.jsx`,
+`src/advisor-modal.jsx`, `src/calculators.jsx`, `src/data.jsx`, `src/db.jsx`,
+`src/print.css`, `supabase/functions/ai-assist/index.ts`.
+
+---
+
 ## 2026-06-09 (round 8) — Document-request flow + prospect proposal packet
 
 Two advisor-POV review items shipped together. Build · lint · calc · smoke green;

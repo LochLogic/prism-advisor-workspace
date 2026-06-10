@@ -58,7 +58,7 @@ let phasesData = [
     icon: 'Heart',
     rationale: "The HSA is the only US account with <b>three-axis tax advantage</b>: deductible contributions, tax-free growth, and tax-free qualified withdrawals. We treat it as a stealth retirement bucket — invest the balance, pay current medical costs from cash flow, and retain receipts for tax-free reimbursement decades hence.",
     tasks: [
-      { id: 'p3t1', label: 'Confirm HDHP eligibility for current plan year', tool: 'discuss' },
+      { id: 'p3t1', label: 'Confirm high-deductible health plan (HDHP) eligibility for current plan year', tool: 'discuss' },
       { id: 'p3t2', label: 'Fund annual HSA limit ($4,400 / $8,750)', tool: null },
       { id: 'p3t3', label: 'Migrate cash balance to invested HSA assets', tool: 'discuss' },
       { id: 'p3t4', label: 'Establish receipt archive for future reimbursement', tool: null },

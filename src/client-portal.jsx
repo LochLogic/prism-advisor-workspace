@@ -851,20 +851,24 @@ const ClientPortal = ({ onOpenNumbers }) => {
                   const st = item.status || 'none';
                   const { tone, filled, note } = estateStatusView(st);
                   // Solid green = a shared document is linked → the chip opens it.
+                  // No linked document → the chip opens an illustrative SAMPLE of the
+                  // instrument instead, so "what even is a POA?" becomes a conversation
+                  // (clearly bannered: discussion aid, not a legal document).
                   const docId = item.documentId;
                   const canOpen = filled && !!docId && !!docsById[docId];
+                  const open = canOpen ? () => openEstateDoc(docId) : () => window.openEstateSample?.(key);
                   const fg = filled ? '#fff' : tone;
                   return (
-                    <span key={key} role={canOpen ? 'button' : undefined} tabIndex={canOpen ? 0 : undefined}
-                      onClick={canOpen ? () => openEstateDoc(docId) : undefined}
-                      onKeyDown={canOpen ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openEstateDoc(docId); } } : undefined}
-                      title={canOpen ? `Open ${docsById[docId].title}` : undefined}
+                    <span key={key} role="button" tabIndex={0}
+                      onClick={open}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } }}
+                      title={canOpen ? `Open ${docsById[docId].title}` : `View a sample ${label.toLowerCase()} — for discussion, not a legal document`}
                       style={{ fontSize: 11, color: fg, background: filled ? tone : 'transparent',
                         border: `1px solid ${tone}`, borderRadius: 20, padding: '2px 9px',
                         display: 'inline-flex', alignItems: 'center', gap: 4,
-                        cursor: canOpen ? 'pointer' : 'default' }}>
-                      {filled && <Icons.Check size={10} />}{label}{note}
-                      {canOpen && <Icons.Download size={10} />}
+                        cursor: 'pointer' }}>
+                      {filled && <Icons.Check size={10} />}{label}{note}{!canOpen && ' · sample'}
+                      {canOpen ? <Icons.Download size={10} /> : <Icons.FileText size={10} />}
                     </span>
                   );
                 })}
@@ -883,7 +887,7 @@ const ClientPortal = ({ onOpenNumbers }) => {
             firmId={authUser?.firm_id || authUser?.firms?.id || null}
             counterpartName={advisorDisplay.name}
             emptyHint={`Have a question between meetings? Message ${advisorDisplay.name} here — no question is too small.`}
-            demoSeed={window.demoMessages ? window.demoMessages() : []}
+            demoSeed={(isProspectView || !window.demoMessages) ? [] : window.demoMessages()}
           />
         </div>
 

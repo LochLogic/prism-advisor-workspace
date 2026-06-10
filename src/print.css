@@ -20,6 +20,9 @@ h1{font-size:22px;font-weight:500;margin:0 0 3px;}
 .mtg-notes{color:#5d7a8e;font-size:12px;margin-top:2px;}
 .note-block{border-left:2px solid #a98c4b;padding-left:12px;font-style:italic;color:#5d7a8e;font-size:13px;}
 .footer{margin-top:36px;padding-top:14px;border-top:1px solid #e4dfd0;font-size:10px;color:#8da3b6;}
+/* Estate sample documents — unmissable for-discussion-only banner */
+.sample-banner{border:2px solid #a3472e;background:#faf0ec;color:#a3472e;border-radius:6px;padding:10px 14px;font-size:11px;font-weight:700;letter-spacing:.02em;margin:0 0 18px;}
+.task+.sample-banner{margin-top:28px;}
 @media print{body{padding:20px;}}
 
 /* ── C5 utility/semantic classes (replace former inline style="" attributes) ── */

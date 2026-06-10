@@ -134,9 +134,25 @@ function mergeProfile(base, data) {
 
 const ProfileContext = createContext(null);
 
+// Synchronous local-profile load for mock/demo/prospect ids. Prospects merge
+// onto emptyProfile — NOT defaultProfile — so the demo household's sample data
+// (members, balances, completed risk questionnaire) never bleeds into a
+// prospect's roadmap.
+const loadLocalProfile = (id) => {
+  const base = (typeof id === 'string' && id.startsWith('prospect-')) ? emptyProfile : defaultProfile;
+  try {
+    const saved = JSON.parse(localStorage.getItem(`px_profile:${id}`));
+    return saved ? mergeProfile(base, saved) : base;
+  } catch { return base; }
+};
+
 function ProfileProvider({ children }) {
-  const [profile, _setProfile] = useState(defaultProfile);
   const { activeClientId } = useView();
+  // Lazy init from the right source so the first paint never flashes the demo
+  // sample profile (the old behaviour briefly showed a completed sample risk
+  // profile on prospects, which then "vanished" once the real load landed).
+  const [profile, _setProfile] = useState(() =>
+    (window.db?.isUUID(activeClientId)) ? emptyProfile : loadLocalProfile(activeClientId));
   const dbSaveTimer = React.useRef(null);
   const isLoading   = React.useRef(false);
 
@@ -203,14 +219,12 @@ function ProfileProvider({ children }) {
         isLoading.current = false;
       }).catch(() => { isLoading.current = false; });
     } else {
-      // Mock/demo — load from per-client localStorage key.
-      // Merge onto defaultProfile so every key exists even for profiles saved
-      // before a field (e.g. `housing`) was added — otherwise toggling housing
-      // type would write into an undefined parent and crash.
-      try {
-        const saved = JSON.parse(localStorage.getItem(`px_profile:${activeClientId}`));
-        _setProfile(saved ? mergeProfile(defaultProfile, saved) : defaultProfile);
-      } catch { _setProfile(defaultProfile); }
+      // Mock/demo/prospect — load from per-client localStorage key. The merge
+      // base (defaultProfile, or emptyProfile for prospects) keeps every key
+      // present even for profiles saved before a field (e.g. `housing`) was
+      // added — otherwise toggling housing type would write into an undefined
+      // parent and crash.
+      _setProfile(loadLocalProfile(activeClientId));
     }
   }, [activeClientId]);
 
@@ -507,11 +521,14 @@ function TaskProvider({ children }) {
         setTaskStates(dbStates || {});
       });
     } else {
-      // Mock/demo — load from namespaced localStorage
+      // Mock/demo — load from namespaced localStorage. The demo mid-journey
+      // seed is for the sample household only; a prospect with no saved state
+      // starts blank (createProspect seeds its chosen starting phase).
+      const fallback = () => isProspectId(activeClientId) ? {} : mockSeed();
       try {
         const saved = JSON.parse(localStorage.getItem(`px_tasks:${activeClientId}`));
-        setTaskStates(saved || mockSeed());
-      } catch { setTaskStates(mockSeed()); }
+        setTaskStates(saved || fallback());
+      } catch { setTaskStates(fallback()); }
       try {
         const saved = JSON.parse(localStorage.getItem(`px_flagged:${activeClientId}`));
         setFlaggedQs(saved || {});
@@ -785,6 +802,19 @@ function ProspectProvider({ children }) {
     if (num(numbers.retirementBalance) != null) partial.retirement = { fourohonekBalance: num(numbers.retirementBalance) };
     const seeded = mergeProfile(emptyProfile, partial);
     try { localStorage.setItem(`px_profile:${p.id}`, JSON.stringify(seeded)); } catch {}
+    // Seed horizon progress to the chosen starting phase: everything before it
+    // is marked complete, so the roadmap opens ON that phase. Without this the
+    // TaskProvider fell back to the demo seed (mid-phase-5 progress) — a
+    // "starts at phase 1" prospect appeared at phase 5.
+    const seedTasks = {};
+    phasesData.forEach(ph => {
+      if (ph.id < p.phase) {
+        seedTasks[ph.id] = {};
+        ph.tasks.forEach(t => { seedTasks[ph.id][t.id] = true; });
+      }
+    });
+    try { localStorage.setItem(`px_tasks:${p.id}`, JSON.stringify(seedTasks)); } catch {}
+    try { localStorage.setItem(`px_open:${p.id}`, JSON.stringify({ [p.phase]: true })); } catch {}
     persist([p, ...prospects]);
     return p;
   };
@@ -1155,12 +1185,15 @@ const sanitizeHtml = (s) => escapeHtml(s)
 // inherits the app's CSP, which (since C5) no longer carries style-src 'unsafe-inline',
 // so the report can no longer use an inline <style> block or style="" attributes —
 // it links the external sheet ('self' allows it) and uses classes only.
-function _openPrint(title, bodyHtml) {
+function _openPrint(title, bodyHtml, { autoPrint = true } = {}) {
   const win = window.open('', '_blank');
   if (!win) { console.warn('[print] popup blocked — allow popups for this site'); return; }
   const href = `${location.origin}/src/print.css`;
   win.document.write(`<!DOCTYPE html><html><head><title>${title}</title><link rel="stylesheet" href="${href}"></head><body>${bodyHtml}</body></html>`);
   win.document.close();
+  // autoPrint:false = reading material (e.g. estate sample documents) — open the
+  // styled page without forcing the print dialog; the reader prints if they want.
+  if (!autoPrint) { try { win.focus(); } catch (e) { /* popup closed */ } return; }
   // Print once the stylesheet has loaded so the report is styled; fall back on a
   // timer in case load/error never fires. CSP forbids inline onload= handlers in
   // the popup, so the listener is attached here from the opener context.
@@ -1169,6 +1202,121 @@ function _openPrint(title, bodyHtml) {
   const link = win.document.querySelector('link[rel="stylesheet"]');
   if (link) { link.addEventListener('load', doPrint); link.addEventListener('error', doPrint); }
   setTimeout(doPrint, 800);
+}
+
+/* ─── Estate sample documents ─────────────────────────────────────────
+   Discussion aids for the estate-readiness checklist. When a household hasn't
+   completed an instrument, "View sample" opens an illustrative document so the
+   advisor and client can walk through what it does and what decisions it asks
+   for. Deliberately NOT a fillable template: advisors aren't attorneys, so the
+   framing is "here's what this looks like and what to think about" with a
+   plain banner sending execution to a licensed estate attorney. */
+const ESTATE_SAMPLES = {
+  will: {
+    title: 'Last Will and Testament',
+    what: 'Directs who receives property that passes through probate, names an executor to settle the estate, and (critically for parents) nominates guardians for minor children.',
+    sections: [
+      ['Article I — Declaration', 'I, [Full Legal Name], a resident of [County, State], being of sound mind, declare this to be my Last Will and Testament, revoking all prior wills and codicils.'],
+      ['Article II — Executor', 'I nominate [Name] as Executor of my estate, to serve without bond. If they are unable or unwilling to serve, I nominate [Alternate Name].'],
+      ['Article III — Guardianship', 'If at my death any of my children are minors, I nominate [Name] as guardian of their person and property, with [Alternate Name] as successor.'],
+      ['Article IV — Disposition of property', 'I give my tangible personal property to [Name]. I give the residue of my estate to [Name / Trust], per stirpes.'],
+      ['Article V — Execution', 'Signed at [City, State] on [Date], in the presence of two witnesses, who sign below at my request. [State-specific witnessing and notarization rules apply.]'],
+    ],
+    discuss: [
+      'Who should serve as executor — and have they agreed?',
+      'Who would raise minor children if both parents are gone?',
+      'Does property pass outright, or into a trust for ages/stages?',
+      'Assets with beneficiary designations (retirement accounts, life insurance) pass OUTSIDE the will — they must be reviewed separately.',
+    ],
+  },
+  trust: {
+    title: 'Revocable Living Trust Agreement',
+    what: 'A container you control during life that lets assets pass to beneficiaries without probate, provides for incapacity, and keeps the plan private. You typically serve as your own trustee while able.',
+    sections: [
+      ['Article I — Trust creation', 'I, [Full Legal Name] (the "Grantor"), establish the [Family Name] Revocable Living Trust, dated [Date]. I may amend or revoke this trust at any time while living and competent.'],
+      ['Article II — Trustees', 'I will serve as initial Trustee. On my death or incapacity, [Successor Trustee Name] shall serve as Successor Trustee without bond.'],
+      ['Article III — During my lifetime', 'The Trustee shall hold, manage, and distribute trust property for my benefit as I direct.'],
+      ['Article IV — On my death', 'The Trustee shall distribute the trust estate to [Beneficiaries], per the schedule attached — outright, or held in continuing trust until each beneficiary reaches the stated ages.'],
+      ['Article V — Funding', 'A trust only avoids probate for assets actually TITLED in it. A schedule of trust property and a "pour-over" will accompany this agreement.'],
+    ],
+    discuss: [
+      'Who is the successor trustee — and do they know where things are?',
+      'Which accounts and the home should be retitled into the trust ("funding") — the most commonly skipped step?',
+      'Should beneficiaries receive assets outright or in stages (e.g. ⅓ at 25/30/35)?',
+      'Does the household\'s net worth or state make probate avoidance worth the setup cost?',
+    ],
+  },
+  poa: {
+    title: 'Durable Power of Attorney',
+    what: 'Authorizes someone you trust (your "agent") to handle financial and legal matters if you cannot — paying bills, managing accounts, filing taxes. "Durable" means it keeps working through incapacity, which is the whole point.',
+    sections: [
+      ['1. Principal and agent', 'I, [Full Legal Name], appoint [Agent Name] as my agent (attorney-in-fact), with [Alternate Name] as successor if they cannot serve.'],
+      ['2. Powers granted', 'My agent may act for me in: banking and financial transactions; real property; tax matters; retirement accounts; insurance; government benefits; and digital assets. [Initial each power per state form.]'],
+      ['3. Durability', 'This power of attorney shall not be affected by my subsequent disability or incapacity.'],
+      ['4. Effective date', '[Immediately upon signing] / [Only upon a physician\'s certification of incapacity ("springing")].'],
+      ['5. Execution', 'Signed on [Date] before a notary public. [Many banks also have their own POA forms — ask yours.]'],
+    ],
+    discuss: [
+      'Who has the financial judgment AND availability to act — often a different best answer than the will\'s executor?',
+      'Effective immediately vs. "springing" at incapacity — springing sounds safer but can be slow exactly when speed matters.',
+      'Has the named agent\'s contact info been shared with the financial institutions?',
+    ],
+  },
+  healthcareDirective: {
+    title: 'Advance Healthcare Directive',
+    what: 'Combines a healthcare power of attorney (who decides for you) with a living will (what you want) — so medical decisions during incapacity follow your wishes, not a guess made under stress.',
+    sections: [
+      ['Part 1 — Healthcare agent', 'I, [Full Legal Name], appoint [Agent Name] to make healthcare decisions for me when I cannot, with [Alternate Name] as successor.'],
+      ['Part 2 — Treatment preferences', 'If I have an end-stage condition with no reasonable expectation of recovery: [I do / do not] want life-sustaining treatment; [I do / do not] want artificial nutrition and hydration; I want medication to keep me comfortable in all cases.'],
+      ['Part 3 — Organ donation', '[I do / do not] wish to donate organs and tissue.'],
+      ['Part 4 — HIPAA release', 'My agent may receive my protected health information as my personal representative.'],
+      ['Part 5 — Execution', 'Signed on [Date] with witnessing/notarization per state law. Copies should go to the agent, alternates, and primary physician.'],
+    ],
+    discuss: [
+      'Who stays calm in a hospital hallway — the agent needs to advocate, not just decide?',
+      'Have you actually TALKED with the agent about what "quality of life" means to you?',
+      'Does your physician and hospital system have a copy on file?',
+    ],
+  },
+  beneficiaries: {
+    title: 'Beneficiary Designation Review',
+    what: 'Retirement accounts, life insurance, HSAs, and TOD/POD accounts pass by their beneficiary forms — OUTSIDE the will or trust. An outdated form overrides everything else, which is why this review is on the checklist.',
+    sections: [
+      ['Worksheet — one row per account', 'For each: institution · account type · primary beneficiary (% share) · contingent beneficiary (% share) · date last confirmed.'],
+      ['401(k) / 403(b)', 'Primary: [Name, 100%]. Contingent: [Name(s)]. Note: federal law generally requires spousal consent to name a non-spouse primary.'],
+      ['IRA / Roth IRA', 'Primary: [Name]. Contingent: [Name(s)]. Consider per-stirpes language so a predeceased child\'s share passes to their children.'],
+      ['Life insurance', 'Primary: [Name]. Contingent: [Trust / Name]. Minor children generally should NOT be named directly — proceeds may end up in a court-supervised account.'],
+      ['HSA · TOD/POD accounts', 'Primary: [Name]. A spouse inherits an HSA as an HSA; anyone else inherits it as taxable income — worth a conversation.'],
+    ],
+    discuss: [
+      'Any ex-spouses, deceased relatives, or "estate" still named on old forms?',
+      'Are contingents named everywhere, or does one missing form send money through probate?',
+      'Do designations agree with the will/trust, or quietly contradict them?',
+    ],
+  },
+};
+
+function openEstateSample(key) {
+  const s = ESTATE_SAMPLES[key];
+  if (!s) return;
+  const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  _openPrint(`Sample — ${s.title}`, `
+    <div class="sample-banner">SAMPLE DOCUMENT — FOR DISCUSSION ONLY. This is an illustration to support a planning
+    conversation. It is not a legal document, not legal advice, and not state-specific. Estate documents should be
+    prepared and executed with a licensed estate-planning attorney.</div>
+    <div class="rpt-head">
+      <div><h1>${escapeHtml(s.title)}</h1><div class="sub">Sample for discussion &middot; Opened ${date}</div></div>
+      <div class="rpt-meta">Prism Advisor Workspace<br/>Illustrative only</div>
+    </div>
+    <div class="note-block">${escapeHtml(s.what)}</div>
+    ${s.sections.map(([h, b]) => `
+      <div class="section-lbl">${escapeHtml(h)}</div>
+      <div class="mtg-notes">${escapeHtml(b)}</div>`).join('')}
+    <div class="section-lbl">What to discuss with your advisor</div>
+    ${s.discuss.map(d => `<div class="task"><span class="check">○</span><span>${escapeHtml(d)}</span></div>`).join('')}
+    <div class="sample-banner">SAMPLE — not a legal document. Execution belongs with a licensed estate-planning attorney.</div>
+    <div class="footer">Illustrative sample for planning discussion. Prism Advisor Workspace.</div>
+  `, { autoPrint: false });
 }
 
 // Client overview report — called from ClientPreviewModal "Print report" button
@@ -1727,7 +1875,7 @@ function printInvoiceReport(invoice, clientName, advisorFirm) {
 }
 
 Object.assign(window, {
-  ProfileProvider, useProfile, emptyProfile, mergeProfile,
+  ProfileProvider, useProfile, emptyProfile, mergeProfile, openEstateSample,
   TaskProvider, useTasks,
   ViewProvider, useView,
   NotificationProvider, useNotifications,

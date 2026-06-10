@@ -2,7 +2,7 @@
 
 > **Purpose:** condensed router for AI/dev work. Tells you *which* file owns a
 > concern and what it exports — not every line. Read the named file for deep logic.
-> **Last synced:** 2026-06-09 round-8 sprint (document requests · proposal packet). **Regenerate when:** `build-files.mjs`
+> **Last synced:** 2026-06-09 round-9 sprint (Numbers-drawer UX · prospect-flow fixes · W-2s · estate samples). **Regenerate when:** `build-files.mjs`
 > load order changes, a `src/*` file is added/split, or `window.db`/`PrismCalc` gain methods.
 
 ---
@@ -119,8 +119,11 @@ reserve-months-of-essentials with disability benefit + elimination period).
 ⚠ `FED_BRACKETS_2025`, `RMD_UNIFORM_DIVISORS`, the §415(c) mega-backdoor limit, and SS
 credit/reduction factors are dated assumptions — reindex annually (like `estateProjection`'s exemption).
 Profile JSON gained `equityComp[]` (concentrated positions) and a `pia` field on `social_security`
-income streams; captured in `numbers-panel.jsx`. Round 6 added `taxes.w2 = { box1, box2 }`
-(W-2 capture; the Numbers-drawer "Import from W-2" block derives the marginal rate from it).
+income streams; captured in `numbers-panel.jsx`. Round 6 added `taxes.w2 = { box1, box2 }`;
+round 9 superseded it with `taxes.w2s[]` ({id,label,box1,box2} per earner/job — the legacy
+single `w2` is surfaced as the first entry until first edit; COMBINED box1 drives
+`w2Position`). Round 9 also added `housing.termYears`/`housing.startYear` (optional;
+scheduled-payoff readout) and made `insurance[].owner` a member-name dropdown.
 No migration — profile is a JSON blob. Round 7 added `taxes.t1040` (keyed 1040 lines)
 → `tax1040Insights` (Holistiplan-lite observation engine; dated companions
 `LTCG_ZERO_TOP_2025`, `IRMAA_TIER1_2025`, plus `FEDERAL_ESTATE_EXEMPTION_2025` now
@@ -134,9 +137,15 @@ mulberry32 (seeded, deterministic). Vault document deletion fires a
 `useTheme`; report printers `printClientReport, printMilestoneReport, printComplianceReport, printExamPacket
 (firm books-&-records, round 7), printPerformanceReport, printInvoiceReport,
 printQBRReport, printIPSReport, printProposalPacket (prospect close-the-deal print,
-round 8 — button on the portal prospect banner)`; helpers
+round 8 — button on the portal prospect banner)`; `openEstateSample(key)` (round 9 —
+illustrative will/trust/POA/directive/beneficiary-review discussion documents, bannered
+not-legal-advice, `.sample-banner` in print.css, no auto-print); helpers
 `escapeHtml, sanitizeHtml, fmt$, fmtPct, fmtN, emptyProfile, mergeProfile`.
 Also `ProspectProvider/useProspects` — unsaved "prospect-" households → one-click convert.
+Round 9: `createProspect` seeds `px_tasks`/`px_open` to the chosen starting phase;
+prospect profiles load/merge on `emptyProfile` (never the demo sample — ProfileProvider
+lazy-inits from the right source so no demo-data flash); prospect views suppress
+`demoMessages()`.
 Also white-label brand engine: `applyFirmBrand(brand)` (inline `--brand`/`--accent*` CSS vars
 on `<html>` + `window.__pxBrand` + 'px:brand' event), `useFirmBrand()` hook; boot paints
 cached → subdomain-slug → (auth.jsx) authoritative firm row. Every brand input (cache /
@@ -175,7 +184,7 @@ mirrored in `src/brand-boot.js` for the pre-auth pages).
 | `docusign-envelope` | Advisor → escalate acknowledgement into DocuSign envelope |
 | `plaid-create-link-token` / `plaid-exchange-token` | Plaid Link → import account balances |
 | `worm-export` | SEC 17a-4 audit-log retention export → private bucket |
-| `ai-assist` | Advisor JWT → Gemini (server-side key): draft_reply / household_summary / talking_points / attention |
+| `ai-assist` | Advisor JWT → Gemini (server-side key): draft_reply / household_summary / talking_points / attention / w2_extract (round 9 — base64 image/PDF ≤4 MB via `file`, JSON box extraction) |
 | `log-error` | Public sink for client error reporter |
 | `error-digest` | Cluster new client_errors → Slack alert |
 | `health` | Pipeline liveness probe |

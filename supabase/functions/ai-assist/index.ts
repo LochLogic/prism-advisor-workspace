@@ -4,8 +4,9 @@
 // compact context payload of data they already hold under RLS; the function
 // builds the prompt, calls Gemini, and returns plain text.
 //
-// Body: { action: 'draft_reply'|'household_summary'|'talking_points'|'attention',
-//         context: object (≤ 24 KB serialized) }
+// Body: { action: 'draft_reply'|'household_summary'|'talking_points'|'attention'|'w2_extract',
+//         context: object (≤ 24 KB serialized),
+//         file?: { data: base64, mimeType } — w2_extract only (≤ ~5.6 MB base64) }
 // Deploy: supabase functions deploy ai-assist --project-ref phabxcijbbphfxvjedfj
 // (verify_jwt = true in config.toml — the platform JWT gate stays on.)
 
@@ -18,6 +19,8 @@ function json(o: unknown, s = 200) {
 
 const GEMINI_MODEL = "gemini-2.0-flash";
 const MAX_CONTEXT_BYTES = 24_000;
+// 4 MB raw ≈ 5.6 MB base64 — comfortable for a phone photo or one-page PDF scan.
+const MAX_FILE_B64_BYTES = 5_600_000;
 
 // Shared guardrails: an assistant for a fiduciary's BACK OFFICE, not a robo-
 // advisor. No security recommendations, no performance promises, no compliance
@@ -57,6 +60,15 @@ the data. End with one open question that invites the client to talk.
 
 Household data:
 ${ctx}`,
+  // Document extraction (file attached as inlineData; ctx unused).
+  w2_extract: () => `You are a precise document-extraction service. The attached file is expected
+to be a US IRS Form W-2 (Wage and Tax Statement). Extract:
+- employer: the employer's name (Box c), as a short string
+- box1: Box 1 — wages, tips, other compensation, as a number (no commas or $)
+- box2: Box 2 — federal income tax withheld, as a number
+Respond with ONLY a JSON object: {"employer": string, "box1": number, "box2": number}.
+If the document is not a W-2 or a box is unreadable, use 0 for that number and "" for employer.
+No prose, no markdown fences.`,
   attention: (ctx) => `${BASE}
 
 Task: triage the advisor's book. From the roster data, name the 3–5 households that most need
@@ -84,11 +96,23 @@ Deno.serve(async (req) => {
     const key = Deno.env.get("GEMINI_API_KEY");
     if (!key) return json({ error: "AI assistant is not configured (missing GEMINI_API_KEY)" }, 503);
 
-    const { action, context } = await req.json().catch(() => ({}));
+    const { action, context, file } = await req.json().catch(() => ({}));
     const build = PROMPTS[action as string];
     if (!build) return json({ error: "Unknown action" }, 400);
     const ctx = JSON.stringify(context ?? {}, null, 1);
     if (ctx.length > MAX_CONTEXT_BYTES) return json({ error: "Context too large" }, 413);
+
+    // Optional attached document (w2_extract): base64 image/PDF → Gemini inlineData.
+    const parts: Record<string, unknown>[] = [{ text: build(ctx) }];
+    if (action === "w2_extract") {
+      if (!file?.data || typeof file.data !== "string") return json({ error: "No file attached" }, 400);
+      if (file.data.length > MAX_FILE_B64_BYTES) return json({ error: "File too large (4 MB max)" }, 413);
+      const mime = String(file.mimeType || "");
+      if (!/^(image\/(png|jpe?g|webp|heic|heif)|application\/pdf)$/.test(mime)) {
+        return json({ error: "Unsupported file type — upload an image or PDF" }, 400);
+      }
+      parts.push({ inlineData: { mimeType: mime, data: file.data } });
+    }
 
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
@@ -96,8 +120,10 @@ Deno.serve(async (req) => {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-goog-api-key": key },
         body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: build(ctx) }] }],
-          generationConfig: { temperature: 0.6, maxOutputTokens: 1024 },
+          contents: [{ role: "user", parts }],
+          generationConfig: action === "w2_extract"
+            ? { temperature: 0, maxOutputTokens: 256, responseMimeType: "application/json" }
+            : { temperature: 0.6, maxOutputTokens: 1024 },
         }),
       },
     );
