@@ -172,7 +172,10 @@ a demo into a "yes," then depth and reach.
   harvesting room, interest/dividend tax drag, IRMAA proximity, QCD eligibility,
   SS provisional income. No OCR/upload — keyed lines keep every observation
   auditable in a client meeting. Advisor-facing flags (quick-view + QBR) shipped
-  2026-06-10 round 11. *Next when wanted:* a PDF-upload parse and state tax.
+  2026-06-10 round 11. *Next when wanted:* a PDF-upload parse, state tax, and
+  per-member returns (the 1040 is per *return* — one joint return for MFJ — so a
+  household-member dropdown only becomes meaningful for married-filing-separately;
+  if wanted, `taxes.t1040` becomes `t1040s[]` keyed by member, like `w2s[]`).
 - **AI relationship assistant (Gemini) — SHIPPED 2026-06-09** (`ai-assist` edge fn,
   advisor-JWT-gated, key server-side only, every call audited). Four surfaces: AI
   draft in the advisor's message compose, household summary + review talking points

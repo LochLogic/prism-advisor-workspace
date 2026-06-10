@@ -19,6 +19,14 @@
 Sequenced to the north star — onboard a first paying advisor. Each item is
 independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
 
+- [ ] **Platform-owner dashboard** (founder ask 2026-06-10) — a tier ABOVE firm
+  admin: one founder-only view to administer firms and solo advisors (firm list +
+  plan/seat stats, advisor roster, provision/suspend). Safe shape: leave every
+  existing RLS policy untouched; add a `px_platform_owners` allowlist table + a
+  service-role edge function (caller's auth uid checked against the allowlist)
+  feeding a new gated view in the advisor bundle. Migration + edge fn + view ≈ one
+  round. *Decide first: which actions it needs day-one (read-only stats vs.
+  provision/suspend/billing overrides).*
 - [ ] **Advisor MFA (TOTP)** — enforce in the advisor auth path. *↔ may need a
   Supabase Auth toggle (your queue).*
 - [ ] **Product analytics events** — first-party activation events (login, invite,
