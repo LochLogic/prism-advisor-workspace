@@ -7,6 +7,7 @@
     "check": "node scripts/check.mjs",
     "lint": "node scripts/lint.mjs",
     "test": "npm run build && npm run check && npm run test:calc",
+    "test:quiet": "npm run build && node scripts/check.mjs --quiet && node scripts/calc.test.mjs --quiet",
     "test:calc": "node scripts/calc.test.mjs",
     "test:db": "node scripts/db-test.mjs",
     "test:rls": "node scripts/rls-test.mjs",

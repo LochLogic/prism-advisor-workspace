@@ -25,3 +25,11 @@ Backend = Supabase (Postgres + RLS + Deno edge functions). Hosting = Cloudflare 
 ## Commands
 `npm run build` · `npm test` (build+smoke+calc) · `npm run lint` · `npm run test:rls` · `npm run test:e2e`.
 CI required checks: `ci`, `Cloudflare Workers Builds`, `rls-isolation`, `e2e`.
+
+## Token savers (AI sessions — prefer these)
+- **`npm run test:quiet`** — same build+smoke+calc gate, but only failures + summary
+  counts (~2 lines instead of ~280). Use it for every in-session test run; plain
+  `npm test` stays verbose for humans/CI.
+- **`node scripts/outline.mjs <file...>`** (or `--all`) — top-level declarations,
+  `window.*` exports, and line numbers for any src file. Outline a big file first,
+  then Read only the ranges you need — never full-read store/db/advisor-modal.

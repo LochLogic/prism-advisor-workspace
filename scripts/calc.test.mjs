@@ -5,13 +5,16 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const C = require('../src/calc-core.cjs');
 
-let failures = 0;
-const ok   = (m) => console.log(`  ✓ ${m}`);
+// --quiet (or PX_QUIET=1): suppress per-test ✓ lines, keep failures + the
+// summary count. Saves AI-session tokens; humans/CI keep the verbose default.
+const QUIET = process.argv.includes('--quiet') || process.env.PX_QUIET === '1';
+let failures = 0, passes = 0;
+const ok   = (m) => { passes++; if (!QUIET) console.log(`  ✓ ${m}`); };
 const fail = (m) => { console.error(`  ✗ ${m}`); failures++; };
 const assert = (cond, m) => cond ? ok(m) : fail(m);
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;
 
-console.log('calc-core unit tests\n');
+if (!QUIET) console.log('calc-core unit tests\n');
 
 /* ── buildValueSeries ─────────────────────────────────────────────── */
 {
@@ -715,6 +718,6 @@ console.log('calc-core unit tests\n');
   assert([a, b, c, d].every(r => r.observations.every(o => tones.has(o.tone))), 'tax1040Insights: tones are client-safe enum');
 }
 
-console.log('');
+if (!QUIET) console.log('');
 if (failures) { console.error(`FAILED: ${failures} test(s)`); process.exit(1); }
-console.log('All calc-core tests passed.');
+console.log(`All ${passes} calc-core tests passed.`);

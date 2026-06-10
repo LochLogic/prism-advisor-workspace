@@ -5,8 +5,11 @@
 import { readFileSync, existsSync, statSync } from 'fs';
 import { execSync } from 'child_process';
 
-let failures = 0;
-const ok   = (m) => console.log(`  ✓ ${m}`);
+// --quiet (or PX_QUIET=1): suppress per-check ✓ lines, keep failures + the
+// summary count. Saves AI-session tokens; humans/CI keep the verbose default.
+const QUIET = process.argv.includes('--quiet') || process.env.PX_QUIET === '1';
+let failures = 0, passes = 0;
+const ok   = (m) => { passes++; if (!QUIET) console.log(`  ✓ ${m}`); };
 const fail = (m) => { console.error(`  ✗ ${m}`); failures++; };
 const assert = (cond, m) => cond ? ok(m) : fail(m);
 
@@ -81,6 +84,6 @@ const rlsSql = read('supabase/tests/rls_isolation.sql');
 assert(/from messages/.test(rlsSql) && /from documents/.test(rlsSql),
   'RLS isolation test covers messages + documents');
 
-console.log('');
+if (!QUIET) console.log('');
 if (failures) { console.error(`FAILED: ${failures} check(s)`); process.exit(1); }
-console.log('All checks passed.');
+console.log(`All ${passes} smoke checks passed.`);

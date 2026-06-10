@@ -75,7 +75,8 @@ scripts/
   check.mjs            smoke-asserts the dist/ deploy artifact post-build
   lint.mjs             custom linter (resolves bare cross-file globals via build-files.mjs;
                        also asserts src/ coverage ↔ build-files.mjs + portal isolation)
-  calc.test.mjs        zero-dep unit tests over calc-core.cjs
+  calc.test.mjs        zero-dep unit tests over calc-core.cjs (--quiet → failures + count only)
+  outline.mjs          file outline (declarations + window.* exports + line numbers) — AI token saver
   db-test.mjs / rls-test.mjs   run supabase/tests/*.sql
   publish-due.mjs / gsc-digest.mjs / seo-check.mjs / build-whitepaper.mjs / serve.mjs   ops/SEO/content
 
