@@ -135,9 +135,11 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
     }
   }, [activeClientId]);
 
-  // Accounts on file, for the cash-reserve source picker below. When the reserve
-  // is linked to an account, that account's balance is the source of truth - the
-  // stored savings.emergency is re-synced from fresh account data on each open.
+  // Accounts on file, for the cash-reserve source picker below. The reserve can
+  // link to any number of accounts; their summed balances are the source of
+  // truth - stored savings.emergency is re-synced from fresh account data on
+  // each open. The round-19 single savings.emergencyAccountId folds in as a
+  // one-entry list until the first edit.
   const [acctRows, setAcctRows] = React.useState([]);
   React.useEffect(() => {
     if (window.db?.isUUID(activeClientId)) {
@@ -146,15 +148,26 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
       setAcctRows((window.accountsData || {})[activeClientId] || []);
     }
   }, [activeClientId]);
-  const reserveAccountId = profile.savings.emergencyAccountId || '';
-  const reserveAccount = acctRows.find(a => a.id === reserveAccountId) || null;
+  const reserveIds = Array.isArray(profile.savings.reserveAccountIds)
+    ? profile.savings.reserveAccountIds
+    : (profile.savings.emergencyAccountId ? [profile.savings.emergencyAccountId] : []);
+  const acctBal = (id) => Number((acctRows.find(a => a.id === id) || {}).balance) || 0;
+  const setReserveIds = (ids) => setProfile(p => ({ ...p, savings: { ...p.savings,
+    reserveAccountIds: ids, emergencyAccountId: undefined,
+    emergency: ids.length > 0 ? ids.reduce((s, id) => s + acctBal(id), 0) : Number(p.savings.emergency || 0) } }));
   React.useEffect(() => {
-    if (!reserveAccountId || acctRows.length === 0) return;
-    const acct = acctRows.find(a => a.id === reserveAccountId);
-    if (!acct) { update('savings.emergencyAccountId', null); return; }   // account removed - back to manual
-    const bal = Number(acct.balance) || 0;
-    if (bal !== Number(profile.savings.emergency || 0)) update('savings.emergency', bal);
-  }, [reserveAccountId, acctRows]);
+    if (reserveIds.length === 0 || acctRows.length === 0) return;
+    const linked = reserveIds.filter(id => acctRows.some(a => a.id === id));   // drop deleted accounts
+    const total = linked.reduce((s, id) => s + acctBal(id), 0);
+    const stale = linked.length !== reserveIds.length
+      || !Array.isArray(profile.savings.reserveAccountIds)
+      || (linked.length > 0 && total !== Number(profile.savings.emergency || 0));
+    if (stale) setReserveIds(linked);
+  }, [reserveIds.join('|'), acctRows]);
+  const addReserveAccount = () => {
+    const next = acctRows.find(a => !reserveIds.includes(a.id));
+    if (next) setReserveIds([...reserveIds, next.id]);
+  };
 
   // Undo safety net. The drawer remounts each time it opens (the `if (!isOpen)`
   // guard short-circuits before any hook), so these refs capture the state as of
@@ -751,23 +764,33 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
               <span>Total monthly outflow <em>· incl. housing</em></span>
               <strong>{fmt$(totalExpenses)}</strong>
             </div>
-            {/* Essentials-ratio coaching - same pattern as the housing bar above,
-                against the 50/30/20 guideline (essentials near or under ~50%). */}
+            {/* Essentials-ratio coaching, stacked on housing: the grey segment is
+                take-home already spent on housing, the colored segment is the rest
+                of the essentials starting where housing ends - so the open track is
+                what's genuinely unspent. Verdict against the 50/30/20 guideline
+                (all essentials, housing included, near or under ~50%). */}
             {totalExpenses > 0 && effectiveTakehome > 0 && (() => {
-              const ratio = (totalExpenses / effectiveTakehome) * 100;
+              const housingPct = (Math.min(Number(profile.expenses.housing) || 0, totalExpenses) / effectiveTakehome) * 100;
+              const ratio = (totalExpenses / effectiveTakehome) * 100;   // housing + the rest
+              const otherPct = Math.max(0, ratio - housingPct);
+              const unspent = Math.max(0, 100 - ratio);
               const tone = ratio <= 50 ? 'var(--forest)' : ratio <= 65 ? 'var(--gold)' : 'var(--brick)';
               const verdict = ratio <= 50 ? 'On target' : ratio <= 65 ? 'A bit high' : 'Stretched';
               return (
                 <div style={{ marginTop: 10 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 11.5, color: 'var(--ink-mute)', marginBottom: 5 }}>
-                    <span>Essentials are <strong style={{ color: 'var(--ink)' }}>{Math.round(ratio)}%</strong> of take-home pay</span>
+                    <span>Housing + essentials use <strong style={{ color: 'var(--ink)' }}>{Math.round(ratio)}%</strong> of take-home · <strong style={{ color: 'var(--ink)' }}>{Math.round(unspent)}%</strong> unspent</span>
                     <span style={{ fontWeight: 600, color: tone }}>{verdict}</span>
                   </div>
-                  <div style={{ position: 'relative', height: 6, background: 'var(--bg-elev)', borderRadius: 3 }}>
-                    <div style={{ height: '100%', width: `${Math.min(100, ratio)}%`, background: tone, borderRadius: 3, transition: 'width .3s' }} />
+                  <div style={{ position: 'relative', height: 6, background: 'var(--bg-elev)', borderRadius: 3, display: 'flex', overflow: 'hidden' }}>
+                    <div title={`Housing ${Math.round(housingPct)}%`} style={{ height: '100%', width: `${Math.min(100, housingPct)}%`, background: 'var(--border-2)', transition: 'width .3s' }} />
+                    <div title={`Other essentials ${Math.round(otherPct)}%`} style={{ height: '100%', width: `${Math.min(100 - Math.min(100, housingPct), otherPct)}%`, background: tone, transition: 'width .3s' }} />
                     <span title="50% guideline" style={{ position: 'absolute', left: '50%', top: -2, bottom: -2, width: 2, background: 'var(--border-2)', borderRadius: 1 }} />
                   </div>
-                  <div style={{ fontSize: 10.5, color: 'var(--ink-faint)', marginTop: 4 }}>Guideline: keep essentials near or under ~50% of take-home pay (50/30/20), leaving room for wants and savings.</div>
+                  <div style={{ fontSize: 10.5, color: 'var(--ink-faint)', marginTop: 4 }}>
+                    <i className="px-split-dot" style={{ background: 'var(--border-2)' }} /> housing {Math.round(housingPct)}% ·{' '}
+                    <i className="px-split-dot" style={{ background: tone }} /> other essentials {Math.round(otherPct)}% · guideline: keep all essentials near or under ~50% of take-home (50/30/20).
+                  </div>
                 </div>
               );
             })()}
@@ -775,31 +798,38 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
 
           {/* Savings + reserve */}
           <section style={{ marginBottom: 22 }}>
-            <div className="px-eyebrow" style={{ marginBottom: 10 }}>Cash reserve</div>
-            {acctRows.length > 0 && (
-              <label className="px-field" style={{ marginBottom: 10 }}>
-                <span className="px-field-label">Source <FieldHint text="Link the reserve to an account on file and its balance becomes the reserve figure, kept in sync automatically. Pick Manual entry to type the number yourself." /></span>
-                <select className="px-select" value={reserveAccountId}
-                  onChange={(e) => {
-                    const id = e.target.value || null;
-                    const acct = acctRows.find(a => a.id === id);
-                    setProfile(p => ({ ...p, savings: { ...p.savings,
-                      emergencyAccountId: id,
-                      emergency: acct ? (Number(acct.balance) || 0) : Number(p.savings.emergency || 0) } }));
-                  }}>
-                  <option value="">Manual entry</option>
-                  {acctRows.map(a => (
-                    <option key={a.id} value={a.id}>
-                      {(a.name || 'Account')}{a.custodian ? ` · ${a.custodian}` : ''} · {fmt$(Number(a.balance) || 0)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-            {reserveAccount ? (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div className="px-eyebrow">Cash reserve <FieldHint text="Link the reserve to one or more accounts on file and their summed balances become the reserve figure, kept in sync automatically. With no linked accounts, type the number yourself." /></div>
+              {acctRows.length > 0 && reserveIds.length < acctRows.length && (
+                <button className="px-btn px-btn-sm px-btn-ghost" style={{ padding: '3px 8px' }} onClick={addReserveAccount}>
+                  <Icons.Plus size={10} /> Add reserve account
+                </button>
+              )}
+            </div>
+            {reserveIds.map(id => {
+              const acct = acctRows.find(a => a.id === id);
+              return (
+                <div key={id} style={{ display: 'grid', gridTemplateColumns: '1fr 110px 24px', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                  <select className="px-select" value={id}
+                    onChange={(e) => setReserveIds(reserveIds.map(x => x === id ? e.target.value : x))}>
+                    {acctRows.filter(a => a.id === id || !reserveIds.includes(a.id)).map(a => (
+                      <option key={a.id} value={a.id}>
+                        {(a.name || 'Account')}{a.custodian ? ` · ${a.custodian}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <span style={{ textAlign: 'right', fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{fmt$(acctBal(id))}</span>
+                  <button onClick={() => setReserveIds(reserveIds.filter(x => x !== id))} aria-label="Unlink account"
+                    style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', padding: 0, lineHeight: 1 }}>
+                    <Icons.X size={12} />
+                  </button>
+                </div>
+              );
+            })}
+            {reserveIds.length > 0 ? (
               <div className="px-split-equity">
-                <span>Liquidity reserve · from {reserveAccount.name || 'linked account'}</span>
-                <strong>{fmt$(Number(reserveAccount.balance) || 0)}</strong>
+                <span>Liquidity reserve · {reserveIds.length === 1 ? 'from linked account' : `${reserveIds.length} linked accounts`}</span>
+                <strong>{fmt$(reserveIds.reduce((s, id) => s + acctBal(id), 0))}</strong>
               </div>
             ) : (
               <NumField label="Liquidity reserve" path="savings.emergency" value={profile.savings.emergency}  onUpdate={update}/>

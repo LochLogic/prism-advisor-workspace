@@ -1032,5 +1032,28 @@ per-firm Advisors roster role toggle.
 **Files:** `src/{client-portal,store,numbers-panel,calculators}.jsx`,
 `docs/marketing/*`, `docs/sprint-log.md`.
 
+## 2026-06-11 - Round 20: multi-account cash reserve + stacked outflow bar
+
+Founder follow-ups on the round-19 ledger upgrades. Build · check · calc ·
+lint green; verified in browser preview. **No migration, no secrets, no
+money** - `savings.reserveAccountIds[]` replaces round-19's single
+`emergencyAccountId` in the profile JSON blob (legacy key folds in as a
+one-entry list until first edit, then is dropped).
+
+- **Cash reserve links to multiple accounts.** "Add reserve account" button
+  (hidden once every account is linked); each linked row = account dropdown
+  (excludes already-linked accounts) + balance + unlink X. Reserve figure =
+  summed balances, written through to `savings.emergency` and re-synced from
+  fresh account data each drawer open; deleted accounts drop off; unlinking
+  everything returns to manual entry with the last figure kept.
+- **Stacked essentials bar.** The Essential-outflow bar now stacks on
+  housing: grey segment = take-home already spent on housing, colored
+  segment = remaining essentials starting where housing ends, open track =
+  genuinely unspent ("Housing + essentials use 42% of take-home · 58%
+  unspent"), with a legend and the 50% (50/30/20) guideline marker kept at
+  50% of total take-home.
+
+**Files:** `src/{store,numbers-panel}.jsx`, `docs/sprint-log.md`.
+
 ---
 <!-- New sprints append above this line, newest first. -->
