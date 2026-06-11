@@ -92,6 +92,16 @@ try {
   copyFileSync('src/supabase-client.js',  '_site/src/supabase-client.js');
   copyFileSync('src/brand-boot.js',       '_site/src/brand-boot.js');
 
+  // PWA (client portal): service worker at the root (its scope must cover
+  // /portal/), manifest under /portal, icons under /icons. The SW URL is
+  // deliberately NOT cache-busted — browsers byte-compare the registered URL
+  // on each visit, and a ?v= would orphan old registrations.
+  mkdirSync('_site/icons', { recursive: true });
+  copyFileSync('src/portal-sw.js',            '_site/portal-sw.js');
+  copyFileSync('portal-manifest.webmanifest', '_site/portal/manifest.webmanifest');
+  copyFileSync('icons/portal-192.png',        '_site/icons/portal-192.png');
+  copyFileSync('icons/portal-512.png',        '_site/icons/portal-512.png');
+
   // Self-hosted libs (no runtime CDN dependency except Plaid, which requires its CDN)
   mkdirSync('_site/vendor', { recursive: true });
   for (const v of ['react.production.min.js', 'react-dom.production.min.js', 'supabase.js']) {

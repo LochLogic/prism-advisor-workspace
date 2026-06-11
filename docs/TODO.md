@@ -21,16 +21,6 @@ independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
 
 - [ ] **Advisor MFA (TOTP)** — enforce in the advisor auth path. *↔ may need a
   Supabase Auth toggle (your queue).*
-- [ ] **Product analytics events** — first-party activation events (login, invite,
-  message, plan-update, report) into a small events table.
-- [ ] **RLS-predicate index coverage audit** (`advisor_id`/`firm_id`/`client_id`,
-  esp. the firm-admin cross-firm read).
-- [ ] **Client PWA + push** — installable portal + push on new message/task/document.
-  *UNBLOCKED 2026-06-10: VAPID keypair generated and stored — GitHub secrets
-  `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` (mailto:support@prismaw.com),
-  synced to Supabase edge secrets via the gated workflow. Public key (non-secret,
-  goes in the client `pushManager.subscribe` call):
-  `BAfYlDcSv2qsk8-FnhSQm-UET828k21ruVzq7aNRZf_PuDSRGj64EfowCtuAheqesFlyt2U5kdhNITlCSpu2FnQ`.*
 - [ ] **Zapier / public API.**
 - [ ] **Stripe webhook retry-storm hardening** (C0) — `stripe-webhook` returns HTTP
   400 for any exception → Stripe retries ~3 days even for unrecoverable cases. Return
@@ -47,6 +37,21 @@ ROADMAP and is built only when a partner asks — not queued here.*
 Things I genuinely can't do — they cost money, need your identity/credentials, or live
 in dashboards I can't reach. **Bold = the hard blockers gating any live client.**
 Project ref: `phabxcijbbphfxvjedfj` · Domain: `prismaw.com`.
+
+### Round-13 — SQL-editor pastes + one Auth toggle (code is LIVE 2026-06-10)
+- [ ] **Apply migrations 040 → 041 → 042 → 043** in the Supabase SQL editor, in order
+  (039 you already ran live on 2026-06-10 — the file is committed for the record):
+  [`040_security_advisor_hardening.sql`](../supabase/migrations/040_security_advisor_hardening.sql) —
+  search_path pins + anon-EXECUTE revokes (the Security Advisor warning sweep);
+  [`041_product_events.sql`](../supabase/migrations/041_product_events.sql) —
+  `px_events` + `px_track` (analytics writes silently no-op until applied);
+  [`042_push_subscriptions.sql`](../supabase/migrations/042_push_subscriptions.sql) —
+  push subscription storage (portal push starts working the moment this lands);
+  [`043_rls_index_coverage.sql`](../supabase/migrations/043_rls_index_coverage.sql) —
+  RLS-predicate index gap-fill.
+- [ ] **Enable leaked-password protection** — Supabase → Authentication → password
+  settings (HaveIBeenPwned check; Pro-plan feature, pairs with the Pro upgrade below).
+  Clears the last actionable Security Advisor warning.
 
 ### Round-12 go-live — SQL-editor pastes (shipped 2026-06-10, code is LIVE)
 - [x] ~~Apply migrations 035 + 036~~ *(done 2026-06-10)*
@@ -147,7 +152,6 @@ against it:
 ### Optional / as-needed
 - [ ] Finish the **GSC search-digest** setup (add the service account to the Search
   Console property + `GSC_SA_KEY` repo secret).
-- [ ] Pick a **product-analytics** approach (own events table vs. a thin tool).
 
 ---
 

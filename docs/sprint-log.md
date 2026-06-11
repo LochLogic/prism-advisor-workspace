@@ -12,6 +12,57 @@
 
 ---
 
+## 2026-06-10 (round 13) — Security-advisor sweep · client PWA + push · product analytics · RLS index audit
+
+Four workstreams in one batch. **Five hand-apply migrations (039–043)** —
+039 was already run live mid-session (security_invoker on
+`phase_library_resolved`, the advisor's one ERROR finding) and is committed
+for the record. **One new edge function (`send-push`) deployed via the gated
+workflow.**
+
+**Security Advisor warning sweep (migration 040)** — pins `search_path` on the
+8 functions migration 018's hardcoded list missed (6 trigger fns + the 036/038
+definer RPCs); revokes anon EXECUTE from every definer RPC except
+`px_brand_for_slug` (anon is the feature there: pre-login brand paint);
+strips EXECUTE entirely from trigger/internal functions (incl. the live-only
+`rls_auto_enable`); and revokes the PUBLIC/anon default-privilege auto-grant
+for future functions. Remaining warnings are accepted-by-design: 0029 on the
+authenticated RPCs (their contract), pg_net in public (no SET SCHEMA support),
+and the leaked-password dashboard toggle (human queue).
+
+**Client PWA + push** — the portal is installable (`/portal/manifest.webmanifest`,
+`/portal-sw.js`, navy prism icons in `/icons`) and pushes on advisor activity:
+new message, document request (rides the message path), and acknowledgement
+sign requests. Pieces: `push_subscriptions` table (migration 042, identity
+stamped by trigger, owner-only RLS) · `send-push` edge fn (advisor JWT →
+tenant check → VAPID web-push via jsr @negrel/webpush, prunes 404/410
+endpoints; VAPID secrets were synced 2026-06-10) · portal topbar gains a
+bell "Turn on notifications" button (gesture-gated permission; silent
+re-sync on returning visits). The SW deliberately has NO fetch/cache handler —
+assets are hash-busted and a cache would serve stale bundles.
+
+**Product analytics (migration 041)** — first-party `px_events` table +
+`px_track()` definer RPC (px_audit pattern: identity stamped server-side,
+client_id honoured only in-firm, append-only, admin-reads-own-firm).
+Instrumented: `login`, `invite_created`, `invite_claimed`, `message_sent`,
+`plan_updated`, `report_printed` (all 9 printers, kind in meta),
+`push_subscribed`. `db.track()` is fire-and-forget and no-ops in demo or
+pre-migration.
+
+**RLS-predicate index coverage audit (migration 043)** — every policy
+predicate in 001–042 cross-checked against every index; the migration header
+records the full covered list. Gaps closed: `messages/documents/
+acknowledgements/crm_tasks/fee_schedules/subscriptions(firm_id)` (the
+firm-admin cross-firm reads the roadmap item called out),
+`invoices/pending_ledger_changes(client_id)`, `crm_tasks(assigned_to, status)`.
+
+**Hand-off (your queue):** paste migrations **040 → 041 → 042 → 043** in order
+in the SQL editor (039 already applied); flip on **leaked-password protection**
+in Auth settings. Push starts working the moment 042 is applied — code no-ops
+gracefully until then.
+
+---
+
 ## 2026-06-10 (round 12d) — Name model, address style + platform role control (founder feedback)
 
 Founder feedback round two, same day. **One hand-apply migration (038) and a

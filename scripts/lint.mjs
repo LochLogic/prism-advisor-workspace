@@ -19,7 +19,10 @@ const structFail = (m) => { console.error(`✗ structure: ${m}`); structureError
 
 // 1 · Coverage — every bundleable src/ file must be listed in build-files.mjs
 //     (a file added to src/ but not to the load order ships nowhere).
-const STANDALONE = new Set(['src/brand-boot.js']);   // pre-auth boot script, copied by build.mjs by design
+const STANDALONE = new Set([
+  'src/brand-boot.js',   // pre-auth boot script, copied by build.mjs by design
+  'src/portal-sw.js',    // portal service worker (push) — copied by build.mjs, never bundled
+]);
 const onDisk = readdirSync('src').filter(f => /\.(jsx|cjs|js)$/.test(f)).map(f => `src/${f}`);
 const listed = new Set(allFiles);
 for (const f of onDisk) {

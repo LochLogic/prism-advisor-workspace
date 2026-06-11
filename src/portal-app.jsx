@@ -12,6 +12,71 @@
 // redirect) never bounces us in a loop. Set at load time, before React renders.
 window.__pxIsPortal = true;
 
+/* ─── Web push (round 13) ─────────────────────────────────────────
+   The portal is an installable PWA (manifest + /portal-sw.js); pushes arrive
+   on new advisor messages / document requests / acknowledgements (send-push
+   edge fn). The VAPID PUBLIC key is non-secret by design — it only identifies
+   the application server to the browser's push service. */
+const PUSH_VAPID_PUBLIC_KEY = 'BAfYlDcSv2qsk8-FnhSQm-UET828k21ruVzq7aNRZf_PuDSRGj64EfowCtuAheqesFlyt2U5kdhNITlCSpu2FnQ';
+
+const _pushSupported = () =>
+  'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+
+function _vapidKeyBytes(s) {
+  const b64 = (s + '='.repeat((4 - (s.length % 4)) % 4)).replace(/-/g, '+').replace(/_/g, '/');
+  return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+}
+
+async function _subscribePush(reg) {
+  const sub = await reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: _vapidKeyBytes(PUSH_VAPID_PUBLIC_KEY),
+  });
+  const saved = await window.db?.savePushSubscription?.(sub);
+  return saved ? sub : null;
+}
+
+/* Bell-plus button in the topbar: visible until notifications are enabled.
+   Registration is silent; subscribing waits for the user's click (the
+   permission prompt requires a gesture). If permission is already granted
+   (returning visit / reinstall), we re-sync the subscription quietly. */
+function PushSetupButton() {
+  const [state, setState] = React.useState('hidden'); // hidden|idle|denied
+  React.useEffect(() => {
+    if (!_pushSupported() || !window.__sb) return;
+    let dead = false;
+    navigator.serviceWorker.register('/portal-sw.js', { scope: '/portal/' }).then(async (reg) => {
+      if (dead) return;
+      if (Notification.permission === 'granted') {
+        const sub = await reg.pushManager.getSubscription().catch(() => null);
+        if (sub) window.db?.savePushSubscription?.(sub);   // keep the row fresh
+        else await _subscribePush(reg).catch(() => {});
+        return; // stays hidden — already on
+      }
+      setState(Notification.permission === 'denied' ? 'denied' : 'idle');
+    }).catch(() => {});
+    return () => { dead = true; };
+  }, []);
+
+  if (state !== 'idle') return null; // hidden when on/unsupported; denied is the browser's to undo
+  const enable = async () => {
+    try {
+      if (await Notification.requestPermission() !== 'granted') { setState('denied'); return; }
+      const reg = await navigator.serviceWorker.ready;
+      await _subscribePush(reg);
+      window.db?.track?.('push_subscribed');
+      setState('hidden');
+    } catch (e) { console.warn('[push] enable:', e.message); setState('hidden'); }
+  };
+  return (
+    <button className="px-icon-btn" onClick={enable}
+      aria-label="Turn on notifications for new messages and requests"
+      title="Turn on notifications">
+      <Icons.Bell size={14} />
+    </button>
+  );
+}
+
 /* ─── Slim client topbar (no view switcher, no admin) ────────────── */
 const PortalTopbar = ({ onOpenNumbers, dark, toggleTheme }) => {
   const { activeClient } = useView();
@@ -43,6 +108,7 @@ const PortalTopbar = ({ onOpenNumbers, dark, toggleTheme }) => {
           title={dark ? 'Light mode' : 'Dark mode'}>
           {dark ? <Icons.Sun size={14} /> : <Icons.Moon size={14} />}
         </button>
+        <PushSetupButton />
         <NotificationBell />
         <AccountChip view="client" activeClient={activeClient} />
       </div>

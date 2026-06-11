@@ -31,6 +31,10 @@ verify_jwt = true
 [functions.platform-admin]
 verify_jwt = true
 
+# Advisor-triggered web-push to a client's installed portal (round 13).
+[functions.send-push]
+verify_jwt = true
+
 # Advisor calendar sync (Google/Microsoft) — connection lifecycle + events.
 [functions.calendar-oauth]
 verify_jwt = true
