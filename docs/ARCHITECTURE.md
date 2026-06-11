@@ -2,7 +2,7 @@
 
 > **Purpose:** condensed router for AI/dev work. Tells you *which* file owns a
 > concern and what it exports — not every line. Read the named file for deep logic.
-> **Last synced:** 2026-06-10 round-12 sprint (platform-owner tier · ledger-edit approval gate). **Regenerate when:** `build-files.mjs`
+> **Last synced:** 2026-06-10 round-13 sprint (security-advisor sweep · portal PWA+push · px_events analytics · RLS index audit). **Regenerate when:** `build-files.mjs`
 > load order changes, a `src/*` file is added/split, or `window.db`/`PrismCalc` gain methods.
 
 ---
@@ -44,6 +44,7 @@ src/
   error-reporter.js    window.__pxReportError — captures errors → log-error edge fn
   supabase-client.js   window.__sb = supabase client (null if CDN fails → demo mode)
   brand-boot.js        standalone pre-auth brand paint (login/signup/landing only — NOT in the bundles/build-files.mjs; copied + cache-busted by build.mjs)
+  portal-sw.js         portal service worker (push notifications only, NO fetch cache — NOT bundled; copied by build.mjs to /portal-sw.js, scope /portal/)
   icons.jsx            window.Icons — Lucide-style SVG set
   data.jsx             domain mock data + phasesData/advisor; the 7 Wealth-Horizons phases
   calc-core.cjs        window.PrismCalc — ALL financial math (pure, also unit-tested)
@@ -64,8 +65,10 @@ src/
   portal-app.jsx       window.PortalApp — slim client entry (/portal bundle)
   styles.css / print.css   hand-authored CSS (print.css = report/invoice print layout)
 
+portal-manifest.webmanifest   PWA manifest (copied to /portal/manifest.webmanifest); icons/ = portal PNG icons
+
 supabase/
-  migrations/001-038   schema evolution (names are self-describing; 001 = base schema)
+  migrations/001-043   schema evolution (names are self-describing; 001 = base schema)
   functions/           Edge Functions (Deno) — see §6
   functions/_shared/   auth.ts, cors.ts, docusign.ts, calendar.ts (provider plumbing), fees.ts (canonical BACKEND fee math)
   tests/               integration.sql, rls_isolation.sql (tenant-isolation proofs)
@@ -98,6 +101,13 @@ e2e/demo.spec.ts       Playwright smoke
 - Compliance: `getAcknowledgements, getFirmAcknowledgements (firm-wide, round 7), createAcknowledgement, signAcknowledgement, sendDocusignEnvelope, audit, getAuditLog ({limit, clientId, since})`
 - Messaging/docs: `getMessages, sendMessage, markMessagesRead, getUnreadMessageClients, getDocuments, uploadDocument, getDocumentUrl, deleteDocument, getDocumentRequests, requestDocument, resolveDocumentRequest` (doc requests ride on `messages` via `context='doc-request:<cat>'` / `'doc-request-done:<id>'` — crm_tasks has no client RLS, messages do; zero schema change, audit-logged)
 - Misc: `getPhases, getBalanceHistory, getBookBalanceHistory, getTasks/createTask/updateTask/deleteTask, isUUID, timeAgo`
+- Analytics/push (round 13): `track(event, {clientId, meta})` → `px_track` RPC
+  (migration 041; fire-and-forget, no-ops in demo/pre-migration);
+  `savePushSubscription/removePushSubscription` (push_subscriptions, migration 042).
+  Advisor-authored sendMessage / requestDocument / createAcknowledgement also
+  fan out to the `send-push` edge fn (fire-and-forget `_pushToClient`). Events
+  instrumented: login (auth.jsx), invite_created/claimed, message_sent,
+  plan_updated, report_printed (store.jsx printers), push_subscribed (portal-app).
 - Branding/AI (2026-06-09): `getFirmBrand, updateFirmBrand, getBrandForSlug` (anon RPC
   `px_brand_for_slug`, migration 032), `aiAssist(action, context)` → `ai-assist` edge fn
 - Calendar (round 10): `getCalendarStatus, connectCalendar(provider), disconnectCalendar,
@@ -210,6 +220,7 @@ mirrored in `src/brand-boot.js` for the pre-auth pages).
 | `platform-admin` | Founder JWT checked against px_platform_owners → service-role firm administration: whoami / overview / firm_detail / provision_firm / suspend_firm / reactivate_firm / set_plan (all audit-logged `platform.*`) |
 | `calendar-oauth` | Advisor JWT → Google/Microsoft calendar connect lifecycle (auth_url / exchange / status / disconnect); tokens → `calendar_connections` (service-role only) |
 | `calendar-events` | Advisor JWT → upcoming / freebusy / create across connected calendars; auto token refresh. Callback pages: `/oauth/{google,microsoft}/callback` (one `oauth-callback.html`, written twice by build.mjs) |
+| `send-push` | Advisor JWT → web-push to a client's installed portal (PWA); tenant-checked, VAPID server-side, prunes dead endpoints |
 | `log-error` | Public sink for client error reporter |
 | `error-digest` | Cluster new client_errors → Slack alert |
 | `health` | Pipeline liveness probe |

@@ -78,6 +78,18 @@ for (const sym of ['lifeCoverageGap', 'estateProgress', 'retirement.employerMatc
   assert(bundle.includes(sym), `bundle wires W5: ${sym}`);
 }
 
+// 10b. Round 13 — portal PWA artifacts in the deploy dir + push wired in
+for (const f of ['portal-sw.js', 'portal/manifest.webmanifest', 'icons/portal-192.png', 'icons/portal-512.png']) {
+  assert(existsSync(`_site/${f}`), `_site/${f} present (portal PWA)`);
+}
+const portalJs = read('_site/dist/portal.js');
+for (const sym of ['portal-sw.js', 'pushManager', 'savePushSubscription']) {
+  assert(portalJs.includes(sym), `portal bundle wires push: ${sym}`);
+}
+assert(bundle.includes('px_track'), 'bundle wires product analytics (px_track)');
+assert(existsSync('supabase/migrations/041_product_events.sql'), 'migration 041_product_events.sql present');
+assert(existsSync('supabase/migrations/042_push_subscriptions.sql'), 'migration 042_push_subscriptions.sql present');
+
 // 11. W6 — asset-truth composition + RLS coverage for the new tables
 assert(bundle.includes('assetComposition'), 'bundle wires W6: assetComposition');
 const rlsSql = read('supabase/tests/rls_isolation.sql');

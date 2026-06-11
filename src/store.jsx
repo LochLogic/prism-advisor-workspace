@@ -1371,6 +1371,7 @@ function openEstateSample(key) {
 
 // Client overview report — called from ClientPreviewModal "Print report" button
 function printClientReport(client, phase, meetings) {
+  window.db?.track?.('report_printed', { meta: { kind: 'client' } });
   const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const meetingsHtml = (meetings || []).length > 0
     ? `<div class="section-lbl">Meeting history</div>
@@ -1405,6 +1406,7 @@ function printClientReport(client, phase, meetings) {
 
 // Milestone phase report — called from MilestoneAchievedModal "Download PDF" button
 function printMilestoneReport(phase, taskStates, advisorName, advisorFirm, numbers) {
+  window.db?.track?.('report_printed', { meta: { kind: 'milestone' } });
   const completed = (phase?.tasks || []).filter(t => taskStates?.[phase.id]?.[t.id]);
   const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
@@ -1447,6 +1449,7 @@ function printMilestoneReport(phase, taskStates, advisorName, advisorFirm, numbe
 
 // Compliance export — full audit trail + records for one client (SEC 17a-3/17a-4)
 function printComplianceReport(client, auditEntries, meetings, versionCount) {
+  window.db?.track?.('report_printed', { meta: { kind: 'compliance' } });
   const date = new Date().toLocaleString('en-US', { dateStyle: 'long', timeStyle: 'short' });
   // ACTION labels: shared map from db.jsx (single source of truth, bare-name global).
   const auditRows = (auditEntries || []).length
@@ -1488,6 +1491,7 @@ function printComplianceReport(client, auditEntries, meetings, versionCount) {
 //   opts: { firmName, generatedBy, rangeLabel, advisors, clients, feeSchedules,
 //           invoices, acknowledgements, auditEntries, auditTruncated }
 function printExamPacket(opts) {
+  window.db?.track?.('report_printed', { meta: { kind: 'exam-packet' } });
   const o = opts || {};
   const date = new Date().toLocaleString('en-US', { dateStyle: 'long', timeStyle: 'short' });
   const d = (iso, t) => iso ? new Date(iso).toLocaleString('en-US', t ? { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' } : { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
@@ -1569,6 +1573,7 @@ function printExamPacket(opts) {
 // Takes pre-computed data so it has no dependency on where the math lives.
 //   opts: { client, series:[{date,value}], periods:[{label,pct}], flows:[{flow_date,amount,kind}], advisorName, advisorFirm }
 function printPerformanceReport(opts) {
+  window.db?.track?.('report_printed', { meta: { kind: 'performance' } });
   const { client, series = [], periods = [], flows = [], advisorName, advisorFirm } = opts || {};
   const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const cur = series.length ? series[series.length - 1].value : 0;
@@ -1623,6 +1628,7 @@ function printPerformanceReport(opts) {
 // net-of-fee performance + goals + protection. A pure renderer — the advisor
 // modal gathers the pieces and passes pre-computed display values.
 function printQBRReport(opts) {
+  window.db?.track?.('report_printed', { meta: { kind: 'qbr' } });
   const o = opts || {};
   const client = o.client || {};
   const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
@@ -1769,6 +1775,7 @@ function printQBRReport(opts) {
 // advisor reviews, prints for the vault, and sends for e-sign via acknowledgements.
 //   opts: { client, risk:{ score, band, allocation }, planningAge, retireAt, advisorName, advisorFirm }
 function printIPSReport(opts) {
+  window.db?.track?.('report_printed', { meta: { kind: 'ips' } });
   const { client, risk, planningAge, retireAt, planFlags, advisorName, advisorFirm } = opts || {};
   const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const a = risk?.allocation || { equity: 60, fixedIncome: 35, cash: 5 };
@@ -1823,6 +1830,7 @@ function printIPSReport(opts) {
 //           reserve, surplus, readiness, successBand, risk,
 //           feeSchedule:{name,tiers}|null, feeIllustrative, advisorName, advisorFirm }
 function printProposalPacket(opts) {
+  window.db?.track?.('report_printed', { meta: { kind: 'proposal' } });
   const o = opts || {};
   const client = o.client || {};
   const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
@@ -1901,6 +1909,7 @@ function printProposalPacket(opts) {
 
 // Branded advisory-fee invoice (Theme D, 18d)
 function printInvoiceReport(invoice, clientName, advisorFirm) {
+  window.db?.track?.('report_printed', { meta: { kind: 'invoice' } });
   const fmtD = (d) => new Date(d).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const num = ('INV-' + String(invoice.id).replace(/-/g, '').slice(0, 8)).toUpperCase();
   _openPrint(`Invoice ${num}`, `

@@ -57,6 +57,7 @@ function AuthProvider({ children }) {
       if (event === 'SIGNED_IN' && window.__pxAuthActor?.id) {
         window.db?.audit('auth.signin', { entityType: 'auth', entityId: sess.user.id,
           summary: `Signed in (${window.__pxAuthActor.role})` });
+        window.db?.track?.('login', { meta: { role: window.__pxAuthActor.role } });
       }
     };
     try {

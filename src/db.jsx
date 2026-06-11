@@ -51,6 +51,59 @@ async function dbAudit(action, opts = {}) {
   } catch (e) { console.warn('[db] audit:', e.message); }
 }
 
+/* ─── Product analytics (round 13) ───────────────────────────────────
+   First-party activation events → px_events via the px_track() SECURITY
+   DEFINER RPC (migration 041), which stamps actor/firm from the session.
+   Fire-and-forget like dbAudit: analytics must never block or break a user
+   action, and the catch also covers environments where 041 isn't applied yet. */
+async function dbTrack(event, { clientId = null, meta = {} } = {}) {
+  const sb = _sb();
+  if (!sb || !window.__pxAuthActor?.id) return; // demo mode / no session
+  try {
+    await sb.rpc('px_track', {
+      p_event:     event,
+      p_client_id: isUUID(clientId) ? clientId : null,
+      p_meta:      meta || {},
+    });
+  } catch { /* silent by design */ }
+}
+
+/* ─── Web push (round 13) ────────────────────────────────────────────
+   The portal saves its PushSubscription (RLS: own rows; identity stamped by
+   trigger, migration 042); advisor-side actions fan out through the send-push
+   edge function. Both are fire-and-forget — push is best-effort decoration on
+   top of the in-app realtime channels. */
+async function dbSavePushSubscription(sub) {
+  const sb = _sb();
+  if (!sb || !sub?.endpoint) return false;
+  try {
+    const j = sub.toJSON ? sub.toJSON() : sub;
+    if (!j.keys?.p256dh || !j.keys?.auth) return false;
+    const { error } = await sb.from('push_subscriptions').upsert({
+      endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth,
+      user_agent: typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 200) : null,
+    }, { onConflict: 'endpoint' });
+    if (error) throw error;
+    return true;
+  } catch (e) { console.warn('[db] savePushSubscription:', e.message); return false; }
+}
+
+async function dbRemovePushSubscription(endpoint) {
+  const sb = _sb();
+  if (!sb || !endpoint) return;
+  try { await sb.from('push_subscriptions').delete().eq('endpoint', endpoint); }
+  catch (e) { console.warn('[db] removePushSubscription:', e.message); }
+}
+
+function _pushToClient(clientId, { title, body, url, tag } = {}) {
+  const sb = _sb();
+  if (!sb || !isUUID(clientId)) return;
+  try {
+    sb.functions.invoke('send-push', { body: { client_id: clientId, title, body, url, tag } })
+      .catch(() => {});
+  } catch { /* never blocks the triggering action */ }
+}
+
 async function dbGetAuditLog({ limit = 100, clientId = null, since = null } = {}) {
   if (!_sb()) return null;
   try {
@@ -254,6 +307,8 @@ async function dbCreateAcknowledgement(clientId, firmId, advisorId, { title, bod
     if (error) throw error;
     dbAudit('ack.request', { entityType: 'acknowledgement', entityId: data.id, clientId,
       summary: `Requested acknowledgement: ${title}` });
+    _pushToClient(clientId, { title: 'Action needed',
+      body: `Please review and sign: ${title}`.slice(0, 140), tag: 'ack' });
     return data;
   } catch (e) { console.warn('[db] createAcknowledgement:', e.message); return null; }
 }
@@ -399,6 +454,7 @@ async function dbCreateClientInvite(clientId, email = null) {
     const { data, error } = await _sb().rpc('px_create_client_invite',
       { p_client_id: clientId, p_email: email || null });
     if (error) throw error;
+    dbTrack('invite_created', { clientId });
     return { code: data, error: null };
   } catch (e) {
     console.warn('[db] createClientInvite:', e.message);
@@ -411,6 +467,7 @@ async function dbClaimClient(code) {
   try {
     const { data, error } = await _sb().rpc('px_claim_client', { p_code: String(code).trim() });
     if (error) throw error;
+    dbTrack('invite_claimed', { clientId: data });
     return { clientId: data, error: null };
   } catch (e) {
     console.warn('[db] claimClient:', e.message);
@@ -531,6 +588,7 @@ async function dbSaveProfile(clientId, profileData) {
     } catch (ve) { console.warn('[db] profileVersion:', ve.message); }
     dbAudit('profile.save', { entityType: 'profile', entityId: clientId, clientId,
       summary: 'Saved household financial profile' });
+    dbTrack('plan_updated', { clientId });
   } catch (e) { console.warn('[db] saveProfile:', e.message); }
 }
 
@@ -1061,6 +1119,17 @@ async function dbSendMessage(clientId, { body, authorRole, authorId, context, fi
     if (error) throw error;
     dbAudit('message.send', { entityType: 'message', entityId: data.id, clientId,
       summary: `${authorRole === 'advisor' ? 'Advisor' : 'Client'} sent a message` });
+    dbTrack('message_sent', { clientId, meta: { role: authorRole } });
+    // Advisor → client: nudge the client's installed portal. Doc requests ride
+    // on messages (context 'doc-request:*'), so they get their own wording here.
+    if (authorRole === 'advisor') {
+      const isDocReq = (context || '').startsWith(DOC_REQ_PREFIX);
+      _pushToClient(clientId, {
+        title: isDocReq ? 'Document requested' : 'New message from your advisor',
+        body:  data.body.slice(0, 140),
+        tag:   isDocReq ? 'doc-request' : 'message',
+      });
+    }
     return data;
   } catch (e) { console.warn('[db] sendMessage:', e.message); return null; }
 }
@@ -1639,6 +1708,9 @@ window.db = {
   withdrawLedgerChange:    dbWithdrawLedgerChange,
   getPendingLedgerChanges: dbGetPendingLedgerChanges,
   reviewLedgerChange:      dbReviewLedgerChange,
+  track:               dbTrack,
+  savePushSubscription:   dbSavePushSubscription,
+  removePushSubscription: dbRemovePushSubscription,
   getTasks:            dbGetTasks,
   mapTask,
   createTask:          dbCreateTask,
