@@ -1,4 +1,4 @@
-// Prism — shared components: Modal shell, Avatar, Sparkline, MilestoneAchievedModal, Toast
+// Prism - shared components: Modal shell, Avatar, Sparkline, MilestoneAchievedModal, Toast
 
 /* ─── Modal shell ────────────────────────────────────────────────── */
 const FOCUSABLE = 'button:not([disabled]),[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
@@ -123,7 +123,7 @@ const PerfChart = ({ series, height = 96 }) => {
       <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center',
         color: 'var(--ink-faint)', fontSize: 12, fontStyle: 'italic',
         border: '1px dashed var(--border)', borderRadius: 8 }}>
-        Not enough history yet — the curve fills in as balances update.
+        Not enough history yet - the curve fills in as balances update.
       </div>
     );
   }
@@ -132,7 +132,7 @@ const PerfChart = ({ series, height = 96 }) => {
   const min = Math.min(...vals), max = Math.max(...vals), range = (max - min) || 1, n = series.length;
   // Fractional (0–1) coordinates: the SVG stretches with preserveAspectRatio
   // "none", so x-fraction = i/(n-1) and y-fraction = y(v)/H map straight onto
-  // the container — letting the HTML overlay (dot + tooltip) sit in %.
+  // the container - letting the HTML overlay (dot + tooltip) sit in %.
   const xFrac = i => (n > 1 ? i / (n - 1) : 0);
   const yFrac = v => (H - ((v - min) / range) * (H - 10) - 5) / H;
   const x = i => xFrac(i) * W;
@@ -247,9 +247,9 @@ const MilestoneAchievedModal = ({ isOpen, onClose, phase, onSchedule }) => {
             borderLeft: '2px solid var(--gold)', paddingLeft: 14, margin: 0,
           }}>
             "{phase.title === 'Liability Optimization'
-              ? 'Excellent execution on the avalanche schedule. With high-cost debt cleared, the next phase moves capital into tax-advantaged space — where we get the compounding advantage of three-axis tax benefit.'
-              : 'Solid foundation laid. The work in this phase compounds into every decision that follows — particularly around tax location and withdrawal sequencing. We will review the next Horizon together at your scheduled session.'}"
-            <br /><span style={{ fontStyle: 'normal', fontFamily: 'var(--sans)', fontSize: 11, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.08em', marginTop: 10, display: 'block' }}>— {advisorName}, {advisorFirm}</span>
+              ? 'Excellent execution on the avalanche schedule. With high-cost debt cleared, the next phase moves capital into tax-advantaged space - where we get the compounding advantage of three-axis tax benefit.'
+              : 'Solid foundation laid. The work in this phase compounds into every decision that follows - particularly around tax location and withdrawal sequencing. We will review the next Horizon together at your scheduled session.'}"
+            <br /><span style={{ fontStyle: 'normal', fontFamily: 'var(--sans)', fontSize: 11, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.08em', marginTop: 10, display: 'block' }}>- {advisorName}, {advisorFirm}</span>
           </p>
         </div>
       </div>
@@ -267,7 +267,7 @@ const MilestoneAchievedModal = ({ isOpen, onClose, phase, onSchedule }) => {
   );
 };
 
-/* ─── Message thread — two-way advisor ↔ client conversation (W3) ──── */
+/* ─── Message thread - two-way advisor ↔ client conversation (W3) ──── */
 // Shared by the client portal and the advisor client modal. `role` is the
 // viewer ('advisor' | 'client'); their own messages align right. Live clients
 // load + subscribe in realtime; demo/mock clients use local state from demoSeed.
@@ -282,7 +282,7 @@ const MessageThread = ({ clientId, role, authorId, firmId, demoSeed = [], contex
   const [aiBusy, setAiBusy] = React.useState(false);
   const endRef = React.useRef(null);
 
-  // AI draft (advisor side only) — sends the client context + recent thread to
+  // AI draft (advisor side only) - sends the client context + recent thread to
   // the server-side Gemini edge function and drops the result into the compose
   // box for the advisor to edit before sending. Demo mode shows a canned draft.
   const aiDraft = async () => {
@@ -295,11 +295,11 @@ const MessageThread = ({ clientId, role, authorId, firmId, demoSeed = [], contex
         thread: (messages || []).slice(-12).map(m => ({ from: m.author_role, body: m.body })),
       });
     } else {
-      text = `Thanks for the note — that's exactly the kind of question this plan is built to answer. Looking at where the household stands, you're in a solid position to take this step without disturbing the longer-term targets we set. Let's walk through the numbers together at our next review; I'll bring a side-by-side so you can see the trade-off clearly.`;
+      text = `Thanks for the note - that's exactly the kind of question this plan is built to answer. Looking at where the household stands, you're in a solid position to take this step without disturbing the longer-term targets we set. Let's walk through the numbers together at our next review; I'll bring a side-by-side so you can see the trade-off clearly.`;
     }
     setAiBusy(false);
     if (text) setDraft(text);
-    else setSendError('AI draft unavailable — try again, or write your reply directly.');
+    else setSendError('AI draft unavailable - try again, or write your reply directly.');
   };
 
   React.useEffect(() => {
@@ -342,7 +342,7 @@ const MessageThread = ({ clientId, role, authorId, firmId, demoSeed = [], contex
       setDraft('');
       setMessages(prev => (prev || []).some(x => x.id === row.id) ? prev : [...(prev || []), row]);
     } else {
-      setSendError('Message could not be sent — please try again.');
+      setSendError('Message could not be sent - please try again.');
     }
   };
 
@@ -387,7 +387,7 @@ const MessageThread = ({ clientId, role, authorId, firmId, demoSeed = [], contex
           </button>
           {role === 'advisor' && aiContext && (
             <button className="px-btn px-btn-ghost px-btn-sm" onClick={aiDraft} disabled={aiBusy}
-              title="Draft a reply with the AI assistant — you review and edit before sending">
+              title="Draft a reply with the AI assistant - you review and edit before sending">
               <Icons.Sparkles size={12} /> {aiBusy ? 'Drafting…' : 'AI draft'}
             </button>
           )}
@@ -397,7 +397,7 @@ const MessageThread = ({ clientId, role, authorId, firmId, demoSeed = [], contex
   );
 };
 
-/* ─── Document vault — advisor uploads, client reviews + downloads (W4) ──── */
+/* ─── Document vault - advisor uploads, client reviews + downloads (W4) ──── */
 const DOC_CATEGORIES = [
   { value: 'ips', label: 'IPS' }, { value: 'statement', label: 'Statement' },
   { value: 'tax', label: 'Tax' }, { value: 'estate', label: 'Estate' },
@@ -424,7 +424,7 @@ const DocumentVault = ({ clientId, role, firmId, advisorId, demoSeed = [], empty
   const [form, setForm] = React.useState(null);
   const fileRef = React.useRef(null);
 
-  // Document requests — the advisor's "please upload X" asks (rides on the
+  // Document requests - the advisor's "please upload X" asks (rides on the
   // messages table; see db.jsx). Demo mode keeps them in local state so the
   // flow is demonstrable without a session.
   const [requests, setRequests] = React.useState([]);
@@ -455,7 +455,7 @@ const DocumentVault = ({ clientId, role, firmId, advisorId, demoSeed = [], empty
       setRequests(prev => [{ id: row.id, title, category: reqForm.category,
         requestedAt: row.created_at, resolved: false }, ...prev]);
       setReqForm(null);
-    } else setErr('Could not send the request — please try again.');
+    } else setErr('Could not send the request - please try again.');
   };
 
   const resolveRequest = async (r, { byRole, note } = {}) => {
@@ -465,7 +465,7 @@ const DocumentVault = ({ clientId, role, firmId, advisorId, demoSeed = [], empty
         authorId: role === 'client' ? clientId : advisorId,
         firmId, note,
       });
-      if (!ok) { setErr('Could not update the request — please try again.'); return false; }
+      if (!ok) { setErr('Could not update the request - please try again.'); return false; }
     }
     setRequests(prev => prev.map(x => x.id === r.id ? { ...x, resolved: true } : x));
     return true;
@@ -492,7 +492,7 @@ const DocumentVault = ({ clientId, role, firmId, advisorId, demoSeed = [], empty
       if (req) await resolveRequest(req, { note: `Uploaded: ${row.title}` });
       setDocs(prev => [row, ...(prev || [])]); setForm(null); if (fileRef.current) fileRef.current.value = '';
     }
-    else setErr('Upload failed — please try again.');
+    else setErr('Upload failed - please try again.');
   };
   const download = async (d) => {
     setErr('');
@@ -514,7 +514,7 @@ const DocumentVault = ({ clientId, role, firmId, advisorId, demoSeed = [], empty
 
   return (
     <div className="px-docs">
-      {/* Open document requests — what the advisor has asked the client to upload */}
+      {/* Open document requests - what the advisor has asked the client to upload */}
       {openRequests.length > 0 && (
         <div style={{ marginBottom: 12 }}>
           {openRequests.map(r => (
@@ -539,7 +539,7 @@ const DocumentVault = ({ clientId, role, firmId, advisorId, demoSeed = [], empty
               )}
               {role === 'advisor' && (
                 <button className="px-btn px-btn-sm px-btn-ghost"
-                  title="Close this request — received outside the portal or no longer needed"
+                  title="Close this request - received outside the portal or no longer needed"
                   onClick={() => resolveRequest(r, { note: `Received: ${r.title}` })}>
                   Mark received
                 </button>
@@ -558,7 +558,7 @@ const DocumentVault = ({ clientId, role, firmId, advisorId, demoSeed = [], empty
           )}
           {!form && role === 'advisor' && !reqForm && (
             <button className="px-btn px-btn-sm px-btn-ghost"
-              title="Ask the client to upload a named document — the request appears in their portal"
+              title="Ask the client to upload a named document - the request appears in their portal"
               onClick={() => setReqForm({ title: '', category: 'statement' })}>
               <Icons.FileText size={12} /> Request document
             </button>
@@ -566,7 +566,7 @@ const DocumentVault = ({ clientId, role, firmId, advisorId, demoSeed = [], empty
           {!form && reqForm && (
             <div style={{ padding: 12, background: 'var(--bg-elev)', borderRadius: 6, flexBasis: '100%' }}>
               <div style={{ fontSize: 12.5, color: 'var(--ink-2)', marginBottom: 8 }}>
-                Request a document — the ask shows in the client&apos;s portal and is resolved by their upload.
+                Request a document - the ask shows in the client&apos;s portal and is resolved by their upload.
               </div>
               <input className="px-input" placeholder="What should they upload? e.g. 2025 Form 1040" value={reqForm.title} autoFocus
                 onChange={e => setReqForm(f => ({ ...f, title: e.target.value }))}

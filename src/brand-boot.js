@@ -1,15 +1,15 @@
-// Prism — pre-auth white-label brand boot (login / signup / landing).
+// Prism - pre-auth white-label brand boot (login / signup / landing).
 // The in-app brand engine lives in store.jsx (bundle-only); these static pages
 // load this tiny standalone instead. Paint order mirrors the app: localStorage
 // cache first (instant, no flash), then the anon px_brand_for_slug RPC when the
-// host is a firm subdomain ({slug}.prismaw.com) — resolved result re-caches.
+// host is a firm subdomain ({slug}.prismaw.com) - resolved result re-caches.
 // Loaded with `defer` (after vendor/supabase.js + src/supabase-client.js).
 (function () {
   var DEFAULT_COLOR = '#1c2e4a';
   var CACHE_KEY = 'px_brand:' + window.location.hostname;
 
   // Trust boundary: the cache is client-writable localStorage, and the RPC is
-  // anon-callable — accept only the whitelisted, validated fields.
+  // anon-callable - accept only the whitelisted, validated fields.
   function sanitizeBrand(b) {
     if (!b || typeof b !== 'object') return null;
     var out = {};

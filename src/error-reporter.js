@@ -1,4 +1,4 @@
-// Prism — lightweight client error reporter.
+// Prism - lightweight client error reporter.
 // Captures uncaught errors, unhandled promise rejections, and React error-boundary
 // errors, and best-effort POSTs them to the `log-error` Edge Function. It NEVER
 // throws and NEVER blocks the app; if the function isn't deployed (or CORS blocks

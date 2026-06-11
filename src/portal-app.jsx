@@ -1,7 +1,7 @@
-// Prism — Client Portal entry (/portal). This is a SECOND bundle (dist/portal.js)
+// Prism - Client Portal entry (/portal). This is a SECOND bundle (dist/portal.js)
 // built from the client-facing source subset only: it deliberately excludes the
 // advisor dashboard, firm-admin, advisor modals, and bulk-import code. The result
-// is a smaller client payload AND a smaller attack surface in a client's browser —
+// is a smaller client payload AND a smaller attack surface in a client's browser -
 // a client never downloads advisor/admin logic.
 //
 // Shared providers/components come from the same source files the advisor app uses
@@ -15,7 +15,7 @@ window.__pxIsPortal = true;
 /* ─── Web push (round 13) ─────────────────────────────────────────
    The portal is an installable PWA (manifest + /portal-sw.js); pushes arrive
    on new advisor messages / document requests / acknowledgements (send-push
-   edge fn). The VAPID PUBLIC key is non-secret by design — it only identifies
+   edge fn). The VAPID PUBLIC key is non-secret by design - it only identifies
    the application server to the browser's push service. */
 const PUSH_VAPID_PUBLIC_KEY = 'BAfYlDcSv2qsk8-FnhSQm-UET828k21ruVzq7aNRZf_PuDSRGj64EfowCtuAheqesFlyt2U5kdhNITlCSpu2FnQ';
 
@@ -51,7 +51,7 @@ function PushSetupButton() {
         const sub = await reg.pushManager.getSubscription().catch(() => null);
         if (sub) window.db?.savePushSubscription?.(sub);   // keep the row fresh
         else await _subscribePush(reg).catch(() => {});
-        return; // stays hidden — already on
+        return; // stays hidden - already on
       }
       setState(Notification.permission === 'denied' ? 'denied' : 'idle');
     }).catch(() => {});
@@ -116,7 +116,7 @@ const PortalTopbar = ({ onOpenNumbers, dark, toggleTheme }) => {
   );
 };
 
-/* ─── Portal inner — auth gate + bind the signed-in client's household ─ */
+/* ─── Portal inner - auth gate + bind the signed-in client's household ─ */
 function PortalInner() {
   const { loading, session, role, authUser } = useAuth();
   const { numbersOpen, openNumbers, closeNumbers, setActiveClientId, setActiveClient, setView } = useView();

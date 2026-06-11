@@ -1,4 +1,4 @@
-// Prism — Advisor Dashboard (View A). Command center for the RIA.
+// Prism - Advisor Dashboard (View A). Command center for the RIA.
 // KPIs · Client Roster · Alerts feed · Flagged Questions inbox.
 
 const { useMemo: useMemoAdv, useState: useStateAdv } = React;
@@ -27,7 +27,7 @@ const KpiTile = ({ label, value, sub, delta, deltaDir, sparkData }) => (
 /* ─── Phase label helper ─────────────────────────────────────────── */
 const phaseLabel = (id) => {
   const p = phasesData.find(p => p.id === id);
-  if (!p) return '—';
+  if (!p) return '-';
   return p;
 };
 
@@ -86,7 +86,7 @@ const INVOICE_STATUS_TONE = { draft: 'var(--ink-mute)', approved: 'var(--forest)
 
 /* ─── Roster row ─────────────────────────────────────────────────── */
 /* On phones the row renders as a stacked card (styles.css ≤680px); a left
-   swipe reveals quick actions (quick view · roadmap · numbers). Touch-only —
+   swipe reveals quick actions (quick view · roadmap · numbers). Touch-only -
    the action strip never renders on desktop, so the table shape is unchanged. */
 const RosterRow = ({ client, onOpen }) => {
   const phase = phaseLabel(client.phase);
@@ -146,7 +146,7 @@ const RosterRow = ({ client, onOpen }) => {
       </td>
       <td className="is-num px-hide-mobile" data-label="Cash">
         <span style={{ color: client.uninvestedCash > 80_000 ? 'var(--brick)' : 'var(--ink-mute)' }}>
-          {client.uninvestedCash ? fmt$(client.uninvestedCash, { short: true }) : '—'}
+          {client.uninvestedCash ? fmt$(client.uninvestedCash, { short: true }) : '-'}
         </span>
       </td>
       <td data-label="Activity">
@@ -261,7 +261,7 @@ const FlaggedQuestion = ({ q, onDismiss, clients, authUser, onOpenClient }) => {
   const sendReply = async () => {
     const body = replyText.trim();
     if (!body) return;
-    // Demo/mock question (no DB row) — keep the thread usable with local state.
+    // Demo/mock question (no DB row) - keep the thread usable with local state.
     if (!q._dbId || !window.db) {
       setMessages(prev => [...(prev || []), { id: 'demo-' + Date.now(), author_role: 'advisor', body, created_at: new Date().toISOString() }]);
       setReplyText('');
@@ -276,7 +276,7 @@ const FlaggedQuestion = ({ q, onDismiss, clients, authUser, onOpenClient }) => {
       setReplyText('');
       showToast(`Reply sent to ${client?.shortName || 'client'}`);
     } else {
-      showToast('Could not send reply — check console');
+      showToast('Could not send reply - check console');
     }
   };
 
@@ -300,7 +300,7 @@ const FlaggedQuestion = ({ q, onDismiss, clients, authUser, onOpenClient }) => {
           )}
           {messages?.length === 0 && (
             <div style={{ fontSize: 12, color: 'var(--ink-faint)', fontStyle: 'italic', marginBottom: 8 }}>
-              No replies yet — start the conversation below.
+              No replies yet - start the conversation below.
             </div>
           )}
           {messages?.map(m => (
@@ -387,9 +387,9 @@ const DEMO_CAL_EVENTS = (() => {
     return { start: s.toISOString(), end: new Date(s.getTime() + dur * 60000).toISOString() };
   };
   return [
-    { id: 'd1', provider: 'google', title: 'Quarterly review — The Hartwells', allDay: false, link: null, ...at(0, 14, 60) },
-    { id: 'd2', provider: 'google', title: 'Intro call — Rivera prospect',     allDay: false, link: null, ...at(1, 10, 30) },
-    { id: 'd3', provider: 'google', title: 'Roth conversion walkthrough — The Okafors', allDay: false, link: null, ...at(3, 15, 45) },
+    { id: 'd1', provider: 'google', title: 'Quarterly review - The Hartwells', allDay: false, link: null, ...at(0, 14, 60) },
+    { id: 'd2', provider: 'google', title: 'Intro call - Rivera prospect',     allDay: false, link: null, ...at(1, 10, 30) },
+    { id: 'd3', provider: 'google', title: 'Roth conversion walkthrough - The Okafors', allDay: false, link: null, ...at(3, 15, 45) },
   ];
 })();
 
@@ -518,7 +518,7 @@ const PipelineBoard = ({ clients, onOpen, onMove }) => (
               </select>
             </div>
           ))}
-          {inStage.length === 0 && <div style={{ fontSize: 11, color: 'var(--ink-faint)', fontStyle: 'italic', padding: '6px 0' }}>—</div>}
+          {inStage.length === 0 && <div style={{ fontSize: 11, color: 'var(--ink-faint)', fontStyle: 'italic', padding: '6px 0' }}>-</div>}
         </div>
       );
     })}
@@ -655,9 +655,9 @@ const EmptyRoster = ({ onAddClient, onAddProspect, onAddSample, onImport, sampli
     <div style={{ width: 46, height: 46, background: 'var(--gold-soft)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
       <Icons.Users size={19} style={{ color: 'var(--gold)' }} />
     </div>
-    <div style={{ fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 500, color: 'var(--ink)', marginBottom: 6 }}>Welcome — let's set up your book</div>
+    <div style={{ fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 500, color: 'var(--ink)', marginBottom: 6 }}>Welcome - let's set up your book</div>
     <div style={{ fontSize: 13.5, color: 'var(--ink-mute)', marginBottom: 20, maxWidth: 440, margin: '0 auto 20px', lineHeight: 1.55 }}>
-      Add your first client to start building lifecycle plans — or drop in a fully-populated
+      Add your first client to start building lifecycle plans - or drop in a fully-populated
       sample household to explore the roadmap, calculators, and reports right away.
     </div>
     <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -690,7 +690,7 @@ const EmptyRoster = ({ onAddClient, onAddProspect, onAddSample, onImport, sampli
 /* ─── Main Advisor Dashboard ─────────────────────────────────────── */
 /* ─── Client ledger updates awaiting review (commit gate, migration 036) ───
    Shown only when the firm has the approval gate on AND a client draft exists
-   (the section stays silent otherwise — the gate is per-firm opt-in, default
+   (the section stays silent otherwise - the gate is per-firm opt-in, default
    OFF). Approve writes the proposed profile through the advisor's own RLS
    path; decline returns it to the client with a note. */
 const LedgerApprovalCard = ({ row, authUser, onDone, onOpenClient, clients }) => {
@@ -744,7 +744,7 @@ const LedgerApprovalCard = ({ row, authUser, onDone, onOpenClient, clients }) =>
       {expanded && (
         <div style={{ fontSize: 11.5, color: 'var(--ink-mute)', margin: '8px 0 2px' }}>
           {changedSections === null ? 'Comparing…'
-            : changedSections.length === 0 ? 'No differences from the saved profile — safe to approve.'
+            : changedSections.length === 0 ? 'No differences from the saved profile - safe to approve.'
             : <>Changed: <b style={{ color: 'var(--ink)' }}>{changedSections.join(', ')}</b>. Open the household's Numbers drawer for the full picture.</>}
         </div>
       )}
@@ -814,7 +814,7 @@ const AdvisorDashboard = () => {
     window.db.getTasks(id, { includeDone: false }).then(rows => {
       setDbTasks(rows ? rows.map(window.db.mapTask) : []);
     });
-    // Approval-gate inbox (null until migration 036 / when the gate is off —
+    // Approval-gate inbox (null until migration 036 / when the gate is off -
     // the section renders nothing in that case).
     window.db.getPendingLedgerChanges?.().then(rows => setDbLedgerDrafts(rows || []));
   }, [authUser?.id]);
@@ -833,7 +833,7 @@ const AdvisorDashboard = () => {
   const activeAlerts    = isLiveMode ? (dbAlerts    || []) : alertsData;
 
   // Resolve the active client's display object from a deep-linked id (#/client/<id>)
-  // once the roster is loaded — data already keys off activeClientId; this fills in
+  // once the roster is loaded - data already keys off activeClientId; this fills in
   // the name/initials the portal header reads when arriving via a shared/bookmarked link.
   React.useEffect(() => {
     if (!activeClientId) return;
@@ -878,7 +878,7 @@ const AdvisorDashboard = () => {
   // receives EVERY message insert and relies on Supabase Realtime RLS to scope the
   // feed to this advisor's book. As a backstop against a Realtime-RLS misconfig,
   // keep a live set of the client ids we already know (RLS-scoped roster/unread
-  // fetches) and ignore any payload outside it — so a misconfiguration degrades to
+  // fetches) and ignore any payload outside it - so a misconfiguration degrades to
   // "no dot" instead of this browser processing another tenant's message.
   const knownClientIds = React.useRef(new Set());
   React.useEffect(() => {
@@ -887,7 +887,7 @@ const AdvisorDashboard = () => {
     knownClientIds.current = ids;
   }, [activeClients, unreadIds]);
 
-  // Passive realtime (W4): light the roster unread dot the moment a client messages —
+  // Passive realtime (W4): light the roster unread dot the moment a client messages -
   // no modal needed. RLS scopes the stream to this advisor's book. Complements the
   // fetch above (which paints the initial state + clears on modal close).
   React.useEffect(() => {
@@ -912,7 +912,7 @@ const AdvisorDashboard = () => {
     [activeClients, stageOverride, unreadIds]);
 
   // Prospects ride at the top of the roster (newest first) but stay out of the
-  // book KPIs (they aren't clients yet — see `kpis`, which keys off activeClients).
+  // book KPIs (they aren't clients yet - see `kpis`, which keys off activeClients).
   const rosterClients = useMemoAdv(() => [...prospects, ...boardClients], [prospects, boardClients]);
 
   const moveStage = async (c, stage) => {
@@ -936,7 +936,7 @@ const AdvisorDashboard = () => {
       title, client_id: clientObj?.id, priority: alert?.priority === 'high' ? 'high' : 'normal',
     });
     if (row) { setDbTasks(prev => [window.db.mapTask(row), ...(prev || [])]); showToast('Added to agenda'); }
-    else showToast('Could not add to agenda — check console');
+    else showToast('Could not add to agenda - check console');
   };
 
   const handleClientCreated = (newClient) => {
@@ -984,9 +984,9 @@ const AdvisorDashboard = () => {
         } catch {}
       }
       handleClientCreated(window.db.mapClient(row));
-      showToast('Sample household added — open it to explore the roadmap');
+      showToast('Sample household added - open it to explore the roadmap');
     } else {
-      showToast('Could not add sample — check console');
+      showToast('Could not add sample - check console');
     }
     setSampling(false);
   };
@@ -1028,7 +1028,7 @@ const AdvisorDashboard = () => {
           priority: c.uninvestedCash > 100_000 ? 'high' : 'med',
           clientId: c.id,
           icon:     'Dollar',
-          headline: `${c.shortName} — ${pct}% cash drag`,
+          headline: `${c.shortName} - ${pct}% cash drag`,
           body:     `${fmt$(c.uninvestedCash, { short: true })} uninvested of ${fmt$(c.aum, { short: true })} AUM`,
           timeAgo:  'auto',
           cta:      'Deploy cash',
@@ -1043,7 +1043,7 @@ const AdvisorDashboard = () => {
             priority: daysSince >= 30 ? 'high' : 'med',
             clientId: c.id,
             icon:     'Phone',
-            headline: `${c.shortName} — no activity ${daysSince}d`,
+            headline: `${c.shortName} - no activity ${daysSince}d`,
             body:     'Consider scheduling a check-in',
             timeAgo:  'auto',
             cta:      'Add to agenda',
@@ -1149,17 +1149,17 @@ const AdvisorDashboard = () => {
 
         {/* KPIs */}
         <div className="px-kpis">
-          <KpiTile label="Book AUM" value={kpis.totalAUM ? fmt$(kpis.totalAUM, { short: true, decimals: 1 }) : '—'}
+          <KpiTile label="Book AUM" value={kpis.totalAUM ? fmt$(kpis.totalAUM, { short: true, decimals: 1 }) : '-'}
                    delta={isLiveMode ? null : '+ $1.8M MTD'} deltaDir="up" sparkData={bookSpark} />
           <KpiTile label="Active clients" value={kpis.activeCount}
                    sub={isLiveMode ? null : '2 onboarding'} />
           <KpiTile label="Late-horizon" value={kpis.inLateHorizon}
                    sub="Phase 06 +" />
-          <KpiTile label="Cash drag" value={kpis.totalCashDrag ? fmt$(kpis.totalCashDrag, { short: true }) : '—'}
+          <KpiTile label="Cash drag" value={kpis.totalCashDrag ? fmt$(kpis.totalCashDrag, { short: true }) : '-'}
                    delta={isLiveMode ? null : '3 clients over target'} deltaDir="down" />
         </div>
 
-        {/* Roster — skeleton only while a real fetch is in flight (not demo) */}
+        {/* Roster - skeleton only while a real fetch is in flight (not demo) */}
         {(!isLiveMode && !isDemo) ? (
           <>
             <div className="px-section-head">
@@ -1190,7 +1190,7 @@ const AdvisorDashboard = () => {
           />
         )}
 
-        {/* Load more — shown when the roster has more pages */}
+        {/* Load more - shown when the roster has more pages */}
         {isLiveMode && dbClients && dbClients.length < dbClientTotal && (
           <div style={{ textAlign: 'center', marginTop: 12 }}>
             <button className="px-btn px-btn-ghost" onClick={loadMoreClients}>
@@ -1208,18 +1208,18 @@ const AdvisorDashboard = () => {
           <span>
             {isLiveMode
               ? <>Roster shows your live book. <b>Row-level security</b> ensures each advisor sees only their clients.</>
-              : <>Running in <b>demo mode</b> — sign in to see your live roster. <b>RLS</b> ensures advisors see only their own book.</>
+              : <>Running in <b>demo mode</b> - sign in to see your live roster. <b>RLS</b> ensures advisors see only their own book.</>
             }
           </span>
         </div>
       </div>
 
       <aside className="px-adv-side">
-        {/* AI assistant — book triage ("who needs attention") */}
+        {/* AI assistant - book triage ("who needs attention") */}
         <div className="px-side-section">
           <AiAssistCard
             isLive={isLiveMode}
-            note="AI triage from your live book — a starting point, not a verdict."
+            note="AI triage from your live book - a starting point, not a verdict."
             actions={[{
               key: 'attention', label: 'Who needs attention?', action: 'attention',
               context: () => ({
@@ -1241,15 +1241,15 @@ const AdvisorDashboard = () => {
               }),
             }]}
             demoText={{
-              attention: `- The Hartwells — large idle cash balance against an on-track plan; propose an investment schedule this week.\n- The Naylors — an unanswered flagged question is sitting in your inbox; a same-day reply keeps trust high.\n- The Okafors — no meeting logged this quarter; a short check-in call would close the gap.`,
+              attention: `- The Hartwells - large idle cash balance against an on-track plan; propose an investment schedule this week.\n- The Naylors - an unanswered flagged question is sitting in your inbox; a same-day reply keeps trust high.\n- The Okafors - no meeting logged this quarter; a short check-in call would close the gap.`,
             }}
           />
         </div>
 
-        {/* Calendar — week ahead from the connected Google/Outlook calendar */}
+        {/* Calendar - week ahead from the connected Google/Outlook calendar */}
         <CalendarCard isLive={isLiveMode} />
 
-        {/* Tasks — next actions across the book (CRM) */}
+        {/* Tasks - next actions across the book (CRM) */}
         {(isLiveMode || isDemo) && (
           <div className="px-side-section">
             <div className="px-side-head">
@@ -1289,7 +1289,7 @@ const AdvisorDashboard = () => {
             })}
             {activeTasks.length === 0 && (
               <div style={{ padding: '14px 0', textAlign: 'center', color: 'var(--ink-faint)', fontStyle: 'italic', fontSize: 13 }}>
-                No open tasks — you're clear.
+                No open tasks - you're clear.
               </div>
             )}
           </div>
@@ -1306,7 +1306,7 @@ const AdvisorDashboard = () => {
                 clients={activeClients} onOpenClient={openClientPortal}
                 onDone={(id, approved) => {
                   setDbLedgerDrafts(prev => prev.filter(r => r.id !== id));
-                  showToast(approved ? 'Approved — household profile updated' : 'Returned to the client with your note');
+                  showToast(approved ? 'Approved - household profile updated' : 'Returned to the client with your note');
                 }} />
             ))}
           </div>
@@ -1320,7 +1320,7 @@ const AdvisorDashboard = () => {
           {visibleAlerts.map(a => <AlertCard key={a.id} alert={a} onSnooze={snooze} clients={activeClients} onAgenda={addAgendaItem} />)}
           {visibleAlerts.length === 0 && (
             <div style={{ padding: '18px 0', textAlign: 'center', color: 'var(--ink-faint)', fontStyle: 'italic', fontSize: 13 }}>
-              All clear — no open alerts.
+              All clear - no open alerts.
             </div>
           )}
         </div>
@@ -1337,7 +1337,7 @@ const AdvisorDashboard = () => {
           ))}
           {visibleQs.length === 0 && (
             <div style={{ padding: '18px 0', textAlign: 'center', color: 'var(--ink-faint)', fontStyle: 'italic', fontSize: 13 }}>
-              Inbox empty — no pending questions.
+              Inbox empty - no pending questions.
             </div>
           )}
         </div>

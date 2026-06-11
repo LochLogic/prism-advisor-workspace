@@ -1,4 +1,4 @@
-// Prism — Firm Admin dashboard (extracted from advisor-dashboard.jsx).
+// Prism - Firm Admin dashboard (extracted from advisor-dashboard.jsx).
 // Shares the global bundle scope; references AUDIT_ACTION_LABELS from advisor-dashboard.jsx at render time.
 
 const FirmAdminDashboard = () => {
@@ -40,7 +40,7 @@ const FirmAdminDashboard = () => {
 
   const toggleLedgerGate = async () => {
     const next = !ledgerGate;
-    setLedgerGate(next); // optimistic — revert below on failure
+    setLedgerGate(next); // optimistic - revert below on failure
     const row = await window.db.setLedgerGate(authUser.firm_id, next);
     if (!row) { setLedgerGate(!next); showToast('Could not update the approval setting'); }
     else showToast(next ? 'Client ledger edits now route to the advisor for approval'
@@ -52,7 +52,7 @@ const FirmAdminDashboard = () => {
   const onLogoFile = (file) => {
     if (!file) return;
     if (!/^image\/(png|jpeg|svg\+xml|webp)$/.test(file.type)) { showToast('Use a PNG, JPEG, WebP, or SVG logo'); return; }
-    if (file.size > BRAND_LOGO_MAX) { showToast('Logo must be under 200 KB — try an SVG or a compressed PNG'); return; }
+    if (file.size > BRAND_LOGO_MAX) { showToast('Logo must be under 200 KB - try an SVG or a compressed PNG'); return; }
     const r = new FileReader();
     r.onload = () => setBrandForm(f => ({ ...f, logo_url: r.result }));
     r.readAsDataURL(file);
@@ -66,14 +66,14 @@ const FirmAdminDashboard = () => {
     if (row) {
       setBrand(row); setBrandForm(null);
       window.applyFirmBrand?.(row);
-      // The header + account chip read authUser.firms.name — mirror the rename
+      // The header + account chip read authUser.firms.name - mirror the rename
       // into context so it updates without a reload.
       setAuthUser?.(u => (u ? { ...u, firms: { ...(u.firms || {}), name: row.name } } : u));
-      showToast('Branding saved — your portal now carries the firm brand');
-    } else showToast('Could not save branding — check console');
+      showToast('Branding saved - your portal now carries the firm brand');
+    } else showToast('Could not save branding - check console');
   };
 
-  // Advisory-fee billing — projected annual revenue + realized fees YTD
+  // Advisory-fee billing - projected annual revenue + realized fees YTD
   const scheduleById = useMemoAdv(() => Object.fromEntries((feeSchedules || []).map(s => [s.id, s])), [feeSchedules]);
   const projectedRevenue = useMemoAdv(() => (firmClients || []).reduce((sum, c) => {
     const s = c.fee_schedule_id && scheduleById[c.fee_schedule_id];
@@ -94,7 +94,7 @@ const FirmAdminDashboard = () => {
     if (row) { setFeeSchedules(prev => [...prev, row]); setSchedForm(null); showToast('Fee schedule created'); }
   };
 
-  // Assign (or clear) a client's fee schedule inline — no need to open each client.
+  // Assign (or clear) a client's fee schedule inline - no need to open each client.
   const assignFeeSchedule = async (clientId, scheduleId) => {
     const row = await window.db.updateClient(clientId, { fee_schedule_id: scheduleId || null });
     if (row) {
@@ -112,7 +112,7 @@ const FirmAdminDashboard = () => {
       const rows = await window.db.getInvoices({});
       setInvoices(rows || []);
       showToast(`${data.created} invoice${data.created !== 1 ? 's' : ''} generated${data.skipped ? `, ${data.skipped} skipped` : ''}`);
-    } catch (e) { showToast('Invoice run failed — check console'); console.warn(e); }
+    } catch (e) { showToast('Invoice run failed - check console'); console.warn(e); }
     finally { setGenBusy(false); }
   };
 
@@ -125,7 +125,7 @@ const FirmAdminDashboard = () => {
   React.useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     const b = p.get('billing');
-    if (b === 'success') showToast('Subscription active — thank you!');
+    if (b === 'success') showToast('Subscription active - thank you!');
     else if (b === 'cancel') showToast('Checkout canceled.');
     if (b) {
       p.delete('billing');
@@ -146,10 +146,10 @@ const FirmAdminDashboard = () => {
         { body: { origin: window.location.origin + '/app' } });
       if (error || !data?.url) throw new Error(error?.message || 'No checkout URL returned');
       window.location.href = data.url;
-    } catch (e) { showToast('Could not start checkout — check console'); console.warn(e); setCheckoutBusy(false); }
+    } catch (e) { showToast('Could not start checkout - check console'); console.warn(e); setCheckoutBusy(false); }
   };
 
-  // One-click exam packet — refetch the audit window + firm-wide acknowledgements
+  // One-click exam packet - refetch the audit window + firm-wide acknowledgements
   // fresh (the on-screen log is capped at 100), then hand everything already
   // loaded for this view to the pure renderer in store.jsx.
   const AUDIT_CAP = 2000;
@@ -174,11 +174,11 @@ const FirmAdminDashboard = () => {
         auditEntries: audit || [],
         auditTruncated: (audit || []).length >= AUDIT_CAP,
       });
-    } catch (e) { showToast('Could not assemble the exam packet — check console'); console.warn(e); }
+    } catch (e) { showToast('Could not assemble the exam packet - check console'); console.warn(e); }
     finally { setPacketBusy(false); }
   };
 
-  // CSV companion exports (the exam packet's "next when wanted") — the same
+  // CSV companion exports (the exam packet's "next when wanted") - the same
   // books-&-records data in a spreadsheet-friendly form. downloadCSV (store.jsx)
   // neutralizes formula injection; names/notes are user-editable input.
   const stamp = () => new Date().toISOString().slice(0, 10);
@@ -203,7 +203,7 @@ const FirmAdminDashboard = () => {
       ]));
   };
   // Audit CSV honours the same window selector as the exam packet and refetches
-  // fresh — the on-screen log is capped.
+  // fresh - the on-screen log is capped.
   const exportAuditCSV = async () => {
     const days = Number(packetDays) || 0;
     const since = days ? new Date(Date.now() - days * 86400000) : null;
@@ -355,7 +355,7 @@ const FirmAdminDashboard = () => {
                   style={{ width: 36, height: 28, padding: 0, border: '1px solid var(--border-2)', borderRadius: 5, background: 'transparent', cursor: 'pointer' }} />
                 <input className="px-input" style={{ width: 110, fontFamily: 'var(--mono)' }} value={brandForm.brand_color}
                   onChange={e => setBrandForm(f => ({ ...f, brand_color: e.target.value }))} aria-label="Accent color hex" />
-                <span style={{ fontSize: 11, color: 'var(--ink-faint)' }}>Pick a dark shade — it carries buttons and headers.</span>
+                <span style={{ fontSize: 11, color: 'var(--ink-faint)' }}>Pick a dark shade - it carries buttons and headers.</span>
               </div>
               <label style={{ fontSize: 12.5, color: 'var(--ink-mute)' }} htmlFor="px-brand-logo-file">Logo</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -401,7 +401,7 @@ const FirmAdminDashboard = () => {
               <div style={{ flex: 1, minWidth: 200 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>Advisor approval for client ledger edits</div>
                 <div style={{ fontSize: 12, color: 'var(--ink-mute)', marginTop: 2 }}>
-                  When on, a client's "Your numbers" updates wait as a draft until their advisor approves them —
+                  When on, a client's "Your numbers" updates wait as a draft until their advisor approves them -
                   the advisor sees drafts on the dashboard, and every decision lands in the audit trail. Advisors' own edits are never held.
                 </div>
               </div>
@@ -470,7 +470,7 @@ const FirmAdminDashboard = () => {
                       </td>
                       <td className="is-num">
                         <span className="px-num-serif">
-                          {stats.aum ? fmt$(stats.aum, { short: true }) : '—'}
+                          {stats.aum ? fmt$(stats.aum, { short: true }) : '-'}
                         </span>
                       </td>
                       <td>
@@ -505,8 +505,8 @@ const FirmAdminDashboard = () => {
         </div>
 
         <div className="px-kpis" style={{ marginBottom: 14 }}>
-          <KpiTile label="Projected annual revenue" value={projectedRevenue ? fmt$(projectedRevenue, { short: true, decimals: 1 }) : '—'} sub="from assigned schedules" />
-          <KpiTile label="Realized fees · YTD" value={realizedYTD ? fmt$(realizedYTD, { short: true, decimals: 1 }) : '—'} sub="approved + paid" />
+          <KpiTile label="Projected annual revenue" value={projectedRevenue ? fmt$(projectedRevenue, { short: true, decimals: 1 }) : '-'} sub="from assigned schedules" />
+          <KpiTile label="Realized fees · YTD" value={realizedYTD ? fmt$(realizedYTD, { short: true, decimals: 1 }) : '-'} sub="approved + paid" />
           <KpiTile label="Open invoices" value={(invoices || []).filter(i => i.status === 'draft').length} sub="awaiting approval" />
           <KpiTile label="Fee schedules" value={(feeSchedules || []).length} sub="active templates" />
         </div>
@@ -574,7 +574,7 @@ const FirmAdminDashboard = () => {
           </div>
         )}
 
-        {/* Assign schedules to clients — inline, so it's not a per-client detour */}
+        {/* Assign schedules to clients - inline, so it's not a per-client detour */}
         {(feeSchedules || []).length > 0 && (firmClients || []).length > 0 && (
           <div style={{ marginBottom: 18 }}>
             <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.05em' }}>Assign schedules to clients</span>
@@ -592,7 +592,7 @@ const FirmAdminDashboard = () => {
                         <select className="px-select" value={c.fee_schedule_id || ''}
                           onChange={e => assignFeeSchedule(c.id, e.target.value)}
                           aria-label={`Fee schedule for ${c.short_name || c.household_name || 'client'}`}>
-                          <option value="">— Unassigned —</option>
+                          <option value="">- Unassigned -</option>
                           {feeSchedules.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </select>
                       </td>
@@ -678,7 +678,7 @@ const FirmAdminDashboard = () => {
           <div style={{ fontSize: 13, color: 'var(--ink-faint)', fontStyle: 'italic', padding: '12px 0' }}>Loading audit trail…</div>
         ) : auditLog.length === 0 ? (
           <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--ink-faint)', fontSize: 13, fontStyle: 'italic' }}>
-            No audit entries yet — material actions (client edits, meetings, profile saves, sign-ins) will appear here.
+            No audit entries yet - material actions (client edits, meetings, profile saves, sign-ins) will appear here.
           </div>
         ) : (
           <>
@@ -714,7 +714,7 @@ const FirmAdminDashboard = () => {
                       </span>
                     </td>
                     <td>
-                      <span style={{ fontSize: 12, color: 'var(--ink)' }}>{e.actor_email || '—'}</span>
+                      <span style={{ fontSize: 12, color: 'var(--ink)' }}>{e.actor_email || '-'}</span>
                       {e.actor_role && <span style={{ fontSize: 10, color: 'var(--ink-faint)', marginLeft: 6, textTransform: 'uppercase', letterSpacing: '.04em' }}>{e.actor_role}</span>}
                     </td>
                     <td>
@@ -723,7 +723,7 @@ const FirmAdminDashboard = () => {
                       </span>
                     </td>
                     <td>
-                      <span style={{ fontSize: 12, color: 'var(--ink-mute)' }}>{e.summary || '—'}</span>
+                      <span style={{ fontSize: 12, color: 'var(--ink-mute)' }}>{e.summary || '-'}</span>
                     </td>
                   </tr>
                 ))}
@@ -734,7 +734,7 @@ const FirmAdminDashboard = () => {
           {!auditMore && auditLog.length >= 100 && (
             <div style={{ textAlign: 'center', marginTop: 10 }}>
               <button className="px-btn px-btn-sm px-btn-ghost" onClick={loadMoreAudit}>
-                Load more (up to 500 entries) — use Audit CSV or the exam packet for the full window
+                Load more (up to 500 entries) - use Audit CSV or the exam packet for the full window
               </button>
             </div>
           )}
@@ -744,7 +744,7 @@ const FirmAdminDashboard = () => {
         <div style={{ marginTop: 28, padding: 14, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12, color: 'var(--ink-mute)', display: 'flex', gap: 10, alignItems: 'center' }}>
           <Icons.Lock size={13} />
           <span>
-            Firm admin view — exclusive to the <b>admin</b> role. The audit trail is <b>append-only</b> (no update/delete policy) and records are <b>archived, never erased</b>, per SEC Rule 17a-4. <b>Row-level security</b> still restricts each advisor to their own book.
+            Firm admin view - exclusive to the <b>admin</b> role. The audit trail is <b>append-only</b> (no update/delete policy) and records are <b>archived, never erased</b>, per SEC Rule 17a-4. <b>Row-level security</b> still restricts each advisor to their own book.
           </span>
         </div>
       </div>

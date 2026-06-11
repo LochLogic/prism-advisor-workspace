@@ -1,13 +1,13 @@
-// Prism — domain data: Phases, mock client roster, alerts, flagged questions.
+// Prism - domain data: Phases, mock client roster, alerts, flagged questions.
 // (In production these live in Supabase; see supabase/migrations/001_prism_schema.sql)
 
 /* ─── Wealth Horizons · 7 Phases (institutional RIA voice) ─────────── */
 let phasesData = [
   {
     id: 0, num: '01', title: 'Foundation', tag: 'Stabilization',
-    description: 'Establish the operational base — predictable cash flow, current obligations, and a disciplined household ledger.',
+    description: 'Establish the operational base - predictable cash flow, current obligations, and a disciplined household ledger.',
     icon: 'Shield',
-    rationale: "Before optimization, stabilization. <b>Cash flow precedes capital allocation.</b> A clear monthly accounting — every dollar in, every dollar out — is the prerequisite for every subsequent decision. We map the household ledger together in onboarding, then refresh quarterly.",
+    rationale: "Before optimization, stabilization. <b>Cash flow precedes capital allocation.</b> A clear monthly accounting - every dollar in, every dollar out - is the prerequisite for every subsequent decision. We map the household ledger together in onboarding, then refresh quarterly.",
     tasks: [
       { id: 'p0t1', label: 'Complete household cash-flow worksheet', tool: 'discuss', panel: 'numbers' },
       { id: 'p0t2', label: 'Confirm essential expenses are current', tool: null },
@@ -21,7 +21,7 @@ let phasesData = [
   },
   {
     id: 1, num: '02', title: 'Liquidity Reserve', tag: 'Protection',
-    description: 'Build the operating cushion — six months of essential outflow held in laddered cash equivalents, isolated from market risk.',
+    description: 'Build the operating cushion - six months of essential outflow held in laddered cash equivalents, isolated from market risk.',
     icon: 'Umbrella',
     rationale: "The reserve is not a return vehicle. Its function is to <b>prevent forced liquidation of long-horizon assets during a drawdown</b>. Six months is standard for stable W-2 income; we extend to twelve for variable compensation, equity-heavy households, or pre-retirees.",
     tasks: [
@@ -29,7 +29,7 @@ let phasesData = [
       { id: 'p1t2', label: 'Fund Month 1–3 reserve from working cash', tool: null },
       { id: 'p1t3', label: 'Capture full employer 401(k) match (parallel)', tool: 'discuss' },
       { id: 'p1t4', label: 'Document recurring obligations + minimums', tool: null },
-      { id: 'p1t5', label: 'Build to six-month target — review semi-annually', tool: 'discuss' },
+      { id: 'p1t5', label: 'Build to six-month target - review semi-annually', tool: 'discuss' },
     ],
     calcs: ['reserve', 'coveragegap', 'incomerunway'],
     metricLabel: 'Six-month target',
@@ -56,7 +56,7 @@ let phasesData = [
     id: 3, num: '04', title: 'Tax-Advantaged Foundations', tag: 'Shelter',
     description: 'Fund the triple-advantaged HSA in full. The most efficient single vehicle in the US tax code when the household qualifies.',
     icon: 'Heart',
-    rationale: "The HSA is the only US account with <b>three-axis tax advantage</b>: deductible contributions, tax-free growth, and tax-free qualified withdrawals. We treat it as a stealth retirement bucket — invest the balance, pay current medical costs from cash flow, and retain receipts for tax-free reimbursement decades hence.",
+    rationale: "The HSA is the only US account with <b>three-axis tax advantage</b>: deductible contributions, tax-free growth, and tax-free qualified withdrawals. We treat it as a stealth retirement bucket - invest the balance, pay current medical costs from cash flow, and retain receipts for tax-free reimbursement decades hence.",
     tasks: [
       { id: 'p3t1', label: 'Confirm high-deductible health plan (HDHP) eligibility for current plan year', tool: 'discuss' },
       { id: 'p3t2', label: 'Fund annual HSA limit ($4,400 / $8,750)', tool: null },
@@ -71,7 +71,7 @@ let phasesData = [
     id: 4, num: '05', title: 'Retirement Sleeve Construction', tag: 'Long Horizon',
     description: 'Layer Roth/Traditional IRA contributions and complete employer plan deferrals. Establish target asset allocation by location.',
     icon: 'Briefcase',
-    rationale: "Sleeve construction is a tax-location problem more than a security-selection problem. The household holds the same total equity exposure across accounts — but <b>tax-inefficient assets (corporate bonds, REITs, active funds) live in tax-deferred space</b>, while broad equity index funds anchor taxable and Roth. We model the optimal placement annually in the Asset Location tool.",
+    rationale: "Sleeve construction is a tax-location problem more than a security-selection problem. The household holds the same total equity exposure across accounts - but <b>tax-inefficient assets (corporate bonds, REITs, active funds) live in tax-deferred space</b>, while broad equity index funds anchor taxable and Roth. We model the optimal placement annually in the Asset Location tool.",
     tasks: [
       { id: 'p4t1', label: 'Confirm Roth vs. Traditional split for current year', tool: 'discuss' },
       { id: 'p4t2', label: 'Execute backdoor Roth if above phase-out', tool: 'discuss' },
@@ -88,7 +88,7 @@ let phasesData = [
     id: 5, num: '06', title: 'Capital Deployment', tag: 'Velocity',
     description: 'Extend the portfolio into taxable space with disciplined dollar-cost averaging, tax-loss harvesting, and broad index exposure.',
     icon: 'TrendUp',
-    rationale: "Taxable capital is the lever that compresses time-to-independence. <b>Systematic tax-loss harvesting adds an estimated 0.50–1.50% in annualized after-tax return</b> across full market cycles — the engine our discretionary management runs on. We coordinate concentrated equity, 10b5-1 plans, and Roth conversion windows from this base.",
+    rationale: "Taxable capital is the lever that compresses time-to-independence. <b>Systematic tax-loss harvesting adds an estimated 0.50–1.50% in annualized after-tax return</b> across full market cycles - the engine our discretionary management runs on. We coordinate concentrated equity, 10b5-1 plans, and Roth conversion windows from this base.",
     tasks: [
       { id: 'p5t1', label: 'Open jointly-titled taxable brokerage', tool: null },
       { id: 'p5t2', label: 'Set automated monthly deployment', tool: null },
@@ -105,7 +105,7 @@ let phasesData = [
     id: 6, num: '07', title: 'Legacy & Drawdown', tag: 'Stewardship',
     description: 'Sequence withdrawals tax-efficiently, optimize Roth conversion ladder, and structure the estate for intergenerational transfer.',
     icon: 'Anchor',
-    rationale: "The accumulation problem and the distribution problem are different problems. <b>Withdrawal sequencing — taxable, then tax-deferred, then Roth — combined with Roth conversions during low-income years can preserve six- to seven-figure value across the lifecycle.</b> Estate structuring (revocable trust, beneficiary designations, basis step-up) is non-negotiable above HNW thresholds.",
+    rationale: "The accumulation problem and the distribution problem are different problems. <b>Withdrawal sequencing - taxable, then tax-deferred, then Roth - combined with Roth conversions during low-income years can preserve six- to seven-figure value across the lifecycle.</b> Estate structuring (revocable trust, beneficiary designations, basis step-up) is non-negotiable above HNW thresholds.",
     tasks: [
       { id: 'p6t1', label: 'Build 5-year Roth conversion ladder', tool: 'advanced' },
       { id: 'p6t2', label: 'Size Roth conversions to bracket headroom', tool: 'advanced' },
@@ -249,7 +249,7 @@ const alertsData = [
   {
     id: 'al01', priority: 'high', clientId: 'c004',
     icon: 'Dollar',
-    headline: 'Cash drag — Patel Trust',
+    headline: 'Cash drag - Patel Trust',
     body: 'Trust account holding <b>$412,000</b> in uninvested cash following beneficiary distribution. Below target allocation by <b>3.2%</b>. Recommend brokerage deployment or laddered Treasury MMF before quarter-close.',
     timeAgo: '12m',
     cta: 'Deploy cash',
@@ -265,7 +265,7 @@ const alertsData = [
   {
     id: 'al03', priority: 'med', clientId: 'c005',
     icon: 'Sparkles',
-    headline: 'Numbers updated — J. Park',
+    headline: 'Numbers updated - J. Park',
     body: 'Client just updated take-home (<b>+$1,400/mo</b>) following promotion. Phase 04 plan needs refresh; HSA contribution rate can scale to limit immediately.',
     timeAgo: '4h',
     cta: 'Review plan',
@@ -273,7 +273,7 @@ const alertsData = [
   {
     id: 'al04', priority: 'med', clientId: 'c002',
     icon: 'TrendDown',
-    headline: 'TLH opportunity — Y. Okonkwo',
+    headline: 'TLH opportunity - Y. Okonkwo',
     body: 'Three positions in taxable sleeve are currently <b>&gt;$8,000 below cost basis</b>. Wash-sale-safe replacement trades available. Estimated <b>$2,940</b> in offset value.',
     timeAgo: '6h',
     cta: 'Add to agenda',
@@ -281,15 +281,15 @@ const alertsData = [
   {
     id: 'al05', priority: 'low', clientId: 'c007',
     icon: 'AlertCircle',
-    headline: 'Allocation drift — B. Ndlovu',
-    body: 'Cash position has grown from <b>9% → 21%</b> over six months. Behavioral pattern post-bereavement is normal — flag for empathetic re-engagement, not urgent rebalance.',
+    headline: 'Allocation drift - B. Ndlovu',
+    body: 'Cash position has grown from <b>9% → 21%</b> over six months. Behavioral pattern post-bereavement is normal - flag for empathetic re-engagement, not urgent rebalance.',
     timeAgo: '1d',
     cta: 'Add to agenda',
   },
   {
     id: 'al06', priority: 'low', clientId: 'c006',
     icon: 'Building',
-    headline: 'FX exposure — Ferri household',
+    headline: 'FX exposure - Ferri household',
     body: 'Pending EUR property purchase (Q2 2026). Recommend introducing currency-hedge conversation 60 days ahead of closing. Forward contract or staged DCA.',
     timeAgo: '3d',
     cta: 'Add to agenda',
@@ -305,7 +305,7 @@ const questionsData = [
   },
   {
     id: 'q02', clientId: 'c003', timeAgo: '4h',
-    quote: 'My CPA mentioned a "Mega Backdoor" Roth — is that something we should be doing too?',
+    quote: 'My CPA mentioned a "Mega Backdoor" Roth - is that something we should be doing too?',
     context: 'Flagged on · Phase 05 · Execute backdoor Roth if above phase-out',
   },
   {
@@ -320,12 +320,12 @@ const questionsData = [
   },
 ];
 
-/* ─── CRM tasks (demo only — mirrors window.db.mapTask shape) ──────── */
+/* ─── CRM tasks (demo only - mirrors window.db.mapTask shape) ──────── */
 const _dt = (days) => new Date(Date.now() + days * 86400000).toISOString();
 const tasksData = [
   { id: 't1', clientId: 'c004', clientName: 'Patel Trust',   title: 'Confirm GST trust beneficiary designations', detail: 'Estate counsel to review before the annual meeting.', priority: 'high',   status: 'open', dueAt: _dt(-3), createdAt: _dt(-12), completedAt: null },
   { id: 't2', clientId: 'c001', clientName: 'R. & E. Marsh', title: 'Finalize Roth conversion amount before year-end', detail: '$74K modeled as optimal.',                       priority: 'high',   status: 'open', dueAt: _dt(2),  createdAt: _dt(-5),  completedAt: null },
-  { id: 't3', clientId: 'c002', clientName: 'Y. Okonkwo',    title: 'Review RSU vesting tax plan',                  detail: 'Q3 vest is sizable — coordinate withholding.',      priority: 'normal', status: 'open', dueAt: _dt(0),  createdAt: _dt(-3),  completedAt: null },
+  { id: 't3', clientId: 'c002', clientName: 'Y. Okonkwo',    title: 'Review RSU vesting tax plan',                  detail: 'Q3 vest is sizable - coordinate withholding.',      priority: 'normal', status: 'open', dueAt: _dt(0),  createdAt: _dt(-3),  completedAt: null },
   { id: 't4', clientId: 'c005', clientName: 'J. Park',       title: 'Open and fund HSA for the plan year',          detail: '',                                                  priority: 'normal', status: 'open', dueAt: _dt(5),  createdAt: _dt(-1),  completedAt: null },
   { id: 't5', clientId: 'c006', clientName: 'A. & M. Ferri', title: 'Set up EUR hedge ahead of property closing',   detail: 'Closing ~Q2; staged DCA or forward contract.',      priority: 'normal', status: 'open', dueAt: _dt(9),  createdAt: _dt(-2),  completedAt: null },
   { id: 't6', clientId: 'c007', clientName: 'B. Ndlovu',     title: 'Schedule empathetic re-engagement call',       detail: 'Cash bias persists post-bereavement.',              priority: 'low',    status: 'open', dueAt: _dt(14), createdAt: _dt(-4),  completedAt: null },
@@ -359,7 +359,7 @@ const demoCashFlows = () => {
   return [
     { id: 'cf1', flow_date: m(8), amount:  50000, kind: 'contribution' },
     { id: 'cf2', flow_date: m(3), amount: -15000, kind: 'withdrawal' },
-    // Quarterly advisory fee debits — make the demo show a true net-of-fee return.
+    // Quarterly advisory fee debits - make the demo show a true net-of-fee return.
     { id: 'cf3', flow_date: m(6), amount:  -2500, kind: 'fee' },
     { id: 'cf4', flow_date: m(3), amount:  -2600, kind: 'fee' },
     { id: 'cf5', flow_date: m(1), amount:  -2700, kind: 'fee' },
@@ -382,7 +382,7 @@ const demoTimeline = (client) => {
 const demoMessages = () => {
   const now = Date.now(), ago = (h) => new Date(now - h * 3600000).toISOString();
   return [
-    { id: 'm1', author_role: 'client',  body: 'Thanks for the roadmap walkthrough — it really helped clarify where we stand.', created_at: ago(52) },
+    { id: 'm1', author_role: 'client',  body: 'Thanks for the roadmap walkthrough - it really helped clarify where we stand.', created_at: ago(52) },
     { id: 'm2', author_role: 'advisor', body: 'Glad it landed. You two are in great shape; the Roth conversion window is the main thing I want to coordinate before year-end.', created_at: ago(50) },
     { id: 'm3', author_role: 'client',  body: 'Sounds good. Is now a reasonable time to revisit the 529 contribution for the grandkids?', context: 'Phase 07 · Legacy', created_at: ago(6) },
   ];
@@ -400,10 +400,10 @@ const demoDocuments = () => {
   ];
 };
 
-// ── Estate readiness — instruments + status presentation ──────────────────
+// ── Estate readiness - instruments + status presentation ──────────────────
 // status ∈ none | in_progress | have_unshared | complete. An advisor attaches a
 // vault document (documentId → a `documents` row, category 'estate') to mark an
-// item "Complete & shared" — that linked doc is what makes the chip solid green
+// item "Complete & shared" - that linked doc is what makes the chip solid green
 // and clickable in the portal. "have_unshared" is the client-has-it-but-won't-
 // share state (hollow green, no file). Both greens count as "in place".
 const ESTATE_DEFS = [
@@ -430,7 +430,7 @@ const estateStatusView = (status) => {
   }
 };
 
-/* ─── "Current user" — Robert & Eileen Marsh, viewed in Client Portal ─ */
+/* ─── "Current user" - Robert & Eileen Marsh, viewed in Client Portal ─ */
 const currentClientId = 'c001';
 
 window.phasesData = phasesData;

@@ -1,13 +1,13 @@
-// Prism — Advisor modals: NewClientModal + ClientPreviewModal.
+// Prism - Advisor modals: NewClientModal + ClientPreviewModal.
 // Extracted from advisor-dashboard.jsx; shares the global bundle scope (no imports/exports).
 
 /* ─── New Client modal ───────────────────────────────────────────── */
 // Computed at call time, not module load: phasesData is replaced in place after the
 // DB phase fetch (auth.jsx) and can differ per firm (white-label), so a frozen
 // module-level constant would show stale labels.
-const phaseOptions = () => phasesData.map(p => ({ value: p.id, label: `Phase ${p.num} — ${p.title}` }));
+const phaseOptions = () => phasesData.map(p => ({ value: p.id, label: `Phase ${p.num} - ${p.title}` }));
 
-/* ─── AI assistant card (advisor bundle only — Gemini via ai-assist edge fn) ──
+/* ─── AI assistant card (advisor bundle only - Gemini via ai-assist edge fn) ──
    Generic action-buttons → plain-text output card. Used by the client preview
    modal (household summary / talking points) and the dashboard sidebar (book
    triage). `actions` = [{ key, label, icon, action, context() }]. Demo mode
@@ -24,7 +24,7 @@ const AiAssistCard = ({ actions, demoText, isLive, note }) => {
       : (demoText?.[a.key] || null);
     setBusyKey(null);
     if (text) setOutput({ label: a.label, text });
-    else showToast('AI assistant unavailable — try again shortly');
+    else showToast('AI assistant unavailable - try again shortly');
   };
   const copy = async () => {
     try { await navigator.clipboard?.writeText(output.text); showToast('Copied'); } catch {}
@@ -54,7 +54,7 @@ const AiAssistCard = ({ actions, demoText, isLive, note }) => {
           </div>
           <div style={{ fontSize: 12.5, color: 'var(--ink)', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{output.text}</div>
           <div style={{ fontSize: 10.5, color: 'var(--ink-faint)', marginTop: 8 }}>
-            {note || 'AI-drafted from data on file — review before using; nothing here is investment advice.'}
+            {note || 'AI-drafted from data on file - review before using; nothing here is investment advice.'}
           </div>
         </div>
       )}
@@ -68,7 +68,7 @@ const NewClientModal = ({ isOpen, onClose, advisorId, firmId, onCreated }) => {
   const [form, setForm] = useStateAdv({ household_name: '', short_name: '', household_tag: '', current_phase: 0 });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  // Optional starting financials — a quick pre-entry so the new client's roadmap
+  // Optional starting financials - a quick pre-entry so the new client's roadmap
   // and calculators have real numbers from day one. Fully optional; advisors can
   // fill the rest later in the numbers panel.
   const [showFin, setShowFin] = useStateAdv(false);
@@ -102,7 +102,7 @@ const NewClientModal = ({ isOpen, onClose, advisorId, firmId, onCreated }) => {
       resetAll();
       onClose();
     } else {
-      showToast('Could not save — check console for details');
+      showToast('Could not save - check console for details');
     }
     setSaving(false);
   };
@@ -147,7 +147,7 @@ const NewClientModal = ({ isOpen, onClose, advisorId, firmId, onCreated }) => {
             ) : (
               <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 14, background: 'var(--bg-elev)' }}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 10 }}>
-                  Starting financials — optional
+                  Starting financials - optional
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   {[
@@ -167,7 +167,7 @@ const NewClientModal = ({ isOpen, onClose, advisorId, firmId, onCreated }) => {
                   ))}
                 </div>
                 <div style={{ fontSize: 10.5, color: 'var(--ink-faint)', marginTop: 8, fontStyle: 'italic' }}>
-                  Optional — fill in the full picture anytime from the client's “Your numbers” panel.
+                  Optional - fill in the full picture anytime from the client's “Your numbers” panel.
                 </div>
               </div>
             )}
@@ -186,7 +186,7 @@ const NewClientModal = ({ isOpen, onClose, advisorId, firmId, onCreated }) => {
 
 /* ─── New Prospect modal (C3 · proposal mode) ─────────────────────────
    Spins up an UNSAVED household and drops the advisor straight into its
-   seven-horizon roadmap — the wedge as a closing tool. No DB write happens
+   seven-horizon roadmap - the wedge as a closing tool. No DB write happens
    here; the prospect lives in localStorage until "Convert to client" (in the
    portal banner) promotes it. Mirrors NewClientModal's fields, but the
    starting numbers are front-and-centre (a proposal is only persuasive with
@@ -215,7 +215,7 @@ const NewProspectModal = ({ isOpen, onClose }) => {
     e.preventDefault();
     if (!form.household_name.trim() || !createProspect) return;
     const p = createProspect(form, fin);
-    showToast(`${p.shortName} added as a prospect — walk them through the roadmap`);
+    showToast(`${p.shortName} added as a prospect - walk them through the roadmap`);
     resetAll();
     onClose();
     openClientPortal(p);
@@ -228,14 +228,14 @@ const NewProspectModal = ({ isOpen, onClose }) => {
           New prospect
         </h2>
         <p style={{ fontSize: 12.5, color: 'var(--ink-mute)', lineHeight: 1.5, margin: '0 0 18px' }}>
-          Build a live seven-horizon roadmap to show a prospect what working together looks like —
+          Build a live seven-horizon roadmap to show a prospect what working together looks like -
           <b> nothing is saved</b> until you convert them to a client.
         </p>
         <form onSubmit={handleSubmit}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
               <span style={LABEL_STYLE}>Household name *</span>
-              <input className="px-input" placeholder="e.g. Prospective — the Reyes family" required
+              <input className="px-input" placeholder="e.g. Prospective - the Reyes family" required
                 value={form.household_name} onChange={e => set('household_name', e.target.value)} />
             </label>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
@@ -276,7 +276,7 @@ const NewProspectModal = ({ isOpen, onClose }) => {
                 ))}
               </div>
               <div style={{ fontSize: 10.5, color: 'var(--ink-faint)', marginTop: 8, fontStyle: 'italic' }}>
-                Optional — the more you enter, the richer the roadmap. Refine anything live from “Your numbers”.
+                Optional - the more you enter, the richer the roadmap. Refine anything live from “Your numbers”.
               </div>
             </div>
           </div>
@@ -296,7 +296,7 @@ const NewProspectModal = ({ isOpen, onClose }) => {
    CSV importer + column mapper. Dependency-free parser (handles quoted fields
    and embedded commas/newlines), auto-detected mapping with vendor presets
    (Wealthbox / Redtail / Orion), a preview, then a create loop that reuses the
-   same createClient + saveProfile paths as the single-add flow. Live-only — the
+   same createClient + saveProfile paths as the single-add flow. Live-only - the
    DB layer no-ops without real UUIDs, so the roster only shows this in live mode. */
 
 // Target fields the CSV maps onto. `numeric` fields are currency-cleaned on import.
@@ -405,7 +405,7 @@ const BulkImportModal = ({ isOpen, onClose, advisorId, firmId, onImported }) => 
         });
         setPreset('generic');
         setStep('map');
-      } catch (err) { setError('Could not read that CSV — please check the format.'); }
+      } catch (err) { setError('Could not read that CSV - please check the format.'); }
     };
     reader.readAsText(f);
   };
@@ -479,7 +479,7 @@ const BulkImportModal = ({ isOpen, onClose, advisorId, firmId, onImported }) => 
         setStep('done');
         return;
       }
-      // RPC unavailable (e.g. migration not applied yet) — per-row fallback.
+      // RPC unavailable (e.g. migration not applied yet) - per-row fallback.
     }
 
     for (let i = 0; i < rows.length; i++) {
@@ -500,7 +500,7 @@ const BulkImportModal = ({ isOpen, onClose, advisorId, firmId, onImported }) => 
       let mapped = window.db.mapClient(row);
       if (f.aum != null && f.aum > 0) {
         try {
-          await window.db.upsertAccount({ client_id: row.id, type: 'taxable', custodian: 'Imported — update', balance: f.aum, cash: 0 });
+          await window.db.upsertAccount({ client_id: row.id, type: 'taxable', custodian: 'Imported - update', balance: f.aum, cash: 0 });
           const totals = await window.db.syncClientTotals(row.id);
           if (totals) mapped = { ...mapped, aum: totals.aum, uninvestedCash: totals.uninvested_cash };
         } catch {}
@@ -523,12 +523,12 @@ const BulkImportModal = ({ isOpen, onClose, advisorId, firmId, onImported }) => 
         </h2>
         <p style={{ fontSize: 12.5, color: 'var(--ink-mute)', lineHeight: 1.5, margin: '0 0 18px' }}>
           Bring your book over from Wealthbox, Redtail, Orion, or any spreadsheet. We'll map the
-          columns — you confirm before anything is created.
+          columns - you confirm before anything is created.
         </p>
 
         {error && <div style={{ fontSize: 12, color: 'var(--brick)', marginBottom: 12, padding: '6px 10px', background: 'rgba(140,61,61,.07)', borderRadius: 6 }}>{error}</div>}
 
-        {/* Step 1 — pick a file */}
+        {/* Step 1 - pick a file */}
         {step === 'pick' && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '28px 0', border: '1px dashed var(--border-2)', borderRadius: 10 }}>
             <Icons.Upload size={22} style={{ color: 'var(--gold)' }} />
@@ -540,7 +540,7 @@ const BulkImportModal = ({ isOpen, onClose, advisorId, firmId, onImported }) => 
           </div>
         )}
 
-        {/* Step 2 — map columns + preview */}
+        {/* Step 2 - map columns + preview */}
         {step === 'map' && (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
@@ -562,7 +562,7 @@ const BulkImportModal = ({ isOpen, onClose, advisorId, firmId, onImported }) => 
                   </span>
                   <select className="px-select" value={mapping[f.key] === '' ? '' : String(mapping[f.key])}
                     onChange={e => setMapping(m => ({ ...m, [f.key]: e.target.value === '' ? '' : Number(e.target.value) }))}>
-                    <option value="">— not mapped —</option>
+                    <option value="">- not mapped -</option>
                     {headers.map((h, i) => <option key={i} value={i}>{h || `Column ${i + 1}`}</option>)}
                   </select>
                 </label>
@@ -571,7 +571,7 @@ const BulkImportModal = ({ isOpen, onClose, advisorId, firmId, onImported }) => 
 
             {mapping.household_name === '' && nameParts.first >= 0 && nameParts.last >= 0 && (
               <div style={{ fontSize: 11.5, color: 'var(--ink-mute)', marginBottom: 12, fontStyle: 'italic' }}>
-                No single name column — we'll combine <b>{headers[nameParts.first]}</b> + <b>{headers[nameParts.last]}</b> into the household name.
+                No single name column - we'll combine <b>{headers[nameParts.first]}</b> + <b>{headers[nameParts.last]}</b> into the household name.
               </div>
             )}
 
@@ -593,7 +593,7 @@ const BulkImportModal = ({ isOpen, onClose, advisorId, firmId, onImported }) => 
                       <tr key={ri} style={{ borderTop: '1px solid var(--border)' }}>
                         {IMPORT_FIELDS.filter(f => mapping[f.key] !== '' || (f.key === 'household_name' && nameParts.first >= 0)).map(f => (
                           <td key={f.key} style={{ padding: '6px 9px', color: b[f.key] != null && b[f.key] !== '' ? 'var(--ink)' : 'var(--ink-faint)', whiteSpace: 'nowrap' }}>
-                            {f.numeric ? (b[f.key] != null ? fmt$(b[f.key], { short: true }) : '—') : (b[f.key] || '—')}
+                            {f.numeric ? (b[f.key] != null ? fmt$(b[f.key], { short: true }) : '-') : (b[f.key] || '-')}
                           </td>
                         ))}
                       </tr>
@@ -612,7 +612,7 @@ const BulkImportModal = ({ isOpen, onClose, advisorId, firmId, onImported }) => 
           </>
         )}
 
-        {/* Step 3 — importing */}
+        {/* Step 3 - importing */}
         {step === 'importing' && (
           <div style={{ padding: '28px 0', textAlign: 'center' }}>
             <div style={{ fontSize: 14, color: 'var(--ink)', marginBottom: 12 }}>Importing… {progress} / {rows.length}</div>
@@ -622,7 +622,7 @@ const BulkImportModal = ({ isOpen, onClose, advisorId, firmId, onImported }) => 
           </div>
         )}
 
-        {/* Step 4 — done */}
+        {/* Step 4 - done */}
         {step === 'done' && result && (
           <div style={{ padding: '12px 0' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
@@ -640,7 +640,7 @@ const BulkImportModal = ({ isOpen, onClose, advisorId, firmId, onImported }) => 
               </div>
             )}
             <div style={{ fontSize: 11.5, color: 'var(--ink-faint)', marginBottom: 16, lineHeight: 1.5 }}>
-              Imported AUM was recorded as a single placeholder account — open each client to refine accounts, link via Plaid, or fill in the full profile.
+              Imported AUM was recorded as a single placeholder account - open each client to refine accounts, link via Plaid, or fill in the full profile.
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <button className="px-btn px-btn-ghost" onClick={reset}>Import another file</button>
@@ -758,7 +758,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
       setEditForm({
         household_name: client.name,
         short_name:     client.shortName,
-        household_tag:  client.tag === '—' ? '' : client.tag,
+        household_tag:  client.tag === '-' ? '' : client.tag,
         current_phase:  client.phase,
         pipeline_stage: client.pipelineStage || 'active',
         fee_schedule_id: client.feeScheduleId || '',
@@ -857,7 +857,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     }
   }, [client?.id]);
 
-  // "Where are they in the phase" — done count + the next open subtask.
+  // "Where are they in the phase" - done count + the next open subtask.
   const horizonSub = React.useMemo(() => {
     const p = (window.phasesData || [])[client?.phase];
     if (!p || !qvTasks) return null;
@@ -881,14 +881,14 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
   const openRoadmap = () => { openClientPortal(client); onClose(); };
 
   // Compact household context for the AI assistant (only data already on
-  // screen / on file for this advisor — the edge fn re-checks the JWT + role).
+  // screen / on file for this advisor - the edge fn re-checks the JWT + role).
   const aiHouseholdContext = () => {
     const p = profileData || {};
     const members = (Array.isArray(p.members) ? p.members : []).map(m => ({
       role: m.role, age: advMemberAge(m) || undefined }));
     return {
       household: client.shortName || client.name,
-      tag: client.tag !== '—' ? client.tag : undefined,
+      tag: client.tag !== '-' ? client.tag : undefined,
       phase: `P${phase.num} · ${phase.title}`,
       aum: client.aum || undefined,
       uninvestedCash: client.uninvestedCash || undefined,
@@ -901,14 +901,14 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     };
   };
 
-  /* client portal invite (C3) — generate a single-use claim link to share */
+  /* client portal invite (C3) - generate a single-use claim link to share */
   const generateInvite = async () => {
     setInvite({ busy: true });
     const { code, error } = await window.db.createClientInvite(client.id, client.inviteEmail || null);
     if (error || !code) { setInvite({ error: error || 'Could not create invite.' }); return; }
     const link = `${window.location.origin}/login.html?claim=${code}`;
     setInvite({ link });
-    try { await navigator.clipboard?.writeText(link); setInvite({ link, copied: true }); } catch { /* clipboard blocked — link still shown */ }
+    try { await navigator.clipboard?.writeText(link); setInvite({ link, copied: true }); } catch { /* clipboard blocked - link still shown */ }
   };
 
   /* notes */
@@ -917,7 +917,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     const row = await window.db.createAcknowledgement(client.id, firmId, advisorId,
       { title: ackForm.title.trim(), body: ackForm.body?.trim() || null });
     if (row) { setAcks(prev => [row, ...(prev || [])]); setAckForm(null); showToast('Acknowledgement requested'); }
-    else showToast('Could not create — check console');
+    else showToast('Could not create - check console');
   };
 
   // Escalate a pending acknowledgement to a legally-binding DocuSign envelope.
@@ -979,7 +979,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
       }
     } else {
       setSavingAcc(false);
-      showToast('Could not save account — check console');
+      showToast('Could not save account - check console');
     }
   };
 
@@ -996,7 +996,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
 
   // Link held-away accounts via Plaid (requires Plaid keys set as Edge secrets)
   const linkPlaid = async () => {
-    if (!window.Plaid) { showToast('Plaid Link unavailable — reload the page'); return; }
+    if (!window.Plaid) { showToast('Plaid Link unavailable - reload the page'); return; }
     if (!window.__sb) { showToast('Account linking needs a live session'); return; }
     setLinking(true);
     try {
@@ -1009,7 +1009,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
           showToast('Importing accounts…');
           const { data: res, error: exErr } = await window.__sb.functions.invoke('plaid-exchange-token',
             { body: { clientId: client.id, publicToken, institutionName: metadata?.institution?.name } });
-          if (exErr || res?.error) { showToast('Import failed — check console'); console.warn(exErr || res); return; }
+          if (exErr || res?.error) { showToast('Import failed - check console'); console.warn(exErr || res); return; }
           const rows = await window.db.getAccounts(client.id);
           setAccounts(rows || []);
           if (onUpdated) onUpdated({ ...client, aum: res.aum, uninvestedCash: res.cash });
@@ -1026,7 +1026,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
 
   /* meetings */
   const saveMeeting = async () => {
-    if (!advisorId) { showToast('No advisor ID — cannot save meeting'); return; }
+    if (!advisorId) { showToast('No advisor ID - cannot save meeting'); return; }
     setSavingMeeting(true);
     const met_at = meetingForm.met_at
       ? new Date(meetingForm.met_at).toISOString()
@@ -1044,14 +1044,14 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
       if (status === 'confirmed' && window.db.isUUID(client.id)) {
         const durMin = Number(row.duration_min) || 60;
         window.db.createCalendarEvent({
-          title: `Client meeting — ${client.name || client.shortName || 'household'}`,
+          title: `Client meeting - ${client.name || client.shortName || 'household'}`,
           start: row.met_at,
           end: new Date(new Date(row.met_at).getTime() + durMin * 60000).toISOString(),
           description: row.notes || 'Scheduled in Prism.',
         }).then(r => { if (r?.ok) showToast('Added to your calendar'); });
       }
     } else {
-      showToast('Could not save meeting — check console');
+      showToast('Could not save meeting - check console');
     }
   };
 
@@ -1067,7 +1067,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     showToast('Meeting removed');
   };
 
-  /* tasks (CRM) — interactive for live clients; local-only for demo/mock */
+  /* tasks (CRM) - interactive for live clients; local-only for demo/mock */
   const mockTask = (fields) => ({
     id: 'demo-' + Date.now(), clientId: client.id, clientName: client.shortName,
     title: fields.title, detail: fields.detail || '', priority: fields.priority || 'normal',
@@ -1088,7 +1088,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
       setTasks(prev => [window.db.mapTask(row), ...(prev || [])]);
       setTaskForm(null);
       showToast('Task created');
-    } else { showToast('Could not create task — check console'); }
+    } else { showToast('Could not create task - check console'); }
   };
 
   const toggleTask = async (t) => {
@@ -1108,16 +1108,16 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     showToast('Task deleted');
   };
 
-  // Quick cadence — schedule a review task N months out
+  // Quick cadence - schedule a review task N months out
   const scheduleCadence = async (months, label) => {
     const due = new Date(); due.setMonth(due.getMonth() + months);
     const stamp = due.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     if (!isLiveClient) {
-      setTasks(prev => prev === undefined ? prev : [mockTask({ title: `${label} — ${client.shortName}`, due_at: due.toISOString() }), ...(prev || [])]);
+      setTasks(prev => prev === undefined ? prev : [mockTask({ title: `${label} - ${client.shortName}`, due_at: due.toISOString() }), ...(prev || [])]);
       showToast(`${label} scheduled for ${stamp}`); return;
     }
     const row = await window.db.createTask(advisorId, firmId,
-      { title: `${label} — ${client.shortName}`, due_at: due.toISOString(), client_id: client.id, priority: 'normal' });
+      { title: `${label} - ${client.shortName}`, due_at: due.toISOString(), client_id: client.id, priority: 'normal' });
     if (row) {
       setTasks(prev => prev === undefined ? prev : [window.db.mapTask(row), ...(prev || [])]);
       showToast(`${label} scheduled for ${stamp}`);
@@ -1168,7 +1168,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     const rmd = (age > 0 && age < 73 && deferred > 0) ? C.rmdProjection?.({
       taxDeferredBalance: deferred, currentAge: age,
       marginalRatePct: Number(pd.taxes?.marginalRate) || 22 }) : null;
-    // 1040 observations (non-info) — what the client's tax-return tool flags,
+    // 1040 observations (non-info) - what the client's tax-return tool flags,
     // carried into the QBR's Plan flags so the advisor leads with it.
     const t1040 = pd.taxes?.t1040 ? C.tax1040Insights?.({
       filingStatus: pd.taxes?.filingStatus === 'single' ? 'single' : 'mfj',
@@ -1177,7 +1177,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     return { equityConcentration, equityTicker: largest?.ticker || '', rmd, tax1040 };
   };
 
-  /* QBR packet (C4) — assemble a client-ready review from data already on file */
+  /* QBR packet (C4) - assemble a client-ready review from data already on file */
   const generateQBR = async () => {
     showToast('Assembling review packet…');
     const C = window.PrismCalc || {};
@@ -1185,7 +1185,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     let ts = {};
     if (isLiveClient) ts = (await window.db.getTaskStates(client.id)) || {};
 
-    // Performance — reuse loaded data, else fetch (live) / generate (demo)
+    // Performance - reuse loaded data, else fetch (live) / generate (demo)
     let series = perfSeries, periods = perfStats, flows = perfFlows;
     if (perfBal === undefined) {
       if (isLiveClient) {
@@ -1220,7 +1220,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     const netWorth = invested + emergency - totalDebt + homeEquity + propsEquity;
     const goals = (Array.isArray(pd.goals?.items) ? pd.goals.items : []).map(g => {
       const f = C.goalFunding?.(g) || {};
-      return { label: g.label || 'Goal', pct: g.targetAmount > 0 ? Math.min(100, Math.round((g.currentFunding / g.targetAmount) * 100)) : 0, status: f.status || '—' };
+      return { label: g.label || 'Goal', pct: g.targetAmount > 0 ? Math.min(100, Math.round((g.currentFunding / g.targetAmount) * 100)) : 0, status: f.status || '-' };
     });
     const insurance = Array.isArray(pd.insurance) ? pd.insurance : [];
     const lifeCoverage = insurance.filter(i => i.type === 'life').reduce((s, i) => s + (Number(i.coverageAmount) || 0), 0);
@@ -1234,7 +1234,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     const estateKeys = estateDefs.map(([k]) => k);
     const estateItems = estateDefs.map(([k, label]) => ({ label, status: estate[k]?.status || 'none' }));
     const estateComplete = estateItems.filter(i => estateInPlace(i.status)).length;
-    // Other protection lines beyond term/whole life — surfaced so a $0 life
+    // Other protection lines beyond term/whole life - surfaced so a $0 life
     // figure isn't read as "no protection at all".
     const disabilityCount = insurance.filter(i => i.type === 'disability').length;
     const ltcCount = insurance.filter(i => i.type === 'ltc').length;
@@ -1259,7 +1259,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     });
   };
 
-  /* Draft IPS (C4) — derive from the client's risk profile; prefill an
+  /* Draft IPS (C4) - derive from the client's risk profile; prefill an
      acknowledgement for e-sign, with a full printable draft for the vault */
   const _ipsRisk = () => {
     const pd = profileData || {};
@@ -1274,12 +1274,12 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     const { rp } = _ipsRisk();
     const a = rp?.allocation;
     const body = rp
-      ? `Risk profile: ${rp.band} (${rp.score}/100). Target strategic allocation — Equity ${a.equity}%, Fixed income ${a.fixedIncome}%, Cash ${a.cash}%. Reviewed at least annually and rebalanced at ±5% drift. By signing, you acknowledge you have reviewed and agree to this Investment Policy Statement as the basis for ongoing management.`
+      ? `Risk profile: ${rp.band} (${rp.score}/100). Target strategic allocation - Equity ${a.equity}%, Fixed income ${a.fixedIncome}%, Cash ${a.cash}%. Reviewed at least annually and rebalanced at ±5% drift. By signing, you acknowledge you have reviewed and agree to this Investment Policy Statement as the basis for ongoing management.`
       : `Draft Investment Policy Statement. Ask the client to complete the risk questionnaire in their portal to populate the recommended allocation, then review and send for signature.`;
     setAckForm({ title: 'Investment Policy Statement (draft)', body });
-    showToast(rp ? 'IPS draft prefilled from risk profile — review & send' : 'No risk profile yet — added a blank IPS draft');
+    showToast(rp ? 'IPS draft prefilled from risk profile - review & send' : 'No risk profile yet - added a blank IPS draft');
   };
-  /* Draft fiduciary disclosure — prefill an acknowledgement the advisor edits
+  /* Draft fiduciary disclosure - prefill an acknowledgement the advisor edits
      into the firm's own language before sending (e-sign or DocuSign). The
      client-facing sample lives in store.jsx PLANNING_SAMPLES.fiduciary. */
   const draftFiduciary = () => {
@@ -1287,11 +1287,11 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     setAckForm({
       title: 'Fiduciary Disclosure & Acknowledgement',
       body: `${firm} acts as a fiduciary, obligated to place your interests first at all times. ` +
-        `Compensation is a transparent advisory fee under your executed fee schedule — no commissions or product sales. ` +
+        `Compensation is a transparent advisory fee under your executed fee schedule - no commissions or product sales. ` +
         `By signing, you acknowledge you have received and reviewed the firm's fiduciary disclosure and Form ADV Part 2, ` +
         `and understand the scope of advice and how the firm is compensated.`,
     });
-    showToast('Disclosure draft prefilled — edit into your firm’s language & send');
+    showToast('Disclosure draft prefilled - edit into your firm’s language & send');
   };
   const printIPS = () => {
     const { rp, age, retireAt } = _ipsRisk();
@@ -1316,7 +1316,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
       onUpdated && onUpdated(updated);
       showToast('Client updated');
     } else {
-      showToast('Could not save — check console');
+      showToast('Could not save - check console');
     }
   };
 
@@ -1332,7 +1332,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
 
   return (
     <Modal isOpen={!!client} onClose={onClose} className="px-modal-client">
-      {/* ── Archive confirmation — front and center, not buried in a tab ── */}
+      {/* ── Archive confirmation - front and center, not buried in a tab ── */}
       {confirmArchive && (
         <div role="alertdialog" aria-modal="true" aria-label={`Archive ${client.shortName}?`}
           style={{ position: 'absolute', inset: 0, zIndex: 6, background: 'rgba(28,46,74,.45)',
@@ -1347,7 +1347,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
               Archive {client.shortName}?
             </h3>
             <p style={{ fontSize: 12.5, color: 'var(--ink-mute)', lineHeight: 1.55, margin: '0 0 18px' }}>
-              They leave your roster and stop counting toward your book. Nothing is deleted —
+              They leave your roster and stop counting toward your book. Nothing is deleted -
               the record is retained for compliance and can be restored.
             </p>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
@@ -1398,7 +1398,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
               onClick={() => window.printClientReport?.(client, phase, meetings || [])}>
               <Icons.Download size={12} /> Print
             </button>
-            {/* Discoverable path to removing a household (it archives — RLS keeps
+            {/* Discoverable path to removing a household (it archives - RLS keeps
                 the row, the roster drops it). Opens the centered confirmation
                 overlay; the destructive click lives there. */}
             {isLiveClient && (
@@ -1414,7 +1414,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
           </div>
         </div>
 
-        {/* Tabs — only for live (real UUID) clients */}
+        {/* Tabs - only for live (real UUID) clients */}
         {isLiveClient && (
           <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', overflowX: 'auto' }}>
             {['overview', 'accounts', 'messages', 'documents', 'tasks', 'timeline', 'performance', 'edit'].map(t => (
@@ -1430,19 +1430,19 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
         {/* ── Overview ── */}
         {tab === 'overview' && (
           <>
-            {/* Client portal connection (C3 invite flow) — live clients only */}
+            {/* Client portal connection (C3 invite flow) - live clients only */}
             {isLiveClient && (
               client.connected ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px',
                   background: 'var(--forest-soft)', borderRadius: 6, marginBottom: 14, fontSize: 12.5, color: 'var(--forest)' }}>
-                  <Icons.CheckCircle size={14} /> Portal connected — {client.shortName} can sign in to their own household.
+                  <Icons.CheckCircle size={14} /> Portal connected - {client.shortName} can sign in to their own household.
                 </div>
               ) : (
                 <div style={{ padding: '11px 13px', background: 'var(--bg-elev)', borderRadius: 6, marginBottom: 14 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between', flexWrap: 'wrap' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--ink-mute)' }}>
                       <Icons.Layers size={14} />
-                      {client.invitedAt ? 'Invite sent — not yet connected.' : 'This household has no client-portal access yet.'}
+                      {client.invitedAt ? 'Invite sent - not yet connected.' : 'This household has no client-portal access yet.'}
                     </div>
                     <button className="px-btn px-btn-sm px-btn-primary" onClick={generateInvite}
                       disabled={invite?.busy} aria-label="Create a client portal invite link">
@@ -1453,7 +1453,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                   {invite?.link && (
                     <div style={{ marginTop: 9 }}>
                       <div style={{ fontSize: 11, color: 'var(--ink-faint)', marginBottom: 4 }}>
-                        {invite.copied ? 'Copied to clipboard — ' : ''}Share this single-use link with {client.shortName}:
+                        {invite.copied ? 'Copied to clipboard - ' : ''}Share this single-use link with {client.shortName}:
                       </div>
                       <input className="px-input" readOnly value={invite.link} onFocus={e => e.target.select()}
                         style={{ fontSize: 11.5, fontFamily: 'var(--mono)' }} />
@@ -1462,7 +1462,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                 </div>
               )
             )}
-            {/* AI briefing — household summary + review talking points */}
+            {/* AI briefing - household summary + review talking points */}
             <AiAssistCard
               isLive={isLiveClient}
               actions={[
@@ -1470,19 +1470,19 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                 { key: 'talking', label: 'Review talking points', action: 'talking_points', context: aiHouseholdContext },
               ]}
               demoText={{
-                summary: `${client.shortName || client.name} are a ${phase.title.toLowerCase()}-phase household in good standing.\n- Assets under management of ${client.aum ? fmt$(client.aum, { short: true }) : '—'} with ${client.uninvestedCash ? fmt$(client.uninvestedCash, { short: true }) : 'minimal'} sitting uninvested.\n- Roadmap progress is steady; no flagged questions are waiting.\n- Worth confirming beneficiary designations and current contribution rates at the next review.`,
-                talking: `- Put the uninvested cash to work — agree a dollar-cost plan that fits the risk profile.\n- Revisit this year's contribution order (match → HSA → IRA → 401(k)) against actual savings.\n- Confirm insurance coverage still matches the household's income and dependents.\n- Check progress on the current phase's open roadmap tasks.\n- What's changed in your world since we last spoke — anything the plan should know about?`,
+                summary: `${client.shortName || client.name} are a ${phase.title.toLowerCase()}-phase household in good standing.\n- Assets under management of ${client.aum ? fmt$(client.aum, { short: true }) : '-'} with ${client.uninvestedCash ? fmt$(client.uninvestedCash, { short: true }) : 'minimal'} sitting uninvested.\n- Roadmap progress is steady; no flagged questions are waiting.\n- Worth confirming beneficiary designations and current contribution rates at the next review.`,
+                talking: `- Put the uninvested cash to work - agree a dollar-cost plan that fits the risk profile.\n- Revisit this year's contribution order (match → HSA → IRA → 401(k)) against actual savings.\n- Confirm insurance coverage still matches the household's income and dependents.\n- Check progress on the current phase's open roadmap tasks.\n- What's changed in your world since we last spoke - anything the plan should know about?`,
               }}
             />
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
               {[
-                { label: 'AUM', value: client.aum ? fmt$(client.aum, { short: true }) : '—', color: 'var(--ink)' },
+                { label: 'AUM', value: client.aum ? fmt$(client.aum, { short: true }) : '-', color: 'var(--ink)' },
                 { label: 'Current Horizon', value: `P${phase.num} · ${phase.title}`, color: 'var(--ink)', small: true,
                   sub: horizonSub ? (horizonSub.next
                     ? `${horizonSub.done}/${horizonSub.total} · next: ${horizonSub.next}`
                     : `${horizonSub.done}/${horizonSub.total} · phase complete`) : null },
-                { label: 'Uninvested cash', value: client.uninvestedCash ? fmt$(client.uninvestedCash, { short: true }) : '—', color: client.uninvestedCash > 80_000 ? 'var(--brick)' : 'var(--ink)' },
+                { label: 'Uninvested cash', value: client.uninvestedCash ? fmt$(client.uninvestedCash, { short: true }) : '-', color: client.uninvestedCash > 80_000 ? 'var(--brick)' : 'var(--ink)' },
               ].map(({ label, value, color, small, sub }) => (
                 <div key={label} style={{ padding: 12, background: 'var(--bg-elev)', borderRadius: 6 }}>
                   <div className="px-portstat-label">{label}</div>
@@ -1546,7 +1546,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
               );
             })()}
 
-            {/* 1040 flags — what the client's tax-return tool shows them, surfaced
+            {/* 1040 flags - what the client's tax-return tool shows them, surfaced
                 advisor-side (top observations off the captured 1040 lines) */}
             {(() => {
               const lines = profileData?.taxes?.t1040;
@@ -1667,7 +1667,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
               );
             })()}
 
-            {/* Asset-truth composition (W6) — managed + held-away = total, or a stale-data flag */}
+            {/* Asset-truth composition (W6) - managed + held-away = total, or a stale-data flag */}
             {(() => {
               if (!profileData) return null;
               const r = profileData.retirement || {};
@@ -1681,7 +1681,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                     padding: '10px 12px', background: 'var(--bg-elev)', borderLeft: '3px solid var(--gold)',
                     borderRadius: 6, fontSize: 12, color: 'var(--ink-mute)', lineHeight: 1.5 }}>
                     <span style={{ color: 'var(--gold)', display: 'flex', flexShrink: 0 }}><Icons.AlertCircle size={15} /></span>
-                    <span>Managed AUM ({fmt$(comp.managed, { short: true })}) exceeds invested balances on file ({fmt$(investedOnFile, { short: true })}) — the household's numbers are likely stale.</span>
+                    <span>Managed AUM ({fmt$(comp.managed, { short: true })}) exceeds invested balances on file ({fmt$(investedOnFile, { short: true })}) - the household's numbers are likely stale.</span>
                   </div>
                 );
               }
@@ -1733,7 +1733,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
               </div>
             )}
 
-            {/* ── Acknowledgements (live clients) — request a client e-sign ── */}
+            {/* ── Acknowledgements (live clients) - request a client e-sign ── */}
             {isLiveClient && (
               <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -1950,11 +1950,11 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                         )}
                         {a.name && <div style={{ fontSize: 11, color: 'var(--ink-mute)', fontFamily: 'var(--sans)', fontStyle: 'normal' }}>{a.name}</div>}
                       </td>
-                      <td style={{ padding: '9px 8px', color: 'var(--ink-mute)' }}>{a.custodian || '—'}</td>
+                      <td style={{ padding: '9px 8px', color: 'var(--ink-mute)' }}>{a.custodian || '-'}</td>
                       <td style={{ padding: '9px 8px', textAlign: 'right', fontFamily: 'var(--mono, monospace)', color: 'var(--ink)' }}>
                         {fmt$(a.balance, { short: true })}
                         {(() => {
-                          // Balance-freshness ("as of") indicator — raises trust in every projection
+                          // Balance-freshness ("as of") indicator - raises trust in every projection
                           // built on this balance. Linked (Plaid) balances that haven't synced in a
                           // while are flagged; manual entries just show when they were last set.
                           if (!a.as_of) return null;
@@ -1972,7 +1972,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                           );
                         })()}
                       </td>
-                      <td style={{ padding: '9px 8px', textAlign: 'right', fontFamily: 'var(--mono, monospace)', color: a.cash > 0 ? 'var(--brick)' : 'var(--ink-mute)' }}>{a.cash ? fmt$(a.cash, { short: true }) : '—'}</td>
+                      <td style={{ padding: '9px 8px', textAlign: 'right', fontFamily: 'var(--mono, monospace)', color: a.cash > 0 ? 'var(--brick)' : 'var(--ink-mute)' }}>{a.cash ? fmt$(a.cash, { short: true }) : '-'}</td>
                       <td style={{ padding: '9px 0 9px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                         <button className="px-btn px-btn-sm px-btn-ghost" style={{ marginRight: 4 }} aria-label="Edit account"
                           onClick={() => setAccForm({ id: a.id, type: a.type, custodian: a.custodian || '', name: a.name || '', balance: a.balance, cash: a.cash })}>
@@ -2000,7 +2000,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
 
             {accounts !== undefined && accounts.length === 0 && !accForm && (
               <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--ink-mute)', fontSize: 13, marginBottom: 10 }}>
-                No accounts linked — add the first one below.
+                No accounts linked - add the first one below.
               </div>
             )}
 
@@ -2063,7 +2063,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
             authorId={advisorId}
             firmId={firmId}
             counterpartName={client.shortName || client.name}
-            emptyHint={`No messages yet — open the conversation with ${client.shortName || client.name}.`}
+            emptyHint={`No messages yet - open the conversation with ${client.shortName || client.name}.`}
             demoSeed={(client.isProspect || !window.demoMessages) ? [] : window.demoMessages()}
             height={360}
             aiContext={aiHouseholdContext()}
@@ -2078,7 +2078,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
             firmId={firmId}
             advisorId={advisorId}
             demoSeed={window.demoDocuments ? window.demoDocuments() : []}
-            emptyHint={`No documents yet — upload an IPS, statement, or disclosure for ${client.shortName || client.name}.`}
+            emptyHint={`No documents yet - upload an IPS, statement, or disclosure for ${client.shortName || client.name}.`}
           />
         )}
 
@@ -2223,7 +2223,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                   <div>
                     <div style={LABEL_STYLE}>Portfolio value</div>
                     <div style={{ fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 500, color: 'var(--ink)', marginTop: 2 }}>
-                      {perfSeries.length ? fmt$(perfSeries[perfSeries.length - 1].value, { short: true }) : '—'}
+                      {perfSeries.length ? fmt$(perfSeries[perfSeries.length - 1].value, { short: true }) : '-'}
                     </div>
                   </div>
                   <button className="px-btn px-btn-sm px-btn-ghost"
@@ -2249,7 +2249,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                 {/* Period returns vs benchmark (Modified Dietz) */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 8 }}>
                   {perfStats.map(s => {
-                    // Advisor view leads with the GROSS (pre-fee) return — that's what
+                    // Advisor view leads with the GROSS (pre-fee) return - that's what
                     // benchmarks the manager's skill. Net of fees is shown beneath when
                     // fee debits are on record (it's what the client sees in their portal).
                     const gross = s.grossPct != null ? s.grossPct : s.pct;
@@ -2261,7 +2261,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                       <div key={s.label} style={{ padding: '8px 6px', background: 'var(--bg-elev)', borderRadius: 6, textAlign: 'center' }}>
                         <div style={{ fontSize: 10, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.04em' }}>{s.label}</div>
                         <div style={{ fontSize: 14, fontWeight: 600, marginTop: 3, color: !has ? 'var(--ink-faint)' : pos ? 'var(--forest)' : 'var(--brick)' }}>
-                          {has ? `${pos ? '+' : ''}${gross.toFixed(1)}%` : '—'}
+                          {has ? `${pos ? '+' : ''}${gross.toFixed(1)}%` : '-'}
                         </div>
                         {has && (
                           <div style={{ fontSize: 9.5, marginTop: 2, color: delta >= 0 ? 'var(--forest)' : 'var(--brick)' }}>
@@ -2279,7 +2279,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                 </div>
 
                 <div style={{ fontSize: 11, color: 'var(--ink-faint)', lineHeight: 1.5, marginBottom: 18 }}>
-                  Gross of advisory fees, time-weighted (Modified Dietz) vs an assumed benchmark — clients see the net-of-fee return in their portal. Log flows below (including fee debits, kind “fee”) for accurate returns; per-security attribution arrives with holdings feeds (Plaid investments / custodian).
+                  Gross of advisory fees, time-weighted (Modified Dietz) vs an assumed benchmark - clients see the net-of-fee return in their portal. Log flows below (including fee debits, kind “fee”) for accurate returns; per-security attribution arrives with holdings feeds (Plaid investments / custodian).
                 </div>
 
                 {/* Account mix (by account type; true asset-class attribution needs holdings) */}
@@ -2405,11 +2405,11 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                 <span style={LABEL_STYLE}>Advisory fee schedule</span>
                 <select className="px-select" value={editForm.fee_schedule_id ?? ''}
                   onChange={e => setEdit('fee_schedule_id', e.target.value)}>
-                  <option value="">— None (not billed) —</option>
+                  <option value="">- None (not billed) -</option>
                   {feeSchedules.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
                 {feeSchedules.length === 0 && (
-                  <span style={{ fontSize: 11, color: 'var(--ink-faint)' }}>No schedules yet — create one in the Admin → Revenue &amp; billing view.</span>
+                  <span style={{ fontSize: 11, color: 'var(--ink-faint)' }}>No schedules yet - create one in the Admin → Revenue &amp; billing view.</span>
                 )}
               </label>
             </div>

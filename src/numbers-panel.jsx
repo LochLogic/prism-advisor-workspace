@@ -1,4 +1,4 @@
-// Prism — Numbers Panel drawer. Lets the client (or advisor on their behalf)
+// Prism - Numbers Panel drawer. Lets the client (or advisor on their behalf)
 // edit the household ledger. Restyled for the institutional palette.
 
 // Date-of-birth picker: Month / Day / Year dropdowns instead of a native <input
@@ -10,7 +10,7 @@ const DobSelects = ({ value, onChange }) => {
   // Hold partial selections locally. The stored value is only a *complete*
   // YYYY-MM-DD, so a brand-new member starts blank. Without local state, picking
   // Month first would emit '' (date incomplete) and the controlled <select> would
-  // snap back to "Month" — making it impossible to ever set a new member's DOB.
+  // snap back to "Month" - making it impossible to ever set a new member's DOB.
   // Local state lets Month → Day → Year accumulate; we commit upstream only once
   // all three are chosen. (Seeded members already had full DOBs, which is why the
   // bug only bit newly-added people.)
@@ -53,10 +53,10 @@ const DobSelects = ({ value, onChange }) => {
   );
 };
 
-// Inline help affordance — an info icon that reveals an upscale tooltip on hover
+// Inline help affordance - an info icon that reveals an upscale tooltip on hover
 // or keyboard focus. Sprinkle a `hint=` onto any field where a word of context
 // helps. The styled `px-hint-bubble` is the visible tooltip; `aria-label` covers
-// assistive tech. We deliberately omit the native `title` — leaving it on stacks
+// assistive tech. We deliberately omit the native `title` - leaving it on stacks
 // the browser's default tooltip on top of our bubble (double tooltip on hover).
 const FieldHint = ({ text }) => (
   <span className="px-hint" tabIndex={0} aria-label={text}>
@@ -98,7 +98,7 @@ const NumInput = ({ value, onCommit, step, placeholder = '0', ...rest }) => {
   );
 };
 
-// NumField must be at module scope — defining it inside a component
+// NumField must be at module scope - defining it inside a component
 // causes React to remount the input on every render, losing focus mid-edit.
 const NumField = ({ label, path, value, prefix = '$', step = 100, onUpdate, hint }) => (
   <label className="px-field">
@@ -118,7 +118,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
           ledgerGate, pendingChange, withdrawPendingChange } = useProfile();
   const { activeClientId } = useView();
   const hasIncomeSources = (profile.income.sources || []).length > 0;
-  // Contributions section entry period — display-only; storage stays annual.
+  // Contributions section entry period - display-only; storage stays annual.
   const [contribFreq, setContribFreq] = React.useState('yr');
 
   // Estate-category vault documents, for the "link a document" picker below. A
@@ -188,7 +188,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
   const removeGoal = (id) => setProfile(p => ({ ...p, goals: { ...p.goals, items: gitems(p).filter(g => g.id !== id) } }));
   const updateGoal = (id, field, value) => setProfile(p => ({ ...p, goals: { ...p.goals, items: gitems(p).map(g => g.id === id ? { ...g, [field]: value } : g) } }));
 
-  // Planning age is now derived from members[].dateOfBirth in store.jsx — no setter needed.
+  // Planning age is now derived from members[].dateOfBirth in store.jsx - no setter needed.
 
   // ── Insurance (life / disability / LTC) ──
   const ins = (p) => Array.isArray(p.insurance) ? p.insurance : [];
@@ -198,7 +198,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
   const updateInsurance = (id, field, value) => setProfile(p => ({
     ...p, insurance: ins(p).map(i => i.id === id ? { ...i, [field]: value } : i) }));
 
-  // ── W-2s — one per earner/job (primary, spouse, second job) ──
+  // ── W-2s - one per earner/job (primary, spouse, second job) ──
   // Stored as taxes.w2s[]; the legacy single taxes.w2 (round 6) is surfaced as
   // the first entry until the list is first edited, so old profiles carry over.
   const w2s = (p) => {
@@ -216,7 +216,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
 
   // AI W-2 import: read the uploaded image/PDF in the browser, send it to the
   // ai-assist edge function (advisor JWT; the Gemini key stays server-side),
-  // and add a W-2 entry from the extracted boxes. Advisor-side only — the
+  // and add a W-2 entry from the extracted boxes. Advisor-side only - the
   // edge function rejects client JWTs.
   const { showToast } = useView() || {};
   const [w2Importing, setW2Importing] = React.useState(false);
@@ -224,7 +224,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
   const canAiImportW2 = ['advisor', 'admin'].includes(window.__pxAuthActor?.role);
   const importW2File = async (file) => {
     if (!file || w2Importing) return;
-    if (file.size > 4 * 1024 * 1024) { showToast?.('That file is over 4 MB — try a smaller scan'); return; }
+    if (file.size > 4 * 1024 * 1024) { showToast?.('That file is over 4 MB - try a smaller scan'); return; }
     setW2Importing(true);
     try {
       const b64 = await new Promise((res, rej) => {
@@ -237,9 +237,9 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
       const parsed = JSON.parse(String(text || '').replace(/```json|```/g, '').trim());
       if (!parsed || !((Number(parsed.box1) || 0) > 0)) throw new Error('no W-2 boxes found');
       addW2({ label: parsed.employer || file.name, box1: Number(parsed.box1) || 0, box2: Number(parsed.box2) || 0 });
-      showToast?.('W-2 imported — double-check the boxes against the form');
+      showToast?.('W-2 imported - double-check the boxes against the form');
     } catch {
-      showToast?.("Couldn't read that W-2 — enter the boxes manually");
+      showToast?.("Couldn't read that W-2 - enter the boxes manually");
     } finally {
       setW2Importing(false);
       if (w2FileRef.current) w2FileRef.current.value = '';
@@ -319,7 +319,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
               <>
                 <span>
                   <Icons.Info size={11} style={{ verticalAlign: '-1px', marginRight: 5 }} />
-                  Your updates are with your advisor to review — keep editing anytime; they'll see the latest version.
+                  Your updates are with your advisor to review - keep editing anytime; they'll see the latest version.
                 </span>
                 <button className="px-btn px-btn-sm px-btn-ghost" onClick={withdrawPendingChange}
                   style={{ padding: '3px 9px', whiteSpace: 'nowrap' }} title="Withdraw the updates awaiting review">
@@ -328,12 +328,12 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
               </>
             ) : pendingChange?.status === 'rejected' ? (
               <span>
-                Your advisor returned these updates{pendingChange.review_note ? <> — “{pendingChange.review_note}”</> : ''}. Adjust and save again whenever you're ready.
+                Your advisor returned these updates{pendingChange.review_note ? <> - “{pendingChange.review_note}”</> : ''}. Adjust and save again whenever you're ready.
               </span>
             ) : pendingChange?.status === 'approved' ? (
               <span style={{ color: 'var(--forest)' }}>
                 <Icons.Check size={11} style={{ verticalAlign: '-1px', marginRight: 5 }} />
-                Your advisor confirmed your latest updates — your plan reflects them now.
+                Your advisor confirmed your latest updates - your plan reflects them now.
               </span>
             ) : (
               <span>Updates you save here go to your advisor to confirm before they update your plan.</span>
@@ -344,7 +344,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
             padding: '8px 16px', background: 'var(--bg-elev)', borderBottom: '1px solid var(--border)',
             fontSize: 11.5, color: 'var(--ink-mute)' }}>
-            <span><b style={{ color: 'var(--ink)' }}>{dirtyCount}</b> change{dirtyCount === 1 ? '' : 's'} this session — nothing is locked in.</span>
+            <span><b style={{ color: 'var(--ink)' }}>{dirtyCount}</b> change{dirtyCount === 1 ? '' : 's'} this session - nothing is locked in.</span>
             <button className="px-btn px-btn-sm px-btn-ghost" onClick={revertAll} style={{ padding: '3px 9px', whiteSpace: 'nowrap' }}>
               <Icons.Refresh size={11} /> Revert all
             </button>
@@ -386,7 +386,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
             </div>
             {(profile.members || []).length === 0 && (
               <div style={{ padding: '10px 0', textAlign: 'center', color: 'var(--ink-faint)', fontStyle: 'italic', fontSize: 12 }}>
-                Add the people in this household — their ages anchor the retirement and legacy projections.
+                Add the people in this household - their ages anchor the retirement and legacy projections.
               </div>
             )}
             {(profile.members || []).map(m => (
@@ -436,12 +436,12 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
               </label>
             ) : (
               <NumField label="Monthly take-home" path="income.monthlyTakehome" value={profile.income.monthlyTakehome}  onUpdate={update}
-                hint="Income after taxes and payroll deductions — what actually lands in your account each month, not gross pay." />
+                hint="Income after taxes and payroll deductions - what actually lands in your account each month, not gross pay." />
             )}
 
-            {/* Income sources — itemized lines that auto-sum into monthly take-home */}
+            {/* Income sources - itemized lines that auto-sum into monthly take-home */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '14px 0 8px' }}>
-              <span style={{ fontSize: 11, color: 'var(--ink-mute)', fontStyle: 'italic' }}>Income sources (optional — these sum to take-home)</span>
+              <span style={{ fontSize: 11, color: 'var(--ink-mute)', fontStyle: 'italic' }}>Income sources (optional - these sum to take-home)</span>
               <button className="px-btn px-btn-sm px-btn-ghost" style={{ padding: '3px 8px' }} onClick={addSource}>
                 <Icons.Plus size={10} /> Add source
               </button>
@@ -485,34 +485,34 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
             )}
           </section>
 
-          {/* Housing — rent vs. own */}
+          {/* Housing - rent vs. own */}
           <section style={{ marginBottom: 22 }}>
             <div className="px-eyebrow" style={{ marginBottom: 10 }}>Housing</div>
             <div className="px-seg" role="tablist" aria-label="Housing type" style={{ marginBottom: 10 }}>
               <button role="tab" aria-selected={!isOwner} className={`px-seg-btn ${!isOwner ? 'is-on' : ''}`}
                 onClick={() => update('housing.type', 'rent')}>Rent</button>
               <button role="tab" aria-selected={isOwner} className={`px-seg-btn ${isOwner ? 'is-on' : ''}`}
-                onClick={() => update('housing.type', 'own')}>Own — mortgage</button>
+                onClick={() => update('housing.type', 'own')}>Own - mortgage</button>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <NumField label={isOwner ? 'Total payment / mo' : 'Monthly rent'} path="expenses.housing" value={profile.expenses.housing} onUpdate={update}
-                hint={isOwner ? 'The full monthly mortgage payment, including taxes & insurance if escrowed.' : 'The monthly rent payment — the guideline is to keep housing near 30% of take-home.'}/>
+                hint={isOwner ? 'The full monthly mortgage payment, including taxes & insurance if escrowed.' : 'The monthly rent payment - the guideline is to keep housing near 30% of take-home.'}/>
               {isOwner && <>
                 <NumField label="Home value" path="housing.homeValue" value={profile.housing.homeValue} step="5000" onUpdate={update}
-                  hint="Current market value — drives the home-equity portion of net worth."/>
+                  hint="Current market value - drives the home-equity portion of net worth."/>
                 <NumField label="Mortgage balance" path="housing.mortgageBalance" value={profile.housing.mortgageBalance} step="5000" onUpdate={update}
                   hint="What's still owed on the loan."/>
                 <NumField label="Mortgage rate (%)" path="housing.mortgageApr" value={profile.housing.mortgageApr} prefix={null} step="0.1" onUpdate={update}
-                  hint="The loan's interest rate — drives the principal/interest split below and the payoff-accelerator tool."/>
+                  hint="The loan's interest rate - drives the principal/interest split below and the payoff-accelerator tool."/>
                 <NumField label="Taxes + ins / mo" path="housing.escrowMonthly" value={profile.housing.escrowMonthly} step="50" onUpdate={update}
                   hint="The escrow portion of the payment (property tax + homeowners insurance). Leave 0 if not escrowed."/>
                 <NumField label="Loan term (yrs)" path="housing.termYears" value={profile.housing.termYears} prefix={null} step="5" onUpdate={update}
-                  hint="Original mortgage term — 30 or 15 for most loans. Optional, but with the start year it anchors the scheduled payoff date and the payoff-accelerator tool." />
+                  hint="Original mortgage term - 30 or 15 for most loans. Optional, but with the start year it anchors the scheduled payoff date and the payoff-accelerator tool." />
                 <NumField label="Year loan started" path="housing.startYear" value={profile.housing.startYear} prefix={null} step="1" onUpdate={update}
-                  hint="The year the mortgage (or latest refinance) originated. Optional — used with the term to show where you are in the amortization schedule." />
+                  hint="The year the mortgage (or latest refinance) originated. Optional - used with the term to show where you are in the amortization schedule." />
               </>}
             </div>
-            {/* Housing-cost ratio coaching (FinFire donor) — outflow vs take-home,
+            {/* Housing-cost ratio coaching (FinFire donor) - outflow vs take-home,
                 against the ~30% guideline. Renters and owners alike. */}
             {Number(profile.expenses.housing) > 0 && Number(profile.income?.monthlyTakehome) > 0 && (() => {
               const ratio = (Number(profile.expenses.housing) / Number(profile.income.monthlyTakehome)) * 100;
@@ -564,14 +564,14 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                     <strong style={{ color: homeEquity >= 0 ? 'var(--forest)' : 'var(--brick)' }}>{fmt$(homeEquity)}</strong>
                   </div>
                   <p style={{ fontSize: 11, color: 'var(--ink-mute)', margin: '8px 0 0', lineHeight: 1.5, fontStyle: 'italic', fontFamily: 'var(--serif)' }}>
-                    Only the non-principal portion is a true cost — principal is forced savings that builds equity.
+                    Only the non-principal portion is a true cost - principal is forced savings that builds equity.
                   </p>
                 </div>
               );
             })()}
           </section>
 
-          {/* Additional properties — second homes / rentals (equity → net worth) */}
+          {/* Additional properties - second homes / rentals (equity → net worth) */}
           <section style={{ marginBottom: 22 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <div className="px-eyebrow">Additional properties</div>
@@ -581,7 +581,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
             </div>
             {(profile.properties || []).length === 0 && (
               <div style={{ padding: '10px 0', textAlign: 'center', color: 'var(--ink-faint)', fontStyle: 'italic', fontSize: 12 }}>
-                Second homes or rentals — their equity counts toward net worth.
+                Second homes or rentals - their equity counts toward net worth.
               </div>
             )}
             {(profile.properties || []).map(p => {
@@ -668,7 +668,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
               <NumField label="Healthcare" path="expenses.healthcare" value={profile.expenses.healthcare}  onUpdate={update}/>
               <NumField label="Other" path="expenses.other" value={profile.expenses.other}  onUpdate={update}/>
             </div>
-            {/* Custom outflow boxes — editable title + amount */}
+            {/* Custom outflow boxes - editable title + amount */}
             {(profile.expenses.custom || []).map(c => (
               <div key={c.id} style={{ display: 'grid', gridTemplateColumns: '1fr 130px 24px', gap: 8, alignItems: 'end', marginTop: 10 }}>
                 <label className="px-field">
@@ -773,7 +773,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 14, marginBottom: 8, gap: 8 }}>
               <span className="px-field-label" style={{ margin: 0 }}>Contributions &amp; employer match</span>
-              {/* Per-month / per-year entry toggle. Stored values are ALWAYS annual —
+              {/* Per-month / per-year entry toggle. Stored values are ALWAYS annual -
                   the monthly view just divides for display and multiplies on commit,
                   so every calculator keeps reading the same annual figures. */}
               <div className="px-seg" role="tablist" aria-label="Contribution entry period" style={{ margin: 0 }}>
@@ -801,7 +801,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
             </div>
           </section>
 
-          {/* Guaranteed retirement income — SS / pension / annuity */}
+          {/* Guaranteed retirement income - SS / pension / annuity */}
           <section style={{ marginBottom: 22 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <div className="px-eyebrow">Guaranteed income</div>
@@ -811,13 +811,13 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
             </div>
             {(profile.incomeStreams || []).length === 0 && (
               <div style={{ padding: '10px 0', textAlign: 'center', color: 'var(--ink-faint)', fontStyle: 'italic', fontSize: 12 }}>
-                Social Security, pensions, or annuities — these reduce how much the portfolio must cover in retirement.
+                Social Security, pensions, or annuities - these reduce how much the portfolio must cover in retirement.
               </div>
             )}
             {(profile.incomeStreams || []).map(s => (
               <div key={s.id} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 10, marginBottom: 8, background: 'var(--surface)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <input type="text" value={s.label} placeholder="e.g. Social Security — Robert"
+                  <input type="text" value={s.label} placeholder="e.g. Social Security - Robert"
                     onChange={(e) => updateStream(s.id, 'label', e.target.value)}
                     style={{ fontFamily: 'var(--serif)', fontSize: 13, fontWeight: 500, background: 'none', border: 'none', color: 'var(--ink)', outline: 'none', flex: 1 }} />
                   <button onClick={() => removeStream(s.id)} title="Remove" aria-label="Remove stream"
@@ -856,7 +856,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                   {s.type === 'social_security' && (
                     <label className="px-field" style={{ gridColumn: '1 / -1' }}>
                       <span className="px-field-label">
-                        PIA — benefit at full retirement age (67)
+                        PIA - benefit at full retirement age (67)
                         <FieldHint text="Your Primary Insurance Amount: the monthly Social Security benefit at full retirement age (67), from your SSA statement. Powers the claiming-age (62 / 67 / 70) optimizer." />
                       </span>
                       <div className="px-input-affix"><span className="px-affix">$</span>
@@ -878,7 +878,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
             </div>
           </section>
 
-          {/* Equity compensation — concentrated single-stock positions (RSU / ISO) */}
+          {/* Equity compensation - concentrated single-stock positions (RSU / ISO) */}
           <section style={{ marginBottom: 22 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <div className="px-eyebrow">Equity compensation</div>
@@ -888,7 +888,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
             </div>
             {(profile.equityComp || []).length === 0 && (
               <div style={{ padding: '10px 0', textAlign: 'center', color: 'var(--ink-faint)', fontStyle: 'italic', fontSize: 12 }}>
-                RSUs, options, or a concentrated single stock — capture it so the plan can size single-stock risk and the tax cost of diversifying.
+                RSUs, options, or a concentrated single stock - capture it so the plan can size single-stock risk and the tax cost of diversifying.
               </div>
             )}
             {(profile.equityComp || []).map(e => (
@@ -942,7 +942,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
             ))}
           </section>
 
-          {/* Insurance — protection capture (life / disability / LTC) */}
+          {/* Insurance - protection capture (life / disability / LTC) */}
           <section style={{ marginBottom: 22 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <div className="px-eyebrow">Protection</div>
@@ -952,7 +952,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
             </div>
             {(profile.insurance || []).length === 0 && (
               <div style={{ padding: '10px 0', textAlign: 'center', color: 'var(--ink-faint)', fontStyle: 'italic', fontSize: 12 }}>
-                Life, disability, or long-term care coverage — capture what's in place so the plan reflects how the household is protected.
+                Life, disability, or long-term care coverage - capture what's in place so the plan reflects how the household is protected.
               </div>
             )}
             {(profile.insurance || []).map(i => (
@@ -1041,7 +1041,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                   {/* Shared items link to a vault document the client can open. */}
                   {isComplete && (
                     <label className="px-field" style={{ marginTop: 6 }}>
-                      <span className="px-field-label">Shared document{estateDocs.length === 0 ? ' — upload an estate document in the vault first' : ''}</span>
+                      <span className="px-field-label">Shared document{estateDocs.length === 0 ? ' - upload an estate document in the vault first' : ''}</span>
                       <select className="px-select" value={item.documentId || ''} style={{ width: '100%' }}
                         onChange={(e) => updateEstate(key, 'documentId', e.target.value || null)}>
                         <option value="">No document linked</option>
@@ -1061,7 +1061,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
               <label className="px-field">
                 <span className="px-field-label">Planning age{primaryMember ? ` · ${primaryMember.name || 'primary'}` : ''}</span>
                 <div className="px-input-affix" style={{ background: 'var(--bg)', cursor: 'default' }}>
-                  <input type="text" readOnly value={planningAge > 0 ? `${planningAge} yrs` : '—'} style={{ cursor: 'default', color: 'var(--ink-mute)' }} />
+                  <input type="text" readOnly value={planningAge > 0 ? `${planningAge} yrs` : '-'} style={{ cursor: 'default', color: 'var(--ink-mute)' }} />
                 </div>
                 <span style={{ fontSize: 10, color: 'var(--ink-faint)', marginTop: 2, display: 'block' }}>from date of birth above</span>
               </label>
@@ -1085,10 +1085,10 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                 </select>
               </label>
               <NumField label="Marginal rate (%)" path="taxes.marginalRate" value={profile.taxes.marginalRate} prefix={null} step="1"  onUpdate={update}
-                hint="Your combined top tax bracket — the rate on your next dollar of income. Drives tax-advantaged savings estimates. Import a W-2 below to set this from your actual wages instead of guessing." />
+                hint="Your combined top tax bracket - the rate on your next dollar of income. Drives tax-advantaged savings estimates. Import a W-2 below to set this from your actual wages instead of guessing." />
             </div>
 
-            {/* W-2 capture → parsed marginal rate. One entry per earner/job —
+            {/* W-2 capture → parsed marginal rate. One entry per earner/job -
                 spouse W-2s and second jobs each get a line; the COMBINED Box 1
                 locates the household's federal bracket via the shared
                 bracketPosition engine (right answer for a joint return). */}
@@ -1104,7 +1104,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                 <div style={{ marginTop: 12, border: '1px solid var(--border)', borderRadius: 6, padding: 12, background: 'var(--surface)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 10 }}>
                     <span className="px-eyebrow" style={{ margin: 0 }}>Import from W-2{list.length > 1 ? 's' : ''}</span>
-                    <FieldHint text="One entry per W-2 — add a spouse's W-2 or a second job. Box 1 (wages, tips, other comp) and Box 2 (federal income tax withheld) come straight off each form; combined wages locate the household's federal bracket." />
+                    <FieldHint text="One entry per W-2 - add a spouse's W-2 or a second job. Box 1 (wages, tips, other comp) and Box 2 (federal income tax withheld) come straight off each form; combined wages locate the household's federal bracket." />
                     <span style={{ flex: 1 }} />
                     {canAiImportW2 && (
                       <>
@@ -1122,13 +1122,13 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                   </div>
                   {list.length === 0 && (
                     <div style={{ padding: '6px 0', textAlign: 'center', color: 'var(--ink-faint)', fontStyle: 'italic', fontSize: 12 }}>
-                      Add a W-2 per earner — we'll set the marginal rate from actual wages instead of a guess.
+                      Add a W-2 per earner - we'll set the marginal rate from actual wages instead of a guess.
                     </div>
                   )}
                   {list.map(w => (
                     <div key={w.id} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 10, marginBottom: 8, background: 'var(--bg)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                        <input type="text" value={w.label} placeholder="Whose W-2 / employer (e.g. Dana — Acme Corp)"
+                        <input type="text" value={w.label} placeholder="Whose W-2 / employer (e.g. Dana - Acme Corp)"
                           onChange={(e) => updateW2(w.id, 'label', e.target.value)}
                           style={{ fontFamily: 'var(--serif)', fontSize: 13, fontWeight: 500, background: 'none', border: 'none', color: 'var(--ink)', outline: 'none', flex: 1 }} />
                         <button onClick={() => removeW2(w.id)} title="Remove" aria-label="Remove W-2"
@@ -1138,12 +1138,12 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                         <label className="px-field">
-                          <span className="px-field-label">Box 1 — wages, tips, other comp</span>
+                          <span className="px-field-label">Box 1 - wages, tips, other comp</span>
                           <div className="px-input-affix"><span className="px-affix">$</span>
                             <NumInput value={w.box1} step="1000" onCommit={(v) => updateW2(w.id, 'box1', v)} /></div>
                         </label>
                         <label className="px-field">
-                          <span className="px-field-label">Box 2 — federal tax withheld</span>
+                          <span className="px-field-label">Box 2 - federal tax withheld</span>
                           <div className="px-input-affix"><span className="px-affix">$</span>
                             <NumInput value={w.box2} step="100" onCommit={(v) => updateW2(w.id, 'box2', v)} /></div>
                         </label>
@@ -1176,23 +1176,23 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
               const ratePct = res ? Math.round(res.marginalRate * 100) : null;
               const applied = res && Number(profile.taxes.marginalRate) === ratePct;
               const FIELDS = [
-                ['agi',               'Line 11 — adjusted gross income', 1000],
-                ['deduction',         'Line 12 — deduction taken',       500],
-                ['taxableIncome',     'Line 15 — taxable income',        1000],
-                ['totalTax',          'Line 24 — total tax',             500],
-                ['withholding',       'Line 25d — tax withheld',         500],
-                ['capGains',          'Line 7 — capital gain or (loss)', 500],
-                ['taxableInterest',   'Line 2b — taxable interest',      100],
-                ['ordinaryDividends', 'Line 3b — ordinary dividends',    100],
-                ['qualifiedDividends','Line 3a — qualified dividends',   100],
-                ['iraDistributions',  'Line 4b — taxable IRA distributions', 500],
-                ['ssBenefits',        'Line 6b — taxable Social Security', 500],
+                ['agi',               'Line 11 - adjusted gross income', 1000],
+                ['deduction',         'Line 12 - deduction taken',       500],
+                ['taxableIncome',     'Line 15 - taxable income',        1000],
+                ['totalTax',          'Line 24 - total tax',             500],
+                ['withholding',       'Line 25d - tax withheld',         500],
+                ['capGains',          'Line 7 - capital gain or (loss)', 500],
+                ['taxableInterest',   'Line 2b - taxable interest',      100],
+                ['ordinaryDividends', 'Line 3b - ordinary dividends',    100],
+                ['qualifiedDividends','Line 3a - qualified dividends',   100],
+                ['iraDistributions',  'Line 4b - taxable IRA distributions', 500],
+                ['ssBenefits',        'Line 6b - taxable Social Security', 500],
               ];
               return (
                 <div style={{ marginTop: 12, border: '1px solid var(--border)', borderRadius: 6, padding: 12, background: 'var(--surface)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 10 }}>
                     <span className="px-eyebrow" style={{ margin: 0 }}>Import from your 1040</span>
-                    <FieldHint text="Key lines from your most recent federal return (Form 1040). They unlock the tax-return insights in your roadmap — bracket position, withholding check, 0% gains room, and more. Enter what you have; every line is optional except AGI." />
+                    <FieldHint text="Key lines from your most recent federal return (Form 1040). They unlock the tax-return insights in your roadmap - bracket position, withholding check, 0% gains room, and more. Enter what you have; every line is optional except AGI." />
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                     {FIELDS.map(([key, label, step]) => (
@@ -1217,7 +1217,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
             })()}
           </section>
 
-          {/* Funding goals — education / home / custom, tracked to a target date */}
+          {/* Funding goals - education / home / custom, tracked to a target date */}
           <section style={{ marginBottom: 22 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <div className="px-eyebrow">Goals</div>
@@ -1227,7 +1227,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
             </div>
             {gitems(profile).length === 0 && (
               <div style={{ padding: '10px 0', textAlign: 'center', color: 'var(--ink-faint)', fontStyle: 'italic', fontSize: 12 }}>
-                A home, education, or any milestone with a target amount and date — we'll track whether it's on pace.
+                A home, education, or any milestone with a target amount and date - we'll track whether it's on pace.
               </div>
             )}
             {gitems(profile).map(g => (
@@ -1281,7 +1281,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
           </section>
 
           <div style={{ padding: 12, background: 'var(--bg-elev)', borderRadius: 6, fontSize: 11, color: 'var(--ink-mute)', lineHeight: 1.5, fontStyle: 'italic', fontFamily: 'var(--serif)' }}>
-            Changes save automatically and are visible to {advisor.name} in real time — but nothing is locked in: use <b>Undo</b> (top right) to step back, or <b>Revert all</b> to undo everything since you opened this. Use the <b>Discuss with advisor</b> action on any task to flag questions.
+            Changes save automatically and are visible to {advisor.name} in real time - but nothing is locked in: use <b>Undo</b> (top right) to step back, or <b>Revert all</b> to undo everything since you opened this. Use the <b>Discuss with advisor</b> action on any task to flag questions.
           </div>
         </div>
       </aside>

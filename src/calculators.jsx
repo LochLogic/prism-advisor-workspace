@@ -1,4 +1,4 @@
-// Prism — calculators. Restyled basic tools + four advanced tools that
+// Prism - calculators. Restyled basic tools + four advanced tools that
 // justify the AUM fee (Monte Carlo, Asset Location, Roth Ladder, Estate).
 
 const { useState: useStateC, useMemo: useMemoC } = React;
@@ -27,7 +27,7 @@ const StatCell = ({ label, value, tone, foot, big }) => (
 );
 
 /* Insight → action: advisor-only affordance that turns a tool verdict into a
-   CRM task on the dashboard ("Add to agenda"). Hidden for clients — the tools
+   CRM task on the dashboard ("Add to agenda"). Hidden for clients - the tools
    themselves stay client-safe; only the follow-up hook is advisor-side.
    Demo / non-UUID clients get the optimistic toast (matches addAgendaItem). */
 const InsightAction = ({ title, detail, compact }) => {
@@ -45,8 +45,8 @@ const InsightAction = ({ title, detail, compact }) => {
       title: String(title).slice(0, 160), detail: detail || null,
       client_id: activeClientId, priority: 'normal',
     });
-    if (row) { setState('done'); showToast?.('Task created — it’s on your dashboard'); }
-    else { setState('idle'); showToast?.('Could not create the task — check console'); }
+    if (row) { setState('done'); showToast?.('Task created - it’s on your dashboard'); }
+    else { setState('idle'); showToast?.('Could not create the task - check console'); }
   };
   const done = state === 'done';
   return (
@@ -72,13 +72,13 @@ const CashflowTool = () => {
         <StatCell label="Essential outflow" value={fmt$(totalExpenses)} />
         <StatCell label="Net surplus" value={fmt$(surplus)} tone={surplus < 0 ? 'bad' : 'good'} />
         <StatCell label="Savings rate" value={fmtPct(savingsRate)}
-          foot={savingsRate >= 30 ? 'Above target — institutional grade.' : savingsRate >= 20 ? 'On pace.' : 'Review with advisor.'} />
+          foot={savingsRate >= 30 ? 'Above target - institutional grade.' : savingsRate >= 20 ? 'On pace.' : 'Review with advisor.'} />
       </div>
     </ToolShell>
   );
 };
 
-/* Phase 01 · Freedom Date — savings-rate → years-to-independence (client utility) */
+/* Phase 01 · Freedom Date - savings-rate → years-to-independence (client utility) */
 const FreedomDateTool = () => {
   const { surplus, savingsRate, totalInvested, annualExpenses, fireNumber, fireProgress, effectiveTakehome, planningAge } = useProfile();
   // Investable surplus drives the contribution; let the client try saving a little more.
@@ -101,10 +101,10 @@ const FreedomDateTool = () => {
   const freedomAge  = (reached && planningAge > 0) ? planningAge + fi.years : null;
 
   return (
-    <ToolShell title="Freedom Date" hint="When work becomes optional — at today's savings pace">
+    <ToolShell title="Freedom Date" hint="When work becomes optional - at today's savings pace">
       <div className="px-tool-grid">
         <StatCell label="Years to independence"
-          value={reached ? (fi.years === 0 ? 'Now' : `${fi.years} yr`) : '—'}
+          value={reached ? (fi.years === 0 ? 'Now' : `${fi.years} yr`) : '-'}
           tone={reached ? 'good' : null}
           foot={reached ? (freedomAge ? `around age ${freedomAge}` : `≈ ${freedomYear}`) : 'increase saving to set a date'} big />
         <StatCell label="Freedom number" value={fmt$(target, { short: true })} foot="≈ 25× annual spending" />
@@ -133,14 +133,14 @@ const FreedomDateTool = () => {
       </label>
       <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 10, lineHeight: 1.5 }}>
         "Independence" = invested assets reaching ≈ 25× your annual spending, the point a 4%-ish draw could
-        cover today's lifestyle. Illustrative at a 5% real return — the early years are the advantage, since
+        cover today's lifestyle. Illustrative at a 5% real return - the early years are the advantage, since
         time does the heavy lifting. Your advisor can refine the target and pace with you.
       </div>
     </ToolShell>
   );
 };
 
-/* Phase 01 · Net-worth trajectory — what today's savings pace builds (client utility) */
+/* Phase 01 · Net-worth trajectory - what today's savings pace builds (client utility) */
 const NetWorthTrajectoryTool = () => {
   const { surplus, netWorth, savingsRate, effectiveTakehome } = useProfile();
   const [annualSavings, setAnnualSavings] = useStateC(Math.round(Math.max(0, surplus * 12)));
@@ -149,7 +149,7 @@ const NetWorthTrajectoryTool = () => {
   const traj = useMemoC(
     () => netWorthTrajectory({ startNetWorth: netWorth, annualSavings, realReturn: 0.05, years }),
     [netWorth, annualSavings, years]);
-  // The lever: one more percent of take-home, saved — what it adds at the horizon.
+  // The lever: one more percent of take-home, saved - what it adds at the horizon.
   const onePct = Math.max(0, effectiveTakehome) * 12 * 0.01;
   const trajMore = useMemoC(
     () => netWorthTrajectory({ startNetWorth: netWorth, annualSavings: annualSavings + onePct, realReturn: 0.05, years }),
@@ -162,7 +162,7 @@ const NetWorthTrajectoryTool = () => {
       <div className="px-tool-grid">
         <StatCell label="Net worth today" value={fmt$(netWorth, { short: true })}
           tone={digging ? null : 'good'}
-          foot={digging ? 'building — every payment counts' : `saving ${fmtPct(savingsRate)} of take-home`} />
+          foot={digging ? 'building - every payment counts' : `saving ${fmtPct(savingsRate)} of take-home`} />
         <StatCell label="In 5 years" value={fmt$(traj.at5, { short: true })} />
         <StatCell label="In 10 years" value={fmt$(traj.at10, { short: true })} />
         <StatCell label={`In ${traj.years} years`} value={fmt$(traj.final, { short: true })} big tone="good" />
@@ -171,7 +171,7 @@ const NetWorthTrajectoryTool = () => {
         <Sparkline data={traj.series.map(p => p.value)} width={220} height={36} color="var(--forest)" />
         {digging && traj.crossesZeroYear != null && traj.crossesZeroYear > 0 && (
           <span style={{ fontSize: 11, color: 'var(--ink-mute)' }}>
-            crosses zero in ≈ {traj.crossesZeroYear} yr — compounding starts working for you there
+            crosses zero in ≈ {traj.crossesZeroYear} yr - compounding starts working for you there
           </span>
         )}
       </div>
@@ -200,7 +200,7 @@ const NetWorthTrajectoryTool = () => {
       </div>
       <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 10, lineHeight: 1.5 }}>
         Illustrative at a 5% real (after-inflation) return on the positive balance; paying down debt
-        counts the same as saving here. The shape of the curve is the point — early dollars do
+        counts the same as saving here. The shape of the curve is the point - early dollars do
         decades of work. Your advisor can tune the assumptions with you.
       </div>
     </ToolShell>
@@ -240,7 +240,7 @@ const CoverageGapTool = () => {
   const prem = useMemoC(() => termLifePremium({ coverage: cg.gap, age: planningAge }), [cg.gap, planningAge]);
 
   // Constructive tone (never alarming on the client side): forest when covered,
-  // gold "room to strengthen" when there's a gap — no red.
+  // gold "room to strengthen" when there's a gap - no red.
   const tone     = cg.covered ? 'var(--forest)' : 'var(--gold)';
   const label    = cg.covered ? 'Well protected' : 'Room to strengthen';
   const ratioPct = Math.round((cg.ratio || 0) * 100);
@@ -257,7 +257,7 @@ const CoverageGapTool = () => {
           tone={cg.covered ? 'good' : null}
           foot={cg.covered ? 'guideline met' : 'worth reviewing with your advisor'} />
         <StatCell label="Est. term premium"
-          value={cg.gap > 0 ? `${fmt$(prem.monthly)}/mo` : '—'}
+          value={cg.gap > 0 ? `${fmt$(prem.monthly)}/mo` : '-'}
           foot={cg.gap > 0 ? 'rough, healthy non-smoker' : 'no gap to fill'} />
       </div>
       <div style={{ marginTop: 14 }}>
@@ -287,19 +287,19 @@ const CoverageGapTool = () => {
       </div>
       <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 10, lineHeight: 1.5 }}>
         Guideline ≈ income × {multiple} + debts to retire, less the liquidity reserve. The premium is a
-        rough illustration, not a quote — actual cost depends on age, health, and term. A short
+        rough illustration, not a quote - actual cost depends on age, health, and term. A short
         conversation with your advisor sizes the right policy.
       </div>
       {!cg.covered && cg.gap > 0 && (
         <InsightAction
-          title={`Coverage gap — size a ${fmt$(cg.gap, { short: true })} term policy`}
+          title={`Coverage gap - size a ${fmt$(cg.gap, { short: true })} term policy`}
           detail={`Guideline ${fmt$(cg.recommended, { short: true })} (${multiple}× income + debts − reserve) vs ${fmt$(existing, { short: true })} in place. Est. term premium ≈ ${fmt$(prem.monthly)}/mo.`} />
       )}
     </ToolShell>
   );
 };
 
-/* Phase 02 · Income runway — if income stopped, how long does the reserve carry you? */
+/* Phase 02 · Income runway - if income stopped, how long does the reserve carry you? */
 const IncomeRunwayTool = () => {
   const { profile, totalExpenses, grossMonthlyIncome } = useProfile();
   const reserve = profile.savings?.emergency || 0;
@@ -317,7 +317,7 @@ const IncomeRunwayTool = () => {
     () => incomeRunway({ liquidReserve: reserve, monthlyEssentials: totalExpenses }),
     [reserve, totalExpenses]);
 
-  // Constructive client tone: forest at 6+ months, gold "building" below — no red.
+  // Constructive client tone: forest at 6+ months, gold "building" below - no red.
   const strong = run.indefinite || run.months >= 6;
   const tone = strong ? 'var(--forest)' : 'var(--gold)';
   const label = run.indefinite ? 'Fully covered' : strong ? 'Solid runway' : 'Building · time on your side';
@@ -335,7 +335,7 @@ const IncomeRunwayTool = () => {
         <StatCell label="Benefit coverage" value={`${Math.round(run.coveragePct)}%`}
           foot="of essential outflow" />
         <StatCell label="Monthly gap"
-          value={run.burnAfterBenefit > 0 ? fmt$(run.burnAfterBenefit) : '—'}
+          value={run.burnAfterBenefit > 0 ? fmt$(run.burnAfterBenefit) : '-'}
           foot={run.burnAfterBenefit > 0 ? 'drawn from reserve once benefit starts' : 'no draw needed'} />
       </div>
       <div style={{ marginTop: 14 }}>
@@ -366,8 +366,8 @@ const IncomeRunwayTool = () => {
       <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 10, lineHeight: 1.5 }}>
         Long-term disability cover typically replaces ~60% of gross income after a waiting period the
         reserve must bridge alone. {hasDisabilityPolicy
-          ? 'A disability policy is on file — confirm the actual benefit and elimination period match above.'
-          : 'No disability policy is on file yet — worth a conversation with your advisor; it pairs with the coverage-gap review.'}
+          ? 'A disability policy is on file - confirm the actual benefit and elimination period match above.'
+          : 'No disability policy is on file yet - worth a conversation with your advisor; it pairs with the coverage-gap review.'}
       </div>
     </ToolShell>
   );
@@ -388,7 +388,7 @@ const AvalancheTool = () => {
         <StatCell label="High-cost balance" value={fmt$(toxicDebt)} tone={toxicDebt > 0 ? 'bad' : 'good'} />
         <StatCell label="Weighted APR" value={fmtPct(weightedApr)} />
         <StatCell label="Monthly applied" value={fmt$(monthly)} foot={`${fmt$(extra)} above minimum`} />
-        <StatCell label="Payoff horizon" value={isFinite(monthsToPayoff) ? `${monthsToPayoff} mo` : '—'} />
+        <StatCell label="Payoff horizon" value={isFinite(monthsToPayoff) ? `${monthsToPayoff} mo` : '-'} />
       </div>
       <label className="px-field" style={{ marginTop: 14 }}>
         <span className="px-field-label">Extra principal per month</span>
@@ -401,7 +401,7 @@ const AvalancheTool = () => {
   );
 };
 
-/* Phase 03 · Debt-vs-Invest crossover — pay down or invest the marginal dollar? */
+/* Phase 03 · Debt-vs-Invest crossover - pay down or invest the marginal dollar? */
 const DebtVsInvestTool = () => {
   const { profile } = useProfile();
   const debts = Array.isArray(profile.debts) ? profile.debts.filter(d => (Number(d.balance) || 0) > 0) : [];
@@ -419,7 +419,7 @@ const DebtVsInvestTool = () => {
     return (
       <ToolShell title="Pay down or invest?" hint="The marginal-dollar crossover">
         <div style={{ fontSize: 12, color: 'var(--ink-mute)', lineHeight: 1.5 }}>
-          No debts on file — nothing to weigh against investing. Every spare dollar can go straight to the
+          No debts on file - nothing to weigh against investing. Every spare dollar can go straight to the
           portfolio. Add balances in your numbers if that changes.
         </div>
       </ToolShell>
@@ -433,7 +433,7 @@ const DebtVsInvestTool = () => {
       <div className="px-tool-grid">
         <StatCell label="Expected return" value={fmtPct(returnPct)} foot="after-tax, the bar to beat" />
         <StatCell label="Pay down first" value={fmt$(payBalance, { short: true })}
-          tone={payBalance > 0 ? null : 'good'} foot={payBalance > 0 ? 'APR beats investing' : 'none — all below the bar'} />
+          tone={payBalance > 0 ? null : 'good'} foot={payBalance > 0 ? 'APR beats investing' : 'none - all below the bar'} />
         <StatCell label="Better to invest" value={fmt$(investBalance, { short: true })} tone="good"
           foot="APR below expected return" />
         <StatCell label="Debts weighed" value={`${debts.length}`} foot="balances on file" />
@@ -463,14 +463,14 @@ const DebtVsInvestTool = () => {
         </table>
         <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 8, lineHeight: 1.5 }}>
           Paying a balance down earns a <b>guaranteed, tax-free</b> return equal to its APR; investing earns an
-          uncertain one. Above ~{fmtPct(returnPct)} APR, the guaranteed payoff usually wins — below it, the
+          uncertain one. Above ~{fmtPct(returnPct)} APR, the guaranteed payoff usually wins - below it, the
           expected market return does. Near the line it's a toss-up where liquidity and peace of mind decide.
         </div>
       </div>
       {payBalance > 0 && (
         <InsightAction
-          title={`Debt plan — prioritize ${fmt$(payBalance, { short: true })} of high-APR balances`}
-          detail={`${rows.filter(r => r.verdict === 'pay').map(r => `${r.label} (${fmtPct(r.apr)})`).join(', ')} beat the ${fmtPct(returnPct)} after-tax return bar — direct the marginal dollar there first.`} />
+          title={`Debt plan - prioritize ${fmt$(payBalance, { short: true })} of high-APR balances`}
+          detail={`${rows.filter(r => r.verdict === 'pay').map(r => `${r.label} (${fmtPct(r.apr)})`).join(', ')} beat the ${fmtPct(returnPct)} after-tax return bar - direct the marginal dollar there first.`} />
       )}
     </ToolShell>
   );
@@ -500,7 +500,7 @@ const HSATool = () => {
 const BracketHeadroomTool = () => {
   const { profile, grossAnnualIncome, effectiveTakehome } = useProfile();
   const defaultFiling = profile.taxes?.filingStatus === 'single' ? 'single' : 'mfj';
-  // Prefer the parsed W-2 Box-1 wages when captured — the figure off the actual
+  // Prefer the parsed W-2 Box-1 wages when captured - the figure off the actual
   // return beats the ledger estimate; fall back to gross/take-home when no W-2.
   // Sums all household W-2s (taxes.w2s[]); legacy single taxes.w2 still counts.
   const w2Wages = (Array.isArray(profile.taxes?.w2s) ? profile.taxes.w2s
@@ -515,14 +515,14 @@ const BracketHeadroomTool = () => {
 
   return (
     <ToolShell title="Tax-bracket headroom"
-      hint="Where this year's income sits — and the room before the next bracket">
+      hint="Where this year's income sits - and the room before the next bracket">
       <div className="px-tool-grid">
         <StatCell label="Marginal rate" value={pct(b.marginalRate)} big
           foot={topBracket ? 'top federal bracket' : `next dollar taxed at ${pct(b.marginalRate)}`} />
         <StatCell label="Taxable income" value={fmt$(b.taxableIncome, { short: true })}
           foot={`after ${fmt$(b.stdDeduction, { short: true })} standard deduction`} />
         <StatCell label="Effective rate" value={pct(b.effectiveRate)} foot="blended across brackets" />
-        <StatCell label="Headroom to next" value={topBracket ? '—' : fmt$(b.headroom, { short: true })}
+        <StatCell label="Headroom to next" value={topBracket ? '-' : fmt$(b.headroom, { short: true })}
           tone={topBracket ? null : 'good'}
           foot={topBracket ? 'no higher bracket' : `before the ${pct(b.nextRate)} bracket`} />
       </div>
@@ -531,7 +531,7 @@ const BracketHeadroomTool = () => {
           borderRadius: 6, fontSize: 12, color: 'var(--ink)', lineHeight: 1.5 }}>
           You have <b>{fmt$(b.headroom, { short: true })}</b> of room in the {pct(b.marginalRate)} bracket before income
           spills into {pct(b.nextRate)}. That headroom is the space for Roth conversions or pre-tax vs. Roth
-          contribution choices this year — worth coordinating with your advisor.
+          contribution choices this year - worth coordinating with your advisor.
         </div>
       )}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 14 }}>
@@ -565,7 +565,7 @@ const BracketHeadroomTool = () => {
                 <td className="is-num px-mono">
                   {fmt$(band.lo, { short: true })} – {isFinite(band.top) ? fmt$(band.top, { short: true }) : '+'}
                 </td>
-                <td className="is-num px-mono">{band.inBand > 0 ? fmt$(band.inBand, { short: true }) : '—'}</td>
+                <td className="is-num px-mono">{band.inBand > 0 ? fmt$(band.inBand, { short: true }) : '-'}</td>
               </tr>
             ))}
           </tbody>
@@ -573,14 +573,14 @@ const BracketHeadroomTool = () => {
         <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 8, lineHeight: 1.5 }}>
           2025 federal ordinary-income brackets, applied to income after the standard deduction. Brackets
           reindex each year. This frames the Roth-conversion and contribution-priority decisions in the
-          later phases — illustrative, and best refined with your advisor.
+          later phases - illustrative, and best refined with your advisor.
         </div>
       </div>
     </ToolShell>
   );
 };
 
-/* Phase 04 · Tax-return insights (Holistiplan-lite) — observations off the
+/* Phase 04 · Tax-return insights (Holistiplan-lite) - observations off the
    captured 1040 lines (Numbers drawer → "Import from your 1040"). Pure render
    over tax1040Insights; every observation is explainable line-by-line. */
 const TaxReturnInsightTool = () => {
@@ -603,7 +603,7 @@ const TaxReturnInsightTool = () => {
         <div style={{ padding: '14px 4px', fontSize: 12.5, color: 'var(--ink-mute)', lineHeight: 1.6 }}>
           Add a few lines from your most recent federal return in <b>Your numbers → Planning &amp; tax →
           Import from your 1040</b> (AGI is the only required line). The return then reads back as plain-language
-          observations — bracket position, withholding check, 0% capital-gains room, and more — refreshed
+          observations - bracket position, withholding check, 0% capital-gains room, and more - refreshed
           automatically as the numbers change.
         </div>
       </ToolShell>
@@ -615,11 +615,11 @@ const TaxReturnInsightTool = () => {
       hint="Planning observations read straight off your filed 1040">
       <div className="px-tool-grid">
         <StatCell label="Marginal rate" value={pct(res.marginalRate)} big foot="on the next ordinary dollar" />
-        <StatCell label="Effective rate" value={res.effectiveRate != null ? pct(res.effectiveRate) : '—'}
+        <StatCell label="Effective rate" value={res.effectiveRate != null ? pct(res.effectiveRate) : '-'}
           foot={res.effectiveRate != null ? 'total tax ÷ AGI' : 'add Line 24 to compute'} />
         <StatCell label="Taxable income" value={fmt$(res.taxableIncome, { short: true })}
           foot={`after ${fmt$(res.deduction, { short: true })} deduction`} />
-        <StatCell label="Bracket headroom" value={isFinite(res.headroom) ? fmt$(res.headroom, { short: true }) : '—'}
+        <StatCell label="Bracket headroom" value={isFinite(res.headroom) ? fmt$(res.headroom, { short: true }) : '-'}
           tone={isFinite(res.headroom) && res.headroom > 0 ? 'good' : null}
           foot={isFinite(res.headroom) ? 'before the next bracket' : 'top bracket'} />
       </div>
@@ -637,19 +637,19 @@ const TaxReturnInsightTool = () => {
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--ink-mute)', lineHeight: 1.55 }}>{o.detail}</div>
               </div>
-              {o.tone !== 'info' && <InsightAction compact title={`1040 follow-up — ${o.title}`} detail={o.detail} />}
+              {o.tone !== 'info' && <InsightAction compact title={`1040 follow-up - ${o.title}`} detail={o.detail} />}
             </div>
           );
         })}
         {res.observations.length === 0 && (
           <div style={{ fontSize: 12, color: 'var(--ink-mute)', fontStyle: 'italic', padding: '6px 0' }}>
-            Nothing flagged from the lines entered — add more lines (withholding, dividends, gains) for a fuller read.
+            Nothing flagged from the lines entered - add more lines (withholding, dividends, gains) for a fuller read.
           </div>
         )}
       </div>
       <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 10, lineHeight: 1.5 }}>
         Observations are derived only from the 1040 lines you entered, against 2025 federal brackets and
-        thresholds (reindexed annually). Educational, not tax advice — each one is a conversation starter
+        thresholds (reindexed annually). Educational, not tax advice - each one is a conversation starter
         with your advisor, who sees the same list.
       </div>
     </ToolShell>
@@ -658,7 +658,7 @@ const TaxReturnInsightTool = () => {
 
 /* ───────────────────── ADVANCED TOOLS ─────────────────────────────── */
 
-/* Asset Location optimizer — placement of tax-inefficient vs efficient assets */
+/* Asset Location optimizer - placement of tax-inefficient vs efficient assets */
 const AssetLocationTool = () => {
   const { profile, riskProfile } = useProfile();
   const r = profile.retirement;
@@ -719,12 +719,12 @@ const AssetLocationTool = () => {
         {plan ? (
           <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 8 }}>
             Placement of {fmt$(plan.total, { short: true })} invested across your accounts
-            {riskProfile ? ` at a ${riskProfile.band.toLowerCase()} target allocation` : ''} —
+            {riskProfile ? ` at a ${riskProfile.band.toLowerCase()} target allocation` : ''} -
             tax-inefficient assets are sheltered first.
           </div>
         ) : (
           <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 8 }}>
-            Illustrative institutional model — enter account balances to fit this to the household.
+            Illustrative institutional model - enter account balances to fit this to the household.
           </div>
         )}
       </div>
@@ -732,7 +732,7 @@ const AssetLocationTool = () => {
   );
 };
 
-/* Monte Carlo — 1,000 deterministic-feeling scenarios using seeded RNG */
+/* Monte Carlo - 1,000 deterministic-feeling scenarios using seeded RNG */
 const MonteCarloTool = () => {
   const { profile, totalInvested, annualExpenses, planningAge } = useProfile();
   const { activeClientId } = useView();
@@ -801,7 +801,7 @@ const RothLadderTool = () => {
         <StatCell label="Traditional bal. eligible" value={fmt$(tradBalance, { short: true })} />
         <StatCell label="5-year total converted" value={fmt$(totalConverted, { short: true })} tone="good" />
         <StatCell label="Total tax cost" value={fmt$(totalTax, { short: true })} foot={`at ${bracket}% bracket`} />
-        <StatCell label="Penalty-free at" value={`${rows[0]?.available || '—'}`} foot="5-year rule" />
+        <StatCell label="Penalty-free at" value={`${rows[0]?.available || '-'}`} foot="5-year rule" />
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 14 }}>
         <label className="px-field">
@@ -932,18 +932,18 @@ const TLHTool = () => {
         </label>
       </div>
       <div style={{ marginTop: 12, fontSize: 11, color: 'var(--ink-mute)', fontStyle: 'italic', lineHeight: 1.5 }}>
-        Wash-sale rule: a harvested position can't be repurchased within 30 days — we rotate into a correlated, non-substantially-identical replacement to hold market exposure.
+        Wash-sale rule: a harvested position can't be repurchased within 30 days - we rotate into a correlated, non-substantially-identical replacement to hold market exposure.
       </div>
     </ToolShell>
   );
 };
 
-/* Contribution Priority — the savings waterfall (per-account optimization) */
+/* Contribution Priority - the savings waterfall (per-account optimization) */
 const ContributionPriorityTool = () => {
   const { profile, surplus, annualRetirementContribution, grossAnnualIncome, effectiveTakehome } = useProfile();
   const r = profile.retirement;
   // Default capacity: what the household already directs to retirement plus any free
-  // monthly surplus — a sensible starting figure the advisor tunes.
+  // monthly surplus - a sensible starting figure the advisor tunes.
   const defaultCapacity = Math.max(0, Math.round((annualRetirementContribution + Math.max(0, surplus) * 12) / 500) * 500);
   const [capacity, setCapacity] = useStateC(defaultCapacity);
   const [matchPct, setMatchPct] = useStateC(r.employerMatchPct || 0);
@@ -958,7 +958,7 @@ const ContributionPriorityTool = () => {
 
   return (
     <ToolShell title="Contribution Priority" advanced
-      hint="Optimal funding order for this year's savings — match first, taxable last">
+      hint="Optimal funding order for this year's savings - match first, taxable last">
       <div className="px-tool-grid">
         <StatCell label="Annual to invest" value={fmt$(capacity, { short: true })} />
         <StatCell label="Into tax-advantaged" value={fmt$(plan.totalTaxAdvantaged, { short: true })} tone="good"
@@ -971,7 +971,7 @@ const ContributionPriorityTool = () => {
       {!plan.fullMatch && plan.missedMatch > 0 && (
         <div style={{ marginTop: 12, padding: '10px 12px', background: 'var(--bg-elev)', borderLeft: '3px solid var(--brick)',
           borderRadius: 6, fontSize: 12, color: 'var(--ink)' }}>
-          Capacity stops short of the full employer match — {fmt$(plan.missedMatch)}/yr of guaranteed return is unclaimed.
+          Capacity stops short of the full employer match - {fmt$(plan.missedMatch)}/yr of guaranteed return is unclaimed.
           The match is the first dollar to fund.
         </div>
       )}
@@ -1014,7 +1014,7 @@ const ContributionPriorityTool = () => {
           </tbody>
         </table>
         <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 8 }}>
-          Each tier is filled to its annual limit before the next — capturing the guaranteed
+          Each tier is filled to its annual limit before the next - capturing the guaranteed
           employer match first, then the most tax-advantaged space, with the remainder deployed to taxable.
         </div>
       </div>
@@ -1022,7 +1022,7 @@ const ContributionPriorityTool = () => {
   );
 };
 
-/* Tax-aware Withdrawal Sequencing — the decumulation draw order */
+/* Tax-aware Withdrawal Sequencing - the decumulation draw order */
 const WithdrawalSequenceTool = () => {
   const { profile, taxableBalance, annualExpenses, planningAge, incomeStreams } = useProfile();
   const r = profile.retirement;
@@ -1103,7 +1103,7 @@ const WithdrawalSequenceTool = () => {
   );
 };
 
-/* Roth Conversion Window — bracket-headroom sizing in the low-income years */
+/* Roth Conversion Window - bracket-headroom sizing in the low-income years */
 const RothConversionWindowTool = () => {
   const { profile, planningAge, incomeStreams } = useProfile();
   const r = profile.retirement;
@@ -1122,7 +1122,7 @@ const RothConversionWindowTool = () => {
     return (
       <ToolShell title="Roth Conversion Window" advanced hint="Bracket-filling conversions before RMDs">
         <div style={{ fontSize: 12, color: 'var(--ink-mute)' }}>
-          No conversion window — either retirement is at/after the RMD age (73) or there's no tax-deferred balance to convert.
+          No conversion window - either retirement is at/after the RMD age (73) or there's no tax-deferred balance to convert.
         </div>
       </ToolShell>
     );
@@ -1180,7 +1180,7 @@ const RothConversionWindowTool = () => {
       </div>
       {w.annualConversion > 0 && (
         <InsightAction
-          title={`Roth window — model ~${fmt$(w.annualConversion, { short: true })}/yr conversions, ages ${w.windowStart}–${w.windowEnd}`}
+          title={`Roth window - model ~${fmt$(w.annualConversion, { short: true })}/yr conversions, ages ${w.windowStart}–${w.windowEnd}`}
           detail={`${w.windowYears}-year window filling the ${Math.round(w.targetBracket * 100)}% bracket: ${fmt$(w.totalConverted, { short: true })} converted, est. tax ${fmt$(w.estTaxCost, { short: true })}. Confirm income assumptions before acting.`} />
       )}
     </ToolShell>
@@ -1191,12 +1191,12 @@ const RothConversionWindowTool = () => {
 
 // Months → "Xy Ym" for payoff horizons.
 const fmtMonths = (m) => {
-  if (!isFinite(m)) return '—';
+  if (!isFinite(m)) return '-';
   const y = Math.floor(m / 12), mo = Math.round(m % 12);
   return y > 0 ? `${y}y${mo ? ` ${mo}m` : ''}` : `${mo}m`;
 };
 
-/* Phase 03 · Mortgage payoff accelerator — extra principal → time & interest saved */
+/* Phase 03 · Mortgage payoff accelerator - extra principal → time & interest saved */
 const MortgagePayoffTool = () => {
   const { profile, isOwner, mortgageBalance, mortgageInterestMonthly, mortgagePrincipalMonthly } = useProfile();
   const apr = Number(profile.housing?.mortgageApr) || 0;
@@ -1212,7 +1212,7 @@ const MortgagePayoffTool = () => {
     return (
       <ToolShell title="Mortgage payoff accelerator" hint="Extra principal → time & interest saved">
         <div style={{ fontSize: 12, color: 'var(--ink-mute)', lineHeight: 1.5 }}>
-          No mortgage on file — nothing to accelerate. Add your home and mortgage balance in your numbers to
+          No mortgage on file - nothing to accelerate. Add your home and mortgage balance in your numbers to
           model paying it down faster.
         </div>
       </ToolShell>
@@ -1240,9 +1240,9 @@ const MortgagePayoffTool = () => {
           foot={`${fmt$(result.base.interest, { short: true })} total interest`} />
         <StatCell label="With extra principal" value={fmtMonths(result.accel.months)} tone="good"
           foot={`${fmt$(result.accel.interest, { short: true })} total interest`} big />
-        <StatCell label="Time saved" value={result.monthsSaved > 0 ? fmtMonths(result.monthsSaved) : '—'} tone={result.monthsSaved > 0 ? 'good' : null}
+        <StatCell label="Time saved" value={result.monthsSaved > 0 ? fmtMonths(result.monthsSaved) : '-'} tone={result.monthsSaved > 0 ? 'good' : null}
           foot={`${fmt$(extra)}/mo extra`} />
-        <StatCell label="Interest saved" value={result.interestSaved > 0 ? fmt$(result.interestSaved, { short: true }) : '—'} tone="good"
+        <StatCell label="Interest saved" value={result.interestSaved > 0 ? fmt$(result.interestSaved, { short: true }) : '-'} tone="good"
           foot="over the life of the loan" />
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 14 }}>
@@ -1258,15 +1258,15 @@ const MortgagePayoffTool = () => {
         </label>
       </div>
       <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 10, lineHeight: 1.5 }}>
-        Paying extra principal shortens the loan and saves interest — a guaranteed, tax-free return equal to the
+        Paying extra principal shortens the loan and saves interest - a guaranteed, tax-free return equal to the
         mortgage rate ({fmtPct(apr)}). At a low fixed rate that's often below what the same dollars might earn
-        invested — see "Pay down or invest?" — so this is usually a peace-of-mind choice. Worth weighing with your advisor.
+        invested - see "Pay down or invest?" - so this is usually a peace-of-mind choice. Worth weighing with your advisor.
       </div>
     </ToolShell>
   );
 };
 
-/* Phase 04 · HDHP-vs-PPO break-even — answers the flagged "is the HDHP worth it?" */
+/* Phase 04 · HDHP-vs-PPO break-even - answers the flagged "is the HDHP worth it?" */
 const HDHPvsPPOTool = () => {
   const { profile } = useProfile();
   const marginal = Number(profile.taxes?.marginalRate) || 22;
@@ -1288,7 +1288,7 @@ const HDHPvsPPOTool = () => {
   const winnerLabel = r.cheaper === 'hdhp' ? 'HDHP + HSA' : 'PPO';
   return (
     <ToolShell title="HDHP vs. PPO break-even"
-      hint="Total annual cost of each plan — including the HSA tax advantage">
+      hint="Total annual cost of each plan - including the HSA tax advantage">
       <div className="px-tool-grid">
         <StatCell label="HDHP net cost" value={fmt$(r.hdhp, { short: true })}
           tone={r.cheaper === 'hdhp' ? 'good' : null} foot={`incl. ${fmt$(r.hsaTaxBenefit)} HSA benefit`} />
@@ -1296,14 +1296,14 @@ const HDHPvsPPOTool = () => {
           tone={r.cheaper === 'ppo' ? 'good' : null} foot="premium + your share of claims" />
         <StatCell label="Lower-cost plan" value={winnerLabel} tone="good" big
           foot={`saves ${fmt$(r.savings, { short: true })}/yr at this spend`} />
-        <StatCell label="Break-even claims" value={r.breakeven != null ? fmt$(r.breakeven, { short: true }) : '—'}
+        <StatCell label="Break-even claims" value={r.breakeven != null ? fmt$(r.breakeven, { short: true }) : '-'}
           foot={r.breakeven != null ? 'above this, the PPO wins' : 'HDHP wins across the range'} />
       </div>
       <div style={{ marginTop: 12, padding: '10px 12px', background: 'var(--bg-elev)', borderLeft: '3px solid var(--gold)',
         borderRadius: 6, fontSize: 12, color: 'var(--ink)', lineHeight: 1.5 }}>
         For your expected <b>{fmt$(claims, { short: true })}</b> of annual medical spending, the <b>{winnerLabel}</b> costs
         less. {r.breakeven != null
-          ? <>The plans break even around <b>{fmt$(r.breakeven, { short: true })}</b> of claims — below that the HDHP's lower premium and HSA advantage win.</>
+          ? <>The plans break even around <b>{fmt$(r.breakeven, { short: true })}</b> of claims - below that the HDHP's lower premium and HSA advantage win.</>
           : <>The HDHP stays cheaper across the plausible range here, thanks to the HSA tax advantage.</>}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 14 }}>
@@ -1339,7 +1339,7 @@ const HDHPvsPPOTool = () => {
         </label>
       </div>
       <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 10, lineHeight: 1.5 }}>
-        The HDHP's net cost subtracts the HSA advantage — the employer's contribution plus the tax saved on
+        The HDHP's net cost subtracts the HSA advantage - the employer's contribution plus the tax saved on
         your own HSA dollars at your {marginal}% rate. Coinsurance and out-of-pocket maximums use plan-typical
         defaults; your advisor can refine with your actual benefits summary. Illustrative, not benefits advice.
       </div>
@@ -1347,7 +1347,7 @@ const HDHPvsPPOTool = () => {
   );
 };
 
-/* Phase 05 · Mega-Backdoor Roth capacity — answers the flagged q02 */
+/* Phase 05 · Mega-Backdoor Roth capacity - answers the flagged q02 */
 const MegaBackdoorTool = () => {
   const { profile, planningAge, grossAnnualIncome, effectiveTakehome } = useProfile();
   const r = profile.retirement;
@@ -1366,7 +1366,7 @@ const MegaBackdoorTool = () => {
     <ToolShell title="Mega-Backdoor Roth capacity"
       hint="After-tax 401(k) room under the §415(c) total-additions limit">
       <div className="px-tool-grid">
-        <StatCell label="After-tax capacity" value={planAllows ? fmt$(c.afterTaxCapacity, { short: true }) : '—'}
+        <StatCell label="After-tax capacity" value={planAllows ? fmt$(c.afterTaxCapacity, { short: true }) : '-'}
           tone={planAllows && c.hasCapacity ? 'good' : null} big
           foot={planAllows ? (c.hasCapacity ? 'convertible to Roth' : 'limit already reached') : 'plan must allow it'} />
         <StatCell label="Total-additions limit" value={fmt$(c.limit, { short: true })}
@@ -1381,11 +1381,11 @@ const MegaBackdoorTool = () => {
         {planAllows
           ? (c.hasCapacity
             ? <>Your plan has roughly <b>{fmt$(c.afterTaxCapacity, { short: true })}</b> of room for after-tax contributions that
-                can be converted to Roth — the "mega backdoor." This only works if your 401(k) plan allows after-tax
+                can be converted to Roth - the "mega backdoor." This only works if your 401(k) plan allows after-tax
                 contributions <i>and</i> in-plan Roth conversions (or in-service withdrawals). Confirm both with your advisor.</>
             : <>You've already filled the §415(c) limit, so there's no after-tax room to convert this year.</>)
           : <>The mega backdoor requires a plan that permits after-tax contributions and in-plan Roth conversions.
-              Check your plan documents — your advisor can help read them.</>}
+              Check your plan documents - your advisor can help read them.</>}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 14 }}>
         <label className="px-field">
@@ -1404,9 +1404,9 @@ const MegaBackdoorTool = () => {
         My 401(k) plan allows after-tax contributions + in-plan Roth conversion
       </label>
       <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 10, lineHeight: 1.5 }}>
-        The §415(c) total-additions limit ({fmt$(c.limit, { short: true })} in 2025) caps all 401(k) money — your
+        The §415(c) total-additions limit ({fmt$(c.limit, { short: true })} in 2025) caps all 401(k) money - your
         deferral, the employer's contribution, and after-tax dollars combined. Whatever's left is the mega-backdoor
-        capacity. A dated assumption; reindexed annually. Illustrative — coordinate with your advisor.
+        capacity. A dated assumption; reindexed annually. Illustrative - coordinate with your advisor.
       </div>
     </ToolShell>
   );
@@ -1439,21 +1439,21 @@ const EquityCompTool = () => {
   const tone = conc.concentrated ? 'var(--gold)' : 'var(--forest)';
   return (
     <ToolShell title="Equity-comp concentration"
-      hint={`Single-stock risk in ${ticker} — and the tax cost to diversify`}>
+      hint={`Single-stock risk in ${ticker} - and the tax cost to diversify`}>
       <div className="px-tool-grid">
         <StatCell label="Concentration" value={`${conc.concentrationPct.toFixed(1)}%`} big
           tone={conc.concentrated ? null : 'good'}
           foot={conc.concentrated ? `above the ${conc.thresholdPct}% guideline` : 'within guideline'} />
         <StatCell label="Position value" value={fmt$(largestPosition.positionValue, { short: true })}
           foot={`${fmt$(conc.gain, { short: true })} unrealized gain`} />
-        <StatCell label={`Trim to ${conc.thresholdPct}%`} value={conc.excess > 0 ? fmt$(conc.excess, { short: true }) : '—'}
+        <StatCell label={`Trim to ${conc.thresholdPct}%`} value={conc.excess > 0 ? fmt$(conc.excess, { short: true }) : '-'}
           foot={conc.excess > 0 ? `≈ ${fmt$(conc.taxToTrim, { short: true })} cap-gains tax` : 'no trim needed'} />
         <StatCell label="Tax to fully exit" value={fmt$(conc.taxToFullyDiversify, { short: true })}
           foot={`at ${capGains}% on the full gain`} />
       </div>
       {conc.unvestedValue > 0 && (
         <div style={{ fontSize: 12, color: 'var(--ink-mute)', marginTop: 12, lineHeight: 1.5 }}>
-          Plus <b>{fmt$(conc.unvestedValue, { short: true })}</b> of unvested grants still to come — future vesting adds
+          Plus <b>{fmt$(conc.unvestedValue, { short: true })}</b> of unvested grants still to come - future vesting adds
           to the position (and to ordinary income) as it lands, so the concentration tends to rebuild without a plan.
         </div>
       )}
@@ -1473,14 +1473,14 @@ const EquityCompTool = () => {
       </div>
       <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 10, lineHeight: 1.5 }}>
         A single stock above ~{conc.thresholdPct}% of the portfolio carries company-specific risk no diversified
-        plan would choose deliberately. Diversifying realizes the gain and the tax — a staged sell-down, a 10b5-1
+        plan would choose deliberately. Diversifying realizes the gain and the tax - a staged sell-down, a 10b5-1
         plan, or charitable gifting of appreciated shares can soften it. Your advisor coordinates the glide.
       </div>
     </ToolShell>
   );
 };
 
-/* Phase 07 · RMD projector — required distributions at 73 */
+/* Phase 07 · RMD projector - required distributions at 73 */
 const RMDProjectionTool = () => {
   const { profile, planningAge } = useProfile();
   const r = profile.retirement;
@@ -1497,14 +1497,14 @@ const RMDProjectionTool = () => {
     return (
       <ToolShell title="RMD projector" advanced hint="Required distributions starting at 73">
         <div style={{ fontSize: 12, color: 'var(--ink-mute)' }}>
-          No tax-deferred balance (IRA / 401k) on file — nothing to project. RMDs only apply to pre-tax accounts.
+          No tax-deferred balance (IRA / 401k) on file - nothing to project. RMDs only apply to pre-tax accounts.
         </div>
       </ToolShell>
     );
   }
   const checkpoints = result.schedule.filter((y, i) => i % 4 === 0 || i === result.schedule.length - 1);
   return (
-    <ToolShell title="RMD projector" advanced hint="Required distributions begin at age 73 — and the tax they trigger">
+    <ToolShell title="RMD projector" advanced hint="Required distributions begin at age 73 - and the tax they trigger">
       <div className="px-tool-grid">
         <StatCell label="First RMD (age 73)" value={fmt$(result.firstRmd.amount, { short: true })} big
           foot={`on ${fmt$(result.balanceAtRmd, { short: true })} projected`} />
@@ -1516,7 +1516,7 @@ const RMDProjectionTool = () => {
       </div>
       <div style={{ marginTop: 12, padding: '10px 12px', background: 'var(--bg-elev)', borderLeft: '3px solid var(--gold)',
         borderRadius: 6, fontSize: 12, color: 'var(--ink)', lineHeight: 1.5 }}>
-        Pre-tax accounts can't grow untaxed forever — at 73 the IRS forces a growing distribution each year, taxed
+        Pre-tax accounts can't grow untaxed forever - at 73 the IRS forces a growing distribution each year, taxed
         as income. Roth conversions in the low-income years before then shrink this future tax. See the
         Roth Conversion Window tool.
       </div>
@@ -1553,7 +1553,7 @@ const RMDProjectionTool = () => {
         </table>
         <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 8, lineHeight: 1.5 }}>
           IRS Uniform Lifetime Table divisors; RMD = balance ÷ divisor. Illustrative at a flat {growth}% growth and
-          {rate}% rate — your advisor refines with actual balances and bracket projections.
+          {rate}% rate - your advisor refines with actual balances and bracket projections.
         </div>
       </div>
     </ToolShell>
@@ -1601,9 +1601,9 @@ const SSClaimingTool = () => {
 
   if (!result) {
     return (
-      <ToolShell title="Social Security claiming age" advanced hint="62 vs. 67 vs. 70 — lifetime break-even">
+      <ToolShell title="Social Security claiming age" advanced hint="62 vs. 67 vs. 70 - lifetime break-even">
         <div style={{ fontSize: 12, color: 'var(--ink-mute)', lineHeight: 1.5 }}>
-          Enter your PIA — the monthly Social Security benefit at full retirement age (67), from your SSA statement —
+          Enter your PIA - the monthly Social Security benefit at full retirement age (67), from your SSA statement -
           to compare claiming ages. Or add a Social Security stream in your numbers.
         </div>
         <label className="px-field" style={{ marginTop: 14 }}>
@@ -1624,16 +1624,16 @@ const SSClaimingTool = () => {
             tone={o.claimAge === result.best.claimAge ? 'good' : null}
             foot={`${fmt$(o.lifetimeNominal, { short: true })} lifetime${o.claimAge === result.best.claimAge ? ' · best PV' : ''}`} />
         ))}
-        <StatCell label="Break-even age" value={result.breakevenAge ? `${result.breakevenAge}` : '—'}
+        <StatCell label="Break-even age" value={result.breakevenAge ? `${result.breakevenAge}` : '-'}
           foot={result.breakevenAge ? 'delaying to 70 pulls ahead here' : 'no crossover before ' + longevity} />
       </div>
       <div style={{ marginTop: 12, padding: '10px 12px', background: 'var(--bg-elev)', borderLeft: '3px solid var(--gold)',
         borderRadius: 6, fontSize: 12, color: 'var(--ink)', lineHeight: 1.5 }}>
         Claiming at 62 means a smaller check for life; waiting to 70 earns 8%/yr of delayed credits.
         {result.breakevenAge
-          ? <> If you live past about <b>age {result.breakevenAge}</b>, delaying to 70 wins on total dollars — so
+          ? <> If you live past about <b>age {result.breakevenAge}</b>, delaying to 70 wins on total dollars - so
               longevity, other income, and a spouse's benefit drive the call.</>
-          : <> At this longevity the earlier claim isn't overtaken — but health, other income, and survivor benefits matter.</>}
+          : <> At this longevity the earlier claim isn't overtaken - but health, other income, and survivor benefits matter.</>}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
         <span className="px-eyebrow">Set the plan to claim at</span>
@@ -1646,7 +1646,7 @@ const SSClaimingTool = () => {
         ))}
         {appliedAge != null && (
           <span style={{ fontSize: 11, color: 'var(--ink-mute)' }}>
-            Social Security stream updated — retirement readiness now reflects claiming at {appliedAge}.
+            Social Security stream updated - retirement readiness now reflects claiming at {appliedAge}.
           </span>
         )}
       </div>
@@ -1671,7 +1671,7 @@ const SSClaimingTool = () => {
       </div>
       <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 10, lineHeight: 1.5 }}>
         PIA is your benefit at full retirement age (67). Figures assume a 2.5% annual COLA; the discount rate (0% =
-        compare raw dollars) reflects how much you value money sooner. Illustrative — your actual SSA estimate and a
+        compare raw dollars) reflects how much you value money sooner. Illustrative - your actual SSA estimate and a
         spouse's benefit should anchor the decision with your advisor.
       </div>
     </ToolShell>

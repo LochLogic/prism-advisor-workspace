@@ -1,5 +1,5 @@
-// Prism — Platform-owner dashboard (founder tier, above firm admin).
-// Advisor bundle only — never ships to /portal. All authorization is
+// Prism - Platform-owner dashboard (founder tier, above firm admin).
+// Advisor bundle only - never ships to /portal. All authorization is
 // server-side: every call goes through the platform-admin edge function,
 // which checks the caller against the px_platform_owners allowlist and runs
 // on the service role (no user RLS policy was touched). This view just
@@ -168,10 +168,10 @@ const PlatformOwnerDashboard = () => {
     setBusyId(null);
     if (r?.firm) {
       setFirms(prev => prev.map(f => f.id === firm.id ? { ...f, ...r.firm } : f));
-      showToast(action === 'suspend_firm' ? `${firm.name} suspended — their workspace is locked`
+      showToast(action === 'suspend_firm' ? `${firm.name} suspended - their workspace is locked`
         : action === 'reactivate_firm' ? `${firm.name} reactivated`
         : `${firm.name} → ${r.firm.plan} · ${r.firm.seats_purchased} seats`);
-    } else showToast(r?.error || 'Action failed — check console');
+    } else showToast(r?.error || 'Action failed - check console');
   };
 
   const provision = async () => {
@@ -184,7 +184,7 @@ const PlatformOwnerDashboard = () => {
     setProvBusy(false);
     if (r?.firm) {
       setProvForm(null);
-      showToast(r.invited ? `Firm created — ${provForm.owner_email} has an invite email` : 'Firm created and linked to the existing account');
+      showToast(r.invited ? `Firm created - ${provForm.owner_email} has an invite email` : 'Firm created and linked to the existing account');
       load();
     } else showToast(r?.error || 'Provisioning failed');
   };
@@ -203,7 +203,7 @@ const PlatformOwnerDashboard = () => {
       <div style={{ fontSize: 13, color: 'var(--ink-mute)', maxWidth: 380 }}>
         {state === 'denied'
           ? 'This view administers every firm on Prism and is limited to the platform owner allowlist.'
-          : 'Try again in a moment — the platform-admin function did not respond.'}
+          : 'Try again in a moment - the platform-admin function did not respond.'}
       </div>
       <button className="px-btn px-btn-ghost" onClick={() => setView('advisor')}>
         <Icons.ArrowRight size={12} style={{ transform: 'rotate(180deg)' }} /> Back to dashboard
@@ -269,7 +269,7 @@ const PlatformOwnerDashboard = () => {
 
         {firms.length === 0 ? (
           <div style={{ padding: '32px 0', textAlign: 'center', color: 'var(--ink-faint)', fontSize: 13, fontStyle: 'italic' }}>
-            No firms yet — provision the first one above.
+            No firms yet - provision the first one above.
           </div>
         ) : (
           <div className="px-roster">
@@ -295,7 +295,7 @@ const PlatformOwnerDashboard = () => {
         <div style={{ marginTop: 28, padding: 14, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12, color: 'var(--ink-mute)', display: 'flex', gap: 10, alignItems: 'center' }}>
           <Icons.Lock size={13} />
           <span>
-            Platform tier — every action here runs through the <b>platform-admin</b> edge function against the
+            Platform tier - every action here runs through the <b>platform-admin</b> edge function against the
             founder allowlist, is <b>audit-logged</b>, and leaves firm-level row security untouched. Suspending a
             firm locks its advisor workspace; client data is never deleted.
           </span>

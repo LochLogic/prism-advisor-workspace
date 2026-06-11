@@ -1,8 +1,8 @@
-/* Prism print/report stylesheet — loaded by the popup that store.jsx's _openPrint()
+/* Prism print/report stylesheet - loaded by the popup that store.jsx's _openPrint()
    opens via window.open(''). That popup inherits the app's CSP, which (since C5)
    no longer carries style-src 'unsafe-inline', so the report cannot use an inline
    <style> block or inline style="" attributes. It is served same-origin and linked
-   here, which 'self' in style-src allows. Keep this file class-only — no inline
+   here, which 'self' in style-src allows. Keep this file class-only - no inline
    styles anywhere in the generated report HTML. */
 
 body{font-family:Georgia,serif;color:#1c2e4a;padding:44px;max-width:720px;margin:0 auto;font-size:13px;}
@@ -20,7 +20,7 @@ h1{font-size:22px;font-weight:500;margin:0 0 3px;}
 .mtg-notes{color:#5d7a8e;font-size:12px;margin-top:2px;}
 .note-block{border-left:2px solid #a98c4b;padding-left:12px;font-style:italic;color:#5d7a8e;font-size:13px;}
 .footer{margin-top:36px;padding-top:14px;border-top:1px solid #e4dfd0;font-size:10px;color:#8da3b6;}
-/* Estate sample documents — unmissable for-discussion-only banner */
+/* Estate sample documents - unmissable for-discussion-only banner */
 .sample-banner{border:2px solid #a3472e;background:#faf0ec;color:#a3472e;border-radius:6px;padding:10px 14px;font-size:11px;font-weight:700;letter-spacing:.02em;margin:0 0 18px;}
 .task+.sample-banner{margin-top:28px;}
 @media print{body{padding:20px;}}
