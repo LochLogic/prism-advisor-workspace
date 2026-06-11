@@ -1055,5 +1055,24 @@ one-entry list until first edit, then is dropped).
 
 **Files:** `src/{store,numbers-panel}.jsx`, `docs/sprint-log.md`.
 
+## 2026-06-11 - Round 21: explicit Save button in the Numbers panel session strip
+
+PR #72. Build · smoke · calc · lint green. **No migration, no secrets, no
+money** - frontend only.
+
+- **Save button** next to the "nothing is locked in" copy (spaced from
+  Revert all). Clicking it flushes the debounced persist immediately
+  through the same gated write path, so when the firm's advisor-approval
+  switch is on a client's save becomes the review draft ("Save for
+  review"). After saving, the strip re-baselines and flips to a
+  confirmation: "Saved - your plan is up to date" or "Saved - sent to your
+  advisor to confirm".
+- **Local tooling** committed alongside: `supabase` + `wrangler` CLIs as
+  devDependencies and `.mcp.json` (read-only Supabase MCP; token via
+  `SUPABASE_ACCESS_TOKEN` env, nothing secret in the file).
+
+**Files:** `src/{store,numbers-panel}.jsx`, `package.json`, `.mcp.json`,
+`docs/sprint-log.md`.
+
 ---
 <!-- New sprints append above this line, newest first. -->
