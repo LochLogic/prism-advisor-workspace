@@ -1291,15 +1291,31 @@ async function dbUpdateAdvisorProfile(advisorId, patch) {
     if (typeof patch.full_name === 'string' && patch.full_name.trim()) allowed.full_name = patch.full_name.trim();
     if ('credentials' in patch) allowed.credentials = (patch.credentials || '').trim() || null;
     if ('honorific' in patch)   allowed.honorific   = patch.honorific || null;
+    // How the client portal refers to them ('first'|'last'|'formal', migration
+    // 038); null = legacy derivation. Touched (and selected back) only when the
+    // caller sent it, so the other fields still save on a pre-038 database.
+    if ('address_style' in patch) allowed.address_style = patch.address_style || null;
     if (!Object.keys(allowed).length) return null;
+    const cols = 'id, full_name, honorific, credentials' + ('address_style' in allowed ? ', address_style' : '');
     const { data, error } = await _sb().from('advisors')
       .update(allowed).eq('id', advisorId)
-      .select('id, full_name, honorific, credentials').single();
+      .select(cols).single();
     if (error) throw error;
     dbAudit('advisor.profile', { entityType: 'advisor', entityId: advisorId,
       summary: `Updated own advisor profile (${Object.keys(allowed).join(', ')})` });
     return data;
   } catch (e) { console.warn('[db] updateAdvisorProfile:', e.message); return null; }
+}
+
+// The signed-in CLIENT's advisor display fields (px_my_advisor RPC, migration
+// 038) — clients can't read the advisors table directly. Null pre-038/demo.
+async function dbGetMyAdvisor() {
+  if (!_sb()) return null;
+  try {
+    const { data, error } = await _sb().rpc('px_my_advisor');
+    if (error) throw error;
+    return Array.isArray(data) ? (data[0] || null) : data;
+  } catch (e) { return null; }
 }
 
 async function dbGetBrandForSlug(slug) {
@@ -1606,6 +1622,7 @@ window.db = {
   updateFirmBrand:     dbUpdateFirmBrand,
   getBrandForSlug:     dbGetBrandForSlug,
   updateAdvisorProfile: dbUpdateAdvisorProfile,
+  getMyAdvisor:        dbGetMyAdvisor,
   aiAssist:            dbAiAssist,
   getCalendarStatus:   dbGetCalendarStatus,
   connectCalendar:     dbConnectCalendar,

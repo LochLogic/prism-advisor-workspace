@@ -133,21 +133,34 @@ const advisor = {
 
 /* ─── Advisor display name (client-facing) ────────────────────────────
    Surname = last whitespace token of the full name, after dropping any
-   trailing credentials ("Madeline Chen, CFP®" → "Chen"). When a display
-   title (honorific) is set, clients are shown "Ms. Chen"; otherwise we fall
-   back to the first name / short name, preserving the prior behaviour. */
+   trailing credentials ("Madeline Chen, CFP®" → "Chen"). How clients see the
+   advisor is an explicit `addressStyle` (migration 038): 'first' → "Madeline",
+   'last' → "Chen", 'formal' → "Ms. Chen". When no style is stored (legacy
+   rows), the old derivation holds: honorific set → formal, else first name. */
 function advisorSurname(fullName) {
   if (!fullName) return '';
   const base = String(fullName).split(',')[0].trim();   // drop ", CFP®"
   const parts = base.split(/\s+/).filter(Boolean);
   return parts.length ? parts[parts.length - 1] : '';
 }
-function advisorFormalName({ honorific, fullName, fallback } = {}) {
+function advisorFirstName(fullName) {
+  if (!fullName) return '';
+  const base = String(fullName).split(',')[0].trim();
+  return base.split(/\s+/).filter(Boolean)[0] || '';
+}
+function advisorFormalName({ honorific, fullName, addressStyle, fallback } = {}) {
   const surname = advisorSurname(fullName);
-  if (honorific && surname) return `${honorific} ${surname}`;
+  const first   = advisorFirstName(fullName);
+  const style   = addressStyle || (honorific ? 'formal' : 'first');
+  if (style === 'formal' && surname) return [honorific, surname].filter(Boolean).join(' ');
+  if (style === 'last'   && surname) return surname;
+  if (style === 'first'  && first)   return first;
   return fallback || surname || fullName || '';
 }
-if (typeof window !== 'undefined') window.advisorFormalName = advisorFormalName;
+if (typeof window !== 'undefined') {
+  window.advisorFormalName = advisorFormalName;
+  window.advisorFirstName  = advisorFirstName;
+}
 
 // Display-title choices offered to advisors (account setup + account menu).
 const HONORIFIC_OPTIONS = ['Ms.', 'Mrs.', 'Mr.', 'Mx.', 'Dr.'];

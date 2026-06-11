@@ -328,11 +328,21 @@ const ClientPortal = ({ onOpenNumbers }) => {
   const ctx = useProfile();
   const { overallPct, completedCount, totalTasks, activePhase, taskStates, setOpenPhases } = useTasks();
   const { activeClientId, activeClient, showToast, pendingPhaseId, setPendingPhaseId, setView } = useView();
-  const { authUser } = useAuth();
+  const { authUser, role } = useAuth();
   // Prospect / proposal mode (C3): present only in the advisor bundle (the slim
   // client portal never mounts ProspectProvider, so this is null there).
   const prospectsCtx = useProspects();
   const [converting, setConverting] = React.useState(false);
+
+  // Real CLIENT sessions can't read the advisors table (RLS) — fetch their
+  // advisor's display fields through px_my_advisor (migration 038). Without it
+  // the portal used to fall back to the demo advisor name. Null until the
+  // migration lands / in demo, where the old fallbacks still apply.
+  const [myAdvisor, setMyAdvisor] = React.useState(null);
+  React.useEffect(() => {
+    if (role !== 'client' || !window.db?.getMyAdvisor) return;
+    window.db.getMyAdvisor().then(r => { if (r) setMyAdvisor(r); });
+  }, [role]);
 
   // Deep-link: when a notification sends us here with a target phase, auto-open it
   React.useEffect(() => {
@@ -453,20 +463,23 @@ const ClientPortal = ({ onOpenNumbers }) => {
     });
   };
 
-  // Build advisor display info from auth (real) or mock fallback (demo)
+  // Build advisor display info: a real client's advisor (px_my_advisor RPC),
+  // else the signed-in advisor previewing the portal (authUser IS the advisor
+  // row), else the demo mock.
   const advisorDisplay = (() => {
-    const fullName = authUser?.full_name || advisor.fullName;
-    const honorific = authUser ? authUser.honorific : advisor.honorific;
+    const src = myAdvisor || (authUser?.full_name ? authUser : null);
+    const fullName = src?.full_name || advisor.fullName;
+    const honorific = src ? src.honorific : advisor.honorific;
     return {
-      initials: authUser?.full_name
-        ? authUser.full_name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase()
+      initials: src?.full_name
+        ? src.full_name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase()
         : advisor.initials,
       fullName,
-      firm: authUser?.firms?.name || advisor.firm,
-      // Client-facing reference. With a display title set → "Ms. Chen";
-      // otherwise the advisor's first name / short name (prior behaviour).
-      name: advisorFormalName({ honorific, fullName,
-        fallback: authUser?.full_name?.split(' ')[0] || advisor.name }),
+      firm: authUser?.firms?.name || window.__pxBrand?.name || advisor.firm,
+      // Client-facing reference, per the advisor's chosen address style
+      // ('first' | 'last' | 'formal'); legacy rows derive from the honorific.
+      name: advisorFormalName({ honorific, fullName, addressStyle: src?.address_style,
+        fallback: src?.full_name?.split(' ')[0] || advisor.name }),
     };
   })();
 
