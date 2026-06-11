@@ -367,13 +367,18 @@ const ClientPortal = ({ onOpenNumbers }) => {
   // Documents the client can open — used to resolve estate-checklist links
   // (documentId → storage_path) into a clickable, signed-URL download.
   const [docsById, setDocsById] = React.useState({});
+  // Custodian-grouped "Your accounts" card — account-level only (holdings stay
+  // partner-gated); reads ride the accounts_client_read RLS policy.
+  const [accounts, setAccounts] = React.useState(null);
   React.useEffect(() => {
     const index = (rows) => setDocsById(Object.fromEntries((rows || []).map(d => [d.id, d])));
     if (!window.db?.isUUID(activeClientId)) {
       setPerfBal(null); setPerfFlows([]); setInvoices([]); setAcks([]);
+      setAccounts(accountsData[activeClientId] || []);
       index(window.demoDocuments ? window.demoDocuments() : []);
       return;
     }
+    window.db.getAccounts(activeClientId).then(r => setAccounts(r || []));
     window.db.getBalanceHistory(activeClientId).then(r => setPerfBal(r || []));
     window.db.getCashFlows(activeClientId).then(r => setPerfFlows(r || []));
     window.db.getInvoices({ clientId: activeClientId }).then(r => setInvoices((r || []).filter(i => i.status !== 'void' && i.status !== 'draft')));
@@ -885,6 +890,71 @@ const ClientPortal = ({ onOpenNumbers }) => {
                     </span>
                   );
                 })}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Your accounts — read-only, grouped by custodian. Account-level only:
+            holdings stay partner-gated. "Something changed?" drops the question
+            straight into the conversation thread below. */}
+        {(accounts || []).length > 0 && (() => {
+          const typeLabel = (t) => window.db?.ACCOUNT_TYPE_LABELS?.[t] || t || 'Account';
+          const groups = [];
+          for (const a of accounts) {
+            const key = (a.custodian || '').trim() || 'Other accounts';
+            let g = groups.find(x => x.key === key);
+            if (!g) { g = { key, rows: [], total: 0 }; groups.push(g); }
+            g.rows.push(a);
+            g.total += Number(a.balance) || 0;
+          }
+          groups.sort((x, y) => y.total - x.total);
+          const grandTotal = groups.reduce((s, g) => s + g.total, 0);
+          const stamps = accounts.map(a => a.as_of || a.updated_at).filter(Boolean);
+          const asOf = stamps.length ? new Date(stamps.sort()[stamps.length - 1]) : null;
+          const askAboutAccounts = () => {
+            window.dispatchEvent(new CustomEvent('px:prefill-message', {
+              detail: { draft: 'Looking at my accounts in the portal, I noticed something that looks different than I expected — could we take a look together?' },
+            }));
+          };
+          return (
+            <div className="px-card" style={{ padding: 18, marginBottom: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+                <div className="px-eyebrow">Your accounts</div>
+                <span style={{ fontSize: 11.5, color: 'var(--ink-faint)' }}>
+                  {asOf ? `as of ${asOf.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}
+                </span>
+              </div>
+              {groups.map(g => (
+                <div key={g.key} style={{ marginBottom: 12 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <Icons.Briefcase size={13} style={{ color: 'var(--ink-mute)' }} /> {g.key}
+                    </span>
+                    <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)' }}>{fmt$(g.total)}</span>
+                  </div>
+                  {g.rows.map(a => (
+                    <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, padding: '7px 0 7px 19px' }}>
+                      <span style={{ fontSize: 13, color: 'var(--ink-2)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {a.name || typeLabel(a.type)}
+                        <span style={{ color: 'var(--ink-faint)', fontSize: 11.5 }}> · {typeLabel(a.type)}</span>
+                      </span>
+                      <span style={{ fontSize: 13, color: 'var(--ink)', whiteSpace: 'nowrap' }}>{fmt$(Number(a.balance) || 0)}</span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, paddingTop: 10, borderTop: '1px solid var(--border)', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
+                  Total <span style={{ fontFamily: 'var(--serif)', fontSize: 15 }}>{fmt$(grandTotal)}</span>
+                </span>
+                <button className="px-btn px-btn-sm px-btn-ghost" onClick={askAboutAccounts}
+                  title={`Start a message to ${advisorDisplay.name} about your accounts`}>
+                  <Icons.Message size={11} /> Something look different? Ask {advisorDisplay.name}
+                </button>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--ink-faint)', marginTop: 8, lineHeight: 1.5 }}>
+                Balances are account-level as last recorded with your advisor — they may lag your custodian's site by a few days.
               </div>
             </div>
           );

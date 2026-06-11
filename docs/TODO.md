@@ -21,12 +21,6 @@ independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
 
 - [ ] **Advisor MFA (TOTP)** — enforce in the advisor auth path. *↔ may need a
   Supabase Auth toggle (your queue).*
-- [ ] **Client portal accounts view (custodian-grouped)** — read-only "Your accounts"
-  card in the portal: accounts grouped by custodian (Schwab, Vanguard, …) with
-  balance + as-of stamp, and a "something changed?" hook into the message thread.
-  Data model already supports it (`accounts.custodian/type/balance/as_of`). Scope:
-  account-level only — holdings stay partner-gated. *(Decision + rationale:
-  ROADMAP Tier C, 2026-06-10.)*
 - [ ] **Zapier / public API.**
 - [ ] **Stripe webhook retry-storm hardening** (C0) — `stripe-webhook` returns HTTP
   400 for any exception → Stripe retries ~3 days even for unrecoverable cases. Return
@@ -154,6 +148,11 @@ against it:
   [`first-outreach-plan.md`](first-outreach-plan.md).)*
 - [ ] **Stand up the founder content channel** (LinkedIn + newsletter). I can draft;
   you own the account, voice, and publish. *(Drafts: [`founder-content-starter.md`](founder-content-starter.md).)*
+- [ ] **Create the Prism company LinkedIn page** — everything you need is in
+  [`marketing/linkedin-launch-kit.md`](marketing/linkedin-launch-kit.md): logo +
+  banner PNGs (same folder), page-setup fields, the About description, and the
+  first-ever post draft. Attach product screenshots to the post and reshare from
+  your personal profile.
 
 ### Optional / as-needed
 - [ ] Finish the **GSC search-digest** setup (add the service account to the Search

@@ -314,6 +314,18 @@ const MessageThread = ({ clientId, role, authorId, firmId, demoSeed = [], contex
 
   React.useEffect(() => { endRef.current?.scrollIntoView({ block: 'end' }); }, [messages]);
 
+  // "Something changed?" hooks elsewhere on the page (e.g. the portal accounts
+  // card) prefill the compose box and bring the thread into view.
+  React.useEffect(() => {
+    const onPrefill = (e) => {
+      if (e.detail?.draft) setDraft(e.detail.draft);
+      endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      endRef.current?.closest('.px-thread')?.querySelector('textarea')?.focus();
+    };
+    window.addEventListener('px:prefill-message', onPrefill);
+    return () => window.removeEventListener('px:prefill-message', onPrefill);
+  }, []);
+
   const send = async () => {
     const body = draft.trim();
     if (!body || sending) return;
