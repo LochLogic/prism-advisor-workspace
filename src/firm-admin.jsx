@@ -21,6 +21,8 @@ const FirmAdminDashboard = () => {
   // Advisor-approval gate for client ledger edits (migration 036). null =
   // unknown (column not yet migrated / loading) → control hidden.
   const [ledgerGate,   setLedgerGate]   = useStateAdv(null);
+  const [auditFilter,  setAuditFilter]  = useStateAdv('');
+  const [auditMore,    setAuditMore]    = useStateAdv(false); // expanded beyond first 100
 
   React.useEffect(() => {
     if (!authUser?.id || !window.db) return;
@@ -175,6 +177,57 @@ const FirmAdminDashboard = () => {
     } catch (e) { showToast('Could not assemble the exam packet — check console'); console.warn(e); }
     finally { setPacketBusy(false); }
   };
+
+  // CSV companion exports (the exam packet's "next when wanted") — the same
+  // books-&-records data in a spreadsheet-friendly form. downloadCSV (store.jsx)
+  // neutralizes formula injection; names/notes are user-editable input.
+  const stamp = () => new Date().toISOString().slice(0, 10);
+  const exportClientsCSV = () => {
+    const advisorById = Object.fromEntries((advisors || []).map(a => [a.id, a.full_name]));
+    downloadCSV(`clients-${stamp()}.csv`,
+      ['Client', 'Advisor', 'AUM', 'Fee schedule'],
+      (firmClients || []).map(c => [
+        c.short_name || c.household_name || 'Client',
+        advisorById[c.advisor_id] || '',
+        Number(c.aum) || 0,
+        (c.fee_schedule_id && scheduleById[c.fee_schedule_id]?.name) || 'Unassigned',
+      ]));
+  };
+  const exportInvoicesCSV = () => {
+    downloadCSV(`invoices-${stamp()}.csv`,
+      ['Client', 'Period start', 'Period end', 'Billing basis', 'Fee', 'Status'],
+      (invoices || []).map(i => [
+        i.clients?.short_name || i.clients?.household_name || 'Client',
+        i.period_start, i.period_end,
+        Number(i.basis_amount) || 0, Number(i.fee_amount) || 0, i.status,
+      ]));
+  };
+  // Audit CSV honours the same window selector as the exam packet and refetches
+  // fresh — the on-screen log is capped.
+  const exportAuditCSV = async () => {
+    const days = Number(packetDays) || 0;
+    const since = days ? new Date(Date.now() - days * 86400000) : null;
+    const rows = await window.db.getAuditLog({ limit: AUDIT_CAP, since });
+    downloadCSV(`audit-${stamp()}.csv`,
+      ['When', 'Actor', 'Role', 'Action', 'Detail'],
+      (rows || []).map(e => [e.occurred_at, e.actor_email || '', e.actor_role || '', e.action, e.summary || '']));
+  };
+
+  // On-screen audit trail: free-text filter + one-step deepen (100 → 500).
+  const loadMoreAudit = async () => {
+    setAuditMore(true);
+    const rows = await window.db.getAuditLog({ limit: 500 });
+    if (rows) setAuditLog(rows);
+  };
+  const visibleAudit = useMemoAdv(() => {
+    const q = auditFilter.trim().toLowerCase();
+    if (!q) return auditLog || [];
+    return (auditLog || []).filter(e =>
+      (e.actor_email || '').toLowerCase().includes(q) ||
+      (e.action || '').toLowerCase().includes(q) ||
+      (AUDIT_ACTION_LABELS[e.action] || '').toLowerCase().includes(q) ||
+      (e.summary || '').toLowerCase().includes(q));
+  }, [auditLog, auditFilter]);
 
   const planActive = subscription && ['active', 'trialing'].includes(subscription.status);
 
@@ -436,7 +489,15 @@ const FirmAdminDashboard = () => {
         {/* ── Revenue & billing (advisory fees) ── */}
         <div className="px-section-head" style={{ marginTop: 32 }}>
           <h2>Revenue &amp; billing <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--ink-mute)', marginLeft: 6 }}>advisory fees</span></h2>
-          <div className="px-section-tools">
+          <div className="px-section-tools" style={{ display: 'flex', gap: 6 }}>
+            <button className="px-btn px-btn-sm px-btn-ghost" onClick={exportClientsCSV}
+              disabled={!(firmClients || []).length} title="Download clients + fee assignments as CSV">
+              <Icons.Download size={10} /> Clients CSV
+            </button>
+            <button className="px-btn px-btn-sm px-btn-ghost" onClick={exportInvoicesCSV}
+              disabled={!(invoices || []).length} title="Download all invoices as CSV">
+              <Icons.Download size={10} /> Invoices CSV
+            </button>
             <button className="px-btn px-btn-sm px-btn-primary" onClick={generateInvoices} disabled={genBusy}>
               <Icons.Refresh size={11} /> {genBusy ? 'Generating…' : 'Run billing now'}
             </button>
@@ -602,6 +663,10 @@ const FirmAdminDashboard = () => {
               <option value="365">Last 12 months</option>
               <option value="0">Full history</option>
             </select>
+            <button className="px-btn px-btn-sm px-btn-ghost" onClick={exportAuditCSV}
+              title="Download the selected audit window as CSV">
+              <Icons.Download size={10} /> Audit CSV
+            </button>
             <button className="px-btn px-btn-sm px-btn-primary" onClick={exportExamPacket} disabled={packetBusy}
               title="One-click books-&-records packet: advisors, clients, fee schedules, invoices, acknowledgements, audit trail">
               <Icons.Download size={11} /> {packetBusy ? 'Assembling…' : 'Exam packet'}
@@ -616,6 +681,20 @@ const FirmAdminDashboard = () => {
             No audit entries yet — material actions (client edits, meetings, profile saves, sign-ins) will appear here.
           </div>
         ) : (
+          <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <input className="px-input" style={{ flex: 1, maxWidth: 340 }} value={auditFilter}
+              placeholder="Filter by actor, action, or detail…" aria-label="Filter audit trail"
+              onChange={e => setAuditFilter(e.target.value)} />
+            <span style={{ fontSize: 11.5, color: 'var(--ink-faint)' }}>
+              {visibleAudit.length} of {auditLog.length} loaded entr{auditLog.length === 1 ? 'y' : 'ies'}
+            </span>
+          </div>
+          {visibleAudit.length === 0 ? (
+          <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--ink-faint)', fontSize: 13, fontStyle: 'italic' }}>
+            Nothing matches that filter in the loaded entries.
+          </div>
+          ) : (
           <div className="px-roster">
             <table className="px-table">
               <thead>
@@ -627,7 +706,7 @@ const FirmAdminDashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {auditLog.map(e => (
+                {visibleAudit.map(e => (
                   <tr key={e.id} style={{ cursor: 'default' }}>
                     <td>
                       <span style={{ fontSize: 12, color: 'var(--ink-mute)', fontFamily: 'var(--mono, monospace)' }}>
@@ -651,6 +730,15 @@ const FirmAdminDashboard = () => {
               </tbody>
             </table>
           </div>
+          )}
+          {!auditMore && auditLog.length >= 100 && (
+            <div style={{ textAlign: 'center', marginTop: 10 }}>
+              <button className="px-btn px-btn-sm px-btn-ghost" onClick={loadMoreAudit}>
+                Load more (up to 500 entries) — use Audit CSV or the exam packet for the full window
+              </button>
+            </div>
+          )}
+          </>
         )}
 
         <div style={{ marginTop: 28, padding: 14, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12, color: 'var(--ink-mute)', display: 'flex', gap: 10, alignItems: 'center' }}>

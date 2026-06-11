@@ -12,6 +12,42 @@
 
 ---
 
+## 2026-06-10 (round 14) — Firm-admin CSV exports + audit filter · platform usage stats · pricing sanity check · client-accounts decision
+
+PR #59. Build · smoke · calc · lint green. **No migration, no secrets, no money.**
+One edge function changed (`platform-admin`) → gated `deploy.yml` run after merge.
+
+**What shipped**
+- **Firm admin — CSV companion exports** (the round-7 exam packet's "next when
+  wanted"): Clients (+advisor +AUM +fee assignment), Invoices, and Audit CSVs; the
+  audit CSV honours the same 90-day/12-month/full-history window selector as the
+  exam packet and refetches up to 2,000 entries fresh. Formula-injection
+  neutralization centralized as **`window.downloadCSV`** in `store.jsx` (the roster
+  exporter in `advisor-dashboard.jsx` now reuses it).
+- **Firm admin — audit-trail filter + load-more**: free-text filter over
+  actor/action/detail on the loaded entries, plus a one-step deepen (100 → 500 on
+  screen) with a pointer to the CSV/exam packet for full windows.
+- **Platform admin — usage stats** (roadmap "next when wanted", rides round-13
+  `px_events`): the firms table gains an **Activity · 30d** column (event count +
+  last-event recency, "quiet" when none). Aggregated server-side in the
+  `platform-admin` edge function's `overview` action; fully tolerant of migration
+  041 not yet being applied (column just shows "quiet").
+- **Pricing sanity check** written into ROADMAP (Pricing section): three-tier
+  structure confirmed; infra ≈ $30–40/mo fixed, <$2/firm marginal, >95% gross
+  margin. Watch-items: Growth $49 likely under the value-replaced anchor (test $79
+  at list, keep $49 as founding-partner rate), tighten the free tier when billing
+  turns on, clarify the household cap is per *firm*.
+- **Client account-management decision** (Schwab/Vanguard granularity): **yes at
+  account/custodian level, no at holdings level.** Queued as "Client portal accounts
+  view (custodian-grouped)" — ROADMAP Tier C + TODO Claude queue. No build this
+  round by design.
+
+**Files:** `src/store.jsx`, `src/firm-admin.jsx`, `src/advisor-dashboard.jsx`,
+`src/platform-admin.jsx`, `supabase/functions/platform-admin/index.ts`,
+`docs/ROADMAP.md`, `docs/TODO.md`, `docs/ARCHITECTURE.md`.
+
+---
+
 ## 2026-06-10 (round 13) — Security-advisor sweep · client PWA + push · product analytics · RLS index audit
 
 Four workstreams in one batch. **Five hand-apply migrations (039–043)** —

@@ -65,6 +65,34 @@ Keep "free preview, pricing indicative" until design partners reveal
 willingness-to-pay. Anchor on *value replaced* ("one tool instead of five"). Offer
 annual billing for cashflow.
 
+### Pricing sanity check (2026-06-10)
+
+**Cost model.** Fixed infra ≈ **$30–40/mo total** once Supabase Pro lands ($25
+Supabase + ~$5 Cloudflare + domain); marginal cost per additional firm is **< $2/mo**
+(storage/egress are trivial at 50–150 households; Gemini is pay-per-use pennies;
+web-push is free; Stripe takes 2.9% + 30¢ of revenue; Plaid/DocuSign are usage-priced
+and only when live). Gross margin at Growth pricing is **>95%** — the model is not
+cost-constrained at any plausible scale.
+
+**Is three tiers right?** Yes — free anchor → core → enterprise is the standard,
+legible shape, and the structure needs no change. Three watch-items on the *numbers*:
+1. **Growth $49 is likely underpriced** against the "value replaced" anchor
+   (Holistiplan ~$82/advisor/mo, RightCapital ~$140, eMoney $300+, Wealthbox $59+).
+   If Prism retires even one of those, $79 reads as a bargain. Plan: keep $49 as a
+   *founding-partner rate* for design partners, test $79 as the list price when
+   charging starts.
+2. **Solo free at ≤25 households can be a forever home** — a brand-new XYPN solo can
+   sit under 25 households for a year+. Fine *now* (the free preview is the pipeline),
+   but when billing turns on, tighten free to ~10 households or a 90-day trial.
+3. **Enterprise's 5-seat × $99 floor (~$495/mo)** is deliberately above the solo/small
+   ICP — keep it as the anchor tier, don't market it.
+Also clarify in copy: the household cap is **per firm**, not per advisor (per-advisor
+pricing + a per-advisor cap would double-meter).
+
+**Decision:** structure unchanged; price points revisit on design-partner
+willingness-to-pay signal (already the plan). No code change — Stripe prices are set
+at go-live.
+
 ---
 
 ## Where we are (the foundation)
@@ -209,7 +237,21 @@ analytic surface should end in a trackable next step, not a read-out.
   inventory + fee assignment, invoices, every acknowledgement with its e-sign
   state (firm-wide query, new `db.getFirmAcknowledgements`), the append-only
   audit trail (up to 2,000 entries, truncation flagged), and a retention
-  statement. *Next when wanted:* a CSV companion export and per-client packets.
+  statement. **CSV companions SHIPPED 2026-06-10 (round 14):** Clients (+fee
+  assignment), Invoices, and windowed Audit CSVs from the firm-admin view, plus an
+  audit-trail filter + load-more (100 → 500 on screen). Formula-injection
+  neutralization centralized as `downloadCSV` (store.jsx). *Next when wanted:*
+  per-client packets.
+- **Client portal accounts view (custodian-grouped) — queued 2026-06-10 (round 14).**
+  Clients think in real accounts ("my Schwab IRA, my Vanguard brokerage"), and trust
+  in the roadmap's numbers comes from seeing where they live. The data model already
+  carries everything needed (`accounts.custodian`, `type`, `balance`, `as_of`, Plaid
+  freshness) — this is a read-only "Your accounts" card in the client portal, grouped
+  by custodian with balances and an as-of stamp, plus a "something changed? tell your
+  advisor" hook into the existing message thread. **Scope line:** account/custodian
+  granularity *yes*; holdings-level granularity *no* — that stays in the partner-gated
+  holdings-aggregation track (a losing comparison vs. custodian apps the client
+  already has).
 
 ### Trust & control
 - **Advisor MFA (TOTP)** — enforce in the advisor auth path (Supabase Auth supports
@@ -234,8 +276,11 @@ analytic surface should end in a trackable next step, not a read-out.
   existing account, lands as firm admin), suspend/reactivate (advisor workspace
   locks behind a "workspace paused" screen; a trigger stops a firm admin
   un-suspending themself), and billing overrides (plan + seats). Every action is
-  audit-logged as `platform.*`. *Next when wanted:* read-only client drill-in,
-  Stripe subscription override, platform-level usage stats.
+  audit-logged as `platform.*`. **Platform usage stats SHIPPED 2026-06-10 (round
+  14):** the firms table carries a 30-day activity column (event count + last-event
+  recency) aggregated from `px_events` in the `platform-admin` overview action —
+  tolerant of migration 041 not yet being applied. *Next when wanted:* read-only
+  client drill-in, Stripe subscription override.
 
 ### Observability & scale
 - **Product analytics** — first-party activation events (login, invite, message,

@@ -1938,7 +1938,26 @@ function printInvoiceReport(invoice, clientName, advisorFirm) {
   `);
 }
 
+// Shared CSV download. Neutralizes spreadsheet formula injection: a leading
+// = + - @ (or a tab/CR hiding one) would execute when the file opens in
+// Excel/Sheets — prefix with a quote so it renders as text. Many cells carry
+// client- or advisor-editable input.
+function downloadCSV(filename, headers, rows) {
+  const cell = (v) => {
+    let s = String(v ?? '');
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    return `"${s.replace(/"/g, '""')}"`;
+  };
+  const csv = [headers, ...rows].map(r => r.map(cell).join(',')).join('\r\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'), { href: url, download: filename });
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+}
+
 Object.assign(window, {
+  downloadCSV,
   ProfileProvider, useProfile, emptyProfile, mergeProfile, openEstateSample,
   TaskProvider, useTasks, demoTaskSeed,
   ViewProvider, useView,
