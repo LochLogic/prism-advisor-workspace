@@ -105,7 +105,7 @@ const PhaseCard = ({ phase, onOpenMilestone }) => {
                       </button>
                     )}
                     {task.tool === 'advanced' && (
-                      <button className="px-task-act is-discuss" title="Open the tool for this phase"
+                      <button className="px-task-act is-ghost" title="The tool is already on this page - jump to it"
                         onClick={(e) => {
                           e.stopPropagation();
                           const el = document.getElementById(`tool-${phase.id}`);
@@ -113,7 +113,7 @@ const PhaseCard = ({ phase, onOpenMilestone }) => {
                           el?.classList.add('px-tool-flash');
                           setTimeout(() => el?.classList.remove('px-tool-flash'), 1200);
                         }}>
-                        <Icons.Sparkles size={10} /> Open tool
+                        <Icons.ChevronDown size={10} /> See tool below
                       </button>
                     )}
                     {task.tool === 'discuss' && (

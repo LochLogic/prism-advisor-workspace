@@ -950,5 +950,41 @@ existing launch post keeps its old snapshot unless deleted and re-shared.
 
 **Files:** `CLAUDE.md`, 11 root HTML pages, `content/pages.mjs`, `src/*`.
 
+## 2026-06-11 - Round 18: phase-copy polish, two new planning samples, platform last-login
+
+**PR:** (round-18 batch). Frontend + one edge-function change (platform-admin).
+
+- **Two new planning samples** in `PLANNING_SAMPLES` (`store.jsx`):
+  `obligations` - "Recurring Obligations & Minimums Schedule" wired to Phase 02
+  milestone 4 (Document recurring obligations + minimums), and `liability` -
+  "Complete Liability Schedule" wired to Phase 03 milestone 1. Both tasks also
+  gained Discuss-with-advisor buttons (`doc:` + `tool:'discuss'` in `data.jsx`).
+- **Copy spell-outs:** Phase 02 milestone 1 now reads "Treasury money market
+  fund (MMF)" and gained a Discuss button; tool titles spell out
+  "High-deductible health plan (HDHP) vs. PPO break-even" and "Required minimum
+  distribution (RMD) projector"; the Roth Conversion Window hint spells out RMDs.
+  (Phase 04 milestone 1 already spelled out HDHP in the task label.)
+- **"Open tool" → "See tool below":** advanced-tool milestones (Phase 05 m5/m6,
+  Phase 06 m4/m6, Phase 07, Phase 03 m6) now show a quiet ghost-styled pointer
+  (`.px-task-act.is-ghost`) since the tool is already rendered on the page;
+  click still scrolls + flashes the tool.
+- **Platform admin - Last login column:** `platform-admin` edge fn `overview`
+  now returns `last_login_at` per firm (latest `login` px_event, no time window
+  so idle firms show a date instead of "quiet"); dashboard table gained the
+  column ("never" when analytics is off). Requires edge-fn deploy via the gated
+  `deploy.yml` workflow.
+- **More mojibake repaired:** landing/login/signup still had double-encoded
+  middots, ®, curly quotes, and the password-bullet placeholder; all normalized.
+
+**Where the adjustment options live (founder Q):** firm rename = Firm Admin →
+Branding (updateFirmBrand accepts `name`); advisor name/honorific/credentials/
+address style = account chip dropdown (top right); client household data =
+Numbers panel ("Update numbers" / "Your numbers"); plan/seat overrides =
+platform admin (#/platform).
+
+**Files:** `src/{data,store,client-portal,calculators,platform-admin}.jsx`,
+`src/styles.css`, `supabase/functions/platform-admin/index.ts`,
+`landing|login|signup.html`, `docs/*`.
+
 ---
 <!-- New sprints append above this line, newest first. -->

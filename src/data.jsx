@@ -25,10 +25,10 @@ let phasesData = [
     icon: 'Umbrella',
     rationale: "The reserve is not a return vehicle. Its function is to <b>prevent forced liquidation of long-horizon assets during a drawdown</b>. Six months is standard for stable W-2 income; we extend to twelve for variable compensation, equity-heavy households, or pre-retirees.",
     tasks: [
-      { id: 'p1t1', label: 'Open laddered HYSA / Treasury MMF (4-tier)', tool: null },
+      { id: 'p1t1', label: 'Open laddered HYSA / Treasury money market fund (MMF), 4-tier', tool: 'discuss' },
       { id: 'p1t2', label: 'Fund Month 1–3 reserve from working cash', tool: null },
       { id: 'p1t3', label: 'Capture full employer 401(k) match (parallel)', tool: 'discuss' },
-      { id: 'p1t4', label: 'Document recurring obligations + minimums', tool: null },
+      { id: 'p1t4', label: 'Document recurring obligations + minimums', tool: 'discuss', doc: 'obligations' },
       { id: 'p1t5', label: 'Build to six-month target - review semi-annually', tool: 'discuss' },
     ],
     calcs: ['reserve', 'coveragegap', 'incomerunway'],
@@ -41,7 +41,7 @@ let phasesData = [
     icon: 'TrendDown',
     rationale: "Debt servicing above ~7% APR produces a <b>guaranteed, tax-free negative return</b> that no reasonable portfolio can systematically beat after fees, taxes, and sequence risk. We attack the highest-APR balance first, hold minimums on the rest, and roll the freed payment forward. Balance transfers and rate negotiations are the first move, not the last.",
     tasks: [
-      { id: 'p2t1', label: 'Compile complete liability schedule', tool: null },
+      { id: 'p2t1', label: 'Compile complete liability schedule', tool: 'discuss', doc: 'liability' },
       { id: 'p2t2', label: 'Negotiate rate reductions on revolving credit', tool: 'discuss' },
       { id: 'p2t3', label: 'Execute balance transfers where economical', tool: 'discuss' },
       { id: 'p2t4', label: 'Apply avalanche payoff above 6% APR', tool: null },

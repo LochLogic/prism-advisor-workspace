@@ -1410,6 +1410,40 @@ const PLANNING_SAMPLES = {
       'When were the questionnaire answers last refreshed? Risk capacity drifts with life changes.',
     ],
   },
+  obligations: {
+    title: 'Recurring Obligations & Minimums Schedule',
+    what: 'A single page listing every recurring payment the household must make - bills, subscriptions, insurance premiums, and the minimum due on each debt. It is the companion to your cash-flow worksheet: once every obligation is written down with its amount, due date, and payment method, autopay can be set with confidence and the liquidity reserve can be sized against real numbers.',
+    sections: [
+      ['1. Housing & utilities', 'Rent or mortgage payment, property tax and insurance if paid directly, electricity, gas, water, internet, and phone. For each: amount, due day of month, and the account it is paid from.'],
+      ['2. Insurance premiums', 'Health, auto, home or renters, umbrella, life, and disability premiums - with the billing frequency (monthly, semi-annual, annual). Annual premiums are divided by twelve when sizing the monthly reserve.'],
+      ['3. Debt minimums', 'Every loan and card: lender, current balance, APR, minimum payment, and due date. This list feeds the liability schedule in the next phase - here we only need the minimums that must clear each month.'],
+      ['4. Subscriptions & memberships', 'Streaming, software, gym, storage, and any other auto-renewing charge. Mark each keep / cancel / review - this is the fastest recurring-cost win in most households.'],
+      ['5. Autopay map', 'For each obligation above: paid automatically or manually, and from which account. The goal is every fixed obligation on autopay from one operating account, with one monthly review.'],
+      ['6. Monthly total', 'Sum of all recurring obligations: $[Total] per month. This number anchors the six-month reserve target in the Liquidity Reserve phase.'],
+    ],
+    discuss: [
+      'Which annual or semi-annual bills should we smooth into the monthly plan?',
+      'Are any obligations better paid from a different account or card?',
+      'What did the subscription review free up, and where should that amount go?',
+    ],
+  },
+  liability: {
+    title: 'Complete Liability Schedule',
+    what: 'A full inventory of household debt: every balance, rate, term, and minimum in one table. The schedule is what turns "we have some debt" into an exact payoff plan - it determines which balance the avalanche method attacks first, which rates are worth negotiating, and which transfers are economical.',
+    sections: [
+      ['1. Revolving credit', 'Each credit card and line of credit: issuer, current balance, APR, credit limit, minimum payment, and promotional-rate expiry if any. Utilization above ~30% of a limit is noted for credit-score impact.'],
+      ['2. Installment loans', 'Auto loans, personal loans, and student loans: lender, original amount, current balance, rate, remaining term, and monthly payment. Federal student loans are flagged separately - they carry forgiveness and income-driven options private debt does not.'],
+      ['3. Mortgage & secured debt', 'Mortgage(s) and HELOC: balance, rate, remaining term, escrow status, and any prepayment penalty. Secured debt is usually last in payoff priority but first in refinance review.'],
+      ['4. Payoff priority', 'Balances ordered by APR, highest first. Balances above 6% APR are the avalanche targets; everything below holds at minimums while the freed payment rolls forward.'],
+      ['5. Rate-reduction actions', 'For each high-APR balance: negotiation attempted [Date / result], balance-transfer option [offer, fee, net savings], refinance option [rate, costs]. A transfer is economical when the fee is recovered within the promotional window.'],
+      ['6. Schedule summary', 'Total debt $[Total], weighted average APR [X]%, total minimums $[Y]/month, projected debt-free date [Date] at the planned payment level.'],
+    ],
+    discuss: [
+      'Which balance does the avalanche attack first, and what is the projected payoff date?',
+      'Are any balance-transfer or refinance offers on the table actually economical after fees?',
+      'Should any low-rate debt be left in place in favor of investing the difference?',
+    ],
+  },
 };
 
 function openPlanningSample(key) {
