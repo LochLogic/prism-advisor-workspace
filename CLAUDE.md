@@ -1,5 +1,11 @@
 # PRISM Advisor Workspace
 
+## Foundational style rule
+**Never use em-dashes** in anything: page copy, titles, UI strings, docs, commit messages.
+Use "|" for title separators ("Prism | The Advisor Workspace"), and a comma, colon, period,
+or spaced hyphen " - " in prose. If you touch a file that still contains one (or the
+mojibake form "â€”"), clean it up.
+
 ## Read this first
 **Before any code task, read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).** It is a
 condensed repo map (file tree, `window.db`/`PrismCalc`/store export surfaces, data flows,

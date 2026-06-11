@@ -8,22 +8,22 @@ export const pages = [
   {
     slug: 'ria-client-portal-software',
     title: 'RIA Client Portal Software | Prism Advisor Workspace',
-    description: 'Prism is client portal software for RIAs: lifecycle roadmaps, account aggregation, performance reporting, and realtime collaboration — in one secure workspace your clients actually log into.',
+    description: 'Prism is client portal software for RIAs: lifecycle roadmaps, account aggregation, performance reporting, and realtime collaboration - in one secure workspace your clients actually log into.',
     keywords: 'RIA client portal software, financial advisor client portal, client portal for RIAs, advisor client portal',
     updated: '2026-05-30',
     publishAt: '2026-05-30',
     h1: 'A client portal RIAs and clients actually want to use',
-    lede: 'Most advisor portals are a static PDF vault. Prism gives every client a living financial roadmap they can open any time — and gives you one workspace to run the whole relationship.',
+    lede: 'Most advisor portals are a static PDF vault. Prism gives every client a living financial roadmap they can open any time - and gives you one workspace to run the whole relationship.',
     body: `
 <h2>One login, the whole relationship</h2>
-<p>Clients see a personalized lifecycle roadmap — where they are today, what's next, and why — instead of a folder of stale statements. Advisors see the same picture from the other side, with the tools to act on it.</p>
+<p>Clients see a personalized lifecycle roadmap - where they are today, what's next, and why - instead of a folder of stale statements. Advisors see the same picture from the other side, with the tools to act on it.</p>
 
 <h2>What's inside</h2>
 <ul>
-  <li><strong>Lifecycle roadmaps</strong> — refract each client's wealth into clear, sequenced horizons.</li>
-  <li><strong>Account aggregation</strong> — connected balances and holdings via secure bank linking.</li>
-  <li><strong>Performance reporting</strong> — clean, printable performance and invoice reports.</li>
-  <li><strong>Realtime collaboration</strong> — comments, flags, and updates that sync instantly between advisor and client.</li>
+  <li><strong>Lifecycle roadmaps</strong> - refract each client's wealth into clear, sequenced horizons.</li>
+  <li><strong>Account aggregation</strong> - connected balances and holdings via secure bank linking.</li>
+  <li><strong>Performance reporting</strong> - clean, printable performance and invoice reports.</li>
+  <li><strong>Realtime collaboration</strong> - comments, flags, and updates that sync instantly between advisor and client.</li>
 </ul>
 
 <h2>Secure by design</h2>
@@ -43,19 +43,19 @@ export const pages = [
     updated: '2026-05-30',
     publishAt: '2026-05-30',
     h1: 'A compliance-grade audit trail, kept automatically',
-    lede: 'Examiners want a defensible record of who did what, when. Prism captures it as you work — no spreadsheets, no after-the-fact reconstruction.',
+    lede: 'Examiners want a defensible record of who did what, when. Prism captures it as you work - no spreadsheets, no after-the-fact reconstruction.',
     body: `
 <h2>Every meaningful action, logged</h2>
 <p>Sign-ins, plan changes, client updates, and report generation are recorded with the actor, timestamp, and a human-readable summary. The trail is append-only and reviewable from an admin view.</p>
 
 <h2>Designed around the retention rules</h2>
-<p>Prism is built around the record-keeping principles of <strong>SEC Rules 17a-3 and 17a-4</strong>: an append-only trail, immutable profile versioning that preserves prior states of a plan for point-in-time review, and a daily write-once (WORM-style) archive that makes historical records tamper-evident. Production use with live client data additionally calls for object-lock archival storage and your firm's own regulatory review — see our <a href="${SITE}/security.html">security overview</a> for the current posture.</p>
+<p>Prism is built around the record-keeping principles of <strong>SEC Rules 17a-3 and 17a-4</strong>: an append-only trail, immutable profile versioning that preserves prior states of a plan for point-in-time review, and a daily write-once (WORM-style) archive that makes historical records tamper-evident. Production use with live client data additionally calls for object-lock archival storage and your firm's own regulatory review - see our <a href="${SITE}/security.html">security overview</a> for the current posture.</p>
 
 <h2>Why it matters</h2>
 <ul>
-  <li><strong>Exam readiness</strong> — produce a clear history on request instead of scrambling.</li>
-  <li><strong>Internal oversight</strong> — firm admins can review activity across advisors.</li>
-  <li><strong>Client trust</strong> — changes are attributable and reversible to a known prior state.</li>
+  <li><strong>Exam readiness</strong> - produce a clear history on request instead of scrambling.</li>
+  <li><strong>Internal oversight</strong> - firm admins can review activity across advisors.</li>
+  <li><strong>Client trust</strong> - changes are attributable and reversible to a known prior state.</li>
 </ul>
 `,
     faq: [
@@ -67,29 +67,29 @@ export const pages = [
   {
     slug: 'crm-for-financial-advisors',
     title: 'CRM for Financial Advisors | Prism Advisor Workspace',
-    description: 'Prism includes a CRM built for advisors: tasks, a client pipeline, an activity timeline, and automated cadences — connected to the same roadmaps and reports you already use.',
+    description: 'Prism includes a CRM built for advisors: tasks, a client pipeline, an activity timeline, and automated cadences - connected to the same roadmaps and reports you already use.',
     keywords: 'CRM for financial advisors, RIA CRM, advisor CRM software, financial advisor pipeline, client cadences',
     updated: '2026-05-30',
     publishAt: '2026-05-30',
     h1: 'A CRM that lives where the planning happens',
-    lede: 'Bolt-on CRMs make you re-enter everything. Prism’s workflow sits on top of the same client data as your roadmaps and reports — so nothing is duplicated.',
+    lede: 'Bolt-on CRMs make you re-enter everything. Prism’s workflow sits on top of the same client data as your roadmaps and reports - so nothing is duplicated.',
     body: `
 <h2>Run the book of business</h2>
 <ul>
-  <li><strong>Tasks</strong> — assign and track follow-ups against the right client.</li>
-  <li><strong>Pipeline</strong> — move prospects and households through clear stages.</li>
-  <li><strong>Activity timeline</strong> — a chronological record of touchpoints per client.</li>
-  <li><strong>Cadences</strong> — recurring outreach so no client slips through the cracks.</li>
+  <li><strong>Tasks</strong> - assign and track follow-ups against the right client.</li>
+  <li><strong>Pipeline</strong> - move prospects and households through clear stages.</li>
+  <li><strong>Activity timeline</strong> - a chronological record of touchpoints per client.</li>
+  <li><strong>Cadences</strong> - recurring outreach so no client slips through the cracks.</li>
 </ul>
 
 <h2>Connected, not bolted on</h2>
-<p>Because the CRM shares the same data model as the roadmaps, reporting, and audit trail, a task or pipeline change is already tied to the client's full context — no exports, no double entry.</p>
+<p>Because the CRM shares the same data model as the roadmaps, reporting, and audit trail, a task or pipeline change is already tied to the client's full context - no exports, no double entry.</p>
 
 <h2>One workspace</h2>
 <p>Planning, client portal, reporting, compliance, and CRM in a single secure app means your team works from one source of truth instead of stitching tools together.</p>
 `,
     faq: [
-      { q: 'Does Prism include a CRM?', a: 'Yes. Prism has advisor CRM workflow built in — tasks, a client pipeline, an activity timeline, and automated cadences — sharing the same data as your roadmaps and reports.' },
+      { q: 'Does Prism include a CRM?', a: 'Yes. Prism has advisor CRM workflow built in - tasks, a client pipeline, an activity timeline, and automated cadences - sharing the same data as your roadmaps and reports.' },
       { q: 'Do I need a separate CRM with Prism?', a: 'No. The CRM is part of the workspace and connected to client roadmaps, reporting, and the audit trail, so you avoid duplicate data entry across tools.' },
     ],
   },
@@ -108,13 +108,13 @@ export const pages = [
 
 <h2>Why it matters</h2>
 <ul>
-  <li><strong>Accuracy</strong> — advice based on current balances, not stale statements.</li>
-  <li><strong>Less manual work</strong> — no quarterly data-entry marathons.</li>
-  <li><strong>Held-away visibility</strong> — see accounts you do not custody, for true holistic planning.</li>
+  <li><strong>Accuracy</strong> - advice based on current balances, not stale statements.</li>
+  <li><strong>Less manual work</strong> - no quarterly data-entry marathons.</li>
+  <li><strong>Held-away visibility</strong> - see accounts you do not custody, for true holistic planning.</li>
 </ul>
 
 <h2>Connected to everything else</h2>
-<p>Because aggregation feeds the same data model as <a href="${SITE}/performance-reporting-for-rias/">performance reporting</a> and lifecycle roadmaps, connected balances flow straight into the client’s plan and your reports — no exports.</p>
+<p>Because aggregation feeds the same data model as <a href="${SITE}/performance-reporting-for-rias/">performance reporting</a> and lifecycle roadmaps, connected balances flow straight into the client’s plan and your reports - no exports.</p>
 `,
     faq: [
       { q: 'How does Prism aggregate client accounts?', a: 'Clients securely link their accounts and Prism keeps balances and holdings current in the workspace, feeding the same data used by roadmaps and reports.' },
@@ -125,7 +125,7 @@ export const pages = [
   {
     slug: 'performance-reporting-for-rias',
     title: 'Performance Reporting Software for RIAs | Prism',
-    description: 'Prism generates clean, client-ready performance and invoice reports straight from connected account data — no spreadsheet wrangling.',
+    description: 'Prism generates clean, client-ready performance and invoice reports straight from connected account data - no spreadsheet wrangling.',
     keywords: 'performance reporting software, RIA performance reports, advisor reporting software, client reports',
     updated: '2026-06-30', publishAt: '2026-06-30',
     h1: 'Performance reporting without the spreadsheet wrangling',
@@ -136,9 +136,9 @@ export const pages = [
 
 <h2>Built in, not bolted on</h2>
 <ul>
-  <li><strong>On-demand</strong> — produce a report whenever you need one, not just quarterly.</li>
-  <li><strong>Consistent</strong> — same data source as the client portal and roadmap.</li>
-  <li><strong>Printable</strong> — clean output for review meetings and records.</li>
+  <li><strong>On-demand</strong> - produce a report whenever you need one, not just quarterly.</li>
+  <li><strong>Consistent</strong> - same data source as the client portal and roadmap.</li>
+  <li><strong>Printable</strong> - clean output for review meetings and records.</li>
 </ul>
 
 <h2>Part of the workflow</h2>
@@ -153,27 +153,27 @@ export const pages = [
   {
     slug: 'client-lifecycle-planning-software',
     title: 'Client Lifecycle Planning Software | Prism',
-    description: 'Prism turns each client’s wealth into a sequenced lifecycle roadmap — clear horizons clients understand and advisors can act on.',
+    description: 'Prism turns each client’s wealth into a sequenced lifecycle roadmap - clear horizons clients understand and advisors can act on.',
     keywords: 'lifecycle planning, financial planning software, client roadmaps, financial advisor planning software',
     updated: '2026-07-14', publishAt: '2026-07-14',
     h1: 'Lifecycle planning clients can actually see',
     lede: 'Most planning lives in the advisor’s head or a static deck. Prism makes it a living roadmap the client opens any time.',
     body: `
 <h2>Wealth, refracted into horizons</h2>
-<p>Prism sequences each client’s financial life into clear stages — what is handled, what is next, and why. Clients get orientation instead of jargon; advisors get a shared reference for every conversation.</p>
+<p>Prism sequences each client’s financial life into clear stages - what is handled, what is next, and why. Clients get orientation instead of jargon; advisors get a shared reference for every conversation.</p>
 
 <h2>A plan that stays current</h2>
 <ul>
-  <li><strong>Living, not static</strong> — the roadmap updates as the client’s data and goals change.</li>
-  <li><strong>Shared context</strong> — advisor and client see the same picture from both sides.</li>
-  <li><strong>Actionable</strong> — each stage ties to concrete next steps.</li>
+  <li><strong>Living, not static</strong> - the roadmap updates as the client’s data and goals change.</li>
+  <li><strong>Shared context</strong> - advisor and client see the same picture from both sides.</li>
+  <li><strong>Actionable</strong> - each stage ties to concrete next steps.</li>
 </ul>
 
 <h2>The hub of the workspace</h2>
 <p>The roadmap connects to <a href="${SITE}/realtime-client-collaboration/">realtime collaboration</a> and reporting, so planning, doing, and documenting all live in one place.</p>
 `,
     faq: [
-      { q: 'What is lifecycle planning in Prism?', a: 'It sequences a client’s financial life into clear stages — what is handled, what is next, and why — as a living roadmap both advisor and client can see.' },
+      { q: 'What is lifecycle planning in Prism?', a: 'It sequences a client’s financial life into clear stages - what is handled, what is next, and why - as a living roadmap both advisor and client can see.' },
       { q: 'Does the roadmap update automatically?', a: 'Yes. It reflects the client’s current data and goals, so it stays current rather than going stale like a static plan.' },
     ],
   },
@@ -181,28 +181,28 @@ export const pages = [
   {
     slug: 'why-advisors-outgrow-spreadsheets',
     title: 'Why Advisors Outgrow Spreadsheets (and What Comes Next) | Prism',
-    description: 'Spreadsheets break down as an advisory practice grows — no audit trail, no client access, manual data entry. Here is what to move to and why.',
+    description: 'Spreadsheets break down as an advisory practice grows - no audit trail, no client access, manual data entry. Here is what to move to and why.',
     keywords: 'financial advisor spreadsheets, advisor software vs excel, RIA spreadsheet alternative',
     updated: '2026-07-28', publishAt: '2026-07-28',
     h1: 'When spreadsheets stop scaling for advisors',
-    lede: 'Excel is where most practices start. It is rarely where they should stay. Here is where it breaks — and what replaces it.',
+    lede: 'Excel is where most practices start. It is rarely where they should stay. Here is where it breaks - and what replaces it.',
     body: `
 <h2>Where spreadsheets break</h2>
 <ul>
-  <li><strong>No audit trail</strong> — a cell change leaves no record, which is a compliance problem.</li>
-  <li><strong>No client access</strong> — clients cannot log in to their own plan.</li>
-  <li><strong>Manual data</strong> — balances are re-keyed by hand and quickly go stale.</li>
-  <li><strong>Version chaos</strong> — "final_v3_really.xlsx" is not a system of record.</li>
+  <li><strong>No audit trail</strong> - a cell change leaves no record, which is a compliance problem.</li>
+  <li><strong>No client access</strong> - clients cannot log in to their own plan.</li>
+  <li><strong>Manual data</strong> - balances are re-keyed by hand and quickly go stale.</li>
+  <li><strong>Version chaos</strong> - "final_v3_really.xlsx" is not a system of record.</li>
 </ul>
 
 <h2>What comes next</h2>
-<p>A purpose-built workspace keeps the flexibility you like while adding what spreadsheets cannot: a <a href="${SITE}/compliance-audit-trail-for-advisors/">compliance audit trail</a>, a client portal, live account data, and reporting — in one place, with proper security.</p>
+<p>A purpose-built workspace keeps the flexibility you like while adding what spreadsheets cannot: a <a href="${SITE}/compliance-audit-trail-for-advisors/">compliance audit trail</a>, a client portal, live account data, and reporting - in one place, with proper security.</p>
 
 <h2>Without the rip-and-replace</h2>
 <p>Prism is one workspace for planning, the client portal, reporting, compliance, and CRM, so you consolidate tools instead of adding another silo.</p>
 `,
     faq: [
-      { q: 'Why are spreadsheets risky for advisors?', a: 'They lack an audit trail, client access, and live data, and they fragment into uncontrolled versions — all problems for a growing, regulated practice.' },
+      { q: 'Why are spreadsheets risky for advisors?', a: 'They lack an audit trail, client access, and live data, and they fragment into uncontrolled versions - all problems for a growing, regulated practice.' },
       { q: 'What should advisors use instead?', a: 'A purpose-built workspace that adds a client portal, live account data, reporting, and a compliance audit trail while keeping planning flexible.' },
     ],
   },
@@ -214,16 +214,16 @@ export const pages = [
     keywords: 'RIA software security, advisor data security, financial advisor MFA, row-level security',
     updated: '2026-08-11', publishAt: '2026-08-11',
     h1: 'Security built into the foundation, not bolted on',
-    lede: 'Client financial data is among the most sensitive there is. Prism is built so each person sees only what they should — and every action is accountable.',
+    lede: 'Client financial data is among the most sensitive there is. Prism is built so each person sees only what they should - and every action is accountable.',
     body: `
 <h2>Access scoped at the data layer</h2>
 <p>Prism enforces <strong>row-level security</strong> along the firm → advisor → client hierarchy. A client only ever sees their own data; an advisor sees their book; firm admins see their firm. The rules live in the database, not just the UI.</p>
 
 <h2>Defense in depth</h2>
 <ul>
-  <li><strong>Multi-factor authentication</strong> — optional TOTP and Google sign-in.</li>
-  <li><strong>Append-only audit trail</strong> — every meaningful action is attributable.</li>
-  <li><strong>Strict transport and content policies</strong> — hardened headers across the app.</li>
+  <li><strong>Multi-factor authentication</strong> - optional TOTP and Google sign-in.</li>
+  <li><strong>Append-only audit trail</strong> - every meaningful action is attributable.</li>
+  <li><strong>Strict transport and content policies</strong> - hardened headers across the app.</li>
 </ul>
 
 <h2>Accountability by default</h2>
@@ -238,7 +238,7 @@ export const pages = [
   {
     slug: 'realtime-client-collaboration',
     title: 'Realtime Client Collaboration for Advisors | Prism',
-    description: 'Prism lets advisors and clients collaborate in realtime — comments, flags, and updates that sync instantly, so the relationship lives between meetings.',
+    description: 'Prism lets advisors and clients collaborate in realtime - comments, flags, and updates that sync instantly, so the relationship lives between meetings.',
     keywords: 'client collaboration, advisor client portal collaboration, realtime advisor software',
     updated: '2026-08-25', publishAt: '2026-08-25',
     h1: 'A relationship that lives between meetings',
@@ -249,9 +249,9 @@ export const pages = [
 
 <h2>Why realtime matters</h2>
 <ul>
-  <li><strong>Faster cycles</strong> — resolve questions as they come up.</li>
-  <li><strong>Context preserved</strong> — discussion stays attached to the relevant part of the plan.</li>
-  <li><strong>Stronger relationships</strong> — clients feel looked after year-round.</li>
+  <li><strong>Faster cycles</strong> - resolve questions as they come up.</li>
+  <li><strong>Context preserved</strong> - discussion stays attached to the relevant part of the plan.</li>
+  <li><strong>Stronger relationships</strong> - clients feel looked after year-round.</li>
 </ul>
 
 <h2>On a shared plan</h2>
@@ -259,7 +259,7 @@ export const pages = [
 `,
     faq: [
       { q: 'How do clients and advisors collaborate in Prism?', a: 'Through comments, questions, and flags that sync in realtime inside the workspace, attached to the relevant part of the client’s plan.' },
-      { q: 'Does collaboration replace meetings?', a: 'No — it complements them, keeping the relationship active between scheduled reviews instead of going quiet.' },
+      { q: 'Does collaboration replace meetings?', a: 'No - it complements them, keeping the relationship active between scheduled reviews instead of going quiet.' },
     ],
   },
 
@@ -277,9 +277,9 @@ export const pages = [
 
 <h2>Clean and on the record</h2>
 <ul>
-  <li><strong>Client-ready</strong> — clear, printable invoices.</li>
-  <li><strong>Consistent</strong> — one data source for reports and billing.</li>
-  <li><strong>Documented</strong> — invoice generation is captured in the audit trail.</li>
+  <li><strong>Client-ready</strong> - clear, printable invoices.</li>
+  <li><strong>Consistent</strong> - one data source for reports and billing.</li>
+  <li><strong>Documented</strong> - invoice generation is captured in the audit trail.</li>
 </ul>
 
 <h2>One less tool</h2>
@@ -305,13 +305,13 @@ export const pages = [
 
 <h2>Why it matters</h2>
 <ul>
-  <li><strong>Momentum</strong> — clients engage while enthusiasm is high.</li>
-  <li><strong>Clarity</strong> — a roadmap orients them immediately.</li>
-  <li><strong>Security from day one</strong> — row-level access scoping applies instantly.</li>
+  <li><strong>Momentum</strong> - clients engage while enthusiasm is high.</li>
+  <li><strong>Clarity</strong> - a roadmap orients them immediately.</li>
+  <li><strong>Security from day one</strong> - row-level access scoping applies instantly.</li>
 </ul>
 
 <h2>Into the full workspace</h2>
-<p>Once onboarded, the client steps straight into <a href="${SITE}/realtime-client-collaboration/">collaboration</a> and lifecycle planning — no separate tools to introduce.</p>
+<p>Once onboarded, the client steps straight into <a href="${SITE}/realtime-client-collaboration/">collaboration</a> and lifecycle planning - no separate tools to introduce.</p>
 `,
     faq: [
       { q: 'How does client onboarding work in Prism?', a: 'New clients log into their portal, link accounts, and see a personalized roadmap, with access correctly scoped from the first session.' },
@@ -322,7 +322,7 @@ export const pages = [
   {
     slug: 'best-client-portal-for-financial-advisors',
     title: 'What to Look for in a Client Portal for Financial Advisors | Prism',
-    description: 'The best advisor client portals do more than store documents. Here are the features that matter — living roadmaps, aggregation, collaboration, and a compliance trail.',
+    description: 'The best advisor client portals do more than store documents. Here are the features that matter - living roadmaps, aggregation, collaboration, and a compliance trail.',
     keywords: 'best client portal financial advisors, advisor client portal features, choosing a client portal',
     updated: '2026-10-06', publishAt: '2026-10-06',
     h1: 'What separates a great advisor client portal from a file vault',
@@ -330,26 +330,26 @@ export const pages = [
     body: `
 <h2>Features that matter</h2>
 <ul>
-  <li><strong>A living roadmap</strong>, not a folder of statements — clients should see their plan, not just files.</li>
+  <li><strong>A living roadmap</strong>, not a folder of statements - clients should see their plan, not just files.</li>
   <li><strong>Account aggregation</strong> so the picture is current.</li>
   <li><strong>Realtime collaboration</strong> so the relationship lives between meetings.</li>
   <li><strong>A compliance audit trail</strong> so activity is defensible.</li>
-  <li><strong>Real security</strong> — row-level access and MFA, not just a password.</li>
+  <li><strong>Real security</strong> - row-level access and MFA, not just a password.</li>
 </ul>
 
 <h2>How Prism measures up</h2>
-<p>Prism is built around exactly these: a <a href="${SITE}/client-lifecycle-planning-software/">lifecycle roadmap</a>, <a href="${SITE}/account-aggregation-for-advisors/">aggregation</a>, collaboration, reporting, and a <a href="${SITE}/compliance-audit-trail-for-advisors/">compliance trail</a> — in one secure workspace.</p>
+<p>Prism is built around exactly these: a <a href="${SITE}/client-lifecycle-planning-software/">lifecycle roadmap</a>, <a href="${SITE}/account-aggregation-for-advisors/">aggregation</a>, collaboration, reporting, and a <a href="${SITE}/compliance-audit-trail-for-advisors/">compliance trail</a> - in one secure workspace.</p>
 `,
     faq: [
       { q: 'What should I look for in an advisor client portal?', a: 'A living plan rather than a document vault, account aggregation, realtime collaboration, a compliance audit trail, and real security like row-level access and MFA.' },
-      { q: 'How is Prism different from a document portal?', a: 'Prism centers on a living lifecycle roadmap with aggregation, collaboration, reporting, and a compliance trail — not just file storage.' },
+      { q: 'How is Prism different from a document portal?', a: 'Prism centers on a living lifecycle roadmap with aggregation, collaboration, reporting, and a compliance trail - not just file storage.' },
     ],
   },
 
   {
     slug: 'financial-planning-software-for-small-rias',
     title: 'Financial Planning Software for Small RIAs | Prism',
-    description: 'Small RIAs need one workspace that does planning, the client portal, reporting, and compliance — without enterprise complexity or a stack of subscriptions.',
+    description: 'Small RIAs need one workspace that does planning, the client portal, reporting, and compliance - without enterprise complexity or a stack of subscriptions.',
     keywords: 'financial planning software small RIA, software for small advisory firms, solo advisor software',
     updated: '2026-10-20', publishAt: '2026-10-20',
     h1: 'One workspace for a lean advisory practice',
@@ -360,9 +360,9 @@ export const pages = [
 
 <h2>Why it fits small firms</h2>
 <ul>
-  <li><strong>Fewer subscriptions</strong> — consolidate instead of integrating five apps.</li>
-  <li><strong>Less admin</strong> — shared data means no duplicate entry.</li>
-  <li><strong>Compliance without a department</strong> — the audit trail is automatic.</li>
+  <li><strong>Fewer subscriptions</strong> - consolidate instead of integrating five apps.</li>
+  <li><strong>Less admin</strong> - shared data means no duplicate entry.</li>
+  <li><strong>Compliance without a department</strong> - the audit trail is automatic.</li>
 </ul>
 
 <h2>Room to grow</h2>
@@ -377,20 +377,20 @@ export const pages = [
   {
     slug: 'advisor-tech-stack',
     title: 'The Modern Advisor Tech Stack: What an RIA Actually Needs | Prism',
-    description: 'A practical look at the tools a modern RIA needs — planning, client portal, aggregation, reporting, CRM, and compliance — and how to avoid tool sprawl.',
+    description: 'A practical look at the tools a modern RIA needs - planning, client portal, aggregation, reporting, CRM, and compliance - and how to avoid tool sprawl.',
     keywords: 'advisor tech stack, RIA technology stack, financial advisor tools, advisor software stack',
     updated: '2026-11-03', publishAt: '2026-11-03',
     h1: 'The modern advisor tech stack, without the sprawl',
-    lede: 'The typical RIA stack is five or six disconnected apps. Here is what you actually need — and why fewer, connected tools win.',
+    lede: 'The typical RIA stack is five or six disconnected apps. Here is what you actually need - and why fewer, connected tools win.',
     body: `
 <h2>The core functions</h2>
 <ul>
-  <li><strong>Planning</strong> — turn a client’s situation into a clear plan.</li>
-  <li><strong>Client portal</strong> — give clients a window into that plan.</li>
-  <li><strong>Account aggregation</strong> — keep the data current.</li>
-  <li><strong>Reporting and billing</strong> — communicate results and fees.</li>
-  <li><strong>CRM</strong> — run the book of business.</li>
-  <li><strong>Compliance</strong> — keep a defensible record.</li>
+  <li><strong>Planning</strong> - turn a client’s situation into a clear plan.</li>
+  <li><strong>Client portal</strong> - give clients a window into that plan.</li>
+  <li><strong>Account aggregation</strong> - keep the data current.</li>
+  <li><strong>Reporting and billing</strong> - communicate results and fees.</li>
+  <li><strong>CRM</strong> - run the book of business.</li>
+  <li><strong>Compliance</strong> - keep a defensible record.</li>
 </ul>
 
 <h2>The cost of disconnection</h2>
@@ -408,7 +408,7 @@ export const pages = [
   {
     slug: 'client-meeting-cadences',
     title: 'Client Meeting Cadences for Financial Advisors | Prism',
-    description: 'Prism’s cadences automate recurring client outreach so no relationship goes quiet — built into the same workspace as your CRM and roadmaps.',
+    description: 'Prism’s cadences automate recurring client outreach so no relationship goes quiet - built into the same workspace as your CRM and roadmaps.',
     keywords: 'client meeting cadence, advisor client cadences, client review schedule, advisor follow-up automation',
     updated: '2026-11-17', publishAt: '2026-11-17',
     h1: 'Cadences so no client goes quiet',
@@ -419,9 +419,9 @@ export const pages = [
 
 <h2>Why cadences matter</h2>
 <ul>
-  <li><strong>Retention</strong> — consistent contact is what clients remember.</li>
-  <li><strong>Fairness</strong> — every client gets attention, not just the loudest.</li>
-  <li><strong>Less mental load</strong> — the system tracks the schedule, not you.</li>
+  <li><strong>Retention</strong> - consistent contact is what clients remember.</li>
+  <li><strong>Fairness</strong> - every client gets attention, not just the loudest.</li>
+  <li><strong>Less mental load</strong> - the system tracks the schedule, not you.</li>
 </ul>
 
 <h2>Part of the CRM</h2>
@@ -557,7 +557,7 @@ ${siteHeader}
   </div>
   <div class="cta">
     <strong class="cta-head">See it before you sign up.</strong>
-    <div>Open a fully populated demo workspace — no account required.</div>
+    <div>Open a fully populated demo workspace - no account required.</div>
     <div class="btns">
       <a class="primary" href="${SITE}/app">Explore the live demo</a>
       <a class="ghost" href="${SITE}/signup.html">Create your workspace</a>
