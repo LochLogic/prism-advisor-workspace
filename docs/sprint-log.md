@@ -888,4 +888,42 @@ view). **No migration, no secrets, no money** — accounts reads ride the existi
 
 ---
 
+## 2026-06-11 — Round 16: faceted brand rollout + Phase-01 document actions
+
+PRs #61–#63 merged + this batch. Build · lint · calc · check green; portal
+behavior verified in browser preview. **No migration, no secrets, no money** —
+documents ride the existing acknowledgements flow (migration 017) and the
+`_openPrint` plumbing.
+
+**What shipped**
+- **Faceted brand identity everywhere.** New tetrahedron mark (brand navy
+  `#1c2e4a`, teal/green/blue facets) replaced the old outline triangle in:
+  favicons on all 11 HTML pages, `og-image.png`, portal PWA icons (192/512,
+  maskable-safe), app topbar brand chip, loading/setup screens, portal topbar,
+  landing nav + footer, login/signup, legal page headers. Single source
+  `scripts/brand-mark.mjs`; `scripts/brand-assets.mjs` regenerates site assets;
+  `scripts/linkedin-assets.mjs` the LinkedIn kit. Monochrome `Icons.Prism`
+  intentionally kept in icon (non-logo) contexts. High-res masters + a
+  LinkedIn-specific banner (no mark, wordmark shifted right for LinkedIn's
+  logo-overlay framing) live in `branding/` with their generators.
+- **Account dropdown widened** (240px rest / 340px while editing name &
+  credentials; was 186px — PR #62).
+- **Phase 01 milestone actions (client portal).** Cash-flow-worksheet milestone
+  gained a **Numbers panel** button (opens the household ledger drawer, next to
+  Discuss-with-advisor). Fiduciary-disclosure and IPS milestones gained
+  **View sample** buttons → printable sample documents (`PLANNING_SAMPLES` in
+  `store.jsx`, same pattern as `ESTATE_SAMPLES`) with "your advisor sends the
+  firm's official version" banners. Task schema: `panel: 'numbers'` and
+  `doc: 'fiduciary' | 'ips'` flags in `phasesData`.
+- **Advisor "Draft disclosure" prefill** (ClientPreviewModal, next to Draft
+  IPS) — prefills a fiduciary-disclosure acknowledgement the advisor edits into
+  the firm's own language, then sends for in-portal e-sign or escalates to
+  DocuSign (both flows pre-existing). This is the "advisor populates their own
+  version" path for both documents.
+
+**Files:** `src/{icons,data,store,client-portal,advisor-modal,app,shell,portal-app}.jsx`,
+`scripts/brand-*.mjs`, `scripts/linkedin-assets.mjs`, `branding/*`, HTML pages,
+`og-image.png`, `icons/portal-*.png`, `docs/marketing/*`, `docs/TODO.md`.
+
+---
 <!-- New sprints append above this line, newest first. -->

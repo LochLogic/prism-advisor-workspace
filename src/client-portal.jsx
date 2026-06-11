@@ -3,7 +3,7 @@
 
 const PhaseCard = ({ phase, onOpenMilestone }) => {
   const { taskStates, toggleTask, openPhases, togglePhase, flagForAdvisor, isFlagged, activePhase } = useTasks();
-  const { showToast } = useView();
+  const { showToast, openNumbers } = useView();
   const ctx = useProfile();
   const [flagModal, setFlagModal] = React.useState(null); // { phaseId, taskId, label }
   const [flagText,  setFlagText]  = React.useState('');
@@ -91,6 +91,19 @@ const PhaseCard = ({ phase, onOpenMilestone }) => {
                       {done && <Icons.Check size={11} strokeWidth={3} />}
                     </button>
                     <span className="px-task-label">{task.label}</span>
+                    {task.panel === 'numbers' && (
+                      <button className="px-task-act is-discuss" title="Open the household numbers panel and fill in your cash flow"
+                        onClick={(e) => { e.stopPropagation(); openNumbers?.(); }}>
+                        <Icons.Calculator size={10} /> Numbers panel
+                      </button>
+                    )}
+                    {task.doc && (
+                      <button className="px-task-act is-discuss"
+                        title="Open a sample to review or print — your advisor sends the firm's version for e-signature"
+                        onClick={(e) => { e.stopPropagation(); window.openPlanningSample?.(task.doc); }}>
+                        <Icons.FileText size={10} /> View sample
+                      </button>
+                    )}
                     {task.tool === 'advanced' && (
                       <button className="px-task-act is-discuss" title="Open the tool for this phase"
                         onClick={(e) => {
