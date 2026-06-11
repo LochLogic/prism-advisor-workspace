@@ -156,6 +156,11 @@ against it:
   `branding/prism-banner-linkedin-2256.png` (no mark — LinkedIn overlays the page
   logo there; wordmark pre-shifted right); logo = `branding/prism-logo-400.png`.
   Masters + generators (`make-*.mjs`, SVGs) live in `branding/`.*
+- [ ] **Bust LinkedIn's share-preview cache** - run `https://prismaw.com` through
+  the [Post Inspector](https://www.linkedin.com/post-inspector/) so new shares
+  pick up the round-17 clean title ("Prism | The Advisor Workspace") and the
+  round-16 OG image. Note: the already-published launch post keeps its old
+  snapshot; delete + re-share it if you want the new branding there.
 
 ### Optional / as-needed
 - [ ] Finish the **GSC search-digest** setup (add the service account to the Search
