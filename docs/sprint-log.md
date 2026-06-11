@@ -986,5 +986,29 @@ platform admin (#/platform).
 `src/styles.css`, `supabase/functions/platform-admin/index.ts`,
 `landing|login|signup.html`, `docs/*`.
 
+## 2026-06-11 - Round 19: portal honors advisor address style in chip + hero
+
+Small fix batch. Build · check · calc green; verified in browser preview
+(demo advisor renders as "Ms. Chen" in both spots). **No migration, no
+secrets, no money.**
+
+- **Portal advisor chip + hero now use the styled name.** Both rendered
+  `advisorDisplay.fullName` ("Cory Lemay") instead of `advisorDisplay.name`,
+  which applies the advisor's chosen address style via `advisorFormalName`
+  (honorific + address_style, e.g. "Mr. Lemay"). Every other portal surface
+  already used the styled name. Printed reports (performance/scheduler)
+  intentionally keep the full legal name. (`src/client-portal.jsx`)
+- **Marketing logo candidates** added to `docs/marketing/` (`logo.jpg`,
+  `logo2.png`) - founder-supplied, parked with the LinkedIn kit assets.
+
+**Founder Q answered (admin role):** both provisioning paths (self-serve
+migration 008, platform `provision_firm`) DO auto-set the firm's first
+advisor as `role='admin'`; the founder's own early row predates that and is
+plain `advisor`, so no Admin tab. Fix is already queued in TODO ("Give
+yourself the firm-admin role"): one SQL line, or the Platform tab's
+per-firm Advisors roster role toggle.
+
+**Files:** `src/client-portal.jsx`, `docs/marketing/*`, `docs/sprint-log.md`.
+
 ---
 <!-- New sprints append above this line, newest first. -->
