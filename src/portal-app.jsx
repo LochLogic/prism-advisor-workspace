@@ -91,7 +91,7 @@ const PortalTopbar = ({ onOpenNumbers, dark, toggleTheme }) => {
       <div className="px-brand" aria-label={branded ? brand.name : 'Prism'}>
         {brand?.logo_url
           ? <img className="px-brand-logo" src={brand.logo_url} alt={brand.name || 'Firm logo'} />
-          : <div className="px-brand-mark"><Icons.Prism size={15} /></div>}
+          : <div className="px-brand-mark"><Icons.PrismMark size={16} /></div>}
         <div>
           <div className="px-brand-name">{branded ? brand.name : 'Prism'}</div>
           <div className="px-brand-sub">Client Portal{poweredBy ? ' · powered by Prism' : ''}</div>

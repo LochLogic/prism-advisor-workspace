@@ -29,7 +29,7 @@ const Topbar = ({ onOpenNumbers, dark, toggleTheme, platformOwner }) => {
         style={{ cursor: 'pointer' }} aria-label="Home">
         {brand?.logo_url
           ? <img className="px-brand-logo" src={brand.logo_url} alt={brand.name || 'Firm logo'} />
-          : <div className="px-brand-mark"><Icons.Prism size={15} /></div>}
+          : <div className="px-brand-mark"><Icons.PrismMark size={16} /></div>}
         <div>
           <div className="px-brand-name">{brand?.name || 'Prism'}</div>
           <div className="px-brand-sub">{view === 'client' ? 'Client Portal' : view === 'admin' ? 'Firm Admin' : view === 'platform' ? 'Platform Owner' : 'Advisor Workspace'}</div>
@@ -121,7 +121,7 @@ function ProvisionWorkspace() {
       alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', gap: 18, padding: 32 }}>
       <div style={{ width: 42, height: 42, background: 'var(--ink)', borderRadius: 11,
         display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Icons.Prism size={19} style={{ color: 'white' }} />
+        <Icons.PrismMark size={24} />
       </div>
       <div style={{ width: '100%', maxWidth: 380 }}>
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
@@ -215,7 +215,7 @@ function ClaimInvite({ code }) {
       alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', gap: 16, padding: 32, textAlign: 'center' }}>
       <div style={{ width: 42, height: 42, background: 'var(--ink)', borderRadius: 11,
         display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Icons.Prism size={19} style={{ color: 'white' }} />
+        <Icons.PrismMark size={24} />
       </div>
       {!error ? (
         <div style={{ fontFamily: 'var(--serif)', fontSize: 16, color: 'var(--ink-mute)' }}>

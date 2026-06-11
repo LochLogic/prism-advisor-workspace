@@ -14,7 +14,7 @@ const LoadingScreen = () => (
       width: 42, height: 42, background: 'var(--ink)', borderRadius: 11,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
-      <Icons.Prism size={19} style={{ color: 'white' }} />
+      <Icons.PrismMark size={24} />
     </div>
     <div style={{ fontFamily: 'var(--serif)', fontSize: 14, color: 'var(--ink-mute)', letterSpacing: '.01em' }}>
       Verifying session…
@@ -492,7 +492,7 @@ class ErrorBoundary extends React.Component {
         justifyContent: 'center', background: 'var(--bg)', gap: 14, padding: 32, textAlign: 'center' }}>
         <div style={{ width: 42, height: 42, background: 'var(--ink)', borderRadius: 11,
           display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Icons.Prism size={19} style={{ color: 'white' }} />
+          <Icons.PrismMark size={24} />
         </div>
         <div style={{ fontFamily: 'var(--serif)', fontSize: 20, fontWeight: 500, color: 'var(--ink)' }}>
           Something went wrong
