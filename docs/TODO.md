@@ -50,11 +50,21 @@ Project ref: `phabxcijbbphfxvjedfj` · Domain: `prismaw.com`.
 
 ### Round-12 go-live — SQL-editor pastes (shipped 2026-06-10, code is LIVE)
 - [x] ~~Apply migrations 035 + 036~~ *(done 2026-06-10)*
-- [ ] **Apply migration 037** in the Supabase SQL editor:
+- [ ] **Apply migrations 037 + 038** in the Supabase SQL editor, in order:
   [`037_firm_status_guard_fix.sql`](../supabase/migrations/037_firm_status_guard_fix.sql) —
   fixes the 035 status-guard trigger that broke every `firms` update from the
-  browser (your "save branding stopped working" report). One paste; branding
-  saves, the new firm-rename field, and the Workflow toggle all start working.
+  browser (your "save branding stopped working" report); branding saves, the
+  firm-rename field, and the Workflow toggle all start working.
+  [`038_advisor_address_style.sql`](../supabase/migrations/038_advisor_address_style.sql) —
+  adds `advisors.address_style` (how clients address you: first / last /
+  honorific+last) and the `px_my_advisor` RPC so real client sessions see their
+  actual advisor's name in the portal (they previously fell back to the demo
+  advisor — latent bug, fixed in round 12d).
+- [ ] **Give yourself the firm-admin role** — your early advisor row is role
+  `advisor`. Easiest now: one SQL line —
+  `update advisors set role = 'admin' where email = '<your email>';`
+  (then reload). From then on the Platform tab's per-firm **Advisors** roster
+  has Make firm admin / Make advisor buttons, so role changes never need SQL again.
 - [ ] **Seed yourself as platform owner** (one row; the auth uid is in
   Supabase → Authentication → Users):
   `insert into px_platform_owners (auth_user_id, email) values ('<auth-uid>', '<email>');`

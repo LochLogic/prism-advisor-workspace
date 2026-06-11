@@ -7,11 +7,29 @@
 
 const PLATFORM_PLANS = ['starter', 'growth', 'enterprise'];
 
-const PlatformFirmRow = ({ firm, onAction, busyId }) => {
+const PlatformFirmRow = ({ firm, onAction, busyId, showToast }) => {
   const [planEdit, setPlanEdit] = React.useState(null); // {plan, seats} | null
+  const [roster, setRoster] = React.useState(null);     // advisors | null (closed)
+  const [roleBusy, setRoleBusy] = React.useState(null); // advisor id mid-toggle
   const busy = busyId === firm.id;
   const suspended = firm.status === 'suspended';
   const sub = firm.subscription;
+
+  const toggleRoster = async () => {
+    if (roster) { setRoster(null); return; }
+    const r = await window.db.platformAdmin('firm_detail', { firm_id: firm.id });
+    setRoster(r?.advisors || []);
+  };
+  // Promote/demote a seat (admin ⇄ advisor) through the service-role action.
+  const setRole = async (a, role) => {
+    setRoleBusy(a.id);
+    const r = await window.db.platformAdmin('set_advisor_role', { advisor_id: a.id, role });
+    setRoleBusy(null);
+    if (r?.advisor) {
+      setRoster(prev => (prev || []).map(x => x.id === a.id ? { ...x, role: r.advisor.role } : x));
+      showToast(`${r.advisor.full_name} is now ${r.advisor.role === 'admin' ? 'a firm admin' : 'an advisor'}`);
+    } else showToast(r?.error || 'Could not change the role');
+  };
   return (
     <>
       <tr style={suspended ? { opacity: 0.6 } : undefined}>
@@ -41,6 +59,9 @@ const PlatformFirmRow = ({ firm, onAction, busyId }) => {
           </span>
         </td>
         <td style={{ whiteSpace: 'nowrap' }}>
+          <button className="px-btn px-btn-sm px-btn-ghost" onClick={toggleRoster}>
+            {roster ? 'Hide' : 'Advisors'}
+          </button>
           <button className="px-btn px-btn-sm px-btn-ghost" disabled={busy}
             onClick={() => setPlanEdit(planEdit ? null : { plan: firm.plan, seats: firm.seats_purchased })}>
             Plan
@@ -54,6 +75,33 @@ const PlatformFirmRow = ({ firm, onAction, busyId }) => {
           )}
         </td>
       </tr>
+      {roster && (
+        <tr>
+          <td colSpan={6} style={{ background: 'var(--bg-elev)' }}>
+            {roster.length === 0 ? (
+              <div style={{ fontSize: 12, color: 'var(--ink-faint)', fontStyle: 'italic', padding: '4px 0' }}>
+                No advisor seats yet.
+              </div>
+            ) : roster.map(a => (
+              <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 0', fontSize: 12.5 }}>
+                <span style={{ color: 'var(--ink)', fontWeight: 600 }}>{a.full_name}</span>
+                <span style={{ color: 'var(--ink-mute)' }}>{a.email}</span>
+                <span style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '.05em',
+                  color: a.role === 'admin' ? 'var(--forest)' : 'var(--ink-faint)' }}>{a.role}</span>
+                {a.active === false && <span style={{ fontSize: 10.5, color: 'var(--brick)' }}>inactive</span>}
+                <div style={{ flex: 1 }} />
+                {a.role === 'admin' ? (
+                  <button className="px-btn px-btn-sm px-btn-ghost" disabled={roleBusy === a.id}
+                    onClick={() => setRole(a, 'advisor')}>Make advisor</button>
+                ) : (
+                  <button className="px-btn px-btn-sm px-btn-ghost" style={{ color: 'var(--forest)' }} disabled={roleBusy === a.id}
+                    onClick={() => setRole(a, 'admin')}>Make firm admin</button>
+                )}
+              </div>
+            ))}
+          </td>
+        </tr>
+      )}
       {planEdit && (
         <tr>
           <td colSpan={6} style={{ background: 'var(--bg-elev)' }}>
@@ -221,7 +269,7 @@ const PlatformOwnerDashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {firms.map(f => <PlatformFirmRow key={f.id} firm={f} onAction={onAction} busyId={busyId} />)}
+                {firms.map(f => <PlatformFirmRow key={f.id} firm={f} onAction={onAction} busyId={busyId} showToast={showToast} />)}
               </tbody>
             </table>
           </div>

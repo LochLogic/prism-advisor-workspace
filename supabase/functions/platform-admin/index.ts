@@ -152,6 +152,19 @@ Deno.serve(async (req) => {
       return json({ firm: data });
     }
 
+    // Promote/demote an advisor seat (admin ⇄ advisor) — e.g. granting a firm
+    // its first admin, or the founder upgrading their own early-test seat.
+    if (action === "set_advisor_role") {
+      const advisorId = String(body.advisor_id || "");
+      const role = body.role === "admin" ? "admin" : "advisor";
+      const { data, error } = await svc.from("advisors")
+        .update({ role }).eq("id", advisorId)
+        .select("id, full_name, email, role, firm_id").single();
+      if (error) throw error;
+      await audit("platform.set_advisor_role", `Set ${data.email} → ${role}`, { advisor_id: advisorId, firm_id: data.firm_id });
+      return json({ advisor: data });
+    }
+
     if (action === "set_plan") {
       const firmId = String(body.firm_id || "");
       const plan = String(body.plan || "");

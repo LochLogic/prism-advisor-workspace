@@ -12,6 +12,38 @@
 
 ---
 
+## 2026-06-10 (round 12d) — Name model, address style + platform role control (founder feedback)
+
+Founder feedback round two, same day. **One hand-apply migration (038) and a
+gated edge redeploy** (`platform-admin` gained an action).
+
+**Name editor restructured** — the account-chip editor is now [honorific
+dropdown] [First name] [Last name] + credentials. Storage unchanged
+(`full_name` stays the single column; boxes join on save, split on open —
+last token = last name), so nothing else in the app had to move.
+
+**"How clients address you" is now an explicit style** — new
+`advisors.address_style` (`'first' | 'last' | 'formal'`, migration 038;
+NULL = legacy derivation: honorific set → formal, else first). The account-menu
+dropdown shows live previews from the actual name; `advisorFormalName` is
+style-aware (plus new `advisorFirstName` helper). The honorific itself is now
+purely the name prefix, picked inside the name editor.
+
+**Latent bug fixed: real clients saw the DEMO advisor's name** — clients can't
+read `advisors` under RLS, so the live portal's "review with …" copy fell back
+to the mock ("Madeline Chen"). New `px_my_advisor()` security-definer RPC
+(migration 038) returns exactly the display fields a client needs about their
+own advisor; `db.getMyAdvisor` + portal `advisorDisplay` now prefer it. Firm
+fallback also prefers the painted brand over the mock.
+
+**Platform role control** — `platform-admin` edge fn gains `set_advisor_role`
+(admin ⇄ advisor, service role, audit-logged `platform.set_advisor_role`); the
+Platform view's firm rows gain an **Advisors** roster expander with Make firm
+admin / Make advisor buttons. Founder's immediate self-upgrade documented in
+TODO as a one-line SQL update (their early seat predates the platform tier).
+
+---
+
 ## 2026-06-10 (round 12c) — Status-guard hotfix + name/rebrand editing (founder feedback)
 
 Founder go-live feedback, same day. **One hand-apply migration (037), no edge

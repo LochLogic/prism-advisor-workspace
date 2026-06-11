@@ -65,7 +65,7 @@ src/
   styles.css / print.css   hand-authored CSS (print.css = report/invoice print layout)
 
 supabase/
-  migrations/001-036   schema evolution (names are self-describing; 001 = base schema)
+  migrations/001-038   schema evolution (names are self-describing; 001 = base schema)
   functions/           Edge Functions (Deno) — see §6
   functions/_shared/   auth.ts, cors.ts, docusign.ts, calendar.ts (provider plumbing), fees.ts (canonical BACKEND fee math)
   tests/               integration.sql, rls_isolation.sql (tenant-isolation proofs)
@@ -105,7 +105,14 @@ e2e/demo.spec.ts       Playwright smoke
   fns (tokens server-side only, `calendar_connections` migration 033); `bulkCreateClients`
   → `px_bulk_create_clients` RPC (migration 034; importer falls back per-row if missing)
 - Platform tier (round 12): `platformAdmin(action, payload)` → `platform-admin` edge fn
-  (px_platform_owners allowlist, migration 035; `whoami` is the cheap owner probe)
+  (px_platform_owners allowlist, migration 035; `whoami` is the cheap owner probe;
+  round 12d added `set_advisor_role` admin⇄advisor)
+- Identity (rounds 12c/d): `updateAdvisorProfile` (own name/honorific/credentials/
+  address_style; advisors_update_self RLS), `getMyAdvisor` (px_my_advisor RPC,
+  migration 038 — a CLIENT's advisor display fields; clients can't read `advisors`),
+  `updateFirmBrand` also accepts a non-empty `name` (firm rename). Client-facing
+  advisor reference = `advisorFormalName({honorific, fullName, addressStyle})`
+  (data.jsx) — 'first' | 'last' | 'formal'; NULL style = legacy derivation.
 - Ledger approval gate (round 12, migration 036): `getLedgerGate` (px_ledger_gate RPC —
   client-safe), `setLedgerGate/getFirmLedgerGate` (firms.ledger_approval_required),
   `getPendingLedgerChange(clientId)`, `submitLedgerChange` (one open draft per client,

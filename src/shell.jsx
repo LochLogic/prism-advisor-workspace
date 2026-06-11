@@ -272,28 +272,39 @@ const AccountChip = ({ view, activeClient }) => {
   const [open, setOpen] = React.useState(false);
   const [securityOpen, setSecurityOpen] = React.useState(false);
 
-  // Persist the advisor's client-facing display title. Scoped to their own
-  // advisors row (advisors_update_self RLS), then mirrored into context so the
-  // change is reflected immediately without a reload.
-  const saveHonorific = async (h) => {
-    if (!authUser?.id) return;
-    try { await window.__sb?.from('advisors').update({ honorific: h || null }).eq('id', authUser.id); } catch (e) {}
-    setAuthUser?.(u => (u ? { ...u, honorific: h || null } : u));
+  // Own-profile editor: honorific prefix + first/last name (marriage/name
+  // changes) + credentials. advisors_update_self RLS scopes the write; context
+  // mirrors it instantly. full_name stays the single stored column — the
+  // first/last boxes join on save and split on open (last token = last name).
+  const splitName = (full) => {
+    const parts = String(full || '').split(',')[0].trim().split(/\s+/).filter(Boolean);
+    return parts.length > 1
+      ? { first: parts.slice(0, -1).join(' '), last: parts[parts.length - 1] }
+      : { first: parts[0] || '', last: '' };
   };
-
-  // Own-profile editor (name changes — marriage etc. — and credentials).
-  // advisors_update_self RLS scopes the write; context mirrors it instantly.
-  const [profileEdit, setProfileEdit] = React.useState(null); // {full_name, credentials} | null
+  const [profileEdit, setProfileEdit] = React.useState(null); // {honorific, first, last, credentials} | null
   const [profileSaving, setProfileSaving] = React.useState(false);
   const saveProfileEdit = async () => {
-    if (!authUser?.id || !profileEdit?.full_name?.trim()) return;
+    const fullName = `${profileEdit?.first || ''} ${profileEdit?.last || ''}`.replace(/\s+/g, ' ').trim();
+    if (!authUser?.id || !fullName) return;
     setProfileSaving(true);
-    const row = await window.db?.updateAdvisorProfile(authUser.id, profileEdit);
+    const row = await window.db?.updateAdvisorProfile(authUser.id, {
+      full_name: fullName, honorific: profileEdit.honorific || null, credentials: profileEdit.credentials });
     setProfileSaving(false);
     if (row) {
-      setAuthUser?.(u => (u ? { ...u, full_name: row.full_name, credentials: row.credentials } : u));
+      setAuthUser?.(u => (u ? { ...u, full_name: row.full_name, honorific: row.honorific, credentials: row.credentials } : u));
       setProfileEdit(null);
     }
+  };
+
+  // How the client portal refers to them — explicit style (migration 038):
+  // first name / last name / honorific + last name. Until a style is chosen
+  // the legacy derivation holds (honorific set → formal, else first name).
+  const addressStyle = authUser?.address_style || (authUser?.honorific ? 'formal' : 'first');
+  const saveAddressStyle = async (style) => {
+    if (!authUser?.id) return;
+    const row = await window.db?.updateAdvisorProfile(authUser.id, { address_style: style || null });
+    if (row) setAuthUser?.(u => (u ? { ...u, address_style: row.address_style } : u));
   };
 
   React.useEffect(() => {
@@ -383,7 +394,8 @@ const AccountChip = ({ view, activeClient }) => {
             <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
               {!profileEdit ? (
                 <button
-                  onClick={() => setProfileEdit({ full_name: authUser.full_name || '', credentials: authUser.credentials || '' })}
+                  onClick={() => setProfileEdit({ honorific: authUser.honorific || '',
+                    ...splitName(authUser.full_name), credentials: authUser.credentials || '' })}
                   style={{ width: '100%', padding: 0, marginBottom: 8, textAlign: 'left', background: 'none', border: 'none',
                     fontSize: 12, color: 'var(--ink)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--sans)' }}>
                   <Icons.Edit size={12} /> Edit name &amp; credentials
@@ -393,10 +405,22 @@ const AccountChip = ({ view, activeClient }) => {
                   <div style={{ fontSize: 12, color: 'var(--ink)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
                     <Icons.Edit size={12} /> Your name &amp; credentials
                   </div>
-                  <input className="px-input" style={{ width: '100%', marginBottom: 6 }} autoFocus
-                    value={profileEdit.full_name} placeholder="Full name" aria-label="Your full name"
-                    onChange={e => setProfileEdit(p => ({ ...p, full_name: e.target.value }))}
-                    onKeyDown={e => { if (e.key === 'Enter') saveProfileEdit(); }} />
+                  <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+                    <select className="px-select" style={{ width: 74, flexShrink: 0 }} aria-label="Honorific"
+                      value={profileEdit.honorific}
+                      onChange={e => setProfileEdit(p => ({ ...p, honorific: e.target.value }))}>
+                      <option value="">—</option>
+                      {(window.HONORIFIC_OPTIONS || []).map(h => <option key={h} value={h}>{h}</option>)}
+                    </select>
+                    <input className="px-input" style={{ flex: 1, minWidth: 0 }} autoFocus
+                      value={profileEdit.first} placeholder="First name" aria-label="First name"
+                      onChange={e => setProfileEdit(p => ({ ...p, first: e.target.value }))}
+                      onKeyDown={e => { if (e.key === 'Enter') saveProfileEdit(); }} />
+                    <input className="px-input" style={{ flex: 1, minWidth: 0 }}
+                      value={profileEdit.last} placeholder="Last name" aria-label="Last name"
+                      onChange={e => setProfileEdit(p => ({ ...p, last: e.target.value }))}
+                      onKeyDown={e => { if (e.key === 'Enter') saveProfileEdit(); }} />
+                  </div>
                   <input className="px-input" style={{ width: '100%', marginBottom: 6 }}
                     value={profileEdit.credentials} placeholder="Credentials (e.g. CFP®, CFA)" aria-label="Your credentials"
                     onChange={e => setProfileEdit(p => ({ ...p, credentials: e.target.value }))}
@@ -404,7 +428,7 @@ const AccountChip = ({ view, activeClient }) => {
                   <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                     <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => setProfileEdit(null)}>Cancel</button>
                     <button className="px-btn px-btn-sm px-btn-primary" onClick={saveProfileEdit}
-                      disabled={profileSaving || !profileEdit.full_name.trim()}>
+                      disabled={profileSaving || !(profileEdit.first.trim() || profileEdit.last.trim())}>
                       {profileSaving ? 'Saving…' : 'Save'}
                     </button>
                   </div>
@@ -413,12 +437,15 @@ const AccountChip = ({ view, activeClient }) => {
               <div style={{ fontSize: 12, color: 'var(--ink)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Icons.Edit size={12} /> How clients address you
               </div>
-              <select className="px-select" value={authUser.honorific || ''} style={{ width: '100%' }}
-                onChange={e => saveHonorific(e.target.value)}>
-                <option value="">First name ({(authUser.full_name || '').split(/\s+/)[0] || '—'})</option>
-                {(window.HONORIFIC_OPTIONS || []).map(h => (
-                  <option key={h} value={h}>{advisorFormalName({ honorific: h, fullName: authUser.full_name, fallback: h })}</option>
-                ))}
+              <select className="px-select" value={addressStyle} style={{ width: '100%' }}
+                onChange={e => saveAddressStyle(e.target.value)}>
+                <option value="first">First name ({advisorFirstName(authUser.full_name) || '—'})</option>
+                <option value="last">Last name ({advisorSurname(authUser.full_name) || '—'})</option>
+                <option value="formal">
+                  {authUser.honorific
+                    ? `${authUser.honorific} ${advisorSurname(authUser.full_name) || '—'}`
+                    : 'Honorific + last name (pick a prefix above)'}
+                </option>
               </select>
             </div>
           )}

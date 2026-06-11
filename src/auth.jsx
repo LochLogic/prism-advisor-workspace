@@ -70,12 +70,17 @@ function AuthProvider({ children }) {
         .maybeSingle();
 
       if (adv) {
-        // Firm lifecycle status (platform tier, migration 035). A separate,
-        // non-fatal read: before the migration lands the column doesn't exist
-        // and this must NOT take sign-in down with it — default to active.
+        // Post-001 columns read separately and non-fatally: firms.status
+        // (migration 035) and advisors.address_style (038) don't exist until
+        // their migrations land, and a missing column in the MAIN select would
+        // take sign-in down with it. Defaults: active firm, legacy addressing.
         try {
-          const { data: f } = await window.__sb.from('firms').select('status').eq('id', adv.firm_id).maybeSingle();
+          const [{ data: f }, { data: extra }] = await Promise.all([
+            window.__sb.from('firms').select('status').eq('id', adv.firm_id).maybeSingle(),
+            window.__sb.from('advisors').select('address_style').eq('id', adv.id).maybeSingle(),
+          ]);
           if (f?.status) adv.firms = { ...(adv.firms || {}), status: f.status };
+          if (extra) adv.address_style = extra.address_style || null;
         } catch (e) {}
         await phasesReady;
         loadBrand();
