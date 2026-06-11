@@ -221,6 +221,24 @@ function ProfileProvider({ children }) {
     if (out) setPendingChange(out);
   }, [pendingChange]);
 
+  // Explicit "Save" from the Numbers drawer: flush the debounced persist right
+  // now through the same gated write path, so the click is a real commitment
+  // moment instead of waiting out the 1.5s timer. Returns 'review' when the
+  // firm's advisor-approval gate routed the save into a draft (client actors
+  // only), 'saved' for a direct write - the drawer words its confirmation off
+  // this.
+  const saveNow = React.useCallback(() => {
+    clearTimeout(dbSaveTimer.current);
+    pendingSave.current = null;
+    const p = profileRef.current;
+    if (window.db?.isUUID(activeClientId)) {
+      persistProfile(activeClientId, p);
+      return (gateRef.current && isClientActor()) ? 'review' : 'saved';
+    }
+    try { localStorage.setItem(`px_profile:${activeClientId}`, JSON.stringify(p)); } catch {}
+    return 'saved';
+  }, [activeClientId]);
+
   const flushPendingSave = () => {
     const p = pendingSave.current;
     pendingSave.current = null;
@@ -526,7 +544,7 @@ function ProfileProvider({ children }) {
   // of `profile` + `activeClientId` (the latter only via the Monte Carlo seed), so
   // keying on those two prevents a new value object - and a re-render of every
   // profile consumer - when a parent provider re-renders without a profile change.
-  const value = useMemo(() => ({ profile, setProfile, update, undoEdit, undoDepth,
+  const value = useMemo(() => ({ profile, setProfile, update, undoEdit, undoDepth, saveNow,
       ledgerGate, pendingChange, withdrawPendingChange, ...metrics }),
     [profile, activeClientId, undoDepth, ledgerGate, pendingChange]); // eslint-disable-line react-hooks/exhaustive-deps
 
