@@ -83,12 +83,29 @@ Deno.serve(async (req) => {
         svc.from("subscriptions").select("firm_id, plan, status, current_period_end"),
       ]);
       if (fe) throw fe;
+      // Platform-level usage stats from px_events (migration 041). Tolerant of
+      // the table not existing yet — usage simply stays null until it lands.
+      // 30-day window; the roster cap is generous at platform scale (tens of
+      // firms · 7 instrumented event types).
+      const usageByFirm: Record<string, { events_30d: number; last_event_at: string | null }> = {};
+      try {
+        const since = new Date(Date.now() - 30 * 86400000).toISOString();
+        const { data: ev, error: ee } = await svc.from("px_events")
+          .select("firm_id, occurred_at").gte("occurred_at", since)
+          .order("occurred_at", { ascending: false }).limit(50000);
+        if (!ee) for (const e of ev || []) {
+          if (!e.firm_id) continue;
+          const u = usageByFirm[e.firm_id] || (usageByFirm[e.firm_id] = { events_30d: 0, last_event_at: e.occurred_at });
+          u.events_30d++;
+        }
+      } catch { /* px_events not applied yet */ }
       const subByFirm = Object.fromEntries((subs || []).map((s) => [s.firm_id, s]));
       const rows = (firms || []).map((f) => ({
         ...f,
         advisor_count: (advisors || []).filter((a) => a.firm_id === f.id && a.active !== false).length,
         client_count: (clients || []).filter((c) => c.firm_id === f.id && c.active !== false).length,
         subscription: subByFirm[f.id] || null,
+        usage: usageByFirm[f.id] || null,
       }));
       return json({ firms: rows });
     }

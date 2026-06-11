@@ -2,7 +2,7 @@
 
 > **Purpose:** condensed router for AI/dev work. Tells you *which* file owns a
 > concern and what it exports — not every line. Read the named file for deep logic.
-> **Last synced:** 2026-06-10 round-13 sprint (security-advisor sweep · portal PWA+push · px_events analytics · RLS index audit). **Regenerate when:** `build-files.mjs`
+> **Last synced:** 2026-06-10 round-14 sprint (firm-admin CSV exports + audit filter · platform usage stats; round 13: security-advisor sweep · portal PWA+push · px_events analytics). **Regenerate when:** `build-files.mjs`
 > load order changes, a `src/*` file is added/split, or `window.db`/`PrismCalc` gain methods.
 
 ---
@@ -172,7 +172,9 @@ printQBRReport, printIPSReport, printProposalPacket (prospect close-the-deal pri
 round 8 — button on the portal prospect banner)`; `openEstateSample(key)` (round 9 —
 illustrative will/trust/POA/directive/beneficiary-review discussion documents, bannered
 not-legal-advice, `.sample-banner` in print.css, no auto-print); helpers
-`escapeHtml, sanitizeHtml, fmt$, fmtPct, fmtN, emptyProfile, mergeProfile`.
+`escapeHtml, sanitizeHtml, fmt$, fmtPct, fmtN, emptyProfile, mergeProfile,
+downloadCSV` (round 14 — shared formula-injection-safe CSV download; used by the
+roster export and the firm-admin Clients/Invoices/Audit CSVs).
 Also `ProspectProvider/useProspects` — unsaved "prospect-" households → one-click convert.
 Round 9: `createProspect` seeds `px_tasks`/`px_open` to the chosen starting phase;
 prospect profiles load/merge on `emptyProfile` (never the demo sample — ProfileProvider
@@ -217,7 +219,7 @@ mirrored in `src/brand-boot.js` for the pre-auth pages).
 | `plaid-create-link-token` / `plaid-exchange-token` | Plaid Link → import account balances |
 | `worm-export` | SEC 17a-4 audit-log retention export → private bucket |
 | `ai-assist` | Advisor JWT → Gemini (server-side key): draft_reply / household_summary / talking_points / attention / w2_extract (round 9 — base64 image/PDF ≤4 MB via `file`, JSON box extraction) |
-| `platform-admin` | Founder JWT checked against px_platform_owners → service-role firm administration: whoami / overview / firm_detail / provision_firm / suspend_firm / reactivate_firm / set_plan (all audit-logged `platform.*`) |
+| `platform-admin` | Founder JWT checked against px_platform_owners → service-role firm administration: whoami / overview (incl. 30-day px_events usage per firm, round 14) / firm_detail / provision_firm / suspend_firm / reactivate_firm / set_plan (all audit-logged `platform.*`) |
 | `calendar-oauth` | Advisor JWT → Google/Microsoft calendar connect lifecycle (auth_url / exchange / status / disconnect); tokens → `calendar_connections` (service-role only) |
 | `calendar-events` | Advisor JWT → upcoming / freebusy / create across connected calendars; auto token refresh. Callback pages: `/oauth/{google,microsoft}/callback` (one `oauth-callback.html`, written twice by build.mjs) |
 | `send-push` | Advisor JWT → web-push to a client's installed portal (PWA); tenant-checked, VAPID server-side, prunes dead endpoints |
