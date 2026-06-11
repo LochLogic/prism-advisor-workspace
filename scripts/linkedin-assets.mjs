@@ -23,29 +23,18 @@ const logoHTML = `<!doctype html><meta charset="utf-8">
 const bannerHTML = `<!doctype html><meta charset="utf-8">
 <style>
   * { margin:0; box-sizing:border-box; }
-  body { width:1128px; height:191px; background:${NAVY}; position:relative;
-         overflow:hidden; font-family:'Segoe UI',system-ui,sans-serif; color:#fff;
-         display:flex; align-items:center; }
-  /* soft refracted-light beams off the prism, brand-color only */
-  .beam { position:absolute; top:-40px; height:280px; width:480px;
-          transform:rotate(18deg); pointer-events:none; }
-  .b1 { right:60px;  background:linear-gradient(105deg, rgba(255,255,255,0)   40%, rgba(255,255,255,.07) 60%, rgba(255,255,255,0) 80%); }
-  .b2 { right:-120px; background:linear-gradient(105deg, rgba(255,255,255,0)  35%, rgba(255,255,255,.05) 55%, rgba(255,255,255,0) 75%); }
-  .content { display:flex; align-items:center; gap:26px; padding-left:72px; position:relative; }
-  .wordmark { display:flex; flex-direction:column; gap:8px; }
-  .name { font-size:44px; font-weight:650; letter-spacing:.5px; line-height:1; }
-  .tag  { font-size:17px; font-weight:400; color:rgba(255,255,255,.78); letter-spacing:.3px; }
-  .ghost { position:absolute; right:96px; top:50%; transform:translateY(-50%); opacity:.16; }
+  body { width:1128px; height:191px; background:${NAVY};
+         font-family:'Segoe UI',system-ui,sans-serif; color:#fff;
+         display:flex; align-items:center; gap:30px; padding-left:72px; }
+  .wordmark { display:flex; flex-direction:column; gap:10px; }
+  .name { font-size:58px; font-weight:700; letter-spacing:6px; line-height:1; }
+  .tag  { font-size:22px; font-weight:400; color:rgba(255,255,255,.8); letter-spacing:2.5px; }
 </style>
 <body>
-  <div class="beam b1"></div><div class="beam b2"></div>
-  <div class="ghost">${mark(150)}</div>
-  <div class="content">
-    ${mark(72)}
-    <div class="wordmark">
-      <div class="name">Prism</div>
-      <div class="tag">The advisor workspace &mdash; living client roadmaps for RIAs &middot; prismaw.com</div>
-    </div>
+  ${mark(150)}
+  <div class="wordmark">
+    <div class="name">PRISM</div>
+    <div class="tag">Advisor Workspace</div>
   </div>
 </body>`;
 
