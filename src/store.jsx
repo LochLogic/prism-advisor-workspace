@@ -1369,6 +1369,71 @@ function openEstateSample(key) {
   `, { autoPrint: false });
 }
 
+/* ─── Planning sample documents (Phase 01 milestones) ─────────────────
+   Sample templates behind the "View sample" buttons on the fiduciary-
+   disclosure and IPS milestones. Same shape as ESTATE_SAMPLES. The firm's
+   real version travels through the acknowledgements flow (advisor prefills
+   via Draft IPS / Draft disclosure, client e-signs in the portal, DocuSign
+   escalation optional) — these are the educational stand-ins until then. */
+const PLANNING_SAMPLES = {
+  fiduciary: {
+    title: 'Fiduciary Disclosure & Acknowledgement',
+    what: 'Explains the standard of care your advisor owes you. A fiduciary is legally and ethically required to put your interests first — this document spells out what that means, how the firm is paid, and what conflicts could exist. You sign it once at onboarding so the relationship starts with everything on the table.',
+    sections: [
+      ['1. Fiduciary standard', '[Firm Name] is a registered investment adviser. When providing advisory services, the firm and its advisors act as fiduciaries, obligated to place your interests ahead of their own at all times.'],
+      ['2. Scope of advice', 'Advice covers the household roadmap, investment management of designated accounts, and the planning topics in your engagement. It does not include legal or tax preparation services, which remain with your attorney and tax professional.'],
+      ['3. Compensation', 'The firm is compensated by a transparent advisory fee under your executed fee schedule. The firm does not receive commissions, sales loads, or third-party payments for recommending products. [Fee-only firms: state it plainly. Fee-based firms: itemize the exceptions here.]'],
+      ['4. Conflicts of interest', 'Any material conflict — for example, fees that vary by account type, or affiliated services — is disclosed in Form ADV Part 2 and raised with you before it affects a recommendation.'],
+      ['5. Your documents', 'You have received, or may request at any time: Form ADV Part 2A/2B, the firm’s privacy policy, and the current fee schedule.'],
+      ['6. Acknowledgement', 'I acknowledge that I have read and understood this disclosure. Signed [Client Name], [Date].'],
+    ],
+    discuss: [
+      'Exactly how — and how much — is the firm paid on my household, in dollars?',
+      'Are there any services where the firm is NOT acting as a fiduciary?',
+      'Where do I find Form ADV Part 2, and what should I look for in it?',
+    ],
+  },
+  ips: {
+    title: 'Investment Policy Statement',
+    what: 'The written agreement on how your money is managed: objectives, time horizon, risk, target allocation, and the rules for rebalancing and review. It keeps decisions anchored to plan — especially in stressed markets — and is updated when your life, not the market, changes.',
+    sections: [
+      ['1. Purpose & parties', 'This statement governs the management of the accounts of [Client Name(s)] by [Firm Name], effective [Date], and is reviewed at least annually.'],
+      ['2. Objectives & horizon', 'Primary objective: [growth / income / preservation] in support of the household roadmap. Investment horizon: approximately [N] years to [retirement / goal], with a multi-decade drawdown period thereafter.'],
+      ['3. Risk profile', 'Risk band: [Band] ([Score]/100), from the portal risk questionnaire dated [Date]. The household can tolerate a decline of approximately [X]% in a severe market without abandoning the plan.'],
+      ['4. Strategic allocation', 'Target allocation — Equity [E]%, Fixed income [F]%, Cash [C]%. Implemented with broad, low-cost index funds; tax-inefficient assets placed in tax-advantaged accounts where practical.'],
+      ['5. Rebalancing & monitoring', 'Rebalanced when an asset class drifts ±5% from target, or at the annual review. Performance is reported net of advisory fees against blended benchmarks.'],
+      ['6. Acknowledgement', 'By signing, you acknowledge you have reviewed and agree to this Investment Policy Statement as the basis for ongoing management. Signed [Client Name], [Date].'],
+    ],
+    discuss: [
+      'Does the target allocation still match how losing [X]% in a bad year would actually feel?',
+      'Which goals does this horizon serve — and is anything big (home, sabbatical, exit) missing?',
+      'When were the questionnaire answers last refreshed? Risk capacity drifts with life changes.',
+    ],
+  },
+};
+
+function openPlanningSample(key) {
+  const s = PLANNING_SAMPLES[key];
+  if (!s) return;
+  const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  _openPrint(`Sample — ${s.title}`, `
+    <div class="sample-banner">SAMPLE TEMPLATE — FOR REVIEW ONLY. This is an illustration of what this document covers.
+    Your advisor will provide the firm's official version for signature. It is not legal, tax, or compliance advice.</div>
+    <div class="rpt-head">
+      <div><h1>${escapeHtml(s.title)}</h1><div class="sub">Sample for review &middot; Opened ${date}</div></div>
+      <div class="rpt-meta">Prism Advisor Workspace<br/>Illustrative only</div>
+    </div>
+    <div class="note-block">${escapeHtml(s.what)}</div>
+    ${s.sections.map(([h, b]) => `
+      <div class="section-lbl">${escapeHtml(h)}</div>
+      <div class="mtg-notes">${escapeHtml(b)}</div>`).join('')}
+    <div class="section-lbl">What to discuss with your advisor</div>
+    ${s.discuss.map(d => `<div class="task"><span class="check">○</span><span>${escapeHtml(d)}</span></div>`).join('')}
+    <div class="sample-banner">SAMPLE — the signed version comes from your advisor through the portal's acknowledgements.</div>
+    <div class="footer">Illustrative sample for planning discussion. Prism Advisor Workspace.</div>
+  `, { autoPrint: false });
+}
+
 // Client overview report — called from ClientPreviewModal "Print report" button
 function printClientReport(client, phase, meetings) {
   window.db?.track?.('report_printed', { meta: { kind: 'client' } });
@@ -1958,7 +2023,7 @@ function downloadCSV(filename, headers, rows) {
 
 Object.assign(window, {
   downloadCSV,
-  ProfileProvider, useProfile, emptyProfile, mergeProfile, openEstateSample,
+  ProfileProvider, useProfile, emptyProfile, mergeProfile, openEstateSample, openPlanningSample,
   TaskProvider, useTasks, demoTaskSeed,
   ViewProvider, useView,
   NotificationProvider, useNotifications,

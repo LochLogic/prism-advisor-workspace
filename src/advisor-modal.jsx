@@ -1279,6 +1279,20 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     setAckForm({ title: 'Investment Policy Statement (draft)', body });
     showToast(rp ? 'IPS draft prefilled from risk profile — review & send' : 'No risk profile yet — added a blank IPS draft');
   };
+  /* Draft fiduciary disclosure — prefill an acknowledgement the advisor edits
+     into the firm's own language before sending (e-sign or DocuSign). The
+     client-facing sample lives in store.jsx PLANNING_SAMPLES.fiduciary. */
+  const draftFiduciary = () => {
+    const firm = authUser?.firms?.name || 'The firm';
+    setAckForm({
+      title: 'Fiduciary Disclosure & Acknowledgement',
+      body: `${firm} acts as a fiduciary, obligated to place your interests first at all times. ` +
+        `Compensation is a transparent advisory fee under your executed fee schedule — no commissions or product sales. ` +
+        `By signing, you acknowledge you have received and reviewed the firm's fiduciary disclosure and Form ADV Part 2, ` +
+        `and understand the scope of advice and how the firm is compensated.`,
+    });
+    showToast('Disclosure draft prefilled — edit into your firm’s language & send');
+  };
   const printIPS = () => {
     const { rp, age, retireAt } = _ipsRisk();
     const pd = profileData || {};
@@ -1726,6 +1740,9 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                   <span style={LABEL_STYLE}>Acknowledgements</span>
                   {!ackForm && (
                     <div style={{ display: 'flex', gap: 6 }}>
+                      <button className="px-btn px-btn-sm px-btn-ghost" onClick={draftFiduciary} title="Draft a fiduciary disclosure to edit into your firm's language">
+                        <Icons.FileText size={10} /> Draft disclosure
+                      </button>
                       <button className="px-btn px-btn-sm px-btn-ghost" onClick={draftIPS} title="Draft an IPS from the client's risk profile">
                         <Icons.FileText size={10} /> Draft IPS
                       </button>

@@ -152,7 +152,10 @@ against it:
   [`marketing/linkedin-launch-kit.md`](marketing/linkedin-launch-kit.md): logo +
   banner PNGs (same folder), page-setup fields, the About description, and the
   first-ever post draft. Attach product screenshots to the post and reshare from
-  your personal profile.
+  your personal profile. *Round-16 assets: banner = the LinkedIn-specific
+  `branding/prism-banner-linkedin-2256.png` (no mark — LinkedIn overlays the page
+  logo there; wordmark pre-shifted right); logo = `branding/prism-logo-400.png`.
+  Masters + generators (`make-*.mjs`, SVGs) live in `branding/`.*
 
 ### Optional / as-needed
 - [ ] Finish the **GSC search-digest** setup (add the service account to the Search

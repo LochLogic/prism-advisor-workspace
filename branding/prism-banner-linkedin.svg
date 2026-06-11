@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1128" height="191" viewBox="0 0 1128 191" font-family="'Segoe UI','Helvetica Neue',Arial,sans-serif">
+<rect width="1128" height="191" fill="#1c2e4a"/>
+<text x="340" y="98" font-size="54" font-weight="300" letter-spacing="10" fill="#ffffff">PRISM</text>
+<text x="342" y="138" font-size="21" font-weight="300" letter-spacing="3.5" fill="rgba(255,255,255,.82)">Advisor Workspace</text>
+<line x1="56" y1="163" x2="1072" y2="163" stroke="rgba(255,255,255,.55)" stroke-width="2"/>
+<rect x="640" y="143" width="28" height="20" fill="#3E7D9C"/>
+<rect x="678" y="133" width="28" height="30" fill="#3E9C85"/>
+<rect x="716" y="137" width="28" height="26" fill="#4E8FAE"/>
+<rect x="754" y="119" width="28" height="44" fill="#45A98F"/>
+<rect x="792" y="125" width="28" height="38" fill="#5FA8BC"/>
+<rect x="830" y="103" width="28" height="60" fill="#56B295"/>
+<rect x="868" y="109" width="28" height="54" fill="#6FB9C9"/>
+<rect x="906" y="81" width="28" height="82" fill="#7CC4AE"/>
+<rect x="944" y="63" width="28" height="100" fill="#9CCFDB"/>
+<rect x="982" y="45" width="28" height="118" fill="#B8DCE4"/>
+
+<polyline fill="none" stroke="#DCE7F3" stroke-width="3.5" stroke-linejoin="round"
+  points="600,92 648,100 692,88 732,94 772,76 816,82 856,62 900,48 948,32 996,18"/>
+<circle cx="600" cy="92" r="4.5" fill="#DCE7F3"/>
+<circle cx="692" cy="88" r="4.5" fill="#DCE7F3"/>
+<circle cx="772" cy="76" r="4.5" fill="#DCE7F3"/>
+<circle cx="856" cy="62" r="4.5" fill="#DCE7F3"/>
+<circle cx="948" cy="32" r="4.5" fill="#DCE7F3"/>
+<polygon fill="#DCE7F3" points="1019,11.3 998.1,25.2 993.9,10.8"/>
+<line x1="760" y1="120" x2="830" y2="86" stroke="#9CB6CC" stroke-width="2"/>
+<polygon fill="#9CB6CC" points="836,83 822,86 828,95"/>
+</svg>
