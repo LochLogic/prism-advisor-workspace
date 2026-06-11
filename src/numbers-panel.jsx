@@ -113,7 +113,8 @@ const NumField = ({ label, path, value, prefix = '$', step = 100, onUpdate, hint
 const NumbersDrawer = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
   const { profile, update, setProfile, undoEdit, undoDepth, totalExpenses, surplus, netWorth,
-          isOwner, homeEquity, mortgagePrincipalMonthly, mortgageInterestMonthly, escrowMonthly,
+          isOwner, homeEquity, mortgageBalance, mortgagePrincipalMonthly, mortgageInterestMonthly,
+          escrowMonthly, extraPrincipalMonthly,
           propertiesEquity, primaryMember, planningAge, grossMonthlyIncome, effectiveTakehome,
           ledgerGate, pendingChange, withdrawPendingChange } = useProfile();
   const { activeClientId } = useView();
@@ -133,6 +134,27 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
       setEstateDocs((window.demoDocuments ? window.demoDocuments() : []).filter(d => d.category === 'estate'));
     }
   }, [activeClientId]);
+
+  // Accounts on file, for the cash-reserve source picker below. When the reserve
+  // is linked to an account, that account's balance is the source of truth - the
+  // stored savings.emergency is re-synced from fresh account data on each open.
+  const [acctRows, setAcctRows] = React.useState([]);
+  React.useEffect(() => {
+    if (window.db?.isUUID(activeClientId)) {
+      window.db.getAccounts(activeClientId).then(rows => setAcctRows(rows || []));
+    } else {
+      setAcctRows((window.accountsData || {})[activeClientId] || []);
+    }
+  }, [activeClientId]);
+  const reserveAccountId = profile.savings.emergencyAccountId || '';
+  const reserveAccount = acctRows.find(a => a.id === reserveAccountId) || null;
+  React.useEffect(() => {
+    if (!reserveAccountId || acctRows.length === 0) return;
+    const acct = acctRows.find(a => a.id === reserveAccountId);
+    if (!acct) { update('savings.emergencyAccountId', null); return; }   // account removed - back to manual
+    const bal = Number(acct.balance) || 0;
+    if (bal !== Number(profile.savings.emergency || 0)) update('savings.emergency', bal);
+  }, [reserveAccountId, acctRows]);
 
   // Undo safety net. The drawer remounts each time it opens (the `if (!isOpen)`
   // guard short-circuits before any hook), so these refs capture the state as of
@@ -510,6 +532,8 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                   hint="Original mortgage term - 30 or 15 for most loans. Optional, but with the start year it anchors the scheduled payoff date and the payoff-accelerator tool." />
                 <NumField label="Year loan started" path="housing.startYear" value={profile.housing.startYear} prefix={null} step="1" onUpdate={update}
                   hint="The year the mortgage (or latest refinance) originated. Optional - used with the term to show where you are in the amortization schedule." />
+                <NumField label="Extra principal / mo" path="housing.extraPrincipal" value={profile.housing.extraPrincipal} step="50" onUpdate={update}
+                  hint="Recurring extra principal paid on top of the regular payment. Optional - pulls the payoff date forward and seeds the payoff-accelerator tool." />
               </>}
             </div>
             {/* Housing-cost ratio coaching (FinFire donor) - outflow vs take-home,
@@ -532,15 +556,48 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                 </div>
               );
             })()}
+            {/* Underwater-payment guard: total payment minus escrow doesn't cover the
+                monthly interest, so the split shows $0 principal and the loan never
+                amortizes. Almost always a data-entry mismatch, not a real situation. */}
+            {isOwner && mortgageBalance > 0 && Number(profile.expenses.housing) > 0
+              && mortgageInterestMonthly > 0 && mortgagePrincipalMonthly <= 0 && (
+              <div style={{ marginTop: 10, padding: '8px 10px', borderRadius: 6, fontSize: 11.5, lineHeight: 1.5,
+                background: 'var(--gold-soft)', border: '1px solid var(--gold)', color: 'var(--ink)' }}>
+                After taxes + insurance, {fmt$(Math.max(0, Number(profile.expenses.housing) - escrowMonthly))}/mo
+                is left for principal &amp; interest - less than the {fmt$(mortgageInterestMonthly)}/mo interest
+                alone, so the loan never pays down at these numbers. Usually the total payment was entered
+                without the escrow portion, or taxes + insurance are counted twice. Worth a second look.
+              </div>
+            )}
             {isOwner && Number(profile.housing.termYears) > 0 && Number(profile.housing.startYear) > 1900 && (() => {
               const payoffYear = Number(profile.housing.startYear) + Number(profile.housing.termYears);
-              const yearsLeft = Math.max(0, payoffYear - new Date().getFullYear());
+              const thisYear = new Date().getFullYear();
+              const yearsLeft = Math.max(0, payoffYear - thisYear);
               const yearsIn = Math.max(0, Number(profile.housing.termYears) - yearsLeft);
+              // Recurring extra principal pulls the payoff forward: re-amortize the
+              // current balance at payment + extra and compare against the schedule.
+              const accel = (extraPrincipalMonthly > 0 && mortgageBalance > 0)
+                ? PrismCalc.mortgagePayoff({
+                    balance: mortgageBalance, aprPct: Number(profile.housing.mortgageApr) || 0,
+                    paymentMonthly: Math.max(0, Number(profile.expenses.housing) - escrowMonthly),
+                    extraMonthly: extraPrincipalMonthly,
+                  })
+                : null;
+              const accelYear = (accel && accel.amortizes && isFinite(accel.accel.months))
+                ? thisYear + Math.ceil(accel.accel.months / 12) : null;
               return (
-                <div className="px-split-equity" style={{ marginTop: 8 }}>
-                  <span>Scheduled payoff · year {yearsIn} of {profile.housing.termYears}</span>
-                  <strong>{payoffYear}{yearsLeft > 0 ? ` · ${yearsLeft} yrs left` : ' · done'}</strong>
-                </div>
+                <>
+                  <div className="px-split-equity" style={{ marginTop: 8 }}>
+                    <span>Scheduled payoff · year {yearsIn} of {profile.housing.termYears}</span>
+                    <strong>{payoffYear}{yearsLeft > 0 ? ` · ${yearsLeft} yrs left` : ' · done'}</strong>
+                  </div>
+                  {accelYear != null && accelYear < payoffYear && (
+                    <div className="px-split-equity" style={{ marginTop: 4 }}>
+                      <span>With {fmt$(extraPrincipalMonthly)}/mo extra principal</span>
+                      <strong style={{ color: 'var(--forest)' }}>~{accelYear} · {payoffYear - accelYear} yrs sooner</strong>
+                    </div>
+                  )}
+                </>
               );
             })()}
             {isOwner && Number(profile.expenses.housing) > 0 && (() => {
@@ -694,12 +751,59 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
               <span>Total monthly outflow <em>· incl. housing</em></span>
               <strong>{fmt$(totalExpenses)}</strong>
             </div>
+            {/* Essentials-ratio coaching - same pattern as the housing bar above,
+                against the 50/30/20 guideline (essentials near or under ~50%). */}
+            {totalExpenses > 0 && effectiveTakehome > 0 && (() => {
+              const ratio = (totalExpenses / effectiveTakehome) * 100;
+              const tone = ratio <= 50 ? 'var(--forest)' : ratio <= 65 ? 'var(--gold)' : 'var(--brick)';
+              const verdict = ratio <= 50 ? 'On target' : ratio <= 65 ? 'A bit high' : 'Stretched';
+              return (
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 11.5, color: 'var(--ink-mute)', marginBottom: 5 }}>
+                    <span>Essentials are <strong style={{ color: 'var(--ink)' }}>{Math.round(ratio)}%</strong> of take-home pay</span>
+                    <span style={{ fontWeight: 600, color: tone }}>{verdict}</span>
+                  </div>
+                  <div style={{ position: 'relative', height: 6, background: 'var(--bg-elev)', borderRadius: 3 }}>
+                    <div style={{ height: '100%', width: `${Math.min(100, ratio)}%`, background: tone, borderRadius: 3, transition: 'width .3s' }} />
+                    <span title="50% guideline" style={{ position: 'absolute', left: '50%', top: -2, bottom: -2, width: 2, background: 'var(--border-2)', borderRadius: 1 }} />
+                  </div>
+                  <div style={{ fontSize: 10.5, color: 'var(--ink-faint)', marginTop: 4 }}>Guideline: keep essentials near or under ~50% of take-home pay (50/30/20), leaving room for wants and savings.</div>
+                </div>
+              );
+            })()}
           </section>
 
           {/* Savings + reserve */}
           <section style={{ marginBottom: 22 }}>
             <div className="px-eyebrow" style={{ marginBottom: 10 }}>Cash reserve</div>
-            <NumField label="Liquidity reserve" path="savings.emergency" value={profile.savings.emergency}  onUpdate={update}/>
+            {acctRows.length > 0 && (
+              <label className="px-field" style={{ marginBottom: 10 }}>
+                <span className="px-field-label">Source <FieldHint text="Link the reserve to an account on file and its balance becomes the reserve figure, kept in sync automatically. Pick Manual entry to type the number yourself." /></span>
+                <select className="px-select" value={reserveAccountId}
+                  onChange={(e) => {
+                    const id = e.target.value || null;
+                    const acct = acctRows.find(a => a.id === id);
+                    setProfile(p => ({ ...p, savings: { ...p.savings,
+                      emergencyAccountId: id,
+                      emergency: acct ? (Number(acct.balance) || 0) : Number(p.savings.emergency || 0) } }));
+                  }}>
+                  <option value="">Manual entry</option>
+                  {acctRows.map(a => (
+                    <option key={a.id} value={a.id}>
+                      {(a.name || 'Account')}{a.custodian ? ` · ${a.custodian}` : ''} · {fmt$(Number(a.balance) || 0)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {reserveAccount ? (
+              <div className="px-split-equity">
+                <span>Liquidity reserve · from {reserveAccount.name || 'linked account'}</span>
+                <strong>{fmt$(Number(reserveAccount.balance) || 0)}</strong>
+              </div>
+            ) : (
+              <NumField label="Liquidity reserve" path="savings.emergency" value={profile.savings.emergency}  onUpdate={update}/>
+            )}
           </section>
 
           {/* Liabilities */}

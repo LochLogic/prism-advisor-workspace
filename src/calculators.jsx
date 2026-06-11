@@ -1202,7 +1202,9 @@ const MortgagePayoffTool = () => {
   const apr = Number(profile.housing?.mortgageApr) || 0;
   const regularPI = Math.max(0, Math.round(mortgagePrincipalMonthly + mortgageInterestMonthly));
   const [payment, setPayment] = useStateC(regularPI || 0);
-  const [extra, setExtra] = useStateC(500);
+  // Default to the household's actual recurring extra principal (Numbers panel)
+  // when on file; the classic what-if $500 otherwise.
+  const [extra, setExtra] = useStateC(Number(profile.housing?.extraPrincipal) || 500);
 
   const result = useMemoC(
     () => mortgagePayoff({ balance: mortgageBalance, aprPct: apr, paymentMonthly: payment, extraMonthly: extra }),

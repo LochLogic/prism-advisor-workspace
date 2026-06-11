@@ -90,10 +90,10 @@ const emptyProfile = {
   members:  [],
   income:   { monthlyTakehome: 0, sources: [] },
   expenses: { housing: 0, food: 0, transport: 0, utilities: 0, healthcare: 0, other: 0, custom: [] },
-  housing: { type: 'rent', homeValue: 0, mortgageBalance: 0, mortgageApr: 0, escrowMonthly: 0 },
+  housing: { type: 'rent', homeValue: 0, mortgageBalance: 0, mortgageApr: 0, escrowMonthly: 0, extraPrincipal: 0 },
   properties: [],
   debts: [],
-  savings:  { emergency: 0 },
+  savings:  { emergency: 0, emergencyAccountId: null },
   retirement: {
     hsaBalance: 0, iraBalance: 0, fourohonekBalance: 0, rothBalance: 0,
     hsaContrib: 0, iraContributed: 0, iraLimit: 7000,
@@ -374,7 +374,6 @@ function ProfileProvider({ children }) {
   const totalExpenses = _calc.monthlyExpenseTotal(_exp);
   const totalDebt     = profile.debts.reduce((a, d) => a + Number(d.balance || 0), 0);
   const toxicDebt     = profile.debts.filter(d => Number(d.apr) > 6).reduce((a, d) => a + Number(d.balance || 0), 0);
-  const surplus       = effectiveTakehome - totalExpenses;
 
   // ── Housing: rent vs. own ───────────────────────────────────────
   // expenses.housing is the total monthly outflow. For owners we split that payment into
@@ -390,6 +389,12 @@ function ProfileProvider({ children }) {
   const mortgageInterestMonthly  = mortgageBalance > 0 ? mortgageBalance * (Number(_h.mortgageApr || 0) / 100) / 12 : 0;
   const housingPI                = isOwner ? Math.max(0, housingOutflow - escrowMonthly) : 0; // principal + interest
   const mortgagePrincipalMonthly = mortgageBalance > 0 ? Math.max(0, housingPI - mortgageInterestMonthly) : 0;
+  // Recurring extra principal the household actually pays, on top of the regular
+  // payment. Cash out the door (reduces surplus) but, like scheduled principal,
+  // it's forced savings - so it counts toward the savings rate, and it pulls the
+  // scheduled-payoff readout and the payoff-accelerator tool's default forward.
+  const extraPrincipalMonthly = mortgageBalance > 0 ? Math.max(0, Number(_h.extraPrincipal || 0)) : 0;
+  const surplus         = effectiveTakehome - totalExpenses - extraPrincipalMonthly;
   const homeEquity      = isOwner ? (homeValue - mortgageBalance) : 0;
 
   // ── Additional properties (second homes / rentals) ──────────────
@@ -403,7 +408,7 @@ function ProfileProvider({ children }) {
   const hasProperties = properties.length > 0;
 
   // Mortgage principal is forced savings (builds equity), so it lifts the savings rate.
-  const savingsRate   = effectiveTakehome > 0 ? ((surplus + mortgagePrincipalMonthly) / effectiveTakehome) * 100 : 0;
+  const savingsRate   = effectiveTakehome > 0 ? ((surplus + mortgagePrincipalMonthly + extraPrincipalMonthly) / effectiveTakehome) * 100 : 0;
   const retirementAssets = (profile.retirement.hsaBalance || 0)
                          + (profile.retirement.iraBalance || 0)
                          + (profile.retirement.fourohonekBalance || 0)
@@ -502,7 +507,7 @@ function ProfileProvider({ children }) {
     reserveTarget, reservePct, hsaTaxSavings, annualExpenses,
     fireNumber, fireProgress, legacyValue,
     isOwner, homeValue, mortgageBalance, escrowMonthly,
-    mortgageInterestMonthly, mortgagePrincipalMonthly, homeEquity,
+    mortgageInterestMonthly, mortgagePrincipalMonthly, extraPrincipalMonthly, homeEquity,
     propertiesEquity, propertiesNetCashflow, hasProperties,
     members, primaryMember, planningAge, dependentsCount, householdSize,
     incomeSources, grossMonthlyIncome, grossAnnualIncome, effectiveTakehome, customExpenses,

@@ -986,11 +986,12 @@ platform admin (#/platform).
 `src/styles.css`, `supabase/functions/platform-admin/index.ts`,
 `landing|login|signup.html`, `docs/*`.
 
-## 2026-06-11 - Round 19: portal honors advisor address style in chip + hero
+## 2026-06-11 - Round 19: address style fix + Numbers-panel ledger upgrades
 
-Small fix batch. Build · check · calc green; verified in browser preview
-(demo advisor renders as "Ms. Chen" in both spots). **No migration, no
-secrets, no money.**
+Build · check · calc · lint green; all behaviors verified in browser preview.
+**No migration, no secrets, no money** - profile is a JSON blob, the two new
+fields (`housing.extraPrincipal`, `savings.emergencyAccountId`) merge in via
+`emptyProfile`/`mergeProfile`.
 
 - **Portal advisor chip + hero now use the styled name.** Both rendered
   `advisorDisplay.fullName` ("Cory Lemay") instead of `advisorDisplay.name`,
@@ -998,6 +999,26 @@ secrets, no money.**
   (honorific + address_style, e.g. "Mr. Lemay"). Every other portal surface
   already used the styled name. Printed reports (performance/scheduler)
   intentionally keep the full legal name. (`src/client-portal.jsx`)
+- **Extra principal / mo** (Numbers panel, owners): new optional
+  `housing.extraPrincipal` field. It reduces surplus (cash out the door) but
+  counts toward the savings rate like scheduled principal (`store.jsx`
+  `extraPrincipalMonthly` metric); pulls the Scheduled-payoff readout forward
+  (re-amortizes via `PrismCalc.mortgagePayoff`, shows "~YYYY · N yrs sooner");
+  and seeds the Phase-03 payoff-accelerator tool's default in place of the
+  hardcoded $500 (`calculators.jsx`).
+- **Underwater-payment warning** (Numbers panel): when total payment minus
+  escrow doesn't cover monthly interest (the "$0 principal" trap - usually
+  escrow double-counted or payment entered ex-escrow), a gold info box says so
+  instead of silently rendering $0 principal next to a payoff date.
+- **Essentials-ratio info bar** below Essential outflow: total outflow as % of
+  take-home against the ~50% (50/30/20) guideline; same bar pattern/tones as
+  the housing-ratio bar.
+- **Cash reserve can link to an account on file.** New Source dropdown
+  (manual entry, or any account from `db.getAccounts`/demo `accountsData`);
+  linking stores `savings.emergencyAccountId`, writes the account balance
+  through to `savings.emergency`, re-syncs on each drawer open, and falls back
+  to manual if the account is deleted. Linked mode shows a read-only balance
+  row instead of the input.
 - **Marketing logo candidates** added to `docs/marketing/` (`logo.jpg`,
   `logo2.png`) - founder-supplied, parked with the LinkedIn kit assets.
 
@@ -1008,7 +1029,8 @@ plain `advisor`, so no Admin tab. Fix is already queued in TODO ("Give
 yourself the firm-admin role"): one SQL line, or the Platform tab's
 per-firm Advisors roster role toggle.
 
-**Files:** `src/client-portal.jsx`, `docs/marketing/*`, `docs/sprint-log.md`.
+**Files:** `src/{client-portal,store,numbers-panel,calculators}.jsx`,
+`docs/marketing/*`, `docs/sprint-log.md`.
 
 ---
 <!-- New sprints append above this line, newest first. -->
