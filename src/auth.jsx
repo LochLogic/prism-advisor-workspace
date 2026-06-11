@@ -1,4 +1,4 @@
-// Prism — auth context. Supabase session, role detection (advisor / client), sign-out.
+// Prism - auth context. Supabase session, role detection (advisor / client), sign-out.
 // DEMO_MODE is true when __sb is null (CDN failed) OR when px_demo flag is set
 // (user clicked "Continue in demo mode" on login.html). In demo mode auth is bypassed
 // entirely and the advisor role is granted so the full app is accessible.
@@ -24,18 +24,18 @@ function AuthProvider({ children }) {
         // Mutate the existing array IN PLACE rather than rebinding `phasesData`.
         // Rebinding would leave `window.phasesData` (data.jsx) and any module-load
         // derivations pointing at the stale original array; an in-place splice keeps
-        // every holder of the reference current — which matters now that phases can
+        // every holder of the reference current - which matters now that phases can
         // differ per firm (white-label, migration 029).
         phasesData.splice(0, phasesData.length, ...data); // eslint-disable-line no-undef
       }
     } catch (e) {
       console.warn('[auth] mergePhasesWithDB:', e.message);
-      // Fall through — phasesData stays as the JS default
+      // Fall through - phasesData stays as the JS default
     }
   }
 
   // Authoritative white-label brand: the signed-in user's own firm row (RLS-
-  // scoped). Fire-and-forget — the cached/subdomain brand already painted at
+  // scoped). Fire-and-forget - the cached/subdomain brand already painted at
   // boot (store.jsx); this corrects and re-caches it.
   function loadBrand() {
     window.db?.getFirmBrand?.().then(b => { if (b) window.applyFirmBrand?.(b); });
@@ -51,7 +51,7 @@ function AuthProvider({ children }) {
         window.location.href = '/login.html';
         return;
       }
-    } catch (e) { /* MFA unavailable — continue */ }
+    } catch (e) { /* MFA unavailable - continue */ }
 
     const auditSignin = () => {
       if (event === 'SIGNED_IN' && window.__pxAuthActor?.id) {
@@ -61,7 +61,7 @@ function AuthProvider({ children }) {
       }
     };
     try {
-      // The phase fetch is independent of the role queries — run it in parallel
+      // The phase fetch is independent of the role queries - run it in parallel
       // and only await it once a role is confirmed (one round-trip saved per sign-in).
       const phasesReady = mergePhasesWithDB();
       const { data: adv } = await window.__sb
@@ -107,7 +107,7 @@ function AuthProvider({ children }) {
         setRole('client'); setAuthUser(cli); setLoading(false); return;
       }
 
-      // Authenticated but no DB record — require registration before granting access
+      // Authenticated but no DB record - require registration before granting access
       setRole('unregistered');
       setLoading(false);
     } catch {
@@ -129,7 +129,7 @@ function AuthProvider({ children }) {
       }
 
       if (event === 'INITIAL_SESSION') {
-        // No session — send first-time / logged-out visitors to the public
+        // No session - send first-time / logged-out visitors to the public
         // landing page (marketing + pricing), unless mid PKCE callback.
         const inCallback = new URLSearchParams(window.location.search).has('code');
         if (!inCallback) {

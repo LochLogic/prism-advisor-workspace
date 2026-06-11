@@ -1,17 +1,17 @@
 /* ───────────────────────────────────────────────────────────────────
-   PRISM — Advisor Workspace
+   PRISM - Advisor Workspace
    Parchment Bank palette · Source Serif 4 + Inter + JetBrains Mono
    ─────────────────────────────────────────────────────────────────── */
 
 :root {
-  /* Surfaces — warm parchment */
+  /* Surfaces - warm parchment */
   --bg:           #fafaf7;
   --bg-elev:      #f4f1e8;
   --bg-deep:      #ece7d8;
   --surface:      #ffffff;
   --surface-2:    #faf8f2;
 
-  /* Ink — deep navy → muted slate */
+  /* Ink - deep navy → muted slate */
   --ink:          #1c2e4a;
   --ink-2:        #2d4258;
   --ink-mute:     #51708a;  /* a11y: ≥4.5:1 on bg/surface (was #5d7a8e, 4.33) */
@@ -390,7 +390,7 @@ input, select, textarea { font-family: inherit; color: inherit; }
 .px-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 
 /* Numbers panel: render inputs/selects in the proportional sans so digits show a
-   clean zero — the mono face's dotted zero was distracting. (Affix number inputs
+   clean zero - the mono face's dotted zero was distracting. (Affix number inputs
    already inherit the sans; this aligns the date/text/select fields with them.) */
 .px-drawer .px-input, .px-drawer .px-select { font-family: var(--sans); }
 
@@ -445,7 +445,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 .px-input-affix input:focus { outline: none; }
 
-/* Bare <select> inside a tool field (e.g. the calculators' bracket picker) — match the
+/* Bare <select> inside a tool field (e.g. the calculators' bracket picker) - match the
    affix-input chrome so the native control reads in the dark palette instead of the
    browser's default white-on-light. */
 .px-field select {
@@ -461,7 +461,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 .px-field select:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px var(--accent-soft); }
 
 /* Numbers panel: editable numeric fields render in the serif lining figures the
-   rest of the app uses for money — more refined than the mono face, and it keeps
+   rest of the app uses for money - more refined than the mono face, and it keeps
    the panel visually of-a-piece with the dashboard and client portal. */
 .px-drawer input[type="number"],
 .px-input-affix input[type="number"] {
@@ -741,7 +741,7 @@ i.px-split-dot {
   font-variant-numeric: tabular-nums;
 }
 
-/* Clickable task row (dashboard "Tasks & next actions") — jumps to the client */
+/* Clickable task row (dashboard "Tasks & next actions") - jumps to the client */
 .px-task-row {
   border-radius: 5px;
   margin: 0 -6px;
@@ -1524,7 +1524,7 @@ i.px-split-dot {
   .px-portstrip { grid-template-columns: 1fr; }
   .px-portstat { border-right: 0; border-bottom: 1px solid var(--border); }
   .px-portstat:last-child { border-bottom: 0; }
-  /* Roster swipe actions — the strip a left-swipe reveals on a card */
+  /* Roster swipe actions - the strip a left-swipe reveals on a card */
   .px-roster .px-swipe-actions { display: flex !important; gap: 8px; padding: 10px 0 2px !important; flex-wrap: wrap; }
   .px-roster .px-swipe-actions::before { content: none !important; }
   /* A2: roster table → stacked cards on phones */

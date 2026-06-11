@@ -1,4 +1,4 @@
-// Prism — shared app shell. Chrome used by BOTH the advisor app (app.jsx, /app)
+// Prism - shared app shell. Chrome used by BOTH the advisor app (app.jsx, /app)
 // and the slim client portal (portal-app.jsx, /portal): loading screen, the
 // notification bell, the account chip + 2FA modal, and the error boundary.
 // Kept here (loaded after components.jsx) so neither bundle duplicates it.
@@ -149,7 +149,7 @@ const SecurityModal = ({ isOpen, onClose }) => {
     refresh();
   }, [isOpen, refresh]);
 
-  // Begin enrollment — clears any stale unverified factor first, then enrolls.
+  // Begin enrollment - clears any stale unverified factor first, then enrolls.
   const beginEnroll = async () => {
     setBusy(true); setError('');
     try {
@@ -211,7 +211,7 @@ const SecurityModal = ({ isOpen, onClose }) => {
         {phase === 'none' && (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: 'var(--bg-elev)', borderRadius: 6, marginBottom: 16, fontSize: 12.5, color: 'var(--ink-mute)' }}>
-              <Icons.Lock size={14} /> Not enabled — your account uses a single factor.
+              <Icons.Lock size={14} /> Not enabled - your account uses a single factor.
             </div>
             <button className="px-btn px-btn-primary" onClick={beginEnroll} disabled={busy}>
               {busy ? 'Starting…' : 'Enable two-factor'}
@@ -274,7 +274,7 @@ const AccountChip = ({ view, activeClient }) => {
 
   // Own-profile editor: honorific prefix + first/last name (marriage/name
   // changes) + credentials. advisors_update_self RLS scopes the write; context
-  // mirrors it instantly. full_name stays the single stored column — the
+  // mirrors it instantly. full_name stays the single stored column - the
   // first/last boxes join on save and split on open (last token = last name).
   const splitName = (full) => {
     const parts = String(full || '').split(',')[0].trim().split(/\s+/).filter(Boolean);
@@ -297,7 +297,7 @@ const AccountChip = ({ view, activeClient }) => {
     }
   };
 
-  // How the client portal refers to them — explicit style (migration 038):
+  // How the client portal refers to them - explicit style (migration 038):
   // first name / last name / honorific + last name. Until a style is chosen
   // the legacy derivation holds (honorific set → formal, else first name).
   const addressStyle = authUser?.address_style || (authUser?.honorific ? 'formal' : 'first');
@@ -361,7 +361,7 @@ const AccountChip = ({ view, activeClient }) => {
               padding: '9px 14px', fontSize: 11, color: 'var(--ink-faint)',
               borderBottom: '1px solid var(--border)', fontStyle: 'italic',
             }}>
-              Demo mode — no live session
+              Demo mode - no live session
             </div>
           ) : authUser && (
             <div style={{
@@ -369,7 +369,7 @@ const AccountChip = ({ view, activeClient }) => {
               borderBottom: '1px solid var(--border)', lineHeight: 1.45,
             }}>
               <div style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: 1 }}>
-                {authUser.full_name || '—'}
+                {authUser.full_name || '-'}
               </div>
               <div style={{ fontSize: 11 }}>{authUser.email || ''}</div>
               {advisorFirm && <div style={{ fontSize: 11, marginTop: 1, color: 'var(--ink-faint)' }}>{advisorFirm}</div>}
@@ -409,7 +409,7 @@ const AccountChip = ({ view, activeClient }) => {
                     <select className="px-select" style={{ width: 74, flexShrink: 0 }} aria-label="Honorific"
                       value={profileEdit.honorific}
                       onChange={e => setProfileEdit(p => ({ ...p, honorific: e.target.value }))}>
-                      <option value="">—</option>
+                      <option value="">-</option>
                       {(window.HONORIFIC_OPTIONS || []).map(h => <option key={h} value={h}>{h}</option>)}
                     </select>
                     <input className="px-input" style={{ flex: 1, minWidth: 0 }} autoFocus
@@ -439,11 +439,11 @@ const AccountChip = ({ view, activeClient }) => {
               </div>
               <select className="px-select" value={addressStyle} style={{ width: '100%' }}
                 onChange={e => saveAddressStyle(e.target.value)}>
-                <option value="first">First name ({advisorFirstName(authUser.full_name) || '—'})</option>
-                <option value="last">Last name ({advisorSurname(authUser.full_name) || '—'})</option>
+                <option value="first">First name ({advisorFirstName(authUser.full_name) || '-'})</option>
+                <option value="last">Last name ({advisorSurname(authUser.full_name) || '-'})</option>
                 <option value="formal">
                   {authUser.honorific
-                    ? `${authUser.honorific} ${advisorSurname(authUser.full_name) || '—'}`
+                    ? `${authUser.honorific} ${advisorSurname(authUser.full_name) || '-'}`
                     : 'Honorific + last name (pick a prefix above)'}
                 </option>
               </select>
@@ -498,7 +498,7 @@ class ErrorBoundary extends React.Component {
           Something went wrong
         </div>
         <div style={{ fontSize: 13.5, color: 'var(--ink-mute)', maxWidth: 380, lineHeight: 1.55 }}>
-          The app hit an unexpected error. Reloading usually fixes it — your data is safe.
+          The app hit an unexpected error. Reloading usually fixes it - your data is safe.
         </div>
         <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
           <button className="px-btn px-btn-primary" onClick={() => window.location.reload()}>Reload</button>

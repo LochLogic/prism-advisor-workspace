@@ -1,4 +1,4 @@
-// Prism — Client Portal (View B). The collaborative roadmap shown to clients.
+// Prism - Client Portal (View B). The collaborative roadmap shown to clients.
 // Phases, tasks, Discuss-with-Advisor flagging, advanced tools, milestone modal.
 
 const PhaseCard = ({ phase, onOpenMilestone }) => {
@@ -99,7 +99,7 @@ const PhaseCard = ({ phase, onOpenMilestone }) => {
                     )}
                     {task.doc && (
                       <button className="px-task-act is-discuss"
-                        title="Open a sample to review or print — your advisor sends the firm's version for e-signature"
+                        title="Open a sample to review or print - your advisor sends the firm's version for e-signature"
                         onClick={(e) => { e.stopPropagation(); window.openPlanningSample?.(task.doc); }}>
                         <Icons.FileText size={10} /> View sample
                       </button>
@@ -185,7 +185,7 @@ const PhaseCard = ({ phase, onOpenMilestone }) => {
                 if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                   e.preventDefault();
                   flagForAdvisor(flagModal.phaseId, flagModal.taskId, flagText.trim());
-                  showToast('Flagged for your advisor — visible in their inbox');
+                  showToast('Flagged for your advisor - visible in their inbox');
                   setFlagModal(null);
                 }
               }}
@@ -203,7 +203,7 @@ const PhaseCard = ({ phase, onOpenMilestone }) => {
               </button>
               <button className="px-btn px-btn-primary" onClick={() => {
                 flagForAdvisor(flagModal.phaseId, flagModal.taskId, flagText.trim());
-                showToast('Flagged for your advisor — visible in their inbox');
+                showToast('Flagged for your advisor - visible in their inbox');
                 setFlagModal(null);
               }}>
                 <Icons.Message size={11} /> Send to advisor
@@ -223,14 +223,14 @@ const PhaseCard = ({ phase, onOpenMilestone }) => {
 const RISK_QUESTIONS = [
   { q: 'When you picture investing, which feels most like you?',
     options: ['Protecting what I have matters most', 'Mostly safety, a little growth',
-      'A balance of growth and safety', 'Mostly growth — some ups and downs are fine',
-      'Maximum growth — I can ride out big swings'] },
+      'A balance of growth and safety', 'Mostly growth - some ups and downs are fine',
+      'Maximum growth - I can ride out big swings'] },
   { q: 'If your portfolio dropped 20% over a few months, you would…',
     options: ['Sell to stop further losses', 'Move some into safer holdings',
-      'Wait and hold steady', "Do nothing — it's part of investing",
+      'Wait and hold steady', "Do nothing - it's part of investing",
       'Invest more while prices are lower'] },
   { q: 'How would you describe your investing experience?',
-    options: ['New to it', 'Some — mostly funds or a 401(k)',
+    options: ['New to it', 'Some - mostly funds or a 401(k)',
       'Comfortable with a diversified portfolio', 'Experienced across asset classes',
       'Very experienced, including individual securities'] },
   { q: 'Which best describes what you want this money to do?',
@@ -285,7 +285,7 @@ const RiskProfileCard = ({ advisorName }) => {
       {editing ? (
         <>
           <div style={{ fontSize: 12.5, color: 'var(--ink-mute)', lineHeight: 1.5, marginBottom: 14 }}>
-            A few quick questions shape your recommended investment mix — and the draft Investment Policy Statement {advisorName} prepares with you.
+            A few quick questions shape your recommended investment mix - and the draft Investment Policy Statement {advisorName} prepares with you.
           </div>
           {RISK_QUESTIONS.map((item, qi) => (
             <div key={qi} style={{ padding: '10px 0', borderTop: qi === 0 ? 'none' : '1px solid var(--border)' }}>
@@ -319,7 +319,7 @@ const RiskProfileCard = ({ advisorName }) => {
       ) : result && (
         <>
           <div style={{ fontSize: 12.5, color: 'var(--ink-2)', lineHeight: 1.5, marginBottom: 12 }}>
-            Based on your answers, a <b style={{ color: RISK_BAND_TONE[result.band] }}>{result.band.toLowerCase()}</b> strategy fits you — a starting point {advisorName} will tailor with you.
+            Based on your answers, a <b style={{ color: RISK_BAND_TONE[result.band] }}>{result.band.toLowerCase()}</b> strategy fits you - a starting point {advisorName} will tailor with you.
           </div>
           <div style={{ display: 'flex', height: 12, borderRadius: 6, overflow: 'hidden', marginBottom: 10 }}>
             <div style={{ width: `${result.allocation.equity}%`, background: 'var(--forest)' }} title={`Equity ${result.allocation.equity}%`} />
@@ -347,7 +347,7 @@ const ClientPortal = ({ onOpenNumbers }) => {
   const prospectsCtx = useProspects();
   const [converting, setConverting] = React.useState(false);
 
-  // Real CLIENT sessions can't read the advisors table (RLS) — fetch their
+  // Real CLIENT sessions can't read the advisors table (RLS) - fetch their
   // advisor's display fields through px_my_advisor (migration 038). Without it
   // the portal used to fall back to the demo advisor name. Null until the
   // migration lands / in demo, where the old fallbacks still apply.
@@ -377,10 +377,10 @@ const ClientPortal = ({ onOpenNumbers }) => {
   const [acks, setAcks] = React.useState([]);
   const [signName, setSignName] = React.useState('');
   const [signingId, setSigningId] = React.useState(null);
-  // Documents the client can open — used to resolve estate-checklist links
+  // Documents the client can open - used to resolve estate-checklist links
   // (documentId → storage_path) into a clickable, signed-URL download.
   const [docsById, setDocsById] = React.useState({});
-  // Custodian-grouped "Your accounts" card — account-level only (holdings stay
+  // Custodian-grouped "Your accounts" card - account-level only (holdings stay
   // partner-gated); reads ride the accounts_client_read RLS policy.
   const [accounts, setAccounts] = React.useState(null);
   React.useEffect(() => {
@@ -413,8 +413,8 @@ const ClientPortal = ({ onOpenNumbers }) => {
     setSigningId(ack.id);
     const row = await window.db.signAcknowledgement(ack.id, signName.trim());
     setSigningId(null);
-    if (row) { setAcks(prev => prev.map(a => a.id === ack.id ? row : a)); setSignName(''); showToast('Acknowledged — thank you'); }
-    else showToast('Could not record acknowledgement — try again');
+    if (row) { setAcks(prev => prev.map(a => a.id === ack.id ? row : a)); setSignName(''); showToast('Acknowledged - thank you'); }
+    else showToast('Could not record acknowledgement - try again');
   };
 
   // Meeting request (scheduling)
@@ -430,15 +430,15 @@ const ClientPortal = ({ onOpenNumbers }) => {
     const met_at = schedForm.met_at ? new Date(schedForm.met_at).toISOString() : null;
     if (!met_at) { showToast('Pick a preferred date & time'); return; }
     const row = await window.db.requestMeeting(activeClientId, authUser.advisor_id, { met_at, notes: schedForm.notes });
-    if (row) { showToast('Request sent — your advisor will confirm'); setSchedOpen(false); }
-    else showToast('Could not send request — try again');
+    if (row) { showToast('Request sent - your advisor will confirm'); setSchedOpen(false); }
+    else showToast('Could not send request - try again');
   };
 
   const activePhaseObj = phasesData.find(p => p.id === activePhase) || phasesData[0];
   // Use the real client object from ViewContext; fall back to mock only in demo mode
   const viewingClient = activeClient || clientsData.find(c => c.id === activeClientId) || clientsData[0];
 
-  // Prospect banner — shown when the advisor is walking an unsaved prospect
+  // Prospect banner - shown when the advisor is walking an unsaved prospect
   // through the roadmap. "Convert" promotes it to a real client (carrying the
   // live profile + horizon progress); "Discard" drops it with no trace.
   const isProspectView = !!prospectsCtx?.isProspect?.(activeClientId);
@@ -458,7 +458,7 @@ const ClientPortal = ({ onOpenNumbers }) => {
     setView('advisor');
   };
 
-  // Proposal packet — the branded close-the-deal print for proposal mode.
+  // Proposal packet - the branded close-the-deal print for proposal mode.
   // Pulls the snapshot from the live profile context and the fee schedule from
   // the firm (first active schedule); illustrative default tiers otherwise.
   const printProposal = async () => {
@@ -503,7 +503,7 @@ const ClientPortal = ({ onOpenNumbers }) => {
 
   const completedPhases = phasesData.filter(p => p.tasks.every(t => taskStates[p.id]?.[t.id])).length;
 
-  // Blank-slate detection — a freshly created household with no numbers yet.
+  // Blank-slate detection - a freshly created household with no numbers yet.
   // Used to show a friendly "add numbers" nudge instead of a wall of $0s.
   const pf = ctx.profile || {};
   const isBlankSlate = !ctx.totalInvested && !ctx.netWorth
@@ -552,7 +552,7 @@ const ClientPortal = ({ onOpenNumbers }) => {
   return (
     <>
       <main className="px-client-app">
-        {/* Advisor chip — sits at the top of the canvas, just below the top bar */}
+        {/* Advisor chip - sits at the top of the canvas, just below the top bar */}
         <div className="px-advisor-chip">
           <div className="px-advisor-avatar">{advisorDisplay.initials}</div>
           <div className="px-advisor-meta">
@@ -576,11 +576,11 @@ const ClientPortal = ({ onOpenNumbers }) => {
           </h1>
           <p>
             A coordinated lifecycle plan, built and reviewed with {advisorDisplay.fullName}.
-            Each Horizon phase advances when its milestones are met — together.
+            Each Horizon phase advances when its milestones are met - together.
           </p>
         </section>
 
-        {/* Prospect / proposal banner (C3) — advisor-only closing tool */}
+        {/* Prospect / proposal banner (C3) - advisor-only closing tool */}
         {isProspectView && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
@@ -590,7 +590,7 @@ const ClientPortal = ({ onOpenNumbers }) => {
             <span style={{ color: 'var(--gold)', display: 'flex', flexShrink: 0 }}><Icons.Sparkles size={18} /></span>
             <div style={{ flex: 1, minWidth: 220 }}>
               <div style={{ fontFamily: 'var(--serif)', fontSize: 16, color: 'var(--ink)', marginBottom: 2 }}>
-                Proposal mode — this is a prospect
+                Proposal mode - this is a prospect
               </div>
               <div style={{ fontSize: 13, color: 'var(--ink-mute)', lineHeight: 1.5 }}>
                 Nothing here is saved yet. Walk {prospectObj?.shortName || 'them'} through the roadmap, then
@@ -610,7 +610,7 @@ const ClientPortal = ({ onOpenNumbers }) => {
           </div>
         )}
 
-        {/* Blank-slate nudge — new household with no numbers entered yet */}
+        {/* Blank-slate nudge - new household with no numbers entered yet */}
         {isBlankSlate && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
@@ -666,7 +666,7 @@ const ClientPortal = ({ onOpenNumbers }) => {
           <div className="px-portstat">
             <div className="px-portstat-label">Last review</div>
             <div className="px-portstat-value" style={{ fontSize: 17, marginTop: 8 }}>
-              {viewingClient.lastReview ? `${viewingClient.lastReview} ago` : '—'}
+              {viewingClient.lastReview ? `${viewingClient.lastReview} ago` : '-'}
             </div>
             <div className="px-portstat-foot">
               <button className="px-btn px-btn-sm px-btn-ghost" style={{ padding: '3px 8px', marginTop: 4 }} onClick={onOpenNumbers}>
@@ -676,7 +676,7 @@ const ClientPortal = ({ onOpenNumbers }) => {
           </div>
         </div>
 
-        {/* Asset-truth composition (W6) — one honest total: managed + held-away.
+        {/* Asset-truth composition (W6) - one honest total: managed + held-away.
             The common case (held-away accounts exist) is a clean composition, not a
             warning. Only the genuine error case (managed > reported total) nudges. */}
         {(() => {
@@ -700,7 +700,7 @@ const ClientPortal = ({ onOpenNumbers }) => {
               </div>
             );
           }
-          if (!comp.hasHeldAway) return null;   // fully managed — nothing to compose
+          if (!comp.hasHeldAway) return null;   // fully managed - nothing to compose
           return (
             <div style={{
               display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
@@ -723,8 +723,8 @@ const ClientPortal = ({ onOpenNumbers }) => {
           );
         })()}
 
-        {/* Retirement readiness — the "are we on track?" answer.
-            Journey-aware tone: someone with decades ahead is "Building", not "At risk" —
+        {/* Retirement readiness - the "are we on track?" answer.
+            Journey-aware tone: someone with decades ahead is "Building", not "At risk" -
             time + steady saving is the real lever, and the copy says so. The advisor's
             own view (client modal) keeps the unsoftened verdict. */}
         {!isBlankSlate && ctx.retirementReadiness && (() => {
@@ -734,11 +734,11 @@ const ClientPortal = ({ onOpenNumbers }) => {
           const earlyJourney = (ctx.planningAge > 0 && ctx.planningAge < 40) || yearsToRetire > 25;
           const down = rr.verdict === 'Off track' || rr.verdict === 'At risk';
           let label = rr.verdict, tone = 'var(--brick)', note;
-          if (rr.verdict === 'On track') { tone = 'var(--forest)'; note = `On pace to fund the plan through age 95 — nicely done.`; }
-          else if (rr.verdict === 'Nearly there') { tone = 'var(--gold)'; note = `Close — a small, steady increase closes the gap from here.`; }
+          if (rr.verdict === 'On track') { tone = 'var(--forest)'; note = `On pace to fund the plan through age 95 - nicely done.`; }
+          else if (rr.verdict === 'Nearly there') { tone = 'var(--gold)'; note = `Close - a small, steady increase closes the gap from here.`; }
           else if (down && earlyJourney) { label = 'Building'; tone = 'var(--gold)';
-            note = `You're early in the journey, and that's the advantage — time does the heavy lifting. Steady saving now compounds enormously, and small increases go a long way.`; }
-          else { note = `Let's close the gap together — ${advisorDisplay.name} can model a higher contribution or a later target date.`; }
+            note = `You're early in the journey, and that's the advantage - time does the heavy lifting. Steady saving now compounds enormously, and small increases go a long way.`; }
+          else { note = `Let's close the gap together - ${advisorDisplay.name} can model a higher contribution or a later target date.`; }
           const pct = Math.round(rr.fundedRatio * 100);
           const rightLabel = (down && earlyJourney) ? 'Time on your side'
             : rr.lasts ? 'Plan funded through age 95' : `Projected to age ${rr.depletionAge}`;
@@ -757,7 +757,7 @@ const ClientPortal = ({ onOpenNumbers }) => {
               </div>
               <div style={{ fontSize: 11.5, color: 'var(--ink-2)', marginTop: 10, lineHeight: 1.5 }}>{note}</div>
 
-              {/* Probability-of-success band — the existing Monte Carlo, surfaced
+              {/* Probability-of-success band - the existing Monte Carlo, surfaced
                   as a confidence range on the retirement horizon (C4). */}
               {ctx.successBand && (() => {
                 const sb = ctx.successBand;
@@ -791,21 +791,21 @@ const ClientPortal = ({ onOpenNumbers }) => {
 
               <div style={{ fontSize: 10.5, color: 'var(--ink-faint)', marginTop: 8, fontStyle: 'italic', lineHeight: 1.5 }}>
                 {ctx.successBand ? 'Funded ratio nets guaranteed income against inflated spending; the probability band reflects 600 simulated market paths. Both are illustrative and best refined with ' + advisorDisplay.name + '.'
-                  : 'Projection nets your guaranteed income against inflated spending — illustrative, and best refined with ' + advisorDisplay.name + '.'}
+                  : 'Projection nets your guaranteed income against inflated spending - illustrative, and best refined with ' + advisorDisplay.name + '.'}
               </div>
             </div>
           );
         })()}
 
-        {/* Risk profile — client questionnaire → recommended mix + draft IPS (C4) */}
+        {/* Risk profile - client questionnaire → recommended mix + draft IPS (C4) */}
         {!isBlankSlate && <RiskProfileCard advisorName={advisorDisplay.name} />}
 
-        {/* Funding goals — per-goal progress + on-pace nudge */}
+        {/* Funding goals - per-goal progress + on-pace nudge */}
         {!isBlankSlate && (ctx.goalsFunding || []).length > 0 && (
           <div className="px-card" style={{ padding: 18, marginBottom: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 }}>
             <div className="px-eyebrow" style={{ marginBottom: 12 }}>Goals</div>
             {ctx.goalsFunding.map(({ goal, status, gapMonthly }) => {
-              // Client side stays constructive — no alarming red; the bar shows saved-so-far
+              // Client side stays constructive - no alarming red; the bar shows saved-so-far
               // progress, the badge carries the projection, paired with an actionable nudge.
               const tone = (status === 'funded' || status === 'on pace') ? 'var(--forest)' : 'var(--gold)';
               const pct = goal.targetAmount > 0 ? Math.min(100, Math.round((goal.currentFunding / goal.targetAmount) * 100)) : 0;
@@ -835,7 +835,7 @@ const ClientPortal = ({ onOpenNumbers }) => {
           </div>
         )}
 
-        {/* Protection & estate — capture + gentle coaching; never alarming on the client side */}
+        {/* Protection & estate - capture + gentle coaching; never alarming on the client side */}
         {!isBlankSlate && (() => {
           const cg = ctx.lifeCoverageGap || { covered: true, gap: 0, recommended: 0, ratio: 1 };
           const estate = ctx.estate || {};
@@ -893,7 +893,7 @@ const ClientPortal = ({ onOpenNumbers }) => {
                     <span key={key} role="button" tabIndex={0}
                       onClick={open}
                       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } }}
-                      title={canOpen ? `Open ${docsById[docId].title}` : `View a sample ${label.toLowerCase()} — for discussion, not a legal document`}
+                      title={canOpen ? `Open ${docsById[docId].title}` : `View a sample ${label.toLowerCase()} - for discussion, not a legal document`}
                       style={{ fontSize: 11, color: fg, background: filled ? tone : 'transparent',
                         border: `1px solid ${tone}`, borderRadius: 20, padding: '2px 9px',
                         display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -908,7 +908,7 @@ const ClientPortal = ({ onOpenNumbers }) => {
           );
         })()}
 
-        {/* Your accounts — read-only, grouped by custodian. Account-level only:
+        {/* Your accounts - read-only, grouped by custodian. Account-level only:
             holdings stay partner-gated. "Something changed?" drops the question
             straight into the conversation thread below. */}
         {(accounts || []).length > 0 && (() => {
@@ -927,7 +927,7 @@ const ClientPortal = ({ onOpenNumbers }) => {
           const asOf = stamps.length ? new Date(stamps.sort()[stamps.length - 1]) : null;
           const askAboutAccounts = () => {
             window.dispatchEvent(new CustomEvent('px:prefill-message', {
-              detail: { draft: 'Looking at my accounts in the portal, I noticed something that looks different than I expected — could we take a look together?' },
+              detail: { draft: 'Looking at my accounts in the portal, I noticed something that looks different than I expected - could we take a look together?' },
             }));
           };
           return (
@@ -967,13 +967,13 @@ const ClientPortal = ({ onOpenNumbers }) => {
                 </button>
               </div>
               <div style={{ fontSize: 11, color: 'var(--ink-faint)', marginTop: 8, lineHeight: 1.5 }}>
-                Balances are account-level as last recorded with your advisor — they may lag your custodian's site by a few days.
+                Balances are account-level as last recorded with your advisor - they may lag your custodian's site by a few days.
               </div>
             </div>
           );
         })()}
 
-        {/* Conversation — the two-way thread with the advisor (the collaboration wedge) */}
+        {/* Conversation - the two-way thread with the advisor (the collaboration wedge) */}
         <div className="px-card" style={{ padding: 18, marginBottom: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 }}>
           <div className="px-eyebrow" style={{ marginBottom: 12 }}>Conversation with {advisorDisplay.name}</div>
           <MessageThread
@@ -982,12 +982,12 @@ const ClientPortal = ({ onOpenNumbers }) => {
             authorId={window.db?.isUUID(activeClientId) ? activeClientId : null}
             firmId={authUser?.firm_id || authUser?.firms?.id || null}
             counterpartName={advisorDisplay.name}
-            emptyHint={`Have a question between meetings? Message ${advisorDisplay.name} here — no question is too small.`}
+            emptyHint={`Have a question between meetings? Message ${advisorDisplay.name} here - no question is too small.`}
             demoSeed={(isProspectView || !window.demoMessages) ? [] : window.demoMessages()}
           />
         </div>
 
-        {/* Documents — review & download what the advisor has shared */}
+        {/* Documents - review & download what the advisor has shared */}
         <div className="px-card" style={{ padding: 18, marginBottom: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 }}>
           <div className="px-eyebrow" style={{ marginBottom: 12 }}>Documents</div>
           <DocumentVault
@@ -996,11 +996,11 @@ const ClientPortal = ({ onOpenNumbers }) => {
             firmId={authUser?.firm_id || authUser?.firms?.id || null}
             advisorId={authUser?.advisor_id || null}
             demoSeed={window.demoDocuments ? window.demoDocuments() : []}
-            emptyHint={`Shared statements, your IPS, or disclosures will appear here to review and download — and you can upload documents for ${advisorDisplay.name} too.`}
+            emptyHint={`Shared statements, your IPS, or disclosures will appear here to review and download - and you can upload documents for ${advisorDisplay.name} too.`}
           />
         </div>
 
-        {/* Acknowledgements — review & e-sign documents the advisor requested */}
+        {/* Acknowledgements - review & e-sign documents the advisor requested */}
         {acks.length > 0 && (
           <div className="px-card" style={{ padding: 18, marginBottom: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 }}>
             <div className="px-eyebrow" style={{ marginBottom: 12 }}>Acknowledgements</div>
@@ -1022,7 +1022,7 @@ const ClientPortal = ({ onOpenNumbers }) => {
                 ) : a.provider === 'docusign' ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, fontSize: 12.5, color: 'var(--ink-mute)' }}>
                     <Icons.Message size={13} />
-                    We've emailed you a secure DocuSign envelope to review and sign. Check your inbox{a.envelope_status === 'delivered' ? ' — it looks like you opened it but haven’t finished signing yet.' : '.'}
+                    We've emailed you a secure DocuSign envelope to review and sign. Check your inbox{a.envelope_status === 'delivered' ? ' - it looks like you opened it but haven’t finished signing yet.' : '.'}
                   </div>
                 ) : (
                   <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
@@ -1039,7 +1039,7 @@ const ClientPortal = ({ onOpenNumbers }) => {
           </div>
         )}
 
-        {/* Interactive performance view — inline chart + time-weighted returns */}
+        {/* Interactive performance view - inline chart + time-weighted returns */}
         {valueSeries.length >= 2 && (
           <div className="px-card" style={{ padding: 18, marginBottom: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
@@ -1057,7 +1057,7 @@ const ClientPortal = ({ onOpenNumbers }) => {
                   <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--ink-mute)', fontWeight: 600 }}>{p.label}</div>
                   <div style={{ fontFamily: 'var(--serif)', fontSize: 15.5, fontWeight: 500, marginTop: 3,
                     color: p.pct == null ? 'var(--ink-mute)' : p.pct >= 0 ? 'var(--forest)' : 'var(--brick)' }}>
-                    {p.pct == null ? '—' : `${p.pct >= 0 ? '+' : ''}${p.pct.toFixed(1)}%`}
+                    {p.pct == null ? '-' : `${p.pct >= 0 ? '+' : ''}${p.pct.toFixed(1)}%`}
                   </div>
                 </div>
               ))}
@@ -1106,7 +1106,7 @@ const ClientPortal = ({ onOpenNumbers }) => {
               </div>
               <div className="px-phase-end-sub">
                 {overallPct === 100
-                  ? 'Maintenance mode — annual review cadence with your advisor.'
+                  ? 'Maintenance mode - annual review cadence with your advisor.'
                   : 'The horizon beyond the seven phases. Reviewed annually with your advisor.'}
               </div>
             </div>
@@ -1129,7 +1129,7 @@ const ClientPortal = ({ onOpenNumbers }) => {
             Pick a time with {advisorDisplay.name}
           </h2>
           <p style={{ fontSize: 12.5, color: 'var(--ink-mute)', lineHeight: 1.5, marginBottom: 16 }}>
-            Suggest a preferred date and time — your advisor will confirm.
+            Suggest a preferred date and time - your advisor will confirm.
           </p>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 12 }}>
             <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Preferred date & time</span>

@@ -1,4 +1,4 @@
-// Prism — calc-core. Pure, dependency-free financial math, extracted from the UI
+// Prism - calc-core. Pure, dependency-free financial math, extracted from the UI
 // so it can be unit-tested in Node AND shared by the in-browser bundle.
 //
 // Dual-mode: concatenated into dist/bundle.js (top-level fns are in the shared
@@ -7,7 +7,7 @@
 // inert in the other environment.
 //
 // IMPORTANT: this is the single source of truth. Do not re-inline these formulas
-// in components — call the functions here so the tests actually cover the app.
+// in components - call the functions here so the tests actually cover the app.
 
 /* ─── Performance math (Theme D) ─────────────────────────────────────── */
 
@@ -37,7 +37,7 @@ function buildValueSeries(balanceRows) {
 //
 // Advisory fees (flows with kind === 'fee') are treated as a return DRAG, not as a
 // capital flow: a fee debit already reduced the ending value and is NOT added back,
-// so the default `pct` is NET of advisory fees — the number the client actually keeps.
+// so the default `pct` is NET of advisory fees - the number the client actually keeps.
 // Contributions / withdrawals are capital flows: time-weighted and netted out so the
 // client's own money moving in/out doesn't distort the return. `grossPct` adds the fee
 // drag back for the advisor's pre-fee comparison; `netOfFees` flags that a fee was seen.
@@ -120,7 +120,7 @@ function hsaProjection(balance, contrib, rate = 0.07, years = 25) {
 // Monte Carlo retirement projection with a seeded RNG (Box–Muller). Deterministic
 // for a given seed so each client sees stable-but-distinct results.
 function monteCarlo({ principal, years, withdrawal, seed = 42, runs = 800, mean = 0.07, sd = 0.16 }) {
-  // mulberry32 — full 2^32 state period, still seeded/deterministic/dependency-free.
+  // mulberry32 - full 2^32 state period, still seeded/deterministic/dependency-free.
   // Replaced the original short-period LCG (233,280 states) because the Monte-Carlo
   // tool surfaces "Success probability NN%" as a concrete figure to clients.
   let s = (Number(seed) >>> 0) || 1;
@@ -170,7 +170,7 @@ function rothLadder({ tradBalance, annualConvert, bracketPct, growth = 0.06, yea
   return out;
 }
 
-// Federal estate-tax exemption — a DATED assumption like FED_BRACKETS_2025;
+// Federal estate-tax exemption - a DATED assumption like FED_BRACKETS_2025;
 // reindex annually (2025 figure, per-person). Named + exported so the tools can
 // label the year instead of burying the number in a default parameter.
 const FEDERAL_ESTATE_EXEMPTION_2025 = 13_990_000;
@@ -191,7 +191,7 @@ function estateProjection({ principal, years, withdrawalRatePct, g2Years, realRe
 
 // Retirement-readiness engine. Deterministic year-by-year accumulation, then
 // decumulation that nets fixed-income streams (Social Security / pension / annuity)
-// against inflated spending — to answer the one question every client asks:
+// against inflated spending - to answer the one question every client asks:
 // "are we on track?" Returns a funded ratio + a plain-language verdict.
 //
 // Assumptions are intentionally simple and transparent (the advisor can refine):
@@ -287,7 +287,7 @@ function tlh({ taxableBalance, lossPct, offsetRatePct }) {
 }
 
 // Tiered annual advisory fee ($) for a given AUM. Mirrors the generate-invoices
-// Edge Function's annualFee() — keep the two in sync.
+// Edge Function's annualFee() - keep the two in sync.
 function annualFeeForAum(tiers, aum) {
   const list = Array.isArray(tiers) ? tiers : [];
   if (!list.length) return 0;
@@ -303,7 +303,7 @@ function annualFeeForAum(tiers, aum) {
 }
 
 // ── Life-insurance coverage gap (W5) ────────────────────────────────────────
-// A simple, transparent capture-and-coach check — NOT underwriting. The common
+// A simple, transparent capture-and-coach check - NOT underwriting. The common
 // rule of thumb is coverage ≈ income × a multiple, plus debts to be retired, less
 // liquid assets already earmarked. Returns the recommended figure, the gap, and a
 // coverage ratio (clamped 0..1). All inputs default to 0 so partial data is safe.
@@ -324,7 +324,7 @@ function lifeCoverageGap({ annualIncome = 0, incomeMultiple = 10, liabilities = 
 // total invested = assets under management + explicitly held-away balances. The
 // household's typed invested total is treated as the whole picture; managed AUM is
 // the slice the advisor custodies. Held-away is the remainder. The ONE genuine error
-// case — managed AUM materially exceeding the reported total — means the typed numbers
+// case - managed AUM materially exceeding the reported total - means the typed numbers
 // are stale; we flag that (and trust managed as the floor) rather than invent negative
 // held-away. All inputs default to 0 so partial data is safe.
 function assetComposition({ managedAum = 0, investedOnFile = 0 } = {}) {
@@ -381,7 +381,7 @@ function riskProfile({ answers = [], horizonYears = null } = {}) {
 // broad equity and international (whose foreign-tax-credit is wasted in a retirement
 // account) anchor taxable. Equity is split into broad domestic / international / REIT
 // by conventional weights; cash is parked in taxable and not placed. Returns, per
-// asset class, the dollars and the resulting share across sleeves — so the mapping
+// asset class, the dollars and the resulting share across sleeves - so the mapping
 // table reflects THIS household, not a static rule of thumb. Returns null when there
 // are no invested dollars, so callers can fall back to the illustrative model.
 const AL_EQUITY_SPLIT = { broad: 0.63, intl: 0.25, reit: 0.12 };
@@ -442,7 +442,7 @@ function assetLocationPlan({ taxable = 0, taxDeferred = 0, taxFree = 0, allocati
 // ── Contribution priority waterfall (C4 planning depth) ──────────────────────
 // Per-account contribution optimization: given the household's annual savings
 // capacity, sequence it across accounts in the canonical tax-efficiency order every
-// fee-only planner uses — capture the full employer match first (a guaranteed return
+// fee-only planner uses - capture the full employer match first (a guaranteed return
 // nothing else beats), then the triple-advantaged HSA, then IRA/Roth, then fill the
 // 401(k) to the federal limit, and finally taxable for anything left. Each step is
 // capped by that account's REMAINING room (limit − already-contributed this year), so
@@ -464,14 +464,14 @@ function contributionWaterfall({
     return amount;
   };
 
-  // 1. Employer match — fund the 401(k) up to the matched share of salary first.
+  // 1. Employer match - fund the 401(k) up to the matched share of salary first.
   const k401Room   = Math.max(0, (Number(k401Limit) || 0) - (Number(k401Contributed) || 0));
   const matchTarget = Math.min(k401Room, (Number(salary) || 0) * (Number(employerMatchPct) || 0) / 100);
-  const matchFunded = take('match', 'Capture full employer match', matchTarget, '401(k) — guaranteed return');
+  const matchFunded = take('match', 'Capture full employer match', matchTarget, '401(k) - guaranteed return');
   const fullMatch   = matchTarget > 0 ? matchFunded >= matchTarget - 0.5 : true;
   const missedMatch = Math.max(0, matchTarget - matchFunded);
 
-  // 2. HSA — triple-advantaged (deductible in, tax-free growth, tax-free out).
+  // 2. HSA - triple-advantaged (deductible in, tax-free growth, tax-free out).
   if (hsaEligible) take('hsa', 'Max the HSA', (Number(hsaLimit) || 0) - (Number(hsaContributed) || 0), 'Triple-advantaged');
   // 3. IRA / Roth.
   take('ira', 'Fund IRA / Roth', (Number(iraLimit) || 0) - (Number(iraContributed) || 0), 'Tax-free or deductible');
@@ -568,12 +568,12 @@ const FED_BRACKETS_2025 = {
 };
 
 // ── Roth-conversion window sizing (C4 planning depth) ────────────────────────
-// The years between retirement and the start of RMDs (age 73) — before Social
-// Security and required distributions push income back up — are the prime window to
+// The years between retirement and the start of RMDs (age 73) - before Social
+// Security and required distributions push income back up - are the prime window to
 // convert tax-deferred dollars to Roth at a low rate. This sizes that window: it finds
 // the household's projected taxable income in those gap years, measures the HEADROOM
 // to the top of a target bracket, and recommends an annual conversion that fills the
-// bracket without spilling into the next one — capped so it doesn't over-draw the
+// bracket without spilling into the next one - capped so it doesn't over-draw the
 // balance across the window. Returns null when there's no window or nothing to convert.
 function rothConversionWindow({
   currentAge = 60, retireAt = 65, rmdAge = 73,
@@ -616,12 +616,12 @@ function rothConversionWindow({
 // Given ordinary income and a filing status, locate the household in the 2025
 // federal brackets: their taxable income (after the standard deduction unless an
 // explicit `deductions` is passed), the marginal rate, the blended effective rate,
-// and — the number that matters for planning — the HEADROOM remaining before income
+// and - the number that matters for planning - the HEADROOM remaining before income
 // spills into the next bracket. That headroom is the space the Roth-conversion and
 // contribution-order tools fill, so this is shared infrastructure, not a one-off.
 // Also returns the full band list (with the household's dollars per band) so a tool
 // can render where they sit. Pure/deterministic; all inputs default so partial data
-// is safe. Brackets are a dated assumption (see FED_BRACKETS_2025) — reindex annually.
+// is safe. Brackets are a dated assumption (see FED_BRACKETS_2025) - reindex annually.
 function bracketPosition({ filingStatus = 'mfj', ordinaryIncome = 0, deductions = null } = {}) {
   const table = FED_BRACKETS_2025[filingStatus] || FED_BRACKETS_2025.mfj;
   const std = deductions == null ? table.stdDeduction : Math.max(0, Number(deductions) || 0);
@@ -653,7 +653,7 @@ function bracketPosition({ filingStatus = 'mfj', ordinaryIncome = 0, deductions 
 // ── W-2 capture → parsed marginal rate (front-phase tax-data play) ───────────
 // The smallest possible "tax-return import": Box 1 (wages, tips, other comp) and
 // Box 2 (federal income tax withheld) straight off a W-2. Box 1 IS ordinary income,
-// so it drops into bracketPosition to LOCATE the household in the federal brackets —
+// so it drops into bracketPosition to LOCATE the household in the federal brackets -
 // turning the hand-entered marginal rate into a parsed figure. Box 2 yields the
 // effective federal withholding rate (what was actually held back vs. wages), a
 // reality-check against the bracket math: a large gap flags over/under-withholding
@@ -674,22 +674,22 @@ function w2Position({ box1 = 0, box2 = 0, filingStatus = 'mfj' } = {}) {
 }
 
 // ── 1040 capture → planning observations (Holistiplan-lite) ─────────────────
-// Dated 2025 companions to FED_BRACKETS_2025 — reindex annually together.
+// Dated 2025 companions to FED_BRACKETS_2025 - reindex annually together.
 // LTCG 0% band top (taxable income) and the first IRMAA MAGI tier (2025 premiums,
 // based on 2023 MAGI in real life; used here as a proximity flag, not a bill).
 const LTCG_ZERO_TOP_2025  = { single: 48_350,  mfj: 96_700 };
 const IRMAA_TIER1_2025    = { single: 106_000, mfj: 212_000 };
 
 // The fuller layer over w2Position: key lines off a filed Form 1040 → deterministic
-// planning observations. No OCR, no upload — the advisor (or client) keys ~8 lines
+// planning observations. No OCR, no upload - the advisor (or client) keys ~8 lines
 // and every observation is a pure function of them, so the output is explainable
 // line-by-line in a client meeting. Observations carry a tone for the client-facing
-// surface (informative, never discouraging — see tone memory): 'opportunity' |
+// surface (informative, never discouraging - see tone memory): 'opportunity' |
 // 'watch' | 'info'. Returns null when nothing material was entered.
 //   lines: { agi (L11), deduction (L12), taxableIncome (L15), totalTax (L24),
 //            withholding (L25d), taxableInterest (L2b), ordinaryDividends (L3b),
 //            qualifiedDividends (L3a), capGains (L7), iraDistributions (L4b),
-//            ssBenefits (L6b taxable) } — all optional, currency-cleaned.
+//            ssBenefits (L6b taxable) } - all optional, currency-cleaned.
 function tax1040Insights({ filingStatus = 'mfj', age = 0, lines = {} } = {}) {
   const n = (v) => Math.max(0, Number(v) || 0);
   const status = filingStatus === 'single' ? 'single' : 'mfj';
@@ -718,7 +718,7 @@ function tax1040Insights({ filingStatus = 'mfj', age = 0, lines = {} } = {}) {
   const obs = [];
   const add = (id, tone, title, detail) => obs.push({ id, tone, title, detail });
 
-  // 1 · Bracket position + headroom — the anchor observation.
+  // 1 · Bracket position + headroom - the anchor observation.
   const pct = (r) => `${Math.round(r * 100)}%`;
   if (bracket.headroom > 0 && isFinite(bracket.headroom)) {
     add('bracket-headroom', 'opportunity', `Room in the ${pct(bracket.marginalRate)} bracket`,
@@ -727,16 +727,16 @@ function tax1040Insights({ filingStatus = 'mfj', age = 0, lines = {} } = {}) {
       `contribution choice this year.`);
   } else if (!isFinite(bracket.headroom)) {
     add('top-bracket', 'info', 'Top federal bracket',
-      'Ordinary income reaches the top bracket — deferral and timing strategies matter more than bracket-filling.');
+      'Ordinary income reaches the top bracket - deferral and timing strategies matter more than bracket-filling.');
   }
 
-  // 2 · Withholding vs. total tax — refund/balance-due reality check.
+  // 2 · Withholding vs. total tax - refund/balance-due reality check.
   if (totalTax > 0 && withheld > 0) {
     const gap = withheld - totalTax;
     const gapPct = Math.abs(gap) / totalTax;
     if (gap > 0 && gapPct > 0.10) {
       add('over-withheld', 'opportunity', 'Withholding ran well ahead of the tax bill',
-        `About ${'$' + Math.round(gap).toLocaleString('en-US')} more was withheld than owed — an interest-free loan ` +
+        `About ${'$' + Math.round(gap).toLocaleString('en-US')} more was withheld than owed - an interest-free loan ` +
         `to the IRS. Adjusting a W-4 puts that into monthly cash flow instead of a once-a-year refund.`);
     } else if (gap < 0 && gapPct > 0.10) {
       add('under-withheld', 'watch', 'Withholding ran behind the tax bill',
@@ -753,15 +753,15 @@ function tax1040Insights({ filingStatus = 'mfj', age = 0, lines = {} } = {}) {
       `Bunching two years of charitable gifts (e.g. a donor-advised fund) into one year can beat alternating.`);
   }
 
-  // 4 · 0% LTCG band — gain harvesting.
+  // 4 · 0% LTCG band - gain harvesting.
   const ltcgTop = LTCG_ZERO_TOP_2025[status];
   if (taxable < ltcgTop) {
     add('ltcg-zero', 'opportunity', 'Room in the 0% capital-gains band',
       `Taxable income is ${'$' + Math.round(ltcgTop - taxable).toLocaleString('en-US')} below the top of the 0% ` +
-      `long-term-gains band — long-term gains realized inside that room are federally tax-free (gain harvesting).`);
+      `long-term-gains band - long-term gains realized inside that room are federally tax-free (gain harvesting).`);
   } else if (capGains < 0) {
     add('loss-carryforward', 'info', 'Capital-loss carryforward on file',
-      'Line 7 shows a net capital loss — the carryforward offsets future gains and up to $3,000 of ordinary income a year.');
+      'Line 7 shows a net capital loss - the carryforward offsets future gains and up to $3,000 of ordinary income a year.');
   }
 
   // 5 · Interest income → cash possibly idle or bonds in the wrong account.
@@ -772,14 +772,14 @@ function tax1040Insights({ filingStatus = 'mfj', age = 0, lines = {} } = {}) {
       `Treasuries/munis could keep more of it.`);
   }
 
-  // 6 · Dividend quality — non-qualified share taxed at ordinary rates.
+  // 6 · Dividend quality - non-qualified share taxed at ordinary rates.
   if (ordDiv > 1_000 && qualDiv / ordDiv < 0.6) {
     add('dividend-quality', 'watch', 'A large share of dividends taxed at ordinary rates',
-      `Only ${Math.round((qualDiv / ordDiv) * 100)}% of dividends were qualified. The rest are taxed like wages — ` +
+      `Only ${Math.round((qualDiv / ordDiv) * 100)}% of dividends were qualified. The rest are taxed like wages - ` +
       `often a sign of REITs or high-turnover funds sitting in a taxable account.`);
   }
 
-  // 7 · IRMAA proximity — flag within 10% below the first MAGI tier (or over it).
+  // 7 · IRMAA proximity - flag within 10% below the first MAGI tier (or over it).
   const irmaa = IRMAA_TIER1_2025[status];
   if (agi >= irmaa) {
     add('irmaa-over', 'watch', 'Income above the first Medicare IRMAA tier',
@@ -788,14 +788,14 @@ function tax1040Insights({ filingStatus = 'mfj', age = 0, lines = {} } = {}) {
   } else if (agi > irmaa * 0.9) {
     add('irmaa-near', 'watch', 'Approaching the first Medicare IRMAA tier',
       `MAGI is within ${'$' + Math.round(irmaa - agi).toLocaleString('en-US')} of the ${'$' + irmaa.toLocaleString('en-US')} ` +
-      `tier that raises future Medicare premiums — a number to watch when realizing income.`);
+      `tier that raises future Medicare premiums - a number to watch when realizing income.`);
   }
 
-  // 8 · QCD eligibility — IRA distributions while charitably inclined at 70½+.
+  // 8 · QCD eligibility - IRA distributions while charitably inclined at 70½+.
   if (iraDist > 0 && age >= 70.5) {
     add('qcd', 'opportunity', 'IRA distributions could flow through a QCD',
       'Qualified charitable distributions (up to $108k, 2025) sent directly from the IRA count toward RMDs and ' +
-      'never hit AGI — usually beating a cash gift plus a deduction.');
+      'never hit AGI - usually beating a cash gift plus a deduction.');
   }
 
   // 9 · Taxable Social Security + other income → provisional-income lever.
@@ -813,7 +813,7 @@ function tax1040Insights({ filingStatus = 'mfj', age = 0, lines = {} } = {}) {
 // ── Rough term-life premium estimate (illustrative, NOT a quote) ─────────────
 // A ballpark monthly cost for a given coverage amount, by age band, for a healthy
 // non-smoker on a ~20-year level term. Deliberately coarse and clearly illustrative
-// — it exists only to make the coverage-gap finding feel actionable ("≈ $X/mo"),
+// - it exists only to make the coverage-gap finding feel actionable ("≈ $X/mo"),
 // never to price a policy. Real pricing depends on health, term, and carrier.
 function termLifePremium({ coverage = 0, age = 40 } = {}) {
   const c = Math.max(0, Number(coverage) || 0);
@@ -828,7 +828,7 @@ function termLifePremium({ coverage = 0, age = 40 } = {}) {
 // annual spending), compounding current investments at a real return and adding a
 // flat annual contribution. Whole-year resolution; returns `reached:false` with
 // years:Infinity if the contribution never gets there inside maxYears. Pure and
-// deterministic — pairs with a "+1% saved → months sooner" lever the caller derives
+// deterministic - pairs with a "+1% saved → months sooner" lever the caller derives
 // by re-running with a higher annualSavings. All inputs default so partial data is safe.
 function yearsToIndependence({ currentInvested = 0, annualSavings = 0, targetNumber = 0, realReturn = 0.05, maxYears = 80 } = {}) {
   const target = Math.max(0, Number(targetNumber) || 0);
@@ -848,7 +848,7 @@ function yearsToIndependence({ currentInvested = 0, annualSavings = 0, targetNum
 // dollar? Paying down a balance earns a GUARANTEED, tax-free return equal to its APR;
 // investing earns an UNCERTAIN after-tax return. So the rule is simply APR vs. the
 // expected after-tax return, with a small dead-band around the crossover where it's a
-// genuine toss-up (and other factors — liquidity, behavior — decide). Returns the
+// genuine toss-up (and other factors - liquidity, behavior - decide). Returns the
 // verdict, the edge in percentage points, and the crossover return at which it flips.
 function debtVsInvest({ apr = 0, afterTaxReturn = 0, deadbandPct = 0.5 } = {}) {
   const a = Number(apr) || 0;
@@ -892,15 +892,15 @@ function mortgagePayoff({ balance = 0, aprPct = 0, paymentMonthly = 0, extraMont
   return { base, accel, monthsSaved, interestSaved, amortizes: isFinite(base.months) };
 }
 
-// ── HDHP-vs-PPO break-even (Phase 04 — answers flagged q03) ──────────────────
+// ── HDHP-vs-PPO break-even (Phase 04 - answers flagged q03) ──────────────────
 // "Is the HDHP worth it if I never go to the doctor?" Models the total annual cost of
 // each plan at a given expected-claims level: premiums + the patient's share of claims
 // (full cost up to the deductible, then coinsurance, capped at the out-of-pocket max).
-// The HDHP's net cost is reduced by the HSA advantage it unlocks — the employer's HSA
+// The HDHP's net cost is reduced by the HSA advantage it unlocks - the employer's HSA
 // contribution (free money) plus the tax saved on the household's own pre-tax HSA
 // dollars. Then it scans the claims axis for the break-even point where the cheaper
 // plan flips, so the answer is "HDHP wins below ~$X of annual claims." All inputs
-// default so partial data is safe. NOT advice — a transparent cost comparison.
+// default so partial data is safe. NOT advice - a transparent cost comparison.
 function _planOop(claims, deductible, coinsurance, oopMax) {
   const c = Math.max(0, claims);
   const ded = Math.max(0, deductible);
@@ -935,10 +935,10 @@ function hdhpVsPpo({
     cheaper: at.hdhp <= at.ppo ? 'hdhp' : 'ppo', savings: Math.abs(at.hdhp - at.ppo) };
 }
 
-// ── Mega-Backdoor Roth capacity (Phase 05 — answers flagged q02) ─────────────
+// ── Mega-Backdoor Roth capacity (Phase 05 - answers flagged q02) ─────────────
 // "Should we be doing a Mega Backdoor Roth?" The capacity is whatever's left under the
 // §415(c) total-additions limit ($70,000 in 2025, $77,500 with the 50+ catch-up) after
-// the employee's own elective deferral and all employer contributions — that headroom
+// the employee's own elective deferral and all employer contributions - that headroom
 // can be filled with after-tax 401(k) dollars and converted to Roth, IF the plan allows
 // after-tax contributions + in-service conversion. Also reports remaining elective-
 // deferral room. All inputs default so partial data is safe.
@@ -959,7 +959,7 @@ function megaBackdoorCapacity({
 // Required Minimum Distributions begin at age 73. Project the tax-deferred balance
 // forward to that age, then apply the IRS Uniform Lifetime Table divisor each year:
 // RMD = balance ÷ divisor, taxed as ordinary income, with the remainder growing on.
-// Surfaces the first RMD (age, amount), the lifetime RMD + tax drag, and a schedule —
+// Surfaces the first RMD (age, amount), the lifetime RMD + tax drag, and a schedule -
 // making the Roth-ladder urgency tangible (every dollar converted now is a dollar not
 // force-distributed and taxed later). Returns null when there's no deferred balance.
 const RMD_UNIFORM_DIVISORS = {
@@ -993,7 +993,7 @@ function rmdProjection({ taxDeferredBalance = 0, currentAge = 65, rmdAge = 73, g
 // Claiming early (62) permanently reduces the benefit; delaying past full retirement
 // age (FRA, 67 for current retirees) earns 8%/yr delayed credits to age 70. Given the
 // PIA (the monthly benefit at FRA), this computes the benefit at each candidate claim
-// age, then the lifetime total to an assumed longevity — both nominal and present-value
+// age, then the lifetime total to an assumed longevity - both nominal and present-value
 // (so a discount rate can reflect "a dollar now beats a dollar later"). Reports the
 // PV-maximizing age and the break-even age between the earliest and latest options.
 // Reductions: 5/9% per month for the first 36 months early, 5/12% per month beyond;
@@ -1068,9 +1068,9 @@ function equityCompConcentration({ positionValue = 0, costBasis = 0, totalInvest
 
 // ── Net-worth trajectory (Phase 01, client-utility) ──────────────────────────
 // The earliest-journey companion to the Freedom Date: instead of "when," it shows
-// "what the curve looks like" — net worth projected year by year at today's savings
+// "what the curve looks like" - net worth projected year by year at today's savings
 // pace. A negative net worth (debts exceed assets) is NOT compounded at the
-// investment return — only a positive balance grows; savings always flow in. That
+// investment return - only a positive balance grows; savings always flow in. That
 // keeps the early-journey picture honest: digging out is linear, compounding starts
 // once the household crosses zero. All inputs default so partial data is safe.
 function netWorthTrajectory({ startNetWorth = 0, annualSavings = 0, realReturn = 0.05, years = 20 } = {}) {

@@ -1,4 +1,4 @@
-// Prism — App shell. Auth gate, topbar, view switch, account chip, notification bell.
+// Prism - App shell. Auth gate, topbar, view switch, account chip, notification bell.
 
 // Captured once at load (before React rewrites the hash): did the user arrive on
 // an explicit deep link? If so, role-based view-homing must not override it.
@@ -36,7 +36,7 @@ const Topbar = ({ onOpenNumbers, dark, toggleTheme, platformOwner }) => {
         </div>
       </div>
 
-      {/* View switcher — advisors and firm admins */}
+      {/* View switcher - advisors and firm admins */}
       {(role === 'advisor' || role === 'admin') && (
         <div className="px-viewswitch" role="tablist" aria-label="View">
           <button
@@ -107,12 +107,12 @@ function ProvisionWorkspace() {
         { p_firm_name: firmName.trim(), p_full_name: fullName.trim() });
       if (error) throw error;
       // Persist the optional client-facing title onto the just-created advisor
-      // row (advisors_update_self RLS permits this). Non-fatal if it fails — the
+      // row (advisors_update_self RLS permits this). Non-fatal if it fails - the
       // advisor can set it later from the account menu.
       if (honorific) {
         try { await window.__sb.from('advisors').update({ honorific }).eq('auth_user_id', session.user.id); } catch (e) {}
       }
-      window.location.reload(); // re-run role detection — lands as firm admin
+      window.location.reload(); // re-run role detection - lands as firm admin
     } catch (e) { setError(e.message || 'Could not create workspace.'); setBusy(false); }
   };
 
@@ -129,7 +129,7 @@ function ProvisionWorkspace() {
             Set up your workspace
           </div>
           <div style={{ fontSize: 13, color: 'var(--ink-mute)', lineHeight: 1.55 }}>
-            One more step — name your firm to create your advisor workspace. You'll be its first administrator.
+            One more step - name your firm to create your advisor workspace. You'll be its first administrator.
           </div>
         </div>
 
@@ -147,7 +147,7 @@ function ProvisionWorkspace() {
                 <option key={h} value={h}>{advisorFormalName({ honorific: h, fullName, fallback: h }) || h}</option>
               ))}
             </select>
-            <span style={{ fontSize: 10.5, color: 'var(--ink-faint)' }}>Shown in your clients' portal — e.g. "{advisorFormalName({ honorific: honorific || 'Ms.', fullName: fullName || 'Jane Advisor' })} will tailor this with you."</span>
+            <span style={{ fontSize: 10.5, color: 'var(--ink-faint)' }}>Shown in your clients' portal - e.g. "{advisorFormalName({ honorific: honorific || 'Ms.', fullName: fullName || 'Jane Advisor' })} will tailor this with you."</span>
           </label>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.07em' }}>Firm name</span>
@@ -197,7 +197,7 @@ function ClaimInvite({ code }) {
   const ran = React.useRef(false);
 
   React.useEffect(() => {
-    if (ran.current) return; // claim is single-use — never fire twice (StrictMode/re-render)
+    if (ran.current) return; // claim is single-use - never fire twice (StrictMode/re-render)
     ran.current = true;
     (async () => {
       const { clientId, error } = await window.db.claimClient(code);
@@ -241,7 +241,7 @@ function ClaimInvite({ code }) {
 /* ─── ⌘K command palette (C5) ─────────────────────────────────────────
    Global advisor-UX accelerator: ⌘K / Ctrl-K opens a fuzzy launcher to jump
    to any client in the book and run the common view/account actions without
-   reaching for the mouse — the highest-leverage add once a book runs to 150+
+   reaching for the mouse - the highest-leverage add once a book runs to 150+
    households. Mounted in AppInner (advisor/admin surface only; the slim client
    portal never bundles this file). */
 function CommandPalette() {
@@ -409,7 +409,7 @@ function CommandPalette() {
                    onMouseEnter={() => setSel(i)} onClick={() => jumpToClient(c)} role="button">
                 <span className="px-cmdk-item-avatar">{c.initials || (c.name || '?').slice(0, 1)}</span>
                 <span className="px-cmdk-item-label">{c.name}</span>
-                {c.tag && c.tag !== '—' && <span className="px-cmdk-item-sub">{c.tag}</span>}
+                {c.tag && c.tag !== '-' && <span className="px-cmdk-item-sub">{c.tag}</span>}
               </div>
             );
           })}
@@ -433,7 +433,7 @@ function AppInner() {
 
   // Platform-owner probe (founder tier). One cheap `whoami` per session; the
   // edge function checks the px_platform_owners allowlist server-side. Only
-  // advisor/admin sessions even ask — clients and demo never do.
+  // advisor/admin sessions even ask - clients and demo never do.
   const [platformOwner, setPlatformOwner] = React.useState(false);
   React.useEffect(() => {
     if (isDemo || !(role === 'advisor' || role === 'admin')) return;
@@ -441,9 +441,9 @@ function AppInner() {
   }, [role, isDemo]);
 
   // Route users to their natural home view on first load.
-  // Demo opens on the wedge — the client lifecycle roadmap — not the admin grid,
+  // Demo opens on the wedge - the client lifecycle roadmap - not the admin grid,
   // so visitors and prospective design partners see the differentiator first.
-  // An explicit deep-link hash (#/client/<id>…) wins — don't clobber a shared link.
+  // An explicit deep-link hash (#/client/<id>…) wins - don't clobber a shared link.
   React.useEffect(() => {
     if (__pxHadDeepLink) return;
     if (role === 'client')      setView('client');
@@ -464,7 +464,7 @@ function AppInner() {
   if (!session && !isDemo) return <LoadingScreen />;
 
   if (role === 'unregistered') {
-    // A pending invite code means this is a client connecting — redeem it before
+    // A pending invite code means this is a client connecting - redeem it before
     // falling back to the advisor self-serve workspace setup.
     const claim = pendingClaimCode();
     return claim ? <ClaimInvite code={claim} /> : <ProvisionWorkspace />;
@@ -490,7 +490,7 @@ function AppInner() {
           This workspace is paused
         </div>
         <div style={{ fontSize: 13.5, color: 'var(--ink-mute)', lineHeight: 1.55, maxWidth: 400 }}>
-          Your firm's Prism workspace has been suspended by the platform. Your data is intact —
+          Your firm's Prism workspace has been suspended by the platform. Your data is intact -
           contact Prism support to restore access.
         </div>
         <button className="px-btn px-btn-ghost" onClick={signOut}>

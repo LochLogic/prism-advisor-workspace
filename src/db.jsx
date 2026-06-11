@@ -1,4 +1,4 @@
-// Prism — Supabase data access layer. All DB queries live here.
+// Prism - Supabase data access layer. All DB queries live here.
 // Every function checks window.__sb first and returns null on failure so
 // callers can fall back to mock data transparently.
 
@@ -30,14 +30,14 @@ const AUDIT_ACTION_LABELS = {
    a failure never blocks the user action.
 
    Writes go through the px_audit() SECURITY DEFINER RPC (migration 028), which
-   stamps actor_id / actor_role / actor_email / firm_id from the SESSION — never
-   from the browser — and drops any client_id outside the caller's firm. The old
+   stamps actor_id / actor_role / actor_email / firm_id from the SESSION - never
+   from the browser - and drops any client_id outside the caller's firm. The old
    direct insert let a client forge those columns (incl. another firm's id); the
    RPC closes that. window.__pxAuthActor is still used only to skip in demo. */
 async function dbAudit(action, opts = {}) {
   const sb = _sb();
   const actor = window.__pxAuthActor;
-  if (!sb || !actor?.id) return; // demo mode / no session — nothing to record
+  if (!sb || !actor?.id) return; // demo mode / no session - nothing to record
   try {
     await sb.rpc('px_audit', {
       p_action:      action,
@@ -71,7 +71,7 @@ async function dbTrack(event, { clientId = null, meta = {} } = {}) {
 /* ─── Web push (round 13) ────────────────────────────────────────────
    The portal saves its PushSubscription (RLS: own rows; identity stamped by
    trigger, migration 042); advisor-side actions fan out through the send-push
-   edge function. Both are fire-and-forget — push is best-effort decoration on
+   edge function. Both are fire-and-forget - push is best-effort decoration on
    top of the in-app realtime channels. */
 async function dbSavePushSubscription(sub) {
   const sb = _sb();
@@ -150,7 +150,7 @@ async function dbGetClients(advisorId, { page = 0, pageSize = 50 } = {}) {
 }
 
 // Book-wide KPI totals for the advisor (AUM, cash drag, counts) computed across
-// ALL active clients — not just the paginated first roster page, which would
+// ALL active clients - not just the paginated first roster page, which would
 // under-count the headline KPIs for books > one page. Two small numeric columns
 // per row; RLS scopes to the advisor's own book.
 async function dbGetBookTotals(advisorId) {
@@ -280,7 +280,7 @@ async function dbGetAcknowledgements(clientId) {
   } catch (e) { console.warn('[db] getAcknowledgements:', e.message); return null; }
 }
 
-// Firm-wide acknowledgement inventory for the exam packet — every disclosure /
+// Firm-wide acknowledgement inventory for the exam packet - every disclosure /
 // e-sign request across the firm with its signature state. RLS scopes the read to
 // the caller's firm (admins see the whole firm; advisors their own book).
 async function dbGetFirmAcknowledgements({ limit = 500 } = {}) {
@@ -347,7 +347,7 @@ function mapClient(c) {
     id:             c.id,
     name,
     shortName:      c.short_name || name,
-    tag:            c.household_tag || '—',
+    tag:            c.household_tag || '-',
     initials,
     aum:            Number(c.aum) || 0,
     phase:          c.current_phase || 0,
@@ -576,7 +576,7 @@ async function dbSaveProfile(clientId, profileData) {
                { onConflict: 'client_id' });
     if (error) throw error;
     // Append an immutable version snapshot (15e), but only if it changed since
-    // the last one — avoids bloat from debounced autosaves. Never blocks the save.
+    // the last one - avoids bloat from debounced autosaves. Never blocks the save.
     try {
       const { data: last } = await _sb()
         .from('profile_versions').select('data')
@@ -921,7 +921,7 @@ async function dbGetBalanceHistory(clientId, { days = 365 } = {}) {
   } catch (e) { console.warn('[db] getBalanceHistory:', e.message); return null; }
 }
 
-// Book-wide balance history (RLS scopes rows to the advisor's own clients) —
+// Book-wide balance history (RLS scopes rows to the advisor's own clients) -
 // powers the Book AUM trend sparkline. Bounded to ~13 months.
 async function dbGetBookBalanceHistory({ days = 400 } = {}) {
   if (!_sb()) return null;
@@ -977,7 +977,7 @@ async function dbAddCashFlow(clientId, fields) {
 // Three tables hard-delete (`cash_flows`, `crm_tasks`, `documents`) while client
 // records archive/soft-delete. This is deliberate, not drift: the hard-deleted
 // rows are working data (ledger corrections, to-dos, vault files), and every
-// deletion still writes an append-only audit_log entry — so the *fact and actor*
+// deletion still writes an append-only audit_log entry - so the *fact and actor*
 // of the deletion is retained forever even though the payload is not. Books-and-
 // records artifacts (clients, acknowledgements, audit_log, profile versions,
 // invoices) are never hard-deleted. If a partner's compliance review wants
@@ -1195,7 +1195,7 @@ async function dbGetDocuments(clientId) {
 }
 
 // Upload a file: store the binary under <client_id>/<uuid>-<name>, then write the
-// metadata row. `uploadedByRole` is 'advisor' (default) or 'client' — a client
+// metadata row. `uploadedByRole` is 'advisor' (default) or 'client' - a client
 // uploading for their advisor; RLS (migration 025) scopes each role to its own
 // rows. Returns the row (or null on failure).
 async function dbUploadDocument(clientId, firmId, advisorId, file, { title, category, uploadedByRole = 'advisor' } = {}) {
@@ -1249,7 +1249,7 @@ async function dbDeleteDocument(id, storagePath, clientId) {
   } catch (e) { console.warn('[db] deleteDocument:', e.message); return false; }
 }
 
-/* ─── Document requests (rides on messages — no new table) ──────────
+/* ─── Document requests (rides on messages - no new table) ──────────
    Advisors chase statements/trust docs constantly; the vault only took
    unprompted uploads. A request is an advisor message whose context is
    'doc-request:<category>' and whose body is the asked-for document name; a
@@ -1302,7 +1302,7 @@ async function dbRequestDocument(clientId, { title, category = 'other', advisorI
   return row;
 }
 
-// Close a request — by the client (their upload landed) or the advisor
+// Close a request - by the client (their upload landed) or the advisor
 // (received out of band / no longer needed). `note` is the human-readable line
 // that appears in the thread.
 async function dbResolveDocumentRequest(clientId, requestId, { byRole = 'advisor', authorId, firmId, note } = {}) {
@@ -1341,7 +1341,7 @@ async function dbUpdateFirmBrand(firmId, patch) {
     for (const k of ['brand_color', 'logo_url', 'show_powered_by']) {
       if (k in patch) allowed[k] = patch[k];
     }
-    // Firm display name is editable too (rebrand / acquisition) — but never
+    // Firm display name is editable too (rebrand / acquisition) - but never
     // blanked: an empty submission keeps the current name.
     if (typeof patch.name === 'string' && patch.name.trim()) allowed.name = patch.name.trim();
     const { data, error } = await _sb().from('firms').update(allowed).eq('id', firmId).select(BRAND_COLS).single();
@@ -1377,7 +1377,7 @@ async function dbUpdateAdvisorProfile(advisorId, patch) {
 }
 
 // The signed-in CLIENT's advisor display fields (px_my_advisor RPC, migration
-// 038) — clients can't read the advisors table directly. Null pre-038/demo.
+// 038) - clients can't read the advisors table directly. Null pre-038/demo.
 async function dbGetMyAdvisor() {
   if (!_sb()) return null;
   try {
@@ -1400,7 +1400,7 @@ async function dbGetBrandForSlug(slug) {
    The key never reaches the browser: the ai-assist edge function validates the
    advisor JWT, builds the prompt, and calls Gemini. `action` is one of
    draft_reply | household_summary | talking_points | attention | w2_extract.
-   `file` (optional): { data: base64, mimeType } — used by w2_extract to send an
+   `file` (optional): { data: base64, mimeType } - used by w2_extract to send an
    uploaded form image/PDF to Gemini server-side, outside the 24 KB context cap. */
 async function dbAiAssist(action, context = {}, file = null) {
   if (!_sb()) return null;
@@ -1472,7 +1472,7 @@ async function dbPlatformAdmin(action, payload = {}) {
     if (data?.error) throw new Error(data.error);
     return data;
   } catch (e) {
-    // Non-owners probing `whoami` is the normal case — keep the console quiet.
+    // Non-owners probing `whoami` is the normal case - keep the console quiet.
     if (action !== 'whoami') console.warn('[db] platformAdmin:', e.message);
     return { error: e.message };
   }
@@ -1598,7 +1598,7 @@ async function dbReviewLedgerChange(row, advisorId, approve, note) {
     if (error) throw error;
     dbAudit(approve ? 'ledger.approve' : 'ledger.reject', {
       entityType: 'pending_ledger_change', entityId: row.id, clientId: row.client_id,
-      summary: `${approve ? 'Approved' : 'Declined'} client ledger updates${note ? ` — ${String(note).slice(0, 140)}` : ''}` });
+      summary: `${approve ? 'Approved' : 'Declined'} client ledger updates${note ? ` - ${String(note).slice(0, 140)}` : ''}` });
     return data;
   } catch (e) { console.warn('[db] reviewLedgerChange:', e.message); return null; }
 }
@@ -1606,7 +1606,7 @@ async function dbReviewLedgerChange(row, advisorId, approve, note) {
 /* ─── Bulk client import (px_bulk_create_clients, migration 034) ─────
    One transactional round-trip per batch instead of N sequential inserts.
    Returns the created client rows, or null if the RPC isn't available yet
-   (migration unapplied) — the caller falls back to the per-row path. */
+   (migration unapplied) - the caller falls back to the per-row path. */
 async function dbBulkCreateClients(rows) {
   if (!_sb() || !Array.isArray(rows) || !rows.length) return null;
   try {

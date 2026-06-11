@@ -1,4 +1,4 @@
-// Prism — icon library. Lucide-style SVGs, single-stroke, currentColor.
+// Prism - icon library. Lucide-style SVGs, single-stroke, currentColor.
 const I = (path) => ({ size = 16, className = '', strokeWidth = 1.6, style = {} }) =>
   <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24"
        fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"
@@ -7,7 +7,7 @@ const I = (path) => ({ size = 16, className = '', strokeWidth = 1.6, style = {} 
 const Icons = {
   // Brand
   Prism:     I(<><path d="M12 2 3 20h18Z"/><path d="m12 2 4 9-9 4"/></>),
-  // Faceted brand mark — fixed palette (matches branding/prism-logo.svg), not currentColor.
+  // Faceted brand mark - fixed palette (matches branding/prism-logo.svg), not currentColor.
   PrismMark: ({ size = 16, className = '', style = {} }) =>
     <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 800 800"
          className={className} style={style} aria-hidden="true">

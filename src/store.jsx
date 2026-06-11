@@ -1,11 +1,11 @@
-// Prism — client-side store. View switcher, profile state, derived metrics,
+// Prism - client-side store. View switcher, profile state, derived metrics,
 // task progress, and a "flag question for advisor" mechanism.
 
 const { useState, useEffect, useMemo, createContext, useContext, useCallback } = React;
 
 /* ─── Profile context (per-client view) ───────────────────────────── */
 const defaultProfile = {
-  // Household members — the people behind the plan. The "primary" member's age
+  // Household members - the people behind the plan. The "primary" member's age
   // drives planning math (retirement horizon, legacy projection); spouse/dependents
   // give the advisor the relationship context the roadmap promises.
   members: [
@@ -14,9 +14,9 @@ const defaultProfile = {
   ],
   // income.monthlyTakehome is the spendable cash that drives the cash-flow math.
   // income.sources is optional composition (salary / RSU / bonus / self-employment)
-  // captured for tax planning — it does NOT alter take-home or surplus.
+  // captured for tax planning - it does NOT alter take-home or surplus.
   income:   { monthlyTakehome: 28400, sources: [
-    { id: 's1', label: 'Salary — Robert', type: 'salary', monthlyGross: 22000 },
+    { id: 's1', label: 'Salary - Robert', type: 'salary', monthlyGross: 22000 },
     { id: 's2', label: 'RSU vesting',      type: 'rsu',    monthlyGross: 9000 },
   ] },
   expenses: { housing: 7200, food: 2400, transport: 1800, utilities: 950, healthcare: 1100, other: 5450, custom: [] },
@@ -27,7 +27,7 @@ const defaultProfile = {
   // Each property's equity (value − mortgage) rolls into net worth. Empty for most
   // households; common for the later-stage, asset-heavy clients who seek an advisor.
   properties: [
-    { id: 'p1', label: 'Rental — Maple St', use: 'rental', value: 540_000, mortgageBalance: 180_000, paymentMonthly: 2_100, rentalIncomeMonthly: 3_200 },
+    { id: 'p1', label: 'Rental - Maple St', use: 'rental', value: 540_000, mortgageBalance: 180_000, paymentMonthly: 2_100, rentalIncomeMonthly: 3_200 },
   ],
   debts: [
     { id: 'd1', name: 'HELOC', balance: 38000, apr: 8.1, min: 420 },
@@ -39,7 +39,7 @@ const defaultProfile = {
     fourohonekContributed: 23500, fourohonekLimit: 23500, employerMatchPct: 5,
   },
   taxes:   { marginalRate: 24, filingStatus: 'mfj', state: 'CA', w2: { box1: 0, box2: 0 } },
-  // Taxable set so the demo's total invested exceeds managed AUM ($4.28M) — this
+  // Taxable set so the demo's total invested exceeds managed AUM ($4.28M) - this
   // makes the W6 asset-truth strip show a real "managed + held-away = total" split.
   taxable: { balance: 3_200_000, monthlyContrib: 8500 },
   // goals.age / retireAt anchor the retirement projection; goals.items are
@@ -48,27 +48,27 @@ const defaultProfile = {
     { id: 'g1', label: 'Grandchildren 529', type: 'education', targetAmount: 200_000, targetDate: '2032-09-01', currentFunding: 90_000, monthlyContribution: 1200 },
     { id: 'g2', label: 'Lake house',         type: 'home',      targetAmount: 600_000, targetDate: '2029-06-01', currentFunding: 180_000, monthlyContribution: 2500 },
   ] },
-  // Guaranteed income in retirement — Social Security / pension / annuity. Each
+  // Guaranteed income in retirement - Social Security / pension / annuity. Each
   // turns on at startAge and grows by its COLA. Netted against spending by the
   // retirement-readiness engine.
   incomeStreams: [
-    { id: 'is1', label: 'Social Security — Robert', type: 'social_security', monthlyAmount: 3800, startAge: 67, colaPct: 2.5, pia: 3800 },
-    { id: 'is2', label: 'Social Security — Eileen',  type: 'social_security', monthlyAmount: 2600, startAge: 67, colaPct: 2.5, pia: 2600 },
+    { id: 'is1', label: 'Social Security - Robert', type: 'social_security', monthlyAmount: 3800, startAge: 67, colaPct: 2.5, pia: 3800 },
+    { id: 'is2', label: 'Social Security - Eileen',  type: 'social_security', monthlyAmount: 2600, startAge: 67, colaPct: 2.5, pia: 2600 },
   ],
-  // Equity compensation (W6 / Phase 06) — concentrated single-stock positions from
+  // Equity compensation (W6 / Phase 06) - concentrated single-stock positions from
   // RSU/ISO grants. `positionValue` is vested market value, `unvestedValue` is grants
   // not yet vested. Feeds the concentration / diversification planner; empty for most
   // households, common for the tech/founder clients who seek an advisor.
   equityComp: [
     { id: 'eq1', ticker: 'NVDA', type: 'rsu', positionValue: 680_000, costBasis: 180_000, unvestedValue: 240_000 },
   ],
-  // Protection (W5) — capture, not advise. Coverage feeds a simple gap check vs. an
+  // Protection (W5) - capture, not advise. Coverage feeds a simple gap check vs. an
   // income-multiple guideline; the advisor coaches, Prism doesn't underwrite.
   insurance: [
     { id: 'ins1', type: 'life',       carrier: 'Northwestern', owner: 'Robert Marsh', coverageAmount: 1_500_000, premiumMonthly: 320 },
     { id: 'ins2', type: 'disability', carrier: 'Guardian',     owner: 'Robert Marsh', coverageAmount: 180_000,   premiumMonthly: 140 },
   ],
-  // Estate readiness checklist — status + last-reviewed + linked vault doc per
+  // Estate readiness checklist - status + last-reviewed + linked vault doc per
   // instrument. documentId points at a `documents` row (category 'estate'); its
   // presence is what an advisor sets when marking an item "Complete & shared".
   estate: {
@@ -78,13 +78,13 @@ const defaultProfile = {
     healthcareDirective: { status: 'complete',      lastReviewed: '2023-03-01', documentId: 'doc5' },
     beneficiaries:       { status: 'none',          lastReviewed: '' },
   },
-  // Risk tolerance questionnaire (C4) — per-question scores (0..4). Feeds the
+  // Risk tolerance questionnaire (C4) - per-question scores (0..4). Feeds the
   // strategic allocation and the draft IPS. Completed in the sample household.
   risk: { answers: [3, 3, 2, 3, 2, 3], completedAt: '2026-02-10' },
 };
 
 // A fully-shaped but zeroed profile. Real (newly created) clients start here so
-// the roadmap renders a blank-slate plan instead of crashing on a missing key —
+// the roadmap renders a blank-slate plan instead of crashing on a missing key -
 // and so advisors aren't shown the demo's sample numbers as if they were real.
 const emptyProfile = {
   members:  [],
@@ -135,7 +135,7 @@ function mergeProfile(base, data) {
 const ProfileContext = createContext(null);
 
 // Synchronous local-profile load for mock/demo/prospect ids. Prospects merge
-// onto emptyProfile — NOT defaultProfile — so the demo household's sample data
+// onto emptyProfile - NOT defaultProfile - so the demo household's sample data
 // (members, balances, completed risk questionnaire) never bleeds into a
 // prospect's roadmap.
 const loadLocalProfile = (id) => {
@@ -160,14 +160,14 @@ function ProfileProvider({ children }) {
   // A client experimenting in the Numbers drawer can make a tangle of edits and
   // not know how to get back. We snapshot the profile *before* each user edit so
   // they can step back one change at a time (or revert everything in the drawer).
-  // Edits auto-save as before — this is a client-side safety net, not a commit
+  // Edits auto-save as before - this is a client-side safety net, not a commit
   // gate (the formal advisor-approval gate is a separate, larger roadmap item).
   const history     = React.useRef([]);   // pre-edit snapshots, oldest → newest
   const profileRef  = React.useRef(profile);
   const [undoDepth, setUndoDepth] = useState(0);
   React.useEffect(() => { profileRef.current = profile; }, [profile]);
 
-  // Public setter (used by editing UI) — records the pre-edit snapshot so it can
+  // Public setter (used by editing UI) - records the pre-edit snapshot so it can
   // be undone. Loads/client-switches use the raw _setProfile and never enter the
   // undo stack.
   const setProfile = React.useCallback((updater) => {
@@ -181,7 +181,7 @@ function ProfileProvider({ children }) {
     if (!history.current.length) return;
     const prev = history.current.pop();
     setUndoDepth(history.current.length);
-    _setProfile(prev);   // the pop IS the undo — don't re-record it
+    _setProfile(prev);   // the pop IS the undo - don't re-record it
   }, []);
   // Tracks the latest debounced-but-not-yet-written save: { clientId, profile }.
   // Lets us FLUSH it before a client switch (or unmount) so the last <1.5s of
@@ -192,7 +192,7 @@ function ProfileProvider({ children }) {
   const skipNextSave = React.useRef(false);
 
   // ── Advisor-approval commit gate (migration 036) ─────────────────
-  // Per-firm, default OFF, and only ever gating CLIENT actors — advisors are
+  // Per-firm, default OFF, and only ever gating CLIENT actors - advisors are
   // the approvers, so their edits always write directly. When the gate is on,
   // a client's saves route into ONE open draft row (pending_ledger_changes)
   // that their advisor approves or declines; the draft is also what reloads,
@@ -235,7 +235,7 @@ function ProfileProvider({ children }) {
     clearTimeout(dbSaveTimer.current);
     history.current = []; setUndoDepth(0);   // undo never crosses a client boundary
     if (window.db?.isUUID(activeClientId)) {
-      // Real client — reset to a blank shape, then merge in whatever the DB has.
+      // Real client - reset to a blank shape, then merge in whatever the DB has.
       // A new client's profile is an empty {}; merging keeps every key present so
       // the roadmap and calculators render instead of crashing on undefined.
       isLoading.current = true;
@@ -251,11 +251,11 @@ function ProfileProvider({ children }) {
       ]).then(([data, gateOn, pending]) => {
         setGate(gateOn);
         if (pending) setPendingChange(pending);
-        // The persist effect (keyed on [profile]) fires once more for this set —
-        // after isLoading is already false — so flag it to skip that one run:
+        // The persist effect (keyed on [profile]) fires once more for this set -
+        // after isLoading is already false - so flag it to skip that one run:
         // it would only write back the bytes we just read.
         skipNextSave.current = true;
-        // An open draft IS the client's working copy — load it over the
+        // An open draft IS the client's working copy - load it over the
         // approved profile so their in-review edits don't silently vanish.
         const base = mergeProfile(emptyProfile, data);
         _setProfile(gateOn && pending?.status === 'pending'
@@ -263,10 +263,10 @@ function ProfileProvider({ children }) {
         isLoading.current = false;
       }).catch(() => { isLoading.current = false; });
     } else {
-      // Mock/demo/prospect — load from per-client localStorage key. The merge
+      // Mock/demo/prospect - load from per-client localStorage key. The merge
       // base (defaultProfile, or emptyProfile for prospects) keeps every key
       // present even for profiles saved before a field (e.g. `housing`) was
-      // added — otherwise toggling housing type would write into an undefined
+      // added - otherwise toggling housing type would write into an undefined
       // parent and crash.
       _setProfile(loadLocalProfile(activeClientId));
     }
@@ -286,7 +286,7 @@ function ProfileProvider({ children }) {
     } else {
       try { localStorage.setItem(`px_profile:${activeClientId}`, JSON.stringify(profile)); } catch {}
     }
-  }, [profile]); // intentionally omit activeClientId — load effect handles switches
+  }, [profile]); // intentionally omit activeClientId - load effect handles switches
 
   // When a vault document is deleted (DocumentVault fires px:document-deleted),
   // clear any estate-checklist link pointing at it so the profile never carries a
@@ -315,7 +315,7 @@ function ProfileProvider({ children }) {
   const update = useCallback((path, value) => {
     setProfile(prev => {
       // Shallow path-copy: clone only the spine of objects along the edited path
-      // (this runs per keystroke — a whole-profile deep clone was measurable on
+      // (this runs per keystroke - a whole-profile deep clone was measurable on
       // large profiles). Untouched branches keep their references, which is also
       // what lets memoized consumers skip re-deriving.
       const keys = path.split('.');
@@ -337,7 +337,7 @@ function ProfileProvider({ children }) {
   // ── Household members ───────────────────────────────────────────
   // The "primary" member's age is the planning anchor (retirement horizon, legacy
   // projection). Falls back to goals.age only when no members are recorded yet, so
-  // the age driving the math is always a real, edited value — not a phantom default.
+  // the age driving the math is always a real, edited value - not a phantom default.
   const members        = Array.isArray(profile.members) ? profile.members : [];
   const primaryMember  = members.find(m => m.role === 'primary') || members[0] || null;
   // Derive age from dateOfBirth when available; fall back to explicit age field (legacy profiles),
@@ -370,7 +370,7 @@ function ProfileProvider({ children }) {
   const _exp = profile.expenses || {};
   const customExpenses = Array.isArray(_exp.custom) ? _exp.custom : [];
   const _calc = (typeof PrismCalc !== 'undefined' ? PrismCalc : window.PrismCalc);
-  // Single source of truth (calc-core) — same total the advisor QBR/overview use.
+  // Single source of truth (calc-core) - same total the advisor QBR/overview use.
   const totalExpenses = _calc.monthlyExpenseTotal(_exp);
   const totalDebt     = profile.debts.reduce((a, d) => a + Number(d.balance || 0), 0);
   const toxicDebt     = profile.debts.filter(d => Number(d.apr) > 6).reduce((a, d) => a + Number(d.balance || 0), 0);
@@ -379,7 +379,7 @@ function ProfileProvider({ children }) {
   // ── Housing: rent vs. own ───────────────────────────────────────
   // expenses.housing is the total monthly outflow. For owners we split that payment into
   // principal (builds equity), interest, and escrow (taxes + insurance). Principal is not a
-  // true expense — it's forced savings — so it counts toward the savings rate, and home equity
+  // true expense - it's forced savings - so it counts toward the savings rate, and home equity
   // (value − mortgage) counts toward net worth.
   const _h = profile.housing || { type: 'rent' };
   const isOwner         = _h.type === 'own';
@@ -420,7 +420,7 @@ function ProfileProvider({ children }) {
   const fireProgress   = fireNumber > 0 ? Math.min(100, (totalInvested / fireNumber) * 100) : 0;
   const legacyValue    = totalInvested * Math.pow(1.06, Math.max(0, profile.goals.retireAt - planningAge + 20));
 
-  // ── Retirement readiness — the "are we on track?" answer ─────────
+  // ── Retirement readiness - the "are we on track?" answer ─────────
   const incomeStreams = Array.isArray(profile.incomeStreams) ? profile.incomeStreams : [];
   const annualRetirementContribution =
       (Number(profile.taxable.monthlyContrib) || 0) * 12
@@ -452,7 +452,7 @@ function ProfileProvider({ children }) {
   });
   const estate = (profile.estate && typeof profile.estate === 'object') ? profile.estate : {};
   const estateKeys = ['will', 'trust', 'poa', 'healthcareDirective', 'beneficiaries'];
-  // "In place" = the instrument exists — whether shared (complete) or held but
+  // "In place" = the instrument exists - whether shared (complete) or held but
   // not shared (have_unshared). Both count toward readiness.
   const estateComplete = estateKeys.filter(k => estateInPlace(estate[k]?.status)).length;
   const estateProgress = Math.round((estateComplete / estateKeys.length) * 100);
@@ -470,7 +470,7 @@ function ProfileProvider({ children }) {
   const mcSeed = (activeClientId || 'demo').split('').reduce((s, c) => s + c.charCodeAt(0), 0) || 42;
   const mcYears = Math.max(20, (Number(profile.goals?.retireAt) || 65) - planningAge + 25);
   const mcWithdrawal = Math.round(annualExpenses / 1000) * 1000;
-  // Memoized: monteCarlo runs 600 sims — without this it re-ran on every keystroke
+  // Memoized: monteCarlo runs 600 sims - without this it re-ran on every keystroke
   // in the Numbers drawer (ProfileProvider re-renders on every profile change).
   const successBand = useMemo(
     () => (totalInvested > 0 && annualExpenses > 0
@@ -519,8 +519,8 @@ function ProfileProvider({ children }) {
 
   // Stabilize the context value identity. Every metric above is a pure function
   // of `profile` + `activeClientId` (the latter only via the Monte Carlo seed), so
-  // keying on those two prevents a new value object — and a re-render of every
-  // profile consumer — when a parent provider re-renders without a profile change.
+  // keying on those two prevents a new value object - and a re-render of every
+  // profile consumer - when a parent provider re-renders without a profile change.
   const value = useMemo(() => ({ profile, setProfile, update, undoEdit, undoDepth,
       ledgerGate, pendingChange, withdrawPendingChange, ...metrics }),
     [profile, activeClientId, undoDepth, ledgerGate, pendingChange]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -536,10 +536,10 @@ const useProfile = () => useContext(ProfileContext);
 /* ─── Phase / task progress ───────────────────────────────────────── */
 const TaskContext = createContext(null);
 
-// Phase-aware demo task seed: a mock client's roadmap reflects ITS phase —
+// Phase-aware demo task seed: a mock client's roadmap reflects ITS phase -
 // earlier phases complete, two tasks into the current one, nothing beyond.
 // (Was a fixed mid-P05 seed for every demo client, so a P01 household showed
-// tasks done through P05 — founder-reported bug, fixed 2026-06-10.)
+// tasks done through P05 - founder-reported bug, fixed 2026-06-10.)
 function demoTaskSeed(phase = 4) {
   const p = Math.max(0, Math.min(Number(phase) || 0, phasesData.length - 1));
   const seed = {};
@@ -564,14 +564,14 @@ function TaskProvider({ children }) {
   // On client switch: load from correct source (DB for real UUIDs, localStorage for mock)
   useEffect(() => {
     if (window.db?.isUUID(activeClientId)) {
-      // Real client — clear first, then load from DB (even if DB returns empty)
+      // Real client - clear first, then load from DB (even if DB returns empty)
       setTaskStates({});
       setFlaggedQs({});
       window.db.getTaskStates(activeClientId).then(dbStates => {
         setTaskStates(dbStates || {});
       });
     } else {
-      // Mock/demo — load from namespaced localStorage. The demo mid-journey
+      // Mock/demo - load from namespaced localStorage. The demo mid-journey
       // seed is for the sample household only; a prospect with no saved state
       // starts blank (createProspect seeds its chosen starting phase).
       const fallback = () => isProspectId(activeClientId) ? {} : demoTaskSeed(activeClient?.phase);
@@ -742,7 +742,7 @@ function ViewProvider({ children }) {
     setView('client');
   }, []);
 
-  // Numbers (household ledger) drawer — shared so any surface can open it.
+  // Numbers (household ledger) drawer - shared so any surface can open it.
   const openNumbers  = useCallback(() => setNumbersOpen(true), []);
   const closeNumbers = useCallback(() => setNumbersOpen(false), []);
   // Edit a specific client's numbers (advisor editing from the client modal):
@@ -771,7 +771,7 @@ const useView = () => useContext(ViewContext);
 
 /* ─── Prospect / proposal mode (C3) ───────────────────────────────────
    A prospect is an UNSAVED household an advisor runs through the full
-   seven-horizon roadmap before they sign — the wedge turned into a closing
+   seven-horizon roadmap before they sign - the wedge turned into a closing
    tool. It reuses the entire non-UUID client machinery: the roadmap,
    calculators, retirement readiness, and Monte Carlo already render for any
    mock/demo client whose profile + horizon progress live in localStorage. A
@@ -828,7 +828,7 @@ function ProspectProvider({ children }) {
     return {
       id, name,
       shortName: fields.short_name?.trim() || name,
-      tag: fields.household_tag?.trim() || '—',
+      tag: fields.household_tag?.trim() || '-',
       initials, aum,
       phase: Number(fields.current_phase) || 0, phaseProgress: 0,
       lastActivity: 'just now', recent: true,
@@ -854,7 +854,7 @@ function ProspectProvider({ children }) {
     try { localStorage.setItem(`px_profile:${p.id}`, JSON.stringify(seeded)); } catch {}
     // Seed horizon progress to the chosen starting phase: everything before it
     // is marked complete, so the roadmap opens ON that phase. Without this the
-    // TaskProvider fell back to the demo seed (mid-phase-5 progress) — a
+    // TaskProvider fell back to the demo seed (mid-phase-5 progress) - a
     // "starts at phase 1" prospect appeared at phase 5.
     const seedTasks = {};
     phasesData.forEach(ph => {
@@ -878,7 +878,7 @@ function ProspectProvider({ children }) {
 
   // Promote a prospect to a real client: create the DB row, carry over the
   // profile + horizon progress, clean up the in-memory prospect, then open the
-  // now-real client. Live session only — nothing to write to without it.
+  // now-real client. Live session only - nothing to write to without it.
   const convertProspect = async (prospect, profileOverride) => {
     if (!prospect || !window.db?.isUUID(authUser?.id) || !window.db?.isUUID(authUser?.firm_id)) {
       showToast?.('Sign in to convert a prospect into a client');
@@ -887,17 +887,17 @@ function ProspectProvider({ children }) {
     const row = await window.db.createClient(authUser.id, authUser.firm_id, {
       household_name: prospect.name,
       short_name:     prospect.shortName,
-      household_tag:  (prospect.tag === 'Prospect' || prospect.tag === '—') ? '' : prospect.tag,
+      household_tag:  (prospect.tag === 'Prospect' || prospect.tag === '-') ? '' : prospect.tag,
       current_phase:  prospect.phase,
     });
-    if (!row) { showToast?.('Could not convert — check console'); return null; }
+    if (!row) { showToast?.('Could not convert - check console'); return null; }
 
-    // Profile — prefer the live in-context profile, else the localStorage seed.
+    // Profile - prefer the live in-context profile, else the localStorage seed.
     let profile = profileOverride;
     if (!profile) { try { profile = JSON.parse(localStorage.getItem(`px_profile:${prospect.id}`)); } catch {} }
     if (profile) { try { await window.db.saveProfile(row.id, profile); } catch {} }
 
-    // Horizon progress — replay the prospect's completed milestones onto the row.
+    // Horizon progress - replay the prospect's completed milestones onto the row.
     let states = null;
     try { states = JSON.parse(localStorage.getItem(`px_tasks:${prospect.id}`)); } catch {}
     if (states && typeof states === 'object') {
@@ -930,7 +930,7 @@ const useProspects = () => useContext(ProspectContext);
 
 /* ─── Formatters ──────────────────────────────────────────────────── */
 const fmt$ = (n, opts = {}) => {
-  if (!isFinite(n) || n === null) return '—';
+  if (!isFinite(n) || n === null) return '-';
   if (Math.abs(n) >= 1_000_000 && opts.short) {
     return '$' + (n / 1_000_000).toFixed(opts.decimals ?? 2) + 'M';
   }
@@ -940,8 +940,8 @@ const fmt$ = (n, opts = {}) => {
   const v = Math.round(n);
   return v.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 };
-const fmtPct = (n, d = 1) => isFinite(n) ? `${n.toFixed(d)}%` : '—';
-const fmtN = (n) => isFinite(n) ? n.toLocaleString('en-US') : '—';
+const fmtPct = (n, d = 1) => isFinite(n) ? `${n.toFixed(d)}%` : '-';
+const fmtN = (n) => isFinite(n) ? n.toLocaleString('en-US') : '-';
 
 /* ─── Notifications + Realtime subscriptions ──────────────────────── */
 const NotificationContext = createContext(null);
@@ -958,7 +958,7 @@ function NotificationProvider({ children }) {
   const addNotification = useCallback((n) => {
     if (seenIds.current.has(n.id)) return;
     seenIds.current.add(n.id);
-    // Cap the dedupe set — over a long-lived session it otherwise grows without
+    // Cap the dedupe set - over a long-lived session it otherwise grows without
     // bound. Evict oldest first (Set iterates in insertion order); 500 is far
     // beyond the 20-notification display window.
     if (seenIds.current.size > 500) {
@@ -971,7 +971,7 @@ function NotificationProvider({ children }) {
     setUnread(prev => prev + 1);
   }, []);
 
-  // Live-updating relative timestamps — tick every 60 s
+  // Live-updating relative timestamps - tick every 60 s
   useEffect(() => {
     const tick = () => setNotifications(prev =>
       prev.map(n => n.createdAt
@@ -1066,7 +1066,7 @@ function NotificationProvider({ children }) {
   }, [authUser?.id]);
 
   // Surface overdue / due-soon CRM tasks in the notification stream on login
-  // (covers tasks assigned to me by another advisor too — getTasks ORs both).
+  // (covers tasks assigned to me by another advisor too - getTasks ORs both).
   // One-time scan; deep-links to the client like other notifications.
   useEffect(() => {
     if (!authUser?.id || !window.db) return;
@@ -1088,7 +1088,7 @@ function NotificationProvider({ children }) {
           type:      'task',
           priority:  overdue ? 'high' : 'med',
           icon:      'Check',
-          headline:  overdue ? `Overdue task — ${t.title}` : `Task due soon — ${t.title}`,
+          headline:  overdue ? `Overdue task - ${t.title}` : `Task due soon - ${t.title}`,
           body:      `${who ? who + ' · ' : ''}due ${when}`,
           timeAgo:   'now',
           createdAt: new Date().toISOString(),
@@ -1153,7 +1153,7 @@ const _hexRgba = (hex, a) => {
 };
 
 // Trust boundary: the localStorage cache is client-writable and the slug RPC is
-// anon-callable — whitelist + validate every field before painting or re-caching.
+// anon-callable - whitelist + validate every field before painting or re-caching.
 // (Pre-auth pages run the same shape of sanitizer in src/brand-boot.js.)
 function _sanitizeBrand(b) {
   if (!b || typeof b !== 'object') return null;
@@ -1188,7 +1188,7 @@ function applyFirmBrand(rawBrand, { cache = true } = {}) {
   window.dispatchEvent(new CustomEvent('px:brand'));
 }
 
-// Topbar hook — re-renders when the brand resolves or changes.
+// Topbar hook - re-renders when the brand resolves or changes.
 function useFirmBrand() {
   const [brand, setBrand] = React.useState(window.__pxBrand || null);
   React.useEffect(() => {
@@ -1226,22 +1226,22 @@ const escapeHtml = (s) => {
 };
 
 // Escape everything, then re-allow ONLY a tiny formatting whitelist (no
-// attributes). Safe to feed into dangerouslySetInnerHTML — scripts, event
+// attributes). Safe to feed into dangerouslySetInnerHTML - scripts, event
 // handlers, and styled tags are all neutralised to text.
 const sanitizeHtml = (s) => escapeHtml(s)
   .replace(/&lt;(\/?)(b|i|em|strong|br)\s*\/?&gt;/gi, '<$1$2>');
 
 // Report styling lives in the same-origin /src/print.css. The popup opened below
 // inherits the app's CSP, which (since C5) no longer carries style-src 'unsafe-inline',
-// so the report can no longer use an inline <style> block or style="" attributes —
+// so the report can no longer use an inline <style> block or style="" attributes -
 // it links the external sheet ('self' allows it) and uses classes only.
 function _openPrint(title, bodyHtml, { autoPrint = true } = {}) {
   const win = window.open('', '_blank');
-  if (!win) { console.warn('[print] popup blocked — allow popups for this site'); return; }
+  if (!win) { console.warn('[print] popup blocked - allow popups for this site'); return; }
   const href = `${location.origin}/src/print.css`;
   win.document.write(`<!DOCTYPE html><html><head><title>${title}</title><link rel="stylesheet" href="${href}"></head><body>${bodyHtml}</body></html>`);
   win.document.close();
-  // autoPrint:false = reading material (e.g. estate sample documents) — open the
+  // autoPrint:false = reading material (e.g. estate sample documents) - open the
   // styled page without forcing the print dialog; the reader prints if they want.
   if (!autoPrint) { try { win.focus(); } catch (e) { /* popup closed */ } return; }
   // Print once the stylesheet has loaded so the report is styled; fall back on a
@@ -1266,77 +1266,77 @@ const ESTATE_SAMPLES = {
     title: 'Last Will and Testament',
     what: 'Directs who receives property that passes through probate, names an executor to settle the estate, and (critically for parents) nominates guardians for minor children.',
     sections: [
-      ['Article I — Declaration', 'I, [Full Legal Name], a resident of [County, State], being of sound mind, declare this to be my Last Will and Testament, revoking all prior wills and codicils.'],
-      ['Article II — Executor', 'I nominate [Name] as Executor of my estate, to serve without bond. If they are unable or unwilling to serve, I nominate [Alternate Name].'],
-      ['Article III — Guardianship', 'If at my death any of my children are minors, I nominate [Name] as guardian of their person and property, with [Alternate Name] as successor.'],
-      ['Article IV — Disposition of property', 'I give my tangible personal property to [Name]. I give the residue of my estate to [Name / Trust], per stirpes.'],
-      ['Article V — Execution', 'Signed at [City, State] on [Date], in the presence of two witnesses, who sign below at my request. [State-specific witnessing and notarization rules apply.]'],
+      ['Article I - Declaration', 'I, [Full Legal Name], a resident of [County, State], being of sound mind, declare this to be my Last Will and Testament, revoking all prior wills and codicils.'],
+      ['Article II - Executor', 'I nominate [Name] as Executor of my estate, to serve without bond. If they are unable or unwilling to serve, I nominate [Alternate Name].'],
+      ['Article III - Guardianship', 'If at my death any of my children are minors, I nominate [Name] as guardian of their person and property, with [Alternate Name] as successor.'],
+      ['Article IV - Disposition of property', 'I give my tangible personal property to [Name]. I give the residue of my estate to [Name / Trust], per stirpes.'],
+      ['Article V - Execution', 'Signed at [City, State] on [Date], in the presence of two witnesses, who sign below at my request. [State-specific witnessing and notarization rules apply.]'],
     ],
     discuss: [
-      'Who should serve as executor — and have they agreed?',
+      'Who should serve as executor - and have they agreed?',
       'Who would raise minor children if both parents are gone?',
       'Does property pass outright, or into a trust for ages/stages?',
-      'Assets with beneficiary designations (retirement accounts, life insurance) pass OUTSIDE the will — they must be reviewed separately.',
+      'Assets with beneficiary designations (retirement accounts, life insurance) pass OUTSIDE the will - they must be reviewed separately.',
     ],
   },
   trust: {
     title: 'Revocable Living Trust Agreement',
     what: 'A container you control during life that lets assets pass to beneficiaries without probate, provides for incapacity, and keeps the plan private. You typically serve as your own trustee while able.',
     sections: [
-      ['Article I — Trust creation', 'I, [Full Legal Name] (the "Grantor"), establish the [Family Name] Revocable Living Trust, dated [Date]. I may amend or revoke this trust at any time while living and competent.'],
-      ['Article II — Trustees', 'I will serve as initial Trustee. On my death or incapacity, [Successor Trustee Name] shall serve as Successor Trustee without bond.'],
-      ['Article III — During my lifetime', 'The Trustee shall hold, manage, and distribute trust property for my benefit as I direct.'],
-      ['Article IV — On my death', 'The Trustee shall distribute the trust estate to [Beneficiaries], per the schedule attached — outright, or held in continuing trust until each beneficiary reaches the stated ages.'],
-      ['Article V — Funding', 'A trust only avoids probate for assets actually TITLED in it. A schedule of trust property and a "pour-over" will accompany this agreement.'],
+      ['Article I - Trust creation', 'I, [Full Legal Name] (the "Grantor"), establish the [Family Name] Revocable Living Trust, dated [Date]. I may amend or revoke this trust at any time while living and competent.'],
+      ['Article II - Trustees', 'I will serve as initial Trustee. On my death or incapacity, [Successor Trustee Name] shall serve as Successor Trustee without bond.'],
+      ['Article III - During my lifetime', 'The Trustee shall hold, manage, and distribute trust property for my benefit as I direct.'],
+      ['Article IV - On my death', 'The Trustee shall distribute the trust estate to [Beneficiaries], per the schedule attached - outright, or held in continuing trust until each beneficiary reaches the stated ages.'],
+      ['Article V - Funding', 'A trust only avoids probate for assets actually TITLED in it. A schedule of trust property and a "pour-over" will accompany this agreement.'],
     ],
     discuss: [
-      'Who is the successor trustee — and do they know where things are?',
-      'Which accounts and the home should be retitled into the trust ("funding") — the most commonly skipped step?',
+      'Who is the successor trustee - and do they know where things are?',
+      'Which accounts and the home should be retitled into the trust ("funding") - the most commonly skipped step?',
       'Should beneficiaries receive assets outright or in stages (e.g. ⅓ at 25/30/35)?',
       'Does the household\'s net worth or state make probate avoidance worth the setup cost?',
     ],
   },
   poa: {
     title: 'Durable Power of Attorney',
-    what: 'Authorizes someone you trust (your "agent") to handle financial and legal matters if you cannot — paying bills, managing accounts, filing taxes. "Durable" means it keeps working through incapacity, which is the whole point.',
+    what: 'Authorizes someone you trust (your "agent") to handle financial and legal matters if you cannot - paying bills, managing accounts, filing taxes. "Durable" means it keeps working through incapacity, which is the whole point.',
     sections: [
       ['1. Principal and agent', 'I, [Full Legal Name], appoint [Agent Name] as my agent (attorney-in-fact), with [Alternate Name] as successor if they cannot serve.'],
       ['2. Powers granted', 'My agent may act for me in: banking and financial transactions; real property; tax matters; retirement accounts; insurance; government benefits; and digital assets. [Initial each power per state form.]'],
       ['3. Durability', 'This power of attorney shall not be affected by my subsequent disability or incapacity.'],
       ['4. Effective date', '[Immediately upon signing] / [Only upon a physician\'s certification of incapacity ("springing")].'],
-      ['5. Execution', 'Signed on [Date] before a notary public. [Many banks also have their own POA forms — ask yours.]'],
+      ['5. Execution', 'Signed on [Date] before a notary public. [Many banks also have their own POA forms - ask yours.]'],
     ],
     discuss: [
-      'Who has the financial judgment AND availability to act — often a different best answer than the will\'s executor?',
-      'Effective immediately vs. "springing" at incapacity — springing sounds safer but can be slow exactly when speed matters.',
+      'Who has the financial judgment AND availability to act - often a different best answer than the will\'s executor?',
+      'Effective immediately vs. "springing" at incapacity - springing sounds safer but can be slow exactly when speed matters.',
       'Has the named agent\'s contact info been shared with the financial institutions?',
     ],
   },
   healthcareDirective: {
     title: 'Advance Healthcare Directive',
-    what: 'Combines a healthcare power of attorney (who decides for you) with a living will (what you want) — so medical decisions during incapacity follow your wishes, not a guess made under stress.',
+    what: 'Combines a healthcare power of attorney (who decides for you) with a living will (what you want) - so medical decisions during incapacity follow your wishes, not a guess made under stress.',
     sections: [
-      ['Part 1 — Healthcare agent', 'I, [Full Legal Name], appoint [Agent Name] to make healthcare decisions for me when I cannot, with [Alternate Name] as successor.'],
-      ['Part 2 — Treatment preferences', 'If I have an end-stage condition with no reasonable expectation of recovery: [I do / do not] want life-sustaining treatment; [I do / do not] want artificial nutrition and hydration; I want medication to keep me comfortable in all cases.'],
-      ['Part 3 — Organ donation', '[I do / do not] wish to donate organs and tissue.'],
-      ['Part 4 — HIPAA release', 'My agent may receive my protected health information as my personal representative.'],
-      ['Part 5 — Execution', 'Signed on [Date] with witnessing/notarization per state law. Copies should go to the agent, alternates, and primary physician.'],
+      ['Part 1 - Healthcare agent', 'I, [Full Legal Name], appoint [Agent Name] to make healthcare decisions for me when I cannot, with [Alternate Name] as successor.'],
+      ['Part 2 - Treatment preferences', 'If I have an end-stage condition with no reasonable expectation of recovery: [I do / do not] want life-sustaining treatment; [I do / do not] want artificial nutrition and hydration; I want medication to keep me comfortable in all cases.'],
+      ['Part 3 - Organ donation', '[I do / do not] wish to donate organs and tissue.'],
+      ['Part 4 - HIPAA release', 'My agent may receive my protected health information as my personal representative.'],
+      ['Part 5 - Execution', 'Signed on [Date] with witnessing/notarization per state law. Copies should go to the agent, alternates, and primary physician.'],
     ],
     discuss: [
-      'Who stays calm in a hospital hallway — the agent needs to advocate, not just decide?',
+      'Who stays calm in a hospital hallway - the agent needs to advocate, not just decide?',
       'Have you actually TALKED with the agent about what "quality of life" means to you?',
       'Does your physician and hospital system have a copy on file?',
     ],
   },
   beneficiaries: {
     title: 'Beneficiary Designation Review',
-    what: 'Retirement accounts, life insurance, HSAs, and TOD/POD accounts pass by their beneficiary forms — OUTSIDE the will or trust. An outdated form overrides everything else, which is why this review is on the checklist.',
+    what: 'Retirement accounts, life insurance, HSAs, and TOD/POD accounts pass by their beneficiary forms - OUTSIDE the will or trust. An outdated form overrides everything else, which is why this review is on the checklist.',
     sections: [
-      ['Worksheet — one row per account', 'For each: institution · account type · primary beneficiary (% share) · contingent beneficiary (% share) · date last confirmed.'],
+      ['Worksheet - one row per account', 'For each: institution · account type · primary beneficiary (% share) · contingent beneficiary (% share) · date last confirmed.'],
       ['401(k) / 403(b)', 'Primary: [Name, 100%]. Contingent: [Name(s)]. Note: federal law generally requires spousal consent to name a non-spouse primary.'],
       ['IRA / Roth IRA', 'Primary: [Name]. Contingent: [Name(s)]. Consider per-stirpes language so a predeceased child\'s share passes to their children.'],
-      ['Life insurance', 'Primary: [Name]. Contingent: [Trust / Name]. Minor children generally should NOT be named directly — proceeds may end up in a court-supervised account.'],
-      ['HSA · TOD/POD accounts', 'Primary: [Name]. A spouse inherits an HSA as an HSA; anyone else inherits it as taxable income — worth a conversation.'],
+      ['Life insurance', 'Primary: [Name]. Contingent: [Trust / Name]. Minor children generally should NOT be named directly - proceeds may end up in a court-supervised account.'],
+      ['HSA · TOD/POD accounts', 'Primary: [Name]. A spouse inherits an HSA as an HSA; anyone else inherits it as taxable income - worth a conversation.'],
     ],
     discuss: [
       'Any ex-spouses, deceased relatives, or "estate" still named on old forms?',
@@ -1350,8 +1350,8 @@ function openEstateSample(key) {
   const s = ESTATE_SAMPLES[key];
   if (!s) return;
   const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-  _openPrint(`Sample — ${s.title}`, `
-    <div class="sample-banner">SAMPLE DOCUMENT — FOR DISCUSSION ONLY. This is an illustration to support a planning
+  _openPrint(`Sample - ${s.title}`, `
+    <div class="sample-banner">SAMPLE DOCUMENT - FOR DISCUSSION ONLY. This is an illustration to support a planning
     conversation. It is not a legal document, not legal advice, and not state-specific. Estate documents should be
     prepared and executed with a licensed estate-planning attorney.</div>
     <div class="rpt-head">
@@ -1364,7 +1364,7 @@ function openEstateSample(key) {
       <div class="mtg-notes">${escapeHtml(b)}</div>`).join('')}
     <div class="section-lbl">What to discuss with your advisor</div>
     ${s.discuss.map(d => `<div class="task"><span class="check">○</span><span>${escapeHtml(d)}</span></div>`).join('')}
-    <div class="sample-banner">SAMPLE — not a legal document. Execution belongs with a licensed estate-planning attorney.</div>
+    <div class="sample-banner">SAMPLE - not a legal document. Execution belongs with a licensed estate-planning attorney.</div>
     <div class="footer">Illustrative sample for planning discussion. Prism Advisor Workspace.</div>
   `, { autoPrint: false });
 }
@@ -1374,39 +1374,39 @@ function openEstateSample(key) {
    disclosure and IPS milestones. Same shape as ESTATE_SAMPLES. The firm's
    real version travels through the acknowledgements flow (advisor prefills
    via Draft IPS / Draft disclosure, client e-signs in the portal, DocuSign
-   escalation optional) — these are the educational stand-ins until then. */
+   escalation optional) - these are the educational stand-ins until then. */
 const PLANNING_SAMPLES = {
   fiduciary: {
     title: 'Fiduciary Disclosure & Acknowledgement',
-    what: 'Explains the standard of care your advisor owes you. A fiduciary is legally and ethically required to put your interests first — this document spells out what that means, how the firm is paid, and what conflicts could exist. You sign it once at onboarding so the relationship starts with everything on the table.',
+    what: 'Explains the standard of care your advisor owes you. A fiduciary is legally and ethically required to put your interests first - this document spells out what that means, how the firm is paid, and what conflicts could exist. You sign it once at onboarding so the relationship starts with everything on the table.',
     sections: [
       ['1. Fiduciary standard', '[Firm Name] is a registered investment adviser. When providing advisory services, the firm and its advisors act as fiduciaries, obligated to place your interests ahead of their own at all times.'],
       ['2. Scope of advice', 'Advice covers the household roadmap, investment management of designated accounts, and the planning topics in your engagement. It does not include legal or tax preparation services, which remain with your attorney and tax professional.'],
       ['3. Compensation', 'The firm is compensated by a transparent advisory fee under your executed fee schedule. The firm does not receive commissions, sales loads, or third-party payments for recommending products. [Fee-only firms: state it plainly. Fee-based firms: itemize the exceptions here.]'],
-      ['4. Conflicts of interest', 'Any material conflict — for example, fees that vary by account type, or affiliated services — is disclosed in Form ADV Part 2 and raised with you before it affects a recommendation.'],
+      ['4. Conflicts of interest', 'Any material conflict - for example, fees that vary by account type, or affiliated services - is disclosed in Form ADV Part 2 and raised with you before it affects a recommendation.'],
       ['5. Your documents', 'You have received, or may request at any time: Form ADV Part 2A/2B, the firm’s privacy policy, and the current fee schedule.'],
       ['6. Acknowledgement', 'I acknowledge that I have read and understood this disclosure. Signed [Client Name], [Date].'],
     ],
     discuss: [
-      'Exactly how — and how much — is the firm paid on my household, in dollars?',
+      'Exactly how - and how much - is the firm paid on my household, in dollars?',
       'Are there any services where the firm is NOT acting as a fiduciary?',
       'Where do I find Form ADV Part 2, and what should I look for in it?',
     ],
   },
   ips: {
     title: 'Investment Policy Statement',
-    what: 'The written agreement on how your money is managed: objectives, time horizon, risk, target allocation, and the rules for rebalancing and review. It keeps decisions anchored to plan — especially in stressed markets — and is updated when your life, not the market, changes.',
+    what: 'The written agreement on how your money is managed: objectives, time horizon, risk, target allocation, and the rules for rebalancing and review. It keeps decisions anchored to plan - especially in stressed markets - and is updated when your life, not the market, changes.',
     sections: [
       ['1. Purpose & parties', 'This statement governs the management of the accounts of [Client Name(s)] by [Firm Name], effective [Date], and is reviewed at least annually.'],
       ['2. Objectives & horizon', 'Primary objective: [growth / income / preservation] in support of the household roadmap. Investment horizon: approximately [N] years to [retirement / goal], with a multi-decade drawdown period thereafter.'],
       ['3. Risk profile', 'Risk band: [Band] ([Score]/100), from the portal risk questionnaire dated [Date]. The household can tolerate a decline of approximately [X]% in a severe market without abandoning the plan.'],
-      ['4. Strategic allocation', 'Target allocation — Equity [E]%, Fixed income [F]%, Cash [C]%. Implemented with broad, low-cost index funds; tax-inefficient assets placed in tax-advantaged accounts where practical.'],
+      ['4. Strategic allocation', 'Target allocation - Equity [E]%, Fixed income [F]%, Cash [C]%. Implemented with broad, low-cost index funds; tax-inefficient assets placed in tax-advantaged accounts where practical.'],
       ['5. Rebalancing & monitoring', 'Rebalanced when an asset class drifts ±5% from target, or at the annual review. Performance is reported net of advisory fees against blended benchmarks.'],
       ['6. Acknowledgement', 'By signing, you acknowledge you have reviewed and agree to this Investment Policy Statement as the basis for ongoing management. Signed [Client Name], [Date].'],
     ],
     discuss: [
       'Does the target allocation still match how losing [X]% in a bad year would actually feel?',
-      'Which goals does this horizon serve — and is anything big (home, sabbatical, exit) missing?',
+      'Which goals does this horizon serve - and is anything big (home, sabbatical, exit) missing?',
       'When were the questionnaire answers last refreshed? Risk capacity drifts with life changes.',
     ],
   },
@@ -1416,8 +1416,8 @@ function openPlanningSample(key) {
   const s = PLANNING_SAMPLES[key];
   if (!s) return;
   const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-  _openPrint(`Sample — ${s.title}`, `
-    <div class="sample-banner">SAMPLE TEMPLATE — FOR REVIEW ONLY. This is an illustration of what this document covers.
+  _openPrint(`Sample - ${s.title}`, `
+    <div class="sample-banner">SAMPLE TEMPLATE - FOR REVIEW ONLY. This is an illustration of what this document covers.
     Your advisor will provide the firm's official version for signature. It is not legal, tax, or compliance advice.</div>
     <div class="rpt-head">
       <div><h1>${escapeHtml(s.title)}</h1><div class="sub">Sample for review &middot; Opened ${date}</div></div>
@@ -1429,12 +1429,12 @@ function openPlanningSample(key) {
       <div class="mtg-notes">${escapeHtml(b)}</div>`).join('')}
     <div class="section-lbl">What to discuss with your advisor</div>
     ${s.discuss.map(d => `<div class="task"><span class="check">○</span><span>${escapeHtml(d)}</span></div>`).join('')}
-    <div class="sample-banner">SAMPLE — the signed version comes from your advisor through the portal's acknowledgements.</div>
+    <div class="sample-banner">SAMPLE - the signed version comes from your advisor through the portal's acknowledgements.</div>
     <div class="footer">Illustrative sample for planning discussion. Prism Advisor Workspace.</div>
   `, { autoPrint: false });
 }
 
-// Client overview report — called from ClientPreviewModal "Print report" button
+// Client overview report - called from ClientPreviewModal "Print report" button
 function printClientReport(client, phase, meetings) {
   window.db?.track?.('report_printed', { meta: { kind: 'client' } });
   const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
@@ -1453,7 +1453,7 @@ function printClientReport(client, phase, meetings) {
     ? `<div class="section-lbl">Advisor notes</div><div class="note-block">&ldquo;${escapeHtml(client.notes)}&rdquo;</div>`
     : '';
 
-  _openPrint(`Client Report — ${escapeHtml(client.name)}`, `
+  _openPrint(`Client Report - ${escapeHtml(client.name)}`, `
     <div class="rpt-head">
       <div><h1>${escapeHtml(client.name)}</h1><div class="sub">${escapeHtml(client.tag)} &middot; Generated ${date}</div></div>
       <div class="rpt-meta">Prism Advisor Workspace<br/>Confidential</div>
@@ -1469,7 +1469,7 @@ function printClientReport(client, phase, meetings) {
   `);
 }
 
-// Milestone phase report — called from MilestoneAchievedModal "Download PDF" button
+// Milestone phase report - called from MilestoneAchievedModal "Download PDF" button
 function printMilestoneReport(phase, taskStates, advisorName, advisorFirm, numbers) {
   window.db?.track?.('report_printed', { meta: { kind: 'milestone' } });
   const completed = (phase?.tasks || []).filter(t => taskStates?.[phase.id]?.[t.id]);
@@ -1487,7 +1487,7 @@ function printMilestoneReport(phase, taskStates, advisorName, advisorFirm, numbe
       <div class="stat"><div class="stat-lbl">Monthly surplus</div><div class="stat-val ${(n.surplus || 0) < 0 ? 'bad' : 'ok'}">${fmt$(n.surplus)}</div></div>
     </div>` : '';
 
-  _openPrint(`Milestone Report — Phase ${escapeHtml(phase.num)}`, `
+  _openPrint(`Milestone Report - Phase ${escapeHtml(phase.num)}`, `
     <div class="rpt-head">
       <div>
         <div class="ms-tag">Milestone Achieved &middot; Phase ${escapeHtml(phase.num)}</div>
@@ -1512,7 +1512,7 @@ function printMilestoneReport(phase, taskStates, advisorName, advisorFirm, numbe
   `);
 }
 
-// Compliance export — full audit trail + records for one client (SEC 17a-3/17a-4)
+// Compliance export - full audit trail + records for one client (SEC 17a-3/17a-4)
 function printComplianceReport(client, auditEntries, meetings, versionCount) {
   window.db?.track?.('report_printed', { meta: { kind: 'compliance' } });
   const date = new Date().toLocaleString('en-US', { dateStyle: 'long', timeStyle: 'short' });
@@ -1531,13 +1531,13 @@ function printComplianceReport(client, auditEntries, meetings, versionCount) {
         <div class="mtg"><div class="mtg-date">${new Date(m.met_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}${m.duration_min ? ` &middot; ${Number(m.duration_min)} min` : ''}</div>${m.notes ? `<div class="mtg-notes">${escapeHtml(m.notes)}</div>` : ''}</div>`).join('')}`
     : '';
 
-  _openPrint(`Compliance Record — ${escapeHtml(client.name)}`, `
+  _openPrint(`Compliance Record - ${escapeHtml(client.name)}`, `
     <div class="rpt-head">
       <div><h1>${escapeHtml(client.name)}</h1><div class="sub">Compliance & audit record &middot; Generated ${date}</div></div>
       <div class="rpt-meta">Prism Advisor Workspace<br/>Confidential &middot; SEC 17a-3 / 17a-4</div>
     </div>
     <div class="grid">
-      <div class="stat"><div class="stat-lbl">Household tag</div><div class="stat-val sv13">${escapeHtml(client.tag || '—')}</div></div>
+      <div class="stat"><div class="stat-lbl">Household tag</div><div class="stat-val sv13">${escapeHtml(client.tag || '-')}</div></div>
       <div class="stat"><div class="stat-lbl">Audited actions</div><div class="stat-val">${(auditEntries || []).length}</div></div>
       <div class="stat"><div class="stat-lbl">Profile versions</div><div class="stat-val">${Number(versionCount) || 0}</div></div>
     </div>
@@ -1551,7 +1551,7 @@ function printComplianceReport(client, auditEntries, meetings, versionCount) {
 // Exam-ready books-&-records packet (SEC/state exam). One click from firm admin:
 // firm inventory (advisors, clients, fee schedules), billing record, every
 // acknowledgement with its signature state, and the append-only audit trail over
-// the chosen window — plus the WORM-retention statement. A pure renderer; the
+// the chosen window - plus the WORM-retention statement. A pure renderer; the
 // firm-admin view gathers the pieces.
 //   opts: { firmName, generatedBy, rangeLabel, advisors, clients, feeSchedules,
 //           invoices, acknowledgements, auditEntries, auditTruncated }
@@ -1559,7 +1559,7 @@ function printExamPacket(opts) {
   window.db?.track?.('report_printed', { meta: { kind: 'exam-packet' } });
   const o = opts || {};
   const date = new Date().toLocaleString('en-US', { dateStyle: 'long', timeStyle: 'short' });
-  const d = (iso, t) => iso ? new Date(iso).toLocaleString('en-US', t ? { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' } : { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+  const d = (iso, t) => iso ? new Date(iso).toLocaleString('en-US', t ? { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' } : { month: 'short', day: 'numeric', year: 'numeric' }) : '-';
   const clientName = (c) => escapeHtml(c?.short_name || c?.household_name || 'Client');
 
   const advisorsHtml = (o.advisors || []).map(a => `
@@ -1607,7 +1607,7 @@ function printExamPacket(opts) {
           <span>${escapeHtml(e.summary || '')}</span></div>`).join('')
     : '<div class="task mut2">No audit entries in this window.</div>';
 
-  _openPrint(`Exam Packet — ${escapeHtml(o.firmName || 'Firm')}`, `
+  _openPrint(`Exam Packet - ${escapeHtml(o.firmName || 'Firm')}`, `
     <div class="rpt-head">
       <div><h1>${escapeHtml(o.firmName || 'Firm')}</h1>
         <div class="sub">Books &amp; records packet · ${escapeHtml(o.rangeLabel || '')} · Generated ${date}${o.generatedBy ? ` by ${escapeHtml(o.generatedBy)}` : ''}</div></div>
@@ -1624,7 +1624,7 @@ function printExamPacket(opts) {
     <div class="section-lbl">3 · Client inventory &amp; fee assignment</div>${clientsHtml}
     <div class="section-lbl">4 · Advisory-fee invoices</div>${invoicesHtml}
     <div class="section-lbl">5 · Disclosures &amp; acknowledgements (e-sign record)</div>${acksHtml}
-    <div class="section-lbl">6 · Audit trail (append-only)${o.auditTruncated ? ' — most recent entries; full history retained' : ''}</div>${auditHtml}
+    <div class="section-lbl">6 · Audit trail (append-only)${o.auditTruncated ? ' - most recent entries; full history retained' : ''}</div>${auditHtml}
     <div class="section-lbl">7 · Retention statement</div>
     <div class="rpt-p">The audit trail is an append-only ledger (no update or delete policy exists on the table).
       A scheduled export writes each day's entries to a private write-once storage bucket per SEC Rule 17a-4
@@ -1634,7 +1634,7 @@ function printExamPacket(opts) {
   `);
 }
 
-// Client-facing performance report — branded, printable PDF (Theme D, 18b).
+// Client-facing performance report - branded, printable PDF (Theme D, 18b).
 // Takes pre-computed data so it has no dependency on where the math lives.
 //   opts: { client, series:[{date,value}], periods:[{label,pct}], flows:[{flow_date,amount,kind}], advisorName, advisorFirm }
 function printPerformanceReport(opts) {
@@ -1659,7 +1659,7 @@ function printPerformanceReport(opts) {
 
   const periodCells = (periods || []).map(s => {
     const has = s.pct != null && isFinite(s.pct), pos = (s.pct || 0) >= 0;
-    return `<div class="stat"><div class="stat-lbl">${escapeHtml(s.label)}</div><div class="stat-val ${!has ? 'mut2' : pos ? 'ok' : 'bad'}">${has ? `${pos ? '+' : ''}${s.pct.toFixed(1)}%` : '—'}</div></div>`;
+    return `<div class="stat"><div class="stat-lbl">${escapeHtml(s.label)}</div><div class="stat-val ${!has ? 'mut2' : pos ? 'ok' : 'bad'}">${has ? `${pos ? '+' : ''}${s.pct.toFixed(1)}%` : '-'}</div></div>`;
   }).join('');
 
   const capital = (flows || []).filter(f => f.kind !== 'fee');
@@ -1668,7 +1668,7 @@ function printPerformanceReport(opts) {
   const withdr  = capital.filter(f => Number(f.amount) < 0).reduce((s, f) => s + Math.abs(Number(f.amount)), 0);
   const netOfFees = fees > 0;
 
-  _openPrint(`Performance Report — ${escapeHtml(client.name)}`, `
+  _openPrint(`Performance Report - ${escapeHtml(client.name)}`, `
     <div class="rpt-head">
       <div><h1>${escapeHtml(client.name)}</h1><div class="sub">Performance report &middot; ${date}</div></div>
       <div class="rpt-meta">${escapeHtml(advisorFirm || 'Prism Advisor Workspace')}${advisorName ? `<br/>Prepared by ${escapeHtml(advisorName)}` : ''}</div>
@@ -1690,7 +1690,7 @@ function printPerformanceReport(opts) {
 
 // One-click QBR packet (C4). Assembles a client-ready quarterly business review
 // from data already in the system: roadmap progress + retirement readiness +
-// net-of-fee performance + goals + protection. A pure renderer — the advisor
+// net-of-fee performance + goals + protection. A pure renderer - the advisor
 // modal gathers the pieces and passes pre-computed display values.
 function printQBRReport(opts) {
   window.db?.track?.('report_printed', { meta: { kind: 'qbr' } });
@@ -1715,7 +1715,7 @@ function printQBRReport(opts) {
       ? ` &middot; Monte Carlo success ${Math.round(o.successBand.successPct)}% (bear ${fmt$(o.successBand.p10, { short: true })} · median ${fmt$(o.successBand.medianFinal, { short: true })} · bull ${fmt$(o.successBand.p90, { short: true })})`
       : '';
     readinessHtml = `<div class="section-lbl">Retirement readiness</div>
-      <div class="rpt-p">${pct}% funded &middot; <b>${escapeHtml(r.verdict)}</b>${r.lasts ? ' — plan funded through age 95' : (r.depletionAge ? ` — projected to age ${r.depletionAge}` : '')}${band}</div>`;
+      <div class="rpt-p">${pct}% funded &middot; <b>${escapeHtml(r.verdict)}</b>${r.lasts ? ' - plan funded through age 95' : (r.depletionAge ? ` - projected to age ${r.depletionAge}` : '')}${band}</div>`;
   }
 
   // Goals
@@ -1724,7 +1724,7 @@ function printQBRReport(opts) {
         <div class="task"><span class="f1">${escapeHtml(g.label)}</span><span class="mut">${g.pct}% · ${escapeHtml(g.status)}</span></div>`).join('')}`
     : '';
 
-  // Protection & estate — phrased so a $0 / not-yet-captured figure never reads
+  // Protection & estate - phrased so a $0 / not-yet-captured figure never reads
   // as "well covered". Three life-coverage states: not captured, gap, on guideline.
   let protHtml = '';
   if (o.protection) {
@@ -1732,9 +1732,9 @@ function printQBRReport(opts) {
     let lifeLine;
     if (!p.captured) {
       // No life policies recorded and no income guideline to compare against.
-      lifeLine = `<span class="mut">Life coverage — not yet captured.</span> Gather in-force policy details (or confirm none) so the plan reflects how the household is protected.`;
+      lifeLine = `<span class="mut">Life coverage - not yet captured.</span> Gather in-force policy details (or confirm none) so the plan reflects how the household is protected.`;
     } else if (p.gap > 0) {
-      lifeLine = `Life coverage ${fmt$(p.lifeCoverage, { short: true })}${p.recommended > 0 ? ` of ${fmt$(p.recommended, { short: true })} guideline` : ''} &middot; <b>gap ${fmt$(p.gap, { short: true })}</b> — worth reviewing whether to add coverage.`;
+      lifeLine = `Life coverage ${fmt$(p.lifeCoverage, { short: true })}${p.recommended > 0 ? ` of ${fmt$(p.recommended, { short: true })} guideline` : ''} &middot; <b>gap ${fmt$(p.gap, { short: true })}</b> - worth reviewing whether to add coverage.`;
     } else {
       lifeLine = `Life coverage ${fmt$(p.lifeCoverage, { short: true })}${p.recommended > 0 ? ` &middot; meets the ~10&times; income guideline` : ''}.`;
     }
@@ -1745,7 +1745,7 @@ function printQBRReport(opts) {
     const estItems = Array.isArray(p.estateItems) ? p.estateItems : [];
     const estList = estItems.length
       ? `<div class="grid grid5 mt10">${estItems.map(it => {
-          // ✓ shared · ◦ held but not shared (hollow) · … in progress · — to do
+          // ✓ shared · ◦ held but not shared (hollow) · … in progress · - to do
           const done = it.status === 'complete', priv = it.status === 'have_unshared', prog = it.status === 'in_progress';
           const mark = done ? '&#10003;' : priv ? '&#9675;' : prog ? '&hellip;' : '&mdash;';
           const cls = done ? 'ok' : priv ? 'ok' : prog ? '' : 'mut2';
@@ -1777,31 +1777,31 @@ function printQBRReport(opts) {
   const netOfFees = (flows || []).some(f => f.kind === 'fee');
   const periodCells = periods.map(s => {
     const has = s.pct != null && isFinite(s.pct), pos = (s.pct || 0) >= 0;
-    return `<div class="stat"><div class="stat-lbl">${escapeHtml(s.label)}</div><div class="stat-val ${!has ? 'mut2' : pos ? 'ok' : 'bad'}">${has ? `${pos ? '+' : ''}${s.pct.toFixed(1)}%` : '—'}</div></div>`;
+    return `<div class="stat"><div class="stat-lbl">${escapeHtml(s.label)}</div><div class="stat-val ${!has ? 'mut2' : pos ? 'ok' : 'bad'}">${has ? `${pos ? '+' : ''}${s.pct.toFixed(1)}%` : '-'}</div></div>`;
   }).join('');
   const perfHtml = series.length >= 2
-    ? `<div class="section-lbl">Performance — portfolio value</div>${chartHtml}
+    ? `<div class="section-lbl">Performance - portfolio value</div>${chartHtml}
        <div class="section-lbl mt18">Time-weighted return${netOfFees ? ' &middot; net of advisory fees' : ''}</div>
        <div class="grid grid5">${periodCells}</div>`
     : '';
 
-  // Plan flags — concentrated equity comp + the projected first RMD (advisor
+  // Plan flags - concentrated equity comp + the projected first RMD (advisor
   // talking points the front sections don't carry; rendered only when present).
   const _planFlagsHtml = (pf) => {
     if (!pf || (!pf.equityConcentration && !pf.rmd && !(pf.tax1040 || []).length)) return '';
     const lines = [];
-    // 1040 observations (Holistiplan-lite) — the same flags the client's
+    // 1040 observations (Holistiplan-lite) - the same flags the client's
     // tax-return tool shows, carried into the review packet (top 3, non-info).
     for (const ob of (pf.tax1040 || []).slice(0, 3)) {
-      lines.push(`<div class="rpt-p">1040 &middot; <b>${escapeHtml(ob.title)}</b> — ${escapeHtml(ob.detail)}</div>`);
+      lines.push(`<div class="rpt-p">1040 &middot; <b>${escapeHtml(ob.title)}</b> - ${escapeHtml(ob.detail)}</div>`);
     }
     if (pf.equityConcentration) {
       const ec = pf.equityConcentration;
-      lines.push(`<div class="rpt-p">Concentrated position${pf.equityTicker ? ` (${escapeHtml(pf.equityTicker)})` : ''}: <b>${ec.concentrationPct.toFixed(0)}% of invested assets</b>${ec.concentrated ? ` — above the ${ec.thresholdPct}% guideline` : ''} &middot; embedded gain ${fmt$(ec.gain, { short: true })} &middot; est. tax to trim to ${ec.thresholdPct}% ≈ ${fmt$(ec.taxToTrim, { short: true })}.</div>`);
+      lines.push(`<div class="rpt-p">Concentrated position${pf.equityTicker ? ` (${escapeHtml(pf.equityTicker)})` : ''}: <b>${ec.concentrationPct.toFixed(0)}% of invested assets</b>${ec.concentrated ? ` - above the ${ec.thresholdPct}% guideline` : ''} &middot; embedded gain ${fmt$(ec.gain, { short: true })} &middot; est. tax to trim to ${ec.thresholdPct}% ≈ ${fmt$(ec.taxToTrim, { short: true })}.</div>`);
     }
     if (pf.rmd && pf.rmd.firstRmd) {
       const fr = pf.rmd.firstRmd;
-      lines.push(`<div class="rpt-p">Projected first RMD at age ${fr.age}: <b>≈ ${fmt$(fr.amount, { short: true })}/yr</b> on a tax-deferred balance growing to ${fmt$(fr.balance, { short: true })} — frames the Roth-conversion window in the years before.</div>`);
+      lines.push(`<div class="rpt-p">Projected first RMD at age ${fr.age}: <b>≈ ${fmt$(fr.amount, { short: true })}/yr</b> on a tax-deferred balance growing to ${fmt$(fr.balance, { short: true })} - frames the Roth-conversion window in the years before.</div>`);
     }
     return `<div class="section-lbl">Plan flags</div>${lines.join('')}`;
   };
@@ -1813,7 +1813,7 @@ function printQBRReport(opts) {
        <div class="rpt-p">Equity ${o.risk.allocation.equity}% &middot; Fixed income ${o.risk.allocation.fixedIncome}% &middot; Cash ${o.risk.allocation.cash}%</div>`
     : '';
 
-  _openPrint(`Quarterly Review — ${escapeHtml(client.name)}`, `
+  _openPrint(`Quarterly Review - ${escapeHtml(client.name)}`, `
     <div class="rpt-head">
       <div><h1>Quarterly Business Review</h1><div class="sub">${escapeHtml(client.name)} &middot; ${date}</div></div>
       <div class="rpt-meta">${escapeHtml(o.advisorFirm || 'Prism Advisor Workspace')}${o.advisorName ? `<br/>Prepared by ${escapeHtml(o.advisorName)}` : ''}<br/>Confidential</div>
@@ -1821,7 +1821,7 @@ function printQBRReport(opts) {
     <div class="grid">
       <div class="stat"><div class="stat-lbl">Net worth</div><div class="stat-val">${fmt$(o.netWorth, { short: true })}</div></div>
       <div class="stat"><div class="stat-lbl">Managed assets</div><div class="stat-val">${fmt$(o.aum, { short: true })}</div></div>
-      <div class="stat"><div class="stat-lbl">Current horizon</div><div class="stat-val sv13">Phase ${escapeHtml(o.phase?.num || '—')} · ${escapeHtml(o.phase?.title || '')}</div></div>
+      <div class="stat"><div class="stat-lbl">Current horizon</div><div class="stat-val sv13">Phase ${escapeHtml(o.phase?.num || '-')} · ${escapeHtml(o.phase?.title || '')}</div></div>
     </div>
     <div class="section-lbl">Plan progress</div>
     ${phaseRows}
@@ -1852,14 +1852,14 @@ function printIPSReport(opts) {
   ].map(([label, pct]) => `
     <div class="task"><span class="f1">${escapeHtml(label)}</span><span class="b6">${pct}%</span></div>`).join('');
 
-  _openPrint(`Investment Policy Statement — ${escapeHtml(client.name)}`, `
+  _openPrint(`Investment Policy Statement - ${escapeHtml(client.name)}`, `
     <div class="rpt-head">
       <div><h1>Investment Policy Statement</h1><div class="sub">${escapeHtml(client.name)} &middot; Draft ${date}</div></div>
-      <div class="rpt-meta">${escapeHtml(advisorFirm || 'Prism Advisor Workspace')}${advisorName ? `<br/>Prepared by ${escapeHtml(advisorName)}` : ''}<br/>DRAFT — for review</div>
+      <div class="rpt-meta">${escapeHtml(advisorFirm || 'Prism Advisor Workspace')}${advisorName ? `<br/>Prepared by ${escapeHtml(advisorName)}` : ''}<br/>DRAFT - for review</div>
     </div>
     <div class="grid">
-      <div class="stat"><div class="stat-lbl">Risk profile</div><div class="stat-val sv15">${escapeHtml(risk?.band || '—')}</div></div>
-      <div class="stat"><div class="stat-lbl">Risk score</div><div class="stat-val">${risk?.score != null ? risk.score + ' / 100' : '—'}</div></div>
+      <div class="stat"><div class="stat-lbl">Risk profile</div><div class="stat-val sv15">${escapeHtml(risk?.band || '-')}</div></div>
+      <div class="stat"><div class="stat-lbl">Risk score</div><div class="stat-val">${risk?.score != null ? risk.score + ' / 100' : '-'}</div></div>
       <div class="stat"><div class="stat-lbl">Time horizon</div><div class="stat-val sv15">${horizon != null ? `${horizon} yrs to retirement` : 'Long-term'}</div></div>
     </div>
     <div class="section-lbl">1 · Purpose</div>
@@ -1873,7 +1873,7 @@ function printIPSReport(opts) {
     <div class="rpt-p">Allocations are reviewed at least annually and rebalanced when any asset class drifts more than ±5% from its target, or upon a material change in the household's circumstances.</div>
     ${(planFlags && (planFlags.equityConcentration || (planFlags.rmd && planFlags.rmd.firstRmd))) ? `
       <div class="section-lbl">5 · Concentrated positions &amp; distributions</div>
-      ${planFlags.equityConcentration ? `<div class="rpt-p">The household holds a concentrated single-stock position${planFlags.equityTicker ? ` (${escapeHtml(planFlags.equityTicker)})` : ''} at ${planFlags.equityConcentration.concentrationPct.toFixed(0)}% of invested assets (guideline ≤ ${planFlags.equityConcentration.thresholdPct}%). Diversification is managed deliberately against the embedded gain of ${fmt$(planFlags.equityConcentration.gain, { short: true })} — estimated tax to trim to guideline ≈ ${fmt$(planFlags.equityConcentration.taxToTrim, { short: true })}.</div>` : ''}
+      ${planFlags.equityConcentration ? `<div class="rpt-p">The household holds a concentrated single-stock position${planFlags.equityTicker ? ` (${escapeHtml(planFlags.equityTicker)})` : ''} at ${planFlags.equityConcentration.concentrationPct.toFixed(0)}% of invested assets (guideline ≤ ${planFlags.equityConcentration.thresholdPct}%). Diversification is managed deliberately against the embedded gain of ${fmt$(planFlags.equityConcentration.gain, { short: true })} - estimated tax to trim to guideline ≈ ${fmt$(planFlags.equityConcentration.taxToTrim, { short: true })}.</div>` : ''}
       ${(planFlags.rmd && planFlags.rmd.firstRmd) ? `<div class="rpt-p">Required minimum distributions are projected to begin at age ${planFlags.rmd.firstRmd.age} at approximately ${fmt$(planFlags.rmd.firstRmd.amount, { short: true })}/yr; the drawdown and Roth-conversion strategy is coordinated against this horizon.</div>` : ''}
     ` : ''}
     <div class="section-lbl">${(planFlags && (planFlags.equityConcentration || (planFlags.rmd && planFlags.rmd.firstRmd))) ? 6 : 5} · Review &amp; acknowledgement</div>
@@ -1886,10 +1886,10 @@ function printIPSReport(opts) {
   `);
 }
 
-// Prospect proposal packet — the close-the-deal print for proposal mode. One
+// Prospect proposal packet - the close-the-deal print for proposal mode. One
 // click from the prospect banner: where the household stands today, the
 // seven-horizon roadmap they'd be working, what working together looks like,
-// and the fee schedule. A pure renderer like printQBRReport — the portal view
+// and the fee schedule. A pure renderer like printQBRReport - the portal view
 // gathers the pieces from useProfile + the firm's fee schedules.
 //   opts: { client, phase, phases:[{num,title,total}], netWorth, invested,
 //           reserve, surplus, readiness, successBand, risk,
@@ -1900,14 +1900,14 @@ function printProposalPacket(opts) {
   const client = o.client || {};
   const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
-  // Roadmap preview — the seven horizons, with the prospect's starting point marked.
+  // Roadmap preview - the seven horizons, with the prospect's starting point marked.
   const phaseRows = (o.phases || []).map(p => {
     const current = o.phase && p.num === o.phase.num;
     return `<div class="task"><span class="f1${current ? ' b6' : ''}">Phase ${escapeHtml(p.num)} · ${escapeHtml(p.title)}</span>
       <span class="${current ? 'ok b6' : 'mut2'}">${current ? 'your starting point' : `${p.total} milestones`}</span></div>`;
   }).join('');
 
-  // Readiness snapshot — only when there are numbers behind it.
+  // Readiness snapshot - only when there are numbers behind it.
   let readinessHtml = '';
   if (o.readiness && (o.invested > 0 || o.netWorth > 0)) {
     const r = o.readiness;
@@ -1915,16 +1915,16 @@ function printProposalPacket(opts) {
     const band = o.successBand
       ? ` &middot; Monte Carlo success ${Math.round(o.successBand.successPct)}%`
       : '';
-    readinessHtml = `<div class="section-lbl">Retirement readiness — where you stand today</div>
-      <div class="rpt-p">${pct}% funded &middot; <b>${escapeHtml(r.verdict)}</b>${r.lasts ? ' — plan funded through age 95' : (r.depletionAge ? ` — projected to age ${r.depletionAge}` : '')}${band}. This is the baseline we would work from together — every milestone on the roadmap moves this number.</div>`;
+    readinessHtml = `<div class="section-lbl">Retirement readiness - where you stand today</div>
+      <div class="rpt-p">${pct}% funded &middot; <b>${escapeHtml(r.verdict)}</b>${r.lasts ? ' - plan funded through age 95' : (r.depletionAge ? ` - projected to age ${r.depletionAge}` : '')}${band}. This is the baseline we would work from together - every milestone on the roadmap moves this number.</div>`;
   }
 
   const allocHtml = (o.risk && o.risk.allocation && o.risk.score != null)
     ? `<div class="section-lbl">A starting allocation matched to you (${escapeHtml(o.risk.band)})</div>
-       <div class="rpt-p">Equity ${o.risk.allocation.equity}% &middot; Fixed income ${o.risk.allocation.fixedIncome}% &middot; Cash ${o.risk.allocation.cash}% — refined together in a full Investment Policy Statement.</div>`
+       <div class="rpt-p">Equity ${o.risk.allocation.equity}% &middot; Fixed income ${o.risk.allocation.fixedIncome}% &middot; Cash ${o.risk.allocation.cash}% - refined together in a full Investment Policy Statement.</div>`
     : '';
 
-  // Fee schedule — the firm's real tiers when one exists; an illustrative
+  // Fee schedule - the firm's real tiers when one exists; an illustrative
   // default otherwise, labelled as such.
   let feeHtml = '';
   const tiers = Array.isArray(o.feeSchedule?.tiers) ? o.feeSchedule.tiers : [];
@@ -1940,35 +1940,35 @@ function printProposalPacket(opts) {
     }).join('');
     const est = (o.invested > 0 && window.PrismCalc?.annualFeeForAum)
       ? window.PrismCalc.annualFeeForAum(tiers, o.invested) : 0;
-    feeHtml = `<div class="section-lbl">Fee schedule${o.feeIllustrative ? ' (illustrative)' : o.feeSchedule?.name ? ` — ${escapeHtml(o.feeSchedule.name)}` : ''}</div>
+    feeHtml = `<div class="section-lbl">Fee schedule${o.feeIllustrative ? ' (illustrative)' : o.feeSchedule?.name ? ` - ${escapeHtml(o.feeSchedule.name)}` : ''}</div>
       <div class="task task-head"><span class="f1">Assets under management</span><span>Annual fee</span></div>
       ${rows}
-      ${est > 0 ? `<div class="rpt-p mut2">On roughly ${fmt$(o.invested, { short: true })} of invested assets, that works out to about ${fmt$(est)} per year — fully transparent, billed quarterly, and itemized on every invoice.</div>` : ''}
+      ${est > 0 ? `<div class="rpt-p mut2">On roughly ${fmt$(o.invested, { short: true })} of invested assets, that works out to about ${fmt$(est)} per year - fully transparent, billed quarterly, and itemized on every invoice.</div>` : ''}
       ${o.feeIllustrative ? `<div class="rpt-p mut2">Final pricing is confirmed in your advisory agreement.</div>` : ''}`;
   }
 
-  _openPrint(`Proposal — ${escapeHtml(client.name)}`, `
+  _openPrint(`Proposal - ${escapeHtml(client.name)}`, `
     <div class="rpt-head">
-      <div><h1>Working Together — A Proposal</h1><div class="sub">Prepared for ${escapeHtml(client.name)} &middot; ${date}</div></div>
+      <div><h1>Working Together - A Proposal</h1><div class="sub">Prepared for ${escapeHtml(client.name)} &middot; ${date}</div></div>
       <div class="rpt-meta">${escapeHtml(o.advisorFirm || 'Prism Advisor Workspace')}${o.advisorName ? `<br/>Prepared by ${escapeHtml(o.advisorName)}` : ''}<br/>Confidential</div>
     </div>
-    <div class="rpt-p">This proposal previews the plan we would build together: where your household stands today, the lifecycle roadmap we would work through, and exactly what the engagement costs. Nothing here is binding — it is what working together looks like, on paper.</div>
+    <div class="rpt-p">This proposal previews the plan we would build together: where your household stands today, the lifecycle roadmap we would work through, and exactly what the engagement costs. Nothing here is binding - it is what working together looks like, on paper.</div>
     <div class="grid">
-      <div class="stat"><div class="stat-lbl">Net worth today</div><div class="stat-val">${o.netWorth ? fmt$(o.netWorth, { short: true }) : '—'}</div></div>
-      <div class="stat"><div class="stat-lbl">Invested assets</div><div class="stat-val">${o.invested ? fmt$(o.invested, { short: true }) : '—'}</div></div>
-      <div class="stat"><div class="stat-lbl">Liquidity reserve</div><div class="stat-val">${o.reserve ? fmt$(o.reserve, { short: true }) : '—'}</div></div>
-      <div class="stat"><div class="stat-lbl">Monthly surplus</div><div class="stat-val ${(o.surplus || 0) < 0 ? 'bad' : 'ok'}">${o.surplus != null && o.surplus !== 0 ? fmt$(o.surplus) : '—'}</div></div>
+      <div class="stat"><div class="stat-lbl">Net worth today</div><div class="stat-val">${o.netWorth ? fmt$(o.netWorth, { short: true }) : '-'}</div></div>
+      <div class="stat"><div class="stat-lbl">Invested assets</div><div class="stat-val">${o.invested ? fmt$(o.invested, { short: true }) : '-'}</div></div>
+      <div class="stat"><div class="stat-lbl">Liquidity reserve</div><div class="stat-val">${o.reserve ? fmt$(o.reserve, { short: true }) : '-'}</div></div>
+      <div class="stat"><div class="stat-lbl">Monthly surplus</div><div class="stat-val ${(o.surplus || 0) < 0 ? 'bad' : 'ok'}">${o.surplus != null && o.surplus !== 0 ? fmt$(o.surplus) : '-'}</div></div>
     </div>
     ${readinessHtml}
-    <div class="section-lbl">Your roadmap — seven horizons, one coordinated plan</div>
+    <div class="section-lbl">Your roadmap - seven horizons, one coordinated plan</div>
     ${phaseRows}
     ${allocHtml}
     <div class="section-lbl">What working together looks like</div>
-    <div class="rpt-p"><b>Onboarding (first 30 days)</b> — we capture the full household picture, agree an Investment Policy Statement, and stand up your client portal: your live roadmap, secure messaging, and document vault.</div>
-    <div class="rpt-p"><b>Ongoing</b> — structured reviews each quarter with a written packet, milestone-by-milestone progress on the roadmap, and direct access to your advisor between meetings. Every recommendation is documented and every fee is itemized.</div>
-    <div class="rpt-p"><b>Fiduciary, always</b> — advice is delivered net of a transparent advisory fee, with no commissions and no product sales.</div>
+    <div class="rpt-p"><b>Onboarding (first 30 days)</b> - we capture the full household picture, agree an Investment Policy Statement, and stand up your client portal: your live roadmap, secure messaging, and document vault.</div>
+    <div class="rpt-p"><b>Ongoing</b> - structured reviews each quarter with a written packet, milestone-by-milestone progress on the roadmap, and direct access to your advisor between meetings. Every recommendation is documented and every fee is itemized.</div>
+    <div class="rpt-p"><b>Fiduciary, always</b> - advice is delivered net of a transparent advisory fee, with no commissions and no product sales.</div>
     ${feeHtml}
-    <div class="footer">This proposal is illustrative, is not investment advice, and does not establish an advisory relationship — that begins with a signed advisory agreement. Figures reflect the information provided to date. ${escapeHtml(o.advisorFirm || 'Prism Advisor Workspace')} &middot; ${date}.</div>
+    <div class="footer">This proposal is illustrative, is not investment advice, and does not establish an advisory relationship - that begins with a signed advisory agreement. Figures reflect the information provided to date. ${escapeHtml(o.advisorFirm || 'Prism Advisor Workspace')} &middot; ${date}.</div>
   `);
 }
 
@@ -2005,7 +2005,7 @@ function printInvoiceReport(invoice, clientName, advisorFirm) {
 
 // Shared CSV download. Neutralizes spreadsheet formula injection: a leading
 // = + - @ (or a tab/CR hiding one) would execute when the file opens in
-// Excel/Sheets — prefix with a quote so it renders as text. Many cells carry
+// Excel/Sheets - prefix with a quote so it renders as text. Many cells carry
 // client- or advisor-editable input.
 function downloadCSV(filename, headers, rows) {
   const cell = (v) => {

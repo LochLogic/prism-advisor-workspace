@@ -1,7 +1,7 @@
-// Prism — portal service worker (push + notification click only).
+// Prism - portal service worker (push + notification click only).
 // NOT in build-files.mjs: copied verbatim by build.mjs to _site/portal-sw.js
 // (root path so its scope can cover /portal/). Deliberately NO fetch/cache
-// handler — every asset URL is content-hash-busted by the build, and a cache
+// handler - every asset URL is content-hash-busted by the build, and a cache
 // layer here could serve stale bundles past a deploy.
 
 self.addEventListener('install', () => self.skipWaiting());
