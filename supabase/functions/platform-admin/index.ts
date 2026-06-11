@@ -99,6 +99,17 @@ Deno.serve(async (req) => {
           u.events_30d++;
         }
       } catch { /* px_events not applied yet */ }
+      // Last login per firm: most recent 'login' px_event, no time window (a firm
+      // idle for months should still show when it was last seen, not "quiet").
+      const lastLoginByFirm: Record<string, string> = {};
+      try {
+        const { data: lg, error: le } = await svc.from("px_events")
+          .select("firm_id, occurred_at").eq("name", "login")
+          .order("occurred_at", { ascending: false }).limit(20000);
+        if (!le) for (const e of lg || []) {
+          if (e.firm_id && !lastLoginByFirm[e.firm_id]) lastLoginByFirm[e.firm_id] = e.occurred_at;
+        }
+      } catch { /* px_events not applied yet */ }
       const subByFirm = Object.fromEntries((subs || []).map((s) => [s.firm_id, s]));
       const rows = (firms || []).map((f) => ({
         ...f,
@@ -106,6 +117,7 @@ Deno.serve(async (req) => {
         client_count: (clients || []).filter((c) => c.firm_id === f.id && c.active !== false).length,
         subscription: subByFirm[f.id] || null,
         usage: usageByFirm[f.id] || null,
+        last_login_at: lastLoginByFirm[f.id] || null,
       }));
       return json({ firms: rows });
     }

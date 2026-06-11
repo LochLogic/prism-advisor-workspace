@@ -1061,6 +1061,9 @@ i.px-split-dot {
 .px-task-act.is-discuss { color: var(--gold); border-color: var(--gold-soft); background: var(--gold-soft); }
 .px-task-act.is-discuss:hover { background: #ebdcb5; border-color: #d8c592; }
 .px-task-act.is-flagged { color: var(--gold); border-color: var(--gold); background: var(--surface); }
+/* Quiet pointer for tools already rendered further down the page */
+.px-task-act.is-ghost { color: var(--ink-faint); border-color: transparent; background: transparent; }
+.px-task-act.is-ghost:hover { color: var(--ink-mute); border-color: var(--border-2); background: var(--surface-2); }
 
 /* Phase end - completed CTA */
 .px-phase-complete-cta {

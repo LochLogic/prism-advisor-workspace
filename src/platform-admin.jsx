@@ -70,6 +70,15 @@ const PlatformFirmRow = ({ firm, onAction, busyId, showToast }) => {
           )}
         </td>
         <td>
+          {firm.last_login_at ? (
+            <span style={{ fontSize: 12, color: 'var(--ink)' }} title={new Date(firm.last_login_at).toLocaleString()}>
+              {window.db.timeAgo(firm.last_login_at)}
+            </span>
+          ) : (
+            <span style={{ fontSize: 11.5, color: 'var(--ink-faint)' }} title="No login events recorded yet (analytics may not be enabled)">never</span>
+          )}
+        </td>
+        <td>
           <span style={{ fontSize: 12, color: 'var(--ink-mute)' }}>
             {new Date(firm.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
           </span>
@@ -93,7 +102,7 @@ const PlatformFirmRow = ({ firm, onAction, busyId, showToast }) => {
       </tr>
       {roster && (
         <tr>
-          <td colSpan={7} style={{ background: 'var(--bg-elev)' }}>
+          <td colSpan={8} style={{ background: 'var(--bg-elev)' }}>
             {roster.length === 0 ? (
               <div style={{ fontSize: 12, color: 'var(--ink-faint)', fontStyle: 'italic', padding: '4px 0' }}>
                 No advisor seats yet.
@@ -120,7 +129,7 @@ const PlatformFirmRow = ({ firm, onAction, busyId, showToast }) => {
       )}
       {planEdit && (
         <tr>
-          <td colSpan={7} style={{ background: 'var(--bg-elev)' }}>
+          <td colSpan={8} style={{ background: 'var(--bg-elev)' }}>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '4px 0' }}>
               <span style={{ fontSize: 12, color: 'var(--ink-mute)' }}>Billing override:</span>
               <select className="px-select" style={{ width: 'auto' }} value={planEdit.plan}
@@ -281,6 +290,7 @@ const PlatformOwnerDashboard = () => {
                   <th className="is-num">Advisors</th>
                   <th className="is-num">Clients</th>
                   <th style={{ width: 110 }}>Activity · 30d</th>
+                  <th style={{ width: 100 }}>Last login</th>
                   <th>Since</th>
                   <th style={{ width: 190 }}>Actions</th>
                 </tr>

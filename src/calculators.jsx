@@ -1120,7 +1120,7 @@ const RothConversionWindowTool = () => {
 
   if (!w) {
     return (
-      <ToolShell title="Roth Conversion Window" advanced hint="Bracket-filling conversions before RMDs">
+      <ToolShell title="Roth Conversion Window" advanced hint="Bracket-filling conversions before required minimum distributions (RMDs)">
         <div style={{ fontSize: 12, color: 'var(--ink-mute)' }}>
           No conversion window - either retirement is at/after the RMD age (73) or there's no tax-deferred balance to convert.
         </div>
@@ -1287,7 +1287,7 @@ const HDHPvsPPOTool = () => {
 
   const winnerLabel = r.cheaper === 'hdhp' ? 'HDHP + HSA' : 'PPO';
   return (
-    <ToolShell title="HDHP vs. PPO break-even"
+    <ToolShell title="High-deductible health plan (HDHP) vs. PPO break-even"
       hint="Total annual cost of each plan - including the HSA tax advantage">
       <div className="px-tool-grid">
         <StatCell label="HDHP net cost" value={fmt$(r.hdhp, { short: true })}
@@ -1495,7 +1495,7 @@ const RMDProjectionTool = () => {
 
   if (!result) {
     return (
-      <ToolShell title="RMD projector" advanced hint="Required distributions starting at 73">
+      <ToolShell title="Required minimum distribution (RMD) projector" advanced hint="Required distributions starting at 73">
         <div style={{ fontSize: 12, color: 'var(--ink-mute)' }}>
           No tax-deferred balance (IRA / 401k) on file - nothing to project. RMDs only apply to pre-tax accounts.
         </div>
@@ -1504,7 +1504,7 @@ const RMDProjectionTool = () => {
   }
   const checkpoints = result.schedule.filter((y, i) => i % 4 === 0 || i === result.schedule.length - 1);
   return (
-    <ToolShell title="RMD projector" advanced hint="Required distributions begin at age 73 - and the tax they trigger">
+    <ToolShell title="Required minimum distribution (RMD) projector" advanced hint="Distributions begin at age 73 - and the tax they trigger">
       <div className="px-tool-grid">
         <StatCell label="First RMD (age 73)" value={fmt$(result.firstRmd.amount, { short: true })} big
           foot={`on ${fmt$(result.balanceAtRmd, { short: true })} projected`} />
