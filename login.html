@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Prism â€” Sign In</title>
+<title>Prism | Sign In</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 800'><polygon fill='%23129DAC' points='393,169 131,631 393,477'/><polygon fill='%231AA17C' points='407,169 669,631 407,477'/><polygon fill='%232084A6' points='138,642 662,642 400,488'/></svg>" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -150,7 +150,7 @@
     <div class="card-title tac">Check your inbox</div>
     <p class="card-p">
       A sign-in link was sent to <strong id="sent-to"></strong>.
-      Click it to continue â€” the link expires in 1 hour.
+      Click it to continue - the link expires in 1 hour.
     </p>
     <button class="btn-ghost mt20" id="usepw-btn">
       Use password instead
@@ -212,7 +212,7 @@
         showMfaCard();
         return;
       }
-    } catch (e) { /* MFA check unavailable â€” fall through to the app */ }
+    } catch (e) { /* MFA check unavailable - fall through to the app */ }
     window.location.href = '/app';
   }
 
@@ -232,7 +232,7 @@
     const code = document.getElementById('mfa-code').value.trim();
     if (!/^\d{6}$/.test(code)) { showMfaMsg('Enter the 6-digit code from your app.'); return; }
     const btn = document.getElementById('mfa-btn');
-    btn.disabled = true; btn.textContent = 'Verifyingâ€¦';
+    btn.disabled = true; btn.textContent = 'Verifying...';
     const reset = () => { btn.disabled = false; btn.textContent = 'Verify & continue'; };
     try {
       const { data: factors } = await window.__sb.auth.mfa.listFactors();
@@ -257,7 +257,7 @@
     const mb = document.getElementById('magic-btn');
     sb.disabled = on;
     mb.disabled = on;
-    sb.textContent = on ? 'Signing inâ€¦' : 'Sign in';
+    sb.textContent = on ? 'Signing in...' : 'Sign in';
   }
 
   function showMsg(text, type = 'error') {
