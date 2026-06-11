@@ -556,7 +556,7 @@ const ClientPortal = ({ onOpenNumbers }) => {
         <div className="px-advisor-chip">
           <div className="px-advisor-avatar">{advisorDisplay.initials}</div>
           <div className="px-advisor-meta">
-            <div className="px-advisor-name">{advisorDisplay.fullName}</div>
+            <div className="px-advisor-name">{advisorDisplay.name}</div>
             <div className="px-advisor-role">{advisorDisplay.firm}</div>
           </div>
           <button className="px-advisor-chip-btn" onClick={openScheduler}>
@@ -575,7 +575,7 @@ const ClientPortal = ({ onOpenNumbers }) => {
             Your wealth, refracted into <em>seven horizons</em>.
           </h1>
           <p>
-            A coordinated lifecycle plan, built and reviewed with {advisorDisplay.fullName}.
+            A coordinated lifecycle plan, built and reviewed with {advisorDisplay.name}.
             Each Horizon phase advances when its milestones are met - together.
           </p>
         </section>
