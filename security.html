@@ -11,10 +11,10 @@
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Prism Advisor Workspace" />
 <meta property="og:title" content="Security at Prism" />
-<meta property="og:description" content="Tenant isolation, MFA, encryption, audit trails, and hardened headers — plus an honest current-posture-and-roadmap view." />
+<meta property="og:description" content="Tenant isolation, MFA, encryption, audit trails, and hardened headers â€” plus an honest current-posture-and-roadmap view." />
 <meta property="og:url" content="https://prismaw.com/security.html" />
 <meta property="og:image" content="https://prismaw.com/og-image.png" />
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231c2e4a' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M12 2 3 20h18Z'/><path d='m12 2 4 9-9 4'/></svg>" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 800'><polygon fill='%23129DAC' points='393,169 131,631 393,477'/><polygon fill='%231AA17C' points='407,169 669,631 407,477'/><polygon fill='%232084A6' points='138,642 662,642 400,488'/></svg>" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -73,7 +73,7 @@
   <p class="meta">Last updated 2 June 2026</p>
 
   <h2>Tenant isolation at the data layer</h2>
-  <p>Prism is multi-tenant by design and isolated where it counts — in the database. Every table is governed by <strong>row-level security</strong> along the <strong>firm &rarr; advisor &rarr; client</strong> hierarchy. A client can only ever read their own household; an advisor sees only their book; a firm admin sees only their firm. These rules are enforced by the database on every query, not merely hidden in the interface — so a bug in the UI cannot expose another tenant's data.</p>
+  <p>Prism is multi-tenant by design and isolated where it counts â€” in the database. Every table is governed by <strong>row-level security</strong> along the <strong>firm &rarr; advisor &rarr; client</strong> hierarchy. A client can only ever read their own household; an advisor sees only their book; a firm admin sees only their firm. These rules are enforced by the database on every query, not merely hidden in the interface â€” so a bug in the UI cannot expose another tenant's data.</p>
 
   <div class="grid">
     <div class="card"><h3>Authentication</h3><p>Managed auth with a PKCE flow, optional time-based one-time-password (TOTP) multi-factor authentication with assurance-level enforcement, and optional Google sign-in.</p></div>
@@ -95,7 +95,7 @@
   <p>Security and compliance reinforce each other. The same model that scopes access also powers an <strong>append-only audit trail</strong> of meaningful actions (with actor, timestamp, and a readable summary), <strong>immutable profile versioning</strong> for point-in-time review, and a daily <strong>write-once (WORM-style) archive</strong>. Together these are designed around the record-keeping principles of <strong>SEC Rules 17a-3 and 17a-4</strong>.</p>
 
   <h2>Infrastructure &amp; subprocessors</h2>
-  <p>Prism runs on established providers, each engaged under data-protection terms. The full list — with purpose and location — is in our <a href="/dpa.html">Data Processing Agreement</a>: Supabase (database, auth, storage, functions), Cloudflare (hosting, CDN, edge security), Stripe (payments), Plaid (account linking, on user consent), and Google (optional sign-in).</p>
+  <p>Prism runs on established providers, each engaged under data-protection terms. The full list â€” with purpose and location â€” is in our <a href="/dpa.html">Data Processing Agreement</a>: Supabase (database, auth, storage, functions), Cloudflare (hosting, CDN, edge security), Stripe (payments), Plaid (account linking, on user consent), and Google (optional sign-in).</p>
 
   <h2>An honest view of our posture</h2>
   <p>We would rather earn trust by being transparent than overstate where we are. Here is what is in place today and what is on the near-term roadmap before and as we onboard live client data.</p>
