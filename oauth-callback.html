@@ -4,8 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="robots" content="noindex" />
-<title>Prism — Connecting your calendar…</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231c2e4a' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M12 2 3 20h18Z'/><path d='m12 2 4 9-9 4'/></svg>" />
+<title>Prism â€” Connecting your calendarâ€¦</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 800'><polygon fill='%23129DAC' points='393,169 131,631 393,477'/><polygon fill='%231AA17C' points='407,169 669,631 407,477'/><polygon fill='%232084A6' points='138,642 662,642 400,488'/></svg>" />
 <script src="/vendor/supabase.js"></script>
 <script src="/src/supabase-client.js"></script>
 <style>
@@ -26,8 +26,8 @@
 <body>
 <div class="card">
   <div class="spin" id="spin"></div>
-  <h1 id="t">Connecting your calendar…</h1>
-  <p id="m">One moment — finishing the secure handshake.</p>
+  <h1 id="t">Connecting your calendarâ€¦</h1>
+  <p id="m">One moment â€” finishing the secure handshake.</p>
 </div>
 <script>
 (async function () {
@@ -47,16 +47,16 @@
   var code = q.get('code');
   if (!code) return fail('No authorization code was returned.');
   var expected = sessionStorage.getItem('px_cal_oauth_state');
-  if (expected && q.get('state') !== expected) return fail('Security check failed (state mismatch) — please try connecting again.');
+  if (expected && q.get('state') !== expected) return fail('Security check failed (state mismatch) â€” please try connecting again.');
   sessionStorage.removeItem('px_cal_oauth_state');
   if (!window.__sb) return fail('Could not load the app client.');
   var sess = (await window.__sb.auth.getSession()).data.session;
-  if (!sess) return fail('You are signed out — sign in to Prism, then connect the calendar again.');
+  if (!sess) return fail('You are signed out â€” sign in to Prism, then connect the calendar again.');
   try {
     var r = await window.__sb.functions.invoke('calendar-oauth', { body: { action: 'exchange', provider: provider, code: code } });
     if (r.error || (r.data && r.data.error)) return fail((r.error && r.error.message) || r.data.error);
     t.textContent = 'Calendar connected';
-    m.textContent = 'Taking you back to your dashboard…';
+    m.textContent = 'Taking you back to your dashboardâ€¦';
     location.replace('/app#/advisor?calendar=connected');
   } catch (e) { fail(e.message || 'Unexpected error.'); }
 })();
