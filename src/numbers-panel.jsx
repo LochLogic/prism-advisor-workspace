@@ -116,7 +116,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
           isOwner, homeEquity, mortgageBalance, mortgagePrincipalMonthly, mortgageInterestMonthly,
           escrowMonthly, extraPrincipalMonthly,
           propertiesEquity, primaryMember, planningAge, grossMonthlyIncome, effectiveTakehome,
-          ledgerGate, pendingChange, withdrawPendingChange } = useProfile();
+          ledgerGate, pendingChange, withdrawPendingChange, saveNow } = useProfile();
   const { activeClientId } = useView();
   const hasIncomeSources = (profile.income.sources || []).length > 0;
   // Contributions section entry period - display-only; storage stays annual.
@@ -177,6 +177,23 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
   const openDepth    = React.useRef(undoDepth);
   const dirtyCount   = Math.max(0, undoDepth - openDepth.current);
   const revertAll    = () => { if (dirtyCount > 0) setProfile(openBaseline.current); };
+
+  // Explicit Save: flushes the persist immediately (through the firm's
+  // advisor-approval gate when it's on - the same switch firm admins toggle),
+  // re-baselines the session so the strip flips to a confirmation, and Revert
+  // all now means "back to what I just saved".
+  const gatedClient = ledgerGate && window.__pxAuthActor?.role === 'client';
+  const [justSaved, setJustSaved] = React.useState(null);   // null | 'saved' | 'review'
+  const savedTimer  = React.useRef(null);
+  React.useEffect(() => () => clearTimeout(savedTimer.current), []);
+  const handleSave = () => {
+    const result = saveNow();
+    openBaseline.current = profile;
+    openDepth.current    = undoDepth;
+    setJustSaved(result);
+    clearTimeout(savedTimer.current);
+    savedTimer.current = setTimeout(() => setJustSaved(null), 5000);
+  };
 
   // ── Household members ──
   const addMember = () => setProfile(p => {
@@ -375,14 +392,32 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
             )}
           </div>
         )}
-        {dirtyCount > 0 && (
+        {(dirtyCount > 0 || justSaved) && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
             padding: '8px 16px', background: 'var(--bg-elev)', borderBottom: '1px solid var(--border)',
             fontSize: 11.5, color: 'var(--ink-mute)' }}>
-            <span><b style={{ color: 'var(--ink)' }}>{dirtyCount}</b> change{dirtyCount === 1 ? '' : 's'} this session - nothing is locked in.</span>
-            <button className="px-btn px-btn-sm px-btn-ghost" onClick={revertAll} style={{ padding: '3px 9px', whiteSpace: 'nowrap' }}>
-              <Icons.Refresh size={11} /> Revert all
-            </button>
+            {dirtyCount > 0 ? (
+              <>
+                <span><b style={{ color: 'var(--ink)' }}>{dirtyCount}</b> change{dirtyCount === 1 ? '' : 's'} this session - nothing is locked in.</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <button className="px-btn px-btn-sm px-btn-primary" onClick={handleSave}
+                    style={{ padding: '3px 11px', whiteSpace: 'nowrap' }}
+                    title={gatedClient ? 'Save and send to your advisor to confirm' : 'Save these changes now'}>
+                    <Icons.Check size={11} /> {gatedClient ? 'Save for review' : 'Save'}
+                  </button>
+                  <button className="px-btn px-btn-sm px-btn-ghost" onClick={revertAll} style={{ padding: '3px 9px', whiteSpace: 'nowrap' }}>
+                    <Icons.Refresh size={11} /> Revert all
+                  </button>
+                </div>
+              </>
+            ) : (
+              <span style={{ color: 'var(--forest)' }}>
+                <Icons.Check size={11} style={{ verticalAlign: '-1px', marginRight: 5 }} />
+                {justSaved === 'review'
+                  ? 'Saved - sent to your advisor to confirm.'
+                  : 'Saved - your plan is up to date.'}
+              </span>
+            )}
           </div>
         )}
         <div className="px-drawer-body">
