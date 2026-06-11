@@ -353,7 +353,7 @@ const AccountChip = ({ view, activeClient }) => {
             position: 'absolute', top: 'calc(100% + 6px)', right: 0,
             background: 'var(--surface)', border: '1px solid var(--border)',
             borderRadius: 8, boxShadow: '0 4px 20px rgba(28,46,74,.13)',
-            overflow: 'hidden', minWidth: 186, zIndex: 200,
+            overflow: 'hidden', minWidth: profileEdit ? 340 : 240, zIndex: 200,
           }}
         >
           {isDemo ? (
