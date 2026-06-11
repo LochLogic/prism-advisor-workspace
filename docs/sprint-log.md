@@ -925,5 +925,30 @@ documents ride the existing acknowledgements flow (migration 017) and the
 `scripts/brand-*.mjs`, `scripts/linkedin-assets.mjs`, `branding/*`, HTML pages,
 `og-image.png`, `icons/portal-*.png`, `docs/marketing/*`, `docs/TODO.md`.
 
+## 2026-06-11 - Round 17: no-em-dash rule + OG metadata mojibake fix
+
+**PRs:** #65 (pages + content), #66 (deploy retrigger), #67 (src sweep). All merged, all checks green, LIVE.
+
+- **New foundational style rule (CLAUDE.md):** never use em-dashes anywhere
+  (copy, titles, UI strings, docs, commit messages). Titles use
+  "Prism | X"; prose uses comma, colon, period, or spaced hyphen " - ".
+  Triggered by founder preference plus a real bug: HTML pages on disk held
+  double-encoded em-dashes ("a-circumflex" mojibake) that LinkedIn's Post
+  Inspector surfaced in the live og:title / og:description.
+- **#65:** swept all 11 public HTML pages + `content/pages.mjs`; repaired the
+  mojibake (page titles now "Prism | The Advisor Workspace"); also fixed the
+  corrupted ellipsis in `oauth-callback.html`.
+- **#66:** empty retrigger commit; the Cloudflare Workers build flaked twice
+  (once on the PR branch, once on the main merge commit). If prod looks stale
+  after a green merge, check the Workers Builds check-run on the main commit.
+- **#67 (side task):** removed remaining em-dashes from all `src/` files.
+- Verified live: `prismaw.com` serves the clean title/OG tags.
+
+**Human hand-off:** run https://prismaw.com through LinkedIn Post Inspector to
+bust the share-preview cache (also picks up the round-16 OG image). The
+existing launch post keeps its old snapshot unless deleted and re-shared.
+
+**Files:** `CLAUDE.md`, 11 root HTML pages, `content/pages.mjs`, `src/*`.
+
 ---
 <!-- New sprints append above this line, newest first. -->
