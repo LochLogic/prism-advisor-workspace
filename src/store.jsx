@@ -93,7 +93,7 @@ const emptyProfile = {
   housing: { type: 'rent', homeValue: 0, mortgageBalance: 0, mortgageApr: 0, escrowMonthly: 0, extraPrincipal: 0 },
   properties: [],
   debts: [],
-  savings:  { emergency: 0, emergencyAccountId: null },
+  savings:  { emergency: 0, reserveAccountIds: [] },
   retirement: {
     hsaBalance: 0, iraBalance: 0, fourohonekBalance: 0, rothBalance: 0,
     hsaContrib: 0, iraContributed: 0, iraLimit: 7000,
