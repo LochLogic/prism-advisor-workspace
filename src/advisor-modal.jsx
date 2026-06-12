@@ -2471,10 +2471,13 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
           </>
         )}
       </div>
-      {/* Custodian paperwork POC (round 23) - renders above the quick view */}
+      {/* Custodian paperwork POC (round 23) - renders above the quick view.
+          onEditNumbers (round 25): a missing row's "Add" closes the modal
+          stack and opens the Numbers drawer focused on the identity gaps. */}
       {paperworkOpen && (
         <PaperworkModal client={client} profileData={profileData}
-          onClose={() => setPaperworkOpen(false)} />
+          onClose={() => setPaperworkOpen(false)}
+          onEditNumbers={() => { setPaperworkOpen(false); openClientNumbers(client, 'identity'); onClose(); }} />
       )}
     </Modal>
   );

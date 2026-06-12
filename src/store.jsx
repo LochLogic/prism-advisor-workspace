@@ -851,13 +851,22 @@ function ViewProvider({ children }) {
   }, []);
 
   // Numbers (household ledger) drawer - shared so any surface can open it.
-  const openNumbers  = useCallback(() => setNumbersOpen(true), []);
-  const closeNumbers = useCallback(() => setNumbersOpen(false), []);
+  // `focus` (round 25) is an optional section hint ('identity' = expand the
+  // Identity & paperwork blocks and scroll to the first gap) - callers that
+  // pass the click event through (onClick={openNumbers}) get no focus, since
+  // only strings count.
+  const [numbersFocus, setNumbersFocus] = useState(null);
+  const openNumbers  = useCallback((focus) => {
+    setNumbersFocus(typeof focus === 'string' ? focus : null);
+    setNumbersOpen(true);
+  }, []);
+  const closeNumbers = useCallback(() => { setNumbersOpen(false); setNumbersFocus(null); }, []);
   // Edit a specific client's numbers (advisor editing from the client modal):
   // point the profile context at that client, then open the drawer.
-  const openClientNumbers = useCallback((client) => {
+  const openClientNumbers = useCallback((client, focus) => {
     setActiveClientId(client.id);
     setActiveClient(client);
+    setNumbersFocus(typeof focus === 'string' ? focus : null);
     setNumbersOpen(true);
   }, []);
 
@@ -868,7 +877,7 @@ function ViewProvider({ children }) {
       activeClient,   setActiveClient,
       pendingPhaseId, setPendingPhaseId,
       openClientPortal,
-      numbersOpen, openNumbers, closeNumbers, openClientNumbers,
+      numbersOpen, openNumbers, closeNumbers, openClientNumbers, numbersFocus,
       toast, showToast,
     }}>
       {children}

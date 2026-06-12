@@ -374,6 +374,29 @@ input, select, textarea { font-family: inherit; color: inherit; }
 .px-drawer-head { padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
 .px-drawer-body { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 18px 22px; }
 
+/* Wide variant (round 25) - the NUMBERS drawer only: it grew to ~14 sections
+   incl. per-member KYC grids that were cramped at 540px. The Help drawer
+   keeps the slim default. Mobile is unchanged (the vw clamp wins there). */
+.px-drawer.is-wide { width: min(720px, 94vw); }
+
+/* Section jump nav (round 25) - chip bar under the Numbers drawer header.
+   Labels are collected from the rendered .is-section eyebrows at runtime. */
+.px-drawer-nav {
+  display: flex; flex-wrap: wrap; gap: 5px;
+  padding: 8px 22px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elev);
+}
+.px-drawer-nav button {
+  font-family: var(--sans); font-size: 10.5px; line-height: 1;
+  padding: 4px 9px;
+  border: 1px solid var(--border); border-radius: 999px;
+  background: var(--surface); color: var(--ink-mute);
+  cursor: pointer; white-space: nowrap;
+  transition: all .1s;
+}
+.px-drawer-nav button:hover { color: var(--ink); border-color: var(--border-2); background: var(--bg-elev); }
+
 /* Help drawer guide content (round 23) - rendered from docs/guides markdown */
 .px-help-md { font-size: 13px; line-height: 1.65; color: var(--ink-mute); }
 .px-help-md h1 { font-family: var(--serif); font-size: 19px; font-weight: 600; color: var(--ink); line-height: 1.3; margin: 0 0 10px; }

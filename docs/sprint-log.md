@@ -1280,4 +1280,48 @@ payload emits each new FormField once. Gate green (57 smoke / 238 calc / lint).
 `docs/{ARCHITECTURE,quik-field-taxonomy,sprint-log}.md`.
 
 ---
+
+## 2026-06-12 - Round 25b: KYC navigation seams closed + the Numbers drawer grows up
+
+Same-day follow-up to round 25's CX review. Founder-clicked decision on the
+"have we outgrown the sidebar?" question: keep the side-anchored drawer (the
+plan reacting behind it is the point) but widen it and add navigation - the
+centered-overlay rework was assessed and deliberately not taken.
+
+1. **Wide drawer + section jump nav (numbers-panel/styles):** the NUMBERS
+   drawer gets `.px-drawer.is-wide` (min(720px, 94vw); Help drawer stays slim;
+   mobile unchanged) and a chip bar under the header that jumps to any of its
+   ~15 sections. Chip labels are collected at runtime from the rendered
+   `.is-section` eyebrows (first text node only - some embed a FieldHint), so
+   adding a drawer section auto-adds its chip, no second list to maintain.
+   Programmatic smooth scrolling silently no-ops in some environments
+   (reduced-motion / embedded Chromium) - `scrollBodyTo` scrolls the body
+   container with a 220ms verify-then-instant-jump fallback, so landing is
+   guaranteed everywhere.
+2. **Open-with-focus plumbing (store ViewProvider):** `openNumbers(focus)` /
+   `openClientNumbers(client, focus)` take an optional section hint;
+   `numbersFocus: 'identity'` makes the drawer (which remounts per open)
+   expand every Identity & paperwork block and scroll to the first
+   `data-kyc-gap` marker. Click-event passthrough callers are unaffected
+   (only strings count as focus).
+3. **Paperwork modal click-through (rough edge 1):** a missing row whose
+   source is the Numbers panel now renders an "Add →" button instead of the
+   static "missing" tag - it closes the paperwork modal AND the quick view,
+   then opens the drawer focused on the gaps (`onEditNumbers` wired in
+   advisor-modal via the existing openClientNumbers pattern).
+4. **Portal nudge lands on the gaps (rough edge 2):** "Complete details"
+   passes the 'identity' focus, so clients arrive with the right sections
+   open and scrolled to their first blank instead of the drawer top.
+
+Verified in-browser end-to-end: portal nudge → drawer opens wide, both
+identity blocks expanded, first gap in view; chip jump lands the section
+header right under the drawer chrome (fallback proven: smooth no-ops at
+150ms, instant lands by 400ms); advisor path roster → quick view → Paperwork
+→ "Add" → modal stack closes, focused drawer opens. Gate green
+(57 smoke / 238 calc / lint). Remaining seam on the board: nudge dismissibility.
+
+**Files:** `src/{store,numbers-panel,client-portal,paperwork,advisor-modal}.jsx`,
+`src/styles.css`, `docs/{ARCHITECTURE,TODO,sprint-log}.md`.
+
+---
 <!-- New sprints append above this line, newest first. -->
