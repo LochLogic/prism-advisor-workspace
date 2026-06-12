@@ -1620,6 +1620,45 @@ async function dbBulkCreateClients(rows) {
   } catch (e) { console.warn('[db] bulkCreateClients:', e.message); return null; }
 }
 
+/* ─── Encrypted client identifiers (SSN/ITIN/EIN, round 23 - migration 044) ──
+   The value NEVER touches the profile JSON, prints, exports, or AI contexts -
+   it lives encrypted in client_identifiers, written and read ONLY through the
+   `client-identifiers` edge function (AES-GCM server-side, IDENTIFIER_ENC_KEY).
+   The browser sees last4 for masked display; `reveal` is advisor-only and
+   audit-logged on every call. All methods no-op in demo and surface
+   { error: 'not_configured' } until migration 044 + the secret + the function
+   deploy land (UI shows a "pending setup" hint for that state). */
+async function _idInvoke(action, payload) {
+  if (!_sb()) return { error: 'demo' };
+  try {
+    const { data, error } = await _sb().functions.invoke('client-identifiers', { body: { action, ...payload } });
+    if (error) throw error;
+    if (data?.error) return { error: data.error };
+    return data;
+  } catch (e) {
+    console.warn('[db] clientIdentifiers:', e.message);
+    return { error: e.message };
+  }
+}
+// → [{ member_id, kind, last4, updated_at }] | null (demo / pending setup)
+async function dbGetIdentifiers(clientId) {
+  if (!isUUID(clientId)) return null;
+  const r = await _idInvoke('list', { client_id: clientId });
+  return r && !r.error ? (r.identifiers || []) : null;
+}
+async function dbSetIdentifier(clientId, memberId, value, kind = 'ssn') {
+  if (!isUUID(clientId)) return { error: 'demo' };
+  return await _idInvoke('set', { client_id: clientId, member_id: memberId, value, kind });
+}
+async function dbRevealIdentifier(clientId, memberId, kind = 'ssn') {
+  if (!isUUID(clientId)) return { error: 'demo' };
+  return await _idInvoke('reveal', { client_id: clientId, member_id: memberId, kind });
+}
+async function dbClearIdentifier(clientId, memberId, kind = 'ssn') {
+  if (!isUUID(clientId)) return { error: 'demo' };
+  return await _idInvoke('clear', { client_id: clientId, member_id: memberId, kind });
+}
+
 window.db = {
   getClients:          dbGetClients,
   getBookTotals:       dbGetBookTotals,
@@ -1693,6 +1732,10 @@ window.db = {
   updateAdvisorProfile: dbUpdateAdvisorProfile,
   getMyAdvisor:        dbGetMyAdvisor,
   aiAssist:            dbAiAssist,
+  getIdentifiers:      dbGetIdentifiers,
+  setIdentifier:       dbSetIdentifier,
+  revealIdentifier:    dbRevealIdentifier,
+  clearIdentifier:     dbClearIdentifier,
   getCalendarStatus:   dbGetCalendarStatus,
   connectCalendar:     dbConnectCalendar,
   disconnectCalendar:  dbDisconnectCalendar,

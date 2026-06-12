@@ -84,6 +84,119 @@ const US_STATES = [
 // NumInput (the draft-holding numeric input that never traps a leading zero)
 // moved to components.jsx so the phase tools share it - the rationale lives there.
 
+/* ─── Government ID (SSN) per household member - round 23 ──────────────
+   The key to custodian account paperwork (Schwab/Fidelity prefill track).
+   SECURITY RULES (do not relax):
+   · The full value NEVER enters the profile JSON / profile_versions / prints /
+     exports / AI contexts - it exists only in the transient input draft here
+     and AES-GCM-encrypted in client_identifiers (migration 044), written and
+     read solely through the `client-identifiers` edge function.
+   · The UI shows last4 ("•••-••-1234"). Reveal is ADVISOR-only and every
+     reveal is audit-logged server-side - it exists for paperwork moments.
+   · Demo households get an explainer, never storage. Live clients see a
+     "pending setup" hint until migration + IDENTIFIER_ENC_KEY + deploy land. */
+const IdentifierField = ({ clientId, memberId, record, live, configured, isAdvisor, onChanged }) => {
+  const { showToast } = useView();
+  const [editing, setEditing] = React.useState(false);
+  const [draft, setDraft] = React.useState('');
+  const [busy, setBusy] = React.useState(false);
+  const [revealed, setRevealed] = React.useState(null);   // transient - auto-hides
+  React.useEffect(() => {
+    if (!revealed) return;
+    const t = setTimeout(() => setRevealed(null), 15000);
+    return () => clearTimeout(t);
+  }, [revealed]);
+
+  const ROW = { display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, fontSize: 12 };
+  const hint = 'Stored encrypted, outside your plan data. Used to prefill custodian account paperwork. Only the last four digits display; a full reveal is advisor-only and recorded in the audit log.';
+
+  if (!live) {
+    return (
+      <div style={{ ...ROW, color: 'var(--ink-faint)' }}>
+        <Icons.Lock size={11} />
+        <span>SSN <FieldHint text={hint} /> · secure storage is available once this household is a live client</span>
+      </div>
+    );
+  }
+  if (!configured) {
+    // Live client but the encrypted store isn't provisioned yet - advisors see
+    // the setup pointer; clients see nothing (no half-built field to puzzle over).
+    return isAdvisor ? (
+      <div style={{ ...ROW, color: 'var(--ink-faint)' }}>
+        <Icons.Lock size={11} />
+        <span>SSN · secure storage pending setup (migration 044 + IDENTIFIER_ENC_KEY + function deploy)</span>
+      </div>
+    ) : null;
+  }
+
+  const save = async () => {
+    if (busy || !draft.trim()) return;
+    setBusy(true);
+    const r = await window.db.setIdentifier(clientId, memberId, draft);
+    setBusy(false);
+    if (r?.ok) { setDraft(''); setEditing(false); showToast(`SSN stored - ending ${r.last4}`); onChanged(); }
+    else showToast(r?.error === 'not_configured' ? 'Secure storage is not provisioned yet' : (r?.error || 'Could not store - try again'));
+  };
+  const reveal = async () => {
+    if (busy) return;
+    setBusy(true);
+    const r = await window.db.revealIdentifier(clientId, memberId);
+    setBusy(false);
+    if (r?.value) setRevealed(r.value.replace(/^(\d{3})(\d{2})(\d{4})$/, '$1-$2-$3'));
+    else showToast(r?.error || 'Could not reveal');
+  };
+  const clear = async () => {
+    if (busy) return;
+    setBusy(true);
+    const r = await window.db.clearIdentifier(clientId, memberId);
+    setBusy(false);
+    if (r?.ok) { setRevealed(null); showToast('SSN removed'); onChanged(); }
+    else showToast(r?.error || 'Could not remove');
+  };
+
+  if (editing || !record) {
+    return (
+      <div style={ROW}>
+        <span style={{ color: 'var(--ink-mute)', whiteSpace: 'nowrap' }}>SSN <FieldHint text={hint} /></span>
+        <input type="text" inputMode="numeric" autoComplete="off" placeholder="###-##-####"
+          value={draft} onChange={(e) => setDraft(e.target.value)} disabled={busy}
+          onKeyDown={(e) => { if (e.key === 'Enter') save(); }}
+          style={{ flex: 1, minWidth: 0, padding: '5px 8px', border: '1px solid var(--border-2)', borderRadius: 5,
+                   background: 'var(--surface)', color: 'var(--ink)', fontFamily: 'var(--sans)', fontSize: 12 }} />
+        <button className="px-btn px-btn-sm px-btn-primary" onClick={save} disabled={busy || !draft.trim()} style={{ padding: '3px 10px' }}>
+          {busy ? 'Saving…' : 'Save'}
+        </button>
+        {record && (
+          <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => { setEditing(false); setDraft(''); }} style={{ padding: '3px 8px' }}>
+            Cancel
+          </button>
+        )}
+      </div>
+    );
+  }
+  return (
+    <div style={ROW}>
+      <span style={{ color: 'var(--ink-mute)' }}>SSN <FieldHint text={hint} /></span>
+      <span className="px-mono" style={{ color: 'var(--ink)' }}>{revealed || `•••-••-${record.last4}`}</span>
+      {isAdvisor && !revealed && (
+        <button className="px-btn px-btn-sm px-btn-ghost" style={{ padding: '3px 8px' }} onClick={reveal}
+          disabled={busy} title="Show the full number for paperwork - this reveal is recorded in the audit log">
+          Reveal
+        </button>
+      )}
+      <button className="px-btn px-btn-sm px-btn-ghost" style={{ padding: '3px 8px' }} onClick={() => setEditing(true)}>
+        Update
+      </button>
+      {isAdvisor && (
+        <button className="px-btn px-btn-sm px-btn-ghost" style={{ padding: '3px 8px', color: 'var(--ink-faint)' }}
+          onClick={clear} title="Remove from secure storage">
+          Remove
+        </button>
+      )}
+    </div>
+  );
+};
+
 // NumField must be at module scope - defining it inside a component
 // causes React to remount the input on every render, losing focus mid-edit.
 const NumField = ({ label, path, value, prefix = '$', step = 100, onUpdate, hint }) => (
@@ -104,7 +217,20 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
           propertiesEquity, primaryMember, planningAge, grossMonthlyIncome, effectiveTakehome,
           ledgerGate, pendingChange, withdrawPendingChange, saveNow } = useProfile();
   const { activeClientId } = useView();
+  const { role } = useAuth();
   const hasIncomeSources = (profile.income.sources || []).length > 0;
+
+  // Encrypted per-member government IDs (round 23). `identifiers` is null for
+  // demo households AND while the secure store is unprovisioned - the field
+  // component renders the right explainer for each. Loaded once per client.
+  const isAdvisorViewer = role === 'advisor' || role === 'admin';
+  const isLiveClient = !!window.db?.isUUID(activeClientId);
+  const [identifiers, setIdentifiers] = React.useState(null);
+  const refreshIdentifiers = React.useCallback(() => {
+    if (!isLiveClient) { setIdentifiers(null); return; }
+    window.db.getIdentifiers(activeClientId).then(setIdentifiers);
+  }, [activeClientId, isLiveClient]);
+  React.useEffect(() => { refreshIdentifiers(); }, [refreshIdentifiers]);
   // Contributions section entry period - display-only; storage stays annual.
   const [contribFreq, setContribFreq] = React.useState('yr');
 
@@ -474,6 +600,10 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                     <DobSelects value={m.dateOfBirth || ''} onChange={(v) => updateMember(m.id, 'dateOfBirth', v)} />
                   </label>
                 </div>
+                <IdentifierField clientId={activeClientId} memberId={m.id}
+                  record={(identifiers || []).find(r => r.member_id === m.id && r.kind === 'ssn')}
+                  live={isLiveClient} configured={identifiers !== null}
+                  isAdvisor={isAdvisorViewer} onChanged={refreshIdentifiers} />
               </div>
             ))}
           </section>
@@ -1418,18 +1548,47 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                       <NumInput value={g.targetAmount} step="1000"
                         onCommit={(v) => updateGoal(g.id, 'targetAmount', v)} /></div>
                   </label>
-                  <label className="px-field">
-                    <span className="px-field-label">Saved so far</span>
-                    <div className="px-input-affix"><span className="px-affix">$</span>
-                      <NumInput value={g.currentFunding} step="1000"
-                        onCommit={(v) => updateGoal(g.id, 'currentFunding', v)} /></div>
-                  </label>
-                  <label className="px-field" style={{ gridColumn: '1 / -1' }}>
-                    <span className="px-field-label">Monthly contribution</span>
-                    <div className="px-input-affix"><span className="px-affix">$</span>
-                      <NumInput value={g.monthlyContribution} step="50"
-                        onCommit={(v) => updateGoal(g.id, 'monthlyContribution', v)} /></div>
-                  </label>
+                  {/* Retirement-type goals never hand-track funding - the retirement
+                      accounts ARE the funding (calc-core.resolveGoal, round 23). The
+                      linked figures mirror the round-20 cash-reserve account linking. */}
+                  {g.type === 'retirement' ? (() => {
+                    const rlink = PrismCalc.retirementGoalLink(profile.retirement);
+                    return (
+                      <React.Fragment>
+                        <label className="px-field">
+                          <span className="px-field-label">Saved so far
+                            <FieldHint text="Linked to your retirement accounts: IRA + 401(k) + Roth balances from the Retirement assets section. Update the balances there and this follows automatically." /></span>
+                          <div className="px-input-affix"><span className="px-affix">$</span>
+                            <input type="text" readOnly value={fmtN(rlink.currentFunding)}
+                              aria-label="Saved so far (linked to retirement balances)"
+                              style={{ color: 'var(--ink-mute)', background: 'var(--bg-elev)', cursor: 'default' }} /></div>
+                        </label>
+                        <label className="px-field" style={{ gridColumn: '1 / -1' }}>
+                          <span className="px-field-label">Monthly contribution
+                            <FieldHint text="Pre-filled from your annual IRA + 401(k) contributions. Type a number to override; clear it to go back to automatic." /></span>
+                          <div className="px-input-affix"><span className="px-affix">$</span>
+                            <NumInput value={g.monthlyContribution} step="50"
+                              placeholder={String(rlink.monthlyContribution || 0)}
+                              onCommit={(v) => updateGoal(g.id, 'monthlyContribution', v)} /></div>
+                        </label>
+                      </React.Fragment>
+                    );
+                  })() : (
+                    <React.Fragment>
+                      <label className="px-field">
+                        <span className="px-field-label">Saved so far</span>
+                        <div className="px-input-affix"><span className="px-affix">$</span>
+                          <NumInput value={g.currentFunding} step="1000"
+                            onCommit={(v) => updateGoal(g.id, 'currentFunding', v)} /></div>
+                      </label>
+                      <label className="px-field" style={{ gridColumn: '1 / -1' }}>
+                        <span className="px-field-label">Monthly contribution</span>
+                        <div className="px-input-affix"><span className="px-affix">$</span>
+                          <NumInput value={g.monthlyContribution} step="50"
+                            onCommit={(v) => updateGoal(g.id, 'monthlyContribution', v)} /></div>
+                      </label>
+                    </React.Fragment>
+                  )}
                 </div>
               </div>
             ))}

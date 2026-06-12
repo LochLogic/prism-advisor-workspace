@@ -228,13 +228,18 @@ QBR's Plan flags; (4) **prospect proposal packet - SHIPPED round 8**;
 download shipped 2026-05-29; the finding was stale). The standing theme: every
 analytic surface should end in a trackable next step, not a read-out.
 
-### Industry-advisor feedback (2026-06-11, round 22) - design tracks from a practitioner meeting
+### Industry-advisor feedback (2026-06-11, rounds 22-23) - the practitioner meeting tracks
 A working session with an industry advisor produced five UI fixes (shipped round 22:
 milestone-to-tool links in P03/P06, P06 tool reorder, promoted Numbers-panel section
 headers, the leading-zero input fix app-wide, RMD spelled out at remaining first
-mentions) plus seven items that need design before build:
+mentions) plus seven design items. **All seven were green-lit and built in round 23**
+(PR #74) - per-item status below; the only open ends are the human-queue setup steps
+(migration 044, IDENTIFIER_ENC_KEY, the gated edge deploy) and the Quik! business blanks:
 
-1. **Retirement as a goal vs. a first-class concept (Numbers panel · Goals).** The
+1. **Retirement as a goal vs. a first-class concept - SHIPPED round 23**
+   (`calc-core.resolveGoal`: a retirement-type goal's "Saved so far" reads live
+   IRA + 401(k) + Roth balances everywhere; read-only linked field + auto
+   contribution prefill in the drawer). Original thinking: The
    goal-type dropdown offers "Retirement", but retirement is already first-class
    (target retirement age, the retirement-readiness card, the whole Retirement-assets
    section) - so a hand-made retirement goal double-tracks the plan and its "Saved so
@@ -245,7 +250,9 @@ mentions) plus seven items that need design before build:
    contribution from the contributions section. Alternative considered: drop the
    option and point to the readiness card; rejected because clients think in one
    goal list. Small build once the call is confirmed with a design partner.
-2. **Phase 05 Asset Location tool - add human interaction.** Today it is a read-out
+2. **Phase 05 Asset Location tool - add human interaction - SHIPPED round 23**
+   (the (a) what-if lever + (b) InsightAction hook below; (c) custom-allocation
+   override remains the open refinement). Original thinking: it was a read-out
    (placement table + a static alpha band); the advisor's note "the tool doesn't do
    anything" is fair. **Recommendation, in order:** (a) a what-if lever - move a
    dollar amount between taxable / tax-deferred / tax-free and watch the placement
@@ -253,7 +260,10 @@ mentions) plus seven items that need design before build:
    three balances, so this is mostly UI); (b) the shipped `InsightAction` "Add to
    agenda" hook on the placement verdict, matching the other advanced tools; (c)
    later, a custom-allocation override vs. the risk-band default.
-3. **Documentation gates on phase milestones.** "Clients should not advance to later
+3. **Documentation gates on phase milestones - SHIPPED round 23** (exactly the
+   shape below; pilots live on P01 IPS / P03 liability schedule / P07 estate docs;
+   next candidates gate on e-sign state rather than vault presence).
+   "Clients should not advance to later
    stages without the required paperwork on file." **Shape:** a `requiresDoc:
    '<vault category>'` flag on milestone tasks; the checkbox locks ("Waiting on:
    statement upload") until a vault document of that category exists for the client,
@@ -262,7 +272,9 @@ mentions) plus seven items that need design before build:
    zero schema change since gate state is derivable. First candidates: liability
    schedule (P03), IPS/fiduciary acknowledgement (P01, could key off e-sign state
    instead), trust + beneficiary documents (P07).
-4. **Advisor CX roadmap (the firm's playbook).** Firms run a per-phase advisor
+4. **Advisor CX roadmap (the firm's playbook) - PHASE 1 SHIPPED round 23**
+   (default `advisorPlaybook` in data.jsx + the advisor-only per-phase card in the
+   client quick-view; phases 2-3 below remain the forward track). Firms run a per-phase advisor
    playbook - questions to ask, timelines to set client expectations, documents to
    gather, what comes next - to keep advisors on script and let the firm manage
    quality. This is the advisor-side mirror of the client phases and a true
@@ -271,16 +283,25 @@ mentions) plus seven items that need design before build:
    firm-admin authoring (a `firm_playbooks` table, per-phase checklist + notes,
    audit-logged) so each firm white-labels its own CX; (3) roll playbook completion
    into a firm-admin quality view (on-script % per advisor).
-5. **SSN capture in the Numbers panel.** Requested as "the key to all further account
-   management" now that security posture is strong. **Default-no for now, with a safe
-   path defined:** full SSNs must never enter the profile JSON blob (it reaches both
+5. **SSN capture in the Numbers panel - BUILT round 23** (founder overrode the
+   default-no on 2026-06-11: "this will be solidly needed for prefilling account
+   docs"). Shipped exactly on the safe path: migration 044 `client_identifiers`
+   (service-role-only, no RLS grants), the `client-identifiers` edge fn (AES-256-GCM
+   via `IDENTIFIER_ENC_KEY`, tenancy in code, set/reveal/clear audit-logged,
+   reveal advisor-only), per-member capture in the drawer with last4-only display.
+   Goes live after the human-queue setup steps. The original guardrails, which
+   still bind any future change: full SSNs must never enter the profile JSON blob (it reaches both
    browsers, persists in profile_versions history, prints, and AI-assist contexts).
    If/when a partner needs it for account paperwork: a separate `client_identifiers`
    table with column encryption (pgsodium/Vault), service-role-only reads via a
    dedicated edge function, last-4 display everywhere, full value released only into
    a signed paperwork flow, every reveal audit-logged, excluded from demo and AI
    surfaces. Only worth building *together with* item 6, which is what would consume it.
-6. **Custodian paperwork automation (Schwab/Fidelity).** The advisor's "quick" is
+6. **Custodian paperwork automation (Schwab/Fidelity) - POC SHIPPED round 23**
+   (`src/paperwork.jsx`: profile → account-opening field map, the quick-view
+   Paperwork modal showing prefilled/gated/missing per registration type, JSON
+   payload export, and the in-product Quik!-adapter blanks checklist; the live
+   adapter waits on the business blanks in TODO). Background: the advisor's "quick" is
    **Quik!** (Efficient Technology's forms engine) - the de-facto account-paperwork
    library both Schwab Advisor Services and Fidelity Institutional run on;
    "G-numbers" are Schwab firm/master-account identifiers that prefill those forms.
@@ -291,8 +312,11 @@ mentions) plus seven items that need design before build:
    route signatures through the existing DocuSign integration. Needs a design partner
    with a live Schwab or Fidelity relationship to test against - high "open the
    account from the planning session" wedge value when one asks.
-7. **Training & onboarding content.** Advisor preference: searchable PDFs.
-   **Recommendation:** author once in markdown (`docs/guides/`), render twice - (a) a
+7. **Training & onboarding content - PHASE 1 SHIPPED round 23** (the
+   recommendation below, built: `docs/guides/advisor-onboarding.md` "first 30
+   days" guide → searchable in-app Help drawer + printable `/guides/<slug>/`
+   page; next: more guides, per-surface walkthrough clips). The shape:
+   author once in markdown (`docs/guides/`), render twice - (a) a
    searchable in-app Help drawer, (b) downloadable searchable PDFs via the
    `build-whitepaper.mjs` pipeline pattern - so the PDF is always an artifact, never
    hand-maintained. Spine it on a "first 30 days" advisor onboarding checklist;

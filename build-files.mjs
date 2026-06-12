@@ -30,6 +30,7 @@ const sharedFiles = [
 // Advisor/admin app (served at /app).
 export const sourceFiles = [
   ...sharedFiles,
+  'src/paperwork.jsx',      // custodian account-paperwork POC (used by advisor-modal)
   'src/advisor-modal.jsx',
   'src/advisor-dashboard.jsx',
   'src/firm-admin.jsx',

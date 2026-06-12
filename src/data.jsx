@@ -1,7 +1,17 @@
 // Prism - domain data: Phases, mock client roster, alerts, flagged questions.
 // (In production these live in Supabase; see supabase/migrations/001_prism_schema.sql)
 
-/* ─── Wealth Horizons · 7 Phases (institutional RIA voice) ─────────── */
+/* ─── Wealth Horizons · 7 Phases (institutional RIA voice) ───────────
+   Task flags the portal understands (client-portal.jsx PhaseCard):
+     tool: 'discuss'   → "Discuss with advisor" flag button
+     tool: 'advanced'  → "See tool below" jump to the phase tools
+     seeTool: true     → adds the jump button WITHOUT replacing `tool`
+     panel: 'numbers'  → opens the household Numbers drawer
+     doc: '<key>'      → "View sample" planning document
+     requiresDoc: '<vault category>' → DOCUMENTATION GATE (round 23): the
+       checkbox locks until the client's vault holds a document of that
+       category (ips/statement/tax/estate/disclosure/other). Advisors can
+       check anyway - the override is recorded in the audit log. */
 let phasesData = [
   {
     id: 0, num: '01', title: 'Foundation', tag: 'Stabilization',
@@ -13,7 +23,7 @@ let phasesData = [
       { id: 'p0t2', label: 'Confirm essential expenses are current', tool: null },
       { id: 'p0t3', label: 'Establish autopay across recurring obligations', tool: null },
       { id: 'p0t4', label: 'Review and acknowledge fiduciary disclosure', tool: 'discuss', doc: 'fiduciary' },
-      { id: 'p0t5', label: 'Sign Investment Policy Statement (draft)', tool: 'discuss', doc: 'ips' },
+      { id: 'p0t5', label: 'Sign Investment Policy Statement (draft)', tool: 'discuss', doc: 'ips', requiresDoc: 'ips' },
     ],
     calcs: ['cashflow', 'freedomdate', 'networth'],
     metricLabel: 'Monthly outflow',
@@ -41,7 +51,7 @@ let phasesData = [
     icon: 'TrendDown',
     rationale: "Debt servicing above ~7% APR produces a <b>guaranteed, tax-free negative return</b> that no reasonable portfolio can systematically beat after fees, taxes, and sequence risk. We attack the highest-APR balance first, hold minimums on the rest, and roll the freed payment forward. Balance transfers and rate negotiations are the first move, not the last.",
     tasks: [
-      { id: 'p2t1', label: 'Compile complete liability schedule', tool: 'discuss', doc: 'liability' },
+      { id: 'p2t1', label: 'Compile complete liability schedule', tool: 'discuss', doc: 'liability', requiresDoc: 'statement' },
       { id: 'p2t2', label: 'Negotiate rate reductions on revolving credit', tool: 'discuss' },
       { id: 'p2t3', label: 'Execute balance transfers where economical', tool: 'discuss' },
       { id: 'p2t4', label: 'Apply avalanche payoff above 6% APR', tool: 'advanced' },
@@ -111,7 +121,7 @@ let phasesData = [
       { id: 'p6t2', label: 'Size Roth conversions to bracket headroom', tool: 'advanced' },
       { id: 'p6t3', label: 'Set the tax-efficient withdrawal sequence', tool: 'advanced' },
       { id: 'p6t4', label: 'Bridge ACA coverage to Medicare (if applicable)', tool: 'discuss' },
-      { id: 'p6t5', label: 'Execute revocable trust + beneficiary review', tool: 'discuss' },
+      { id: 'p6t5', label: 'Execute revocable trust + beneficiary review', tool: 'discuss', requiresDoc: 'estate' },
       { id: 'p6t6', label: 'Run Estate & Generational Wealth model', tool: 'advanced' },
     ],
     calcs: ['rothladder', 'rothwindow', 'withdrawalseq', 'rmd', 'ssclaiming', 'estate'],
@@ -430,10 +440,103 @@ const estateStatusView = (status) => {
   }
 };
 
+/* ─── Advisor CX playbook (round 23 - framework pre-step) ──────────────
+   The advisor-side mirror of the client phases: what to ASK, what
+   EXPECTATIONS to set, what to GATHER, and the CADENCE to promise - the
+   per-phase script a firm uses to keep advisors consistent and quality
+   measurable. Industry-advisor ask, 2026-06-11 meeting.
+
+   FRAMEWORK SHAPE - read before extending:
+   - This object is the DEFAULT (Prism-authored) playbook. The planned
+     phase 2 of the track stores firm-authored overrides in a
+     `firm_playbooks` table keyed the same way (phaseId → entry) and
+     deep-merges them over these defaults at load, so keep this shape
+     stable and additive: { questions: string[], expectations: string,
+     gather: string[], cadence: string }.
+   - Rendered ADVISOR-ONLY: the Playbook card in the client quick-view
+     (advisor-modal.jsx, advisor bundle). Never reference it from portal
+     files - the client must not see the firm's internal script.
+   - Phase 3 of the track rolls completion into a firm-admin quality view;
+     nothing here should assume that exists yet. */
+const advisorPlaybook = {
+  0: { // Foundation
+    questions: [
+      'Walk me through a normal month of spending - what surprises you when you look back?',
+      'Is any income irregular (bonus, commission, self-employment)? How do you smooth it?',
+      'Which bills are on autopay today, and which still need a manual push?',
+      'Where do your statements and tax documents live right now?',
+    ],
+    expectations: 'We map the household ledger together in the first 30 days. Nothing gets optimized until cash flow is stable and visible - that is deliberate, and it is the foundation every later phase stands on.',
+    gather: ['90 days of bank statements', 'Most recent pay stubs (each earner)', 'Signed fiduciary disclosure', 'IPS draft acknowledgement'],
+    cadence: 'Kickoff meeting, a 2-week ledger review, then quarterly refreshes once the worksheet holds.',
+  },
+  1: { // Liquidity Reserve
+    questions: [
+      'How stable is each income source over a 12-month view?',
+      'How many months of cover lets you sleep - three, six, twelve?',
+      'Any large planned expenses in the next 18 months (car, roof, tuition)?',
+    ],
+    expectations: 'The reserve is insurance, not an investment - expect boring returns by design. Six months of essentials is the default; variable income or equity-heavy compensation extends it to twelve.',
+    gather: ['HYSA / money-market statements', 'Employer match documentation', 'Recurring-obligations list with minimums'],
+    cadence: 'Monthly funding check-ins until three months are covered, then semi-annual reviews.',
+  },
+  2: { // Liability Optimization
+    questions: [
+      'Is the liability schedule complete - including family loans and 0% promos that expire?',
+      'When did you last check rates or ask a card issuer for a reduction?',
+      'Would a balance transfer with a fee but a 0% window change the math for you?',
+    ],
+    expectations: 'We retire balances in strict APR order (avalanche) while holding minimums elsewhere, and we negotiate or transfer rates before we brute-force payments. Progress is mechanical, not motivational.',
+    gather: ['Statement for every liability (APR + minimum visible)', 'Credit report pull', 'Promo-rate expiry dates'],
+    cadence: 'Quarterly debt-schedule reviews until everything above 6% APR is gone.',
+  },
+  3: { // Tax-Advantaged Foundations
+    questions: [
+      'Does the current health plan qualify as an HDHP this plan year?',
+      'Are you paying medical costs from the HSA today, or could cash flow carry them?',
+      'Where are receipts kept - could you reimburse yourself from records a decade from now?',
+    ],
+    expectations: 'The HSA is treated as a stealth retirement account: fund it fully, invest the balance, pay current medical costs from cash flow, archive receipts for tax-free reimbursement later.',
+    gather: ['Benefits guide / plan summary', 'HSA statement', 'Last year’s 1040 + W-2s'],
+    cadence: 'An annual benefits-window session (Oct-Nov) plus a tax-season review of the 1040.',
+  },
+  4: { // Retirement Sleeve Construction
+    questions: [
+      'Any old 401(k)s or IRAs scattered at former employers?',
+      'What is your instinct on Roth vs. traditional - and is income near a phase-out?',
+      'Does your plan allow after-tax contributions (mega-backdoor room)?',
+    ],
+    expectations: 'Asset LOCATION matters more than fund selection at this stage: tax-inefficient assets live in tax-deferred space, broad index funds anchor taxable and Roth. We re-fit placement annually, not constantly.',
+    gather: ['Every retirement account statement', 'Plan fund menu + fee disclosure', 'Beneficiary designations (each account)'],
+    cadence: 'Annual asset-location review plus a January contribution-priority checkpoint.',
+  },
+  5: { // Capital Deployment
+    questions: [
+      'Lump-sum or dollar-cost averaging - which lets you stay invested through a drawdown?',
+      'Any equity compensation: grants, vesting schedule, trading windows, a 10b5-1 plan?',
+      'Is charitable giving part of the picture (appreciated shares beat cash)?',
+    ],
+    expectations: 'Taxable deployment is systematic: automated monthly buys, tax-loss harvesting in drawdowns with wash-sale discipline, and a written agreement on what we do (nothing) when markets fall.',
+    gather: ['Taxable brokerage statements', 'RSU / option grant documents', 'Employer trading-window calendar'],
+    cadence: 'Quarterly portfolio reviews; harvest sweeps when drawdowns open the opportunity.',
+  },
+  6: { // Legacy & Drawdown
+    questions: [
+      'What does a successful transfer look like - to whom, when, with how much control?',
+      'Are the heirs prepared - do they know the advisors, the accounts, the intent?',
+      'How do you think about long-term care: self-fund, insure, or wait-and-see?',
+    ],
+    expectations: 'Withdrawal sequencing and Roth conversions are multi-year projects measured against bracket headroom, IRMAA, and the estate exemption - not one-off transactions. Estate documents get re-reviewed every 3-5 years.',
+    gather: ['Will / trust / POA / directive (vault copies)', 'Beneficiary audit across every account', 'Social Security statements (each spouse)', 'Pension / annuity contracts'],
+    cadence: 'Annual conversion-window sizing in Nov-Dec, plus the 3-5 year estate review cycle.',
+  },
+};
+
 /* ─── "Current user" - Robert & Eileen Marsh, viewed in Client Portal ─ */
 const currentClientId = 'c001';
 
 window.phasesData = phasesData;
+window.advisorPlaybook = advisorPlaybook;
 window.advisor = advisor;
 window.clientsData = clientsData;
 window.alertsData = alertsData;

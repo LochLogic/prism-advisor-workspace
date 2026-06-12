@@ -491,6 +491,9 @@ const DocumentVault = ({ clientId, role, firmId, advisorId, demoSeed = [], empty
       const req = form.requestId ? requests.find(r => r.id === form.requestId) : null;
       if (req) await resolveRequest(req, { note: `Uploaded: ${row.title}` });
       setDocs(prev => [row, ...(prev || [])]); setForm(null); if (fileRef.current) fileRef.current.value = '';
+      // Milestone documentation gates (round 23) watch the vault by category -
+      // announce the arrival so gated checkboxes unlock without a reload.
+      window.dispatchEvent(new CustomEvent('px:document-uploaded', { detail: { documentId: row.id, category: row.category, clientId } }));
     }
     else setErr('Upload failed - please try again.');
   };

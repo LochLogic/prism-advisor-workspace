@@ -23,25 +23,15 @@ independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
   Supabase Auth toggle (your queue).*
 - [ ] **Zapier / public API.**
 
-### Round-22 industry-advisor feedback (design tracks - full thinking in ROADMAP "Industry-advisor feedback")
-The five straightforward UI fixes from the 2026-06-11 meeting shipped in round 22.
-These are the think-items, each buildable once you confirm the recommended shape:
-- [ ] **Smart Retirement goal** - when a Goals item's type is Retirement, auto-link
-  "Saved so far" to the household's IRA + 401(k) + Roth balances (read-only, like
-  the round-20 reserve linking) and pre-fill the monthly contribution. *↔ confirm
-  the keep-but-link call (vs. dropping the Retirement option) and I'll build it.*
-- [ ] **Asset Location interactivity (P05)** - what-if lever moving dollars between
-  taxable / deferred / tax-free with live re-fit, plus the "Add to agenda" hook.
-  Buildable now; no decision needed.
-- [ ] **Documentation gates on milestones** - `requiresDoc` flag locks a milestone
-  checkbox until a vault doc of the category is on file; advisor override, audited.
-  *↔ confirm which milestones gate first (P03 liability schedule is the cleanest pilot).*
-- [ ] **Advisor CX playbook, phase 1** - default per-phase advisor checklist
-  (questions / timelines / docs / expectations) as an advisor-only card in the
-  client quick-view. Content draft + UI; firm-admin authoring is phase 2.
-- [ ] **Training & onboarding, phase 1** - `docs/guides/` markdown source → in-app
-  Help drawer + searchable PDF artifact (whitepaper-pipeline pattern), spined on a
-  "first 30 days" checklist.
+### Round-23 follow-on build items (the meeting tracks all shipped; these are the nexts)
+- [ ] **CX playbook phase 2** - firm-admin authoring of the per-phase playbook
+  (`firm_playbooks` table, deep-merged over the data.jsx defaults; framework
+  comment in data.jsx documents the contract). Phase 3 = quality view.
+- [ ] **Quik! adapter** - implement `PAPERWORK_ADAPTERS.quik.submit(payload)` the
+  moment the business blanks (your queue) exist; route signatures through the
+  existing DocuSign flow.
+- [ ] **More guides** - portal guide for clients, firm-admin guide; the pipeline
+  (docs/guides → Help drawer + printable page) is one markdown file per guide.
 - [ ] **Stripe webhook retry-storm hardening** (C0) - `stripe-webhook` returns HTTP
   400 for any exception → Stripe retries ~3 days even for unrecoverable cases. Return
   200 for permanent/unprocessable, 4xx/5xx only for retryable. *↔ money-adjacent;
@@ -182,15 +172,29 @@ against it:
   round-16 OG image. Note: the already-published launch post keeps its old
   snapshot; delete + re-share it if you want the new branding there.
 
-### Round-22 decisions only you can make (from the industry-advisor meeting)
-- [ ] **SSN capture: go / no-go.** My recommendation is default-no until the
-  custodian-paperwork track has a partner (the safe storage path is specced in
-  ROADMAP "Industry-advisor feedback" item 5). If you want it sooner, say so and
-  I'll build the encrypted-identifier path - it is real work, so it needs the call.
-- [ ] **Custodian paperwork (Quik!/Schwab/Fidelity): business contact.** The
-  integration needs a Quik! Forms API relationship and a design partner with a
-  live Schwab or Fidelity custody relationship (their G-number/master account) to
-  test against. When either exists, I take the technical track from there.
+### Round-23 setup - turns the encrypted SSN store ON (code is merged, feature shows "pending setup" until these land)
+- [ ] **Apply migration 044** in the Supabase SQL editor:
+  [`044_client_identifiers.sql`](../supabase/migrations/044_client_identifiers.sql) -
+  the service-role-only encrypted identifier table (no RLS grants by design).
+- [ ] **Set the `IDENTIFIER_ENC_KEY` edge secret** - Supabase → Edge Functions →
+  Secrets. Any long random string (32+ chars; e.g. PowerShell:
+  `-join ((1..48) | ForEach-Object { '{0:x}' -f (Get-Random -Max 16) })`).
+  Save it in your password manager - losing it orphans stored values (they can
+  be re-entered, never recovered).
+- [ ] **Run the gated edge deploy** - `gh workflow run deploy.yml -f confirm=deploy`
+  (the fn list now includes `client-identifiers`; config.toml carries its
+  verify_jwt). After all three: the SSN rows in the Numbers panel go live and
+  the Paperwork modal's SSN fields flip from "missing" to "gated".
+
+### Round-23 business blanks - unlocks the Quik!/custodian adapter (POC is in-product: quick view → Paperwork)
+- [ ] **Quik! Forms API relationship** - sales@quikforms.com / quikforms.com:
+  customer id + API key, and the per-form field dictionaries.
+- [ ] **Custodian routing ids** - the firm's Schwab G-number (master account)
+  and/or Fidelity firm id, from your (or a design partner's) custody relationship.
+- [ ] **Pick the first form set** - e.g. Schwab Individual/Joint/IRA new-account;
+  tell me and I map the field dictionaries.
+- [ ] **E-sign routing decision** - Quik!'s built-in e-sign vs. Prism's existing
+  DocuSign envelope flow (I recommend our DocuSign flow: one audit trail).
 
 ### Optional / as-needed
 - [ ] Finish the **GSC search-digest** setup (add the service account to the Search
