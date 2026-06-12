@@ -2,8 +2,9 @@
 
 > Public-docs research pass, 2026-06-12. No API key used; everything below comes from
 > Quik!'s public Confluence (efficienttech.atlassian.net), support site, and partner docs.
-> Consumed by `src/paperwork.jsx` (`QUIK_FIELDS` map + payload `quik` block). The gating
-> next step is the sales contact (customer id + API key) - see TODO round-23 blanks.
+> Consumed by `src/paperwork.jsx` (the `_qf` mappings at each field + the payload `quik`
+> block + `PAPERWORK_PACKAGES`). The gating next step is the sales contact
+> (customer id + API key) - see TODO round-23 blanks.
 
 ## 1. The field naming convention
 
@@ -125,7 +126,20 @@ citizenship, employment/occupation, suitability (annual income / net worth), sta
 be split into `FName`/`LName` (Prism stores one name string; the split is best-effort
 until member first/last capture exists).
 
-## 7. What this unlocks / still blocks
+## 7. UX decision: action packages, not a forms list
+
+Decided with the founder 2026-06-12: the advisor-facing picker is organized by
+ACTION ("Open account", "Transfer assets in (ACAT)", "Update beneficiaries",
+"Money movement"), each resolving to a bundle of Form IDs generated in one Execute
+call (`QuikFormID` accepts a list). `PAPERWORK_PACKAGES` in `src/paperwork.jsx`
+encodes the slots; real Form IDs come from `GET /forms/search` once credentialed,
+and the full picker flow (multi-select, Create, PDF preview, DocuSign routing) is
+deliberately deferred until then so it is built once against the real catalog.
+Form search remains the long-tail fallback. Missing prefill data does not block
+generation: Quik! fields can stay recipient-editable inside DocuSign, so clients
+complete their own fields in the envelope.
+
+## 8. What this unlocks / still blocks
 
 Done now: payload exports Execute-shaped `FormFields`, the field map lives in code, e-sign
 direction validated. Still blocked on the sales contact (TODO round-23): customer id +
