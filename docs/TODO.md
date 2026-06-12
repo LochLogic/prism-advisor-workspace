@@ -172,19 +172,20 @@ against it:
   round-16 OG image. Note: the already-published launch post keeps its old
   snapshot; delete + re-share it if you want the new branding there.
 
-### Round-23 setup - turns the encrypted SSN store ON (code is merged, feature shows "pending setup" until these land)
-- [ ] **Apply migration 044** in the Supabase SQL editor:
-  [`044_client_identifiers.sql`](../supabase/migrations/044_client_identifiers.sql) -
-  the service-role-only encrypted identifier table (no RLS grants by design).
-- [ ] **Set the `IDENTIFIER_ENC_KEY` edge secret** - Supabase → Edge Functions →
-  Secrets. Any long random string (32+ chars; e.g. PowerShell:
-  `-join ((1..48) | ForEach-Object { '{0:x}' -f (Get-Random -Max 16) })`).
-  Save it in your password manager - losing it orphans stored values (they can
-  be re-entered, never recovered).
-- [ ] **Run the gated edge deploy** - `gh workflow run deploy.yml -f confirm=deploy`
-  (the fn list now includes `client-identifiers`; config.toml carries its
-  verify_jwt). After all three: the SSN rows in the Numbers panel go live and
-  the Paperwork modal's SSN fields flip from "missing" to "gated".
+### Round-23 setup - DONE 2026-06-12 (Claude-applied with your authorization)
+- [x] ~~Migration 044~~ applied via the Management API and verified (RLS on,
+  zero policies, zero anon/authenticated grants - service-role only).
+- [ ] **Save the `IDENTIFIER_ENC_KEY`** Claude generated into your password
+  manager - it was printed once in the 2026-06-12 chat session. Losing it
+  orphans stored SSN values (re-enterable, never recoverable). *This is the
+  only piece left for a human.*
+- [x] ~~Gated edge deploy~~ run 27424899440 green; `client-identifiers` ACTIVE.
+  The SSN rows in the Numbers panel and the Paperwork modal's gated fields are
+  LIVE for real clients now.
+
+*Operating-model change (2026-06-12, your call): repo migrations are now
+Claude-applied to prod via the Management API after PR merge - the PR is the
+approval gate. `db push` stays forbidden (unmanaged ledger).*
 
 ### Round-23 business blanks - unlocks the Quik!/custodian adapter (POC is in-product: quick view → Paperwork)
 - [ ] **Quik! Forms API relationship** - sales@quikforms.com / quikforms.com:
