@@ -28,8 +28,10 @@ independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
   (`firm_playbooks` table, deep-merged over the data.jsx defaults; framework
   comment in data.jsx documents the contract). Phase 3 = quality view.
 - [ ] **Quik! adapter** - implement `PAPERWORK_ADAPTERS.quik.submit(payload)` the
-  moment the business blanks (your queue) exist; route signatures through the
-  existing DocuSign flow.
+  moment the business blanks (your queue) exist; the payload already emits
+  Execute-shaped `quik.formFields` ([quik-field-taxonomy.md](quik-field-taxonomy.md)),
+  so the adapter is an edge fn: POST /qfe/execute/pdf + SSN release server-side,
+  then route signatures through the existing DocuSign flow (Self Service model).
 - [ ] **More guides** - portal guide for clients, firm-admin guide; the pipeline
   (docs/guides → Help drawer + printable page) is one markdown file per guide.
 - [ ] **Stripe webhook retry-storm hardening** (C0) - `stripe-webhook` returns HTTP
@@ -188,8 +190,12 @@ Claude-applied to prod via the Management API after PR merge - the PR is the
 approval gate. `db push` stays forbidden (unmanaged ledger).*
 
 ### Round-23 business blanks - unlocks the Quik!/custodian adapter (POC is in-product: quick view → Paperwork)
+*Taxonomy research done 2026-06-12 from public docs ([quik-field-taxonomy.md](quik-field-taxonomy.md)):
+naming convention + role list mapped, payload now exports Execute-shaped FormFields,
+e-sign Self Service model validated for our DocuSign flow. The blanks below still gate the live adapter.*
 - [ ] **Quik! Forms API relationship** - sales@quikforms.com / quikforms.com:
-  customer id + API key, and the per-form field dictionaries.
+  customer id + API key (ask for UAT access first), and the per-form field
+  dictionaries (GET /forms/fields) to confirm the names flagged unverified.
 - [ ] **Custodian routing ids** - the firm's Schwab G-number (master account)
   and/or Fidelity firm id, from your (or a design partner's) custody relationship.
 - [ ] **Pick the first form set** - e.g. Schwab Individual/Joint/IRA new-account;
