@@ -49,6 +49,14 @@ independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
   onboarding APIs = Tier 3 at scale. Full rationale in ROADMAP item 6.
 - [ ] **More guides** - portal guide for clients, firm-admin guide; the pipeline
   (docs/guides → Help drawer + printable page) is one markdown file per guide.
+- [ ] **Round-25 KYC UX polish** (CX review 2026-06-12; capture workflow itself is
+  shipped and live - these are navigation seams):
+  (a) paperwork modal "missing" rows → click-through that closes the modal and
+  opens the Numbers drawer (today the advisor detours manually);
+  (b) the portal nudge's "Complete details" should auto-expand the Identity &
+  paperwork sections and scroll to the first gap (today it lands at the drawer top);
+  (c) make the nudge card dismissible (or threshold it) - a household stuck at
+  17/18 over one field sees it forever.
 - [ ] **Stripe webhook retry-storm hardening** (C0) - `stripe-webhook` returns HTTP
   400 for any exception → Stripe retries ~3 days even for unrecoverable cases. Return
   200 for permanent/unprocessable, 4xx/5xx only for retryable. *↔ money-adjacent;
