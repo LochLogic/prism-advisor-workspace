@@ -9,13 +9,20 @@
 // engine would consume. It does NOT submit to Quik!/Schwab/Fidelity yet - the
 // adapter registry below documents precisely which blanks unlock that.
 //
-// HOW THE REAL INTEGRATION SLOTS IN (keep this comment current):
+// HOW THE REAL INTEGRATION SLOTS IN (keep this comment current; full research
+// notes in docs/quik-field-taxonomy.md, public-docs pass 2026-06-12):
 //   Quik! (Efficient Technology Inc) is the forms engine both Schwab Advisor
-//   Services and Fidelity Institutional ride on. Their API takes a form id +
-//   a field dictionary and returns a prefilled, e-sign-ready package; Prism
-//   already has DocuSign plumbing (docusign-envelope / docusign-connect) for
-//   the signature leg. `buildPaperworkPayload` is the field dictionary
-//   producer; an adapter's job is only transport + form-id mapping.
+//   Services and Fidelity Institutional ride on. Generation is one POST to
+//   https://websvcs.quikforms.com/rest/quikformsengine/qfe/execute/pdf
+//   (UAT: uatwebsvcs...; OAuthToken header) with a body of
+//   { QuikFormID, FormFields: [{ FieldName, FieldValue }], ... } where
+//   FieldName follows Quik!'s `<n><role>.<Base>` taxonomy (1own.FName,
+//   1acc.Reg). `ForSign: true` returns a signable PDF; under their DocuSign
+//   "Self Service" model Prism's own docusign-envelope flow then owns the
+//   envelope (one audit trail). `buildPaperworkPayload` already emits the
+//   Execute-shaped `quik.formFields` block; an adapter's job is only
+//   transport + per-custodian QuikFormID mapping, server-side (the SSN is
+//   released by the client-identifiers edge fn directly into that call).
 //
 // ADVISOR BUNDLE ONLY - loaded after store/components, before advisor-modal
 // (build-files.mjs). Never reference from portal files.
@@ -31,13 +38,15 @@ const PAPERWORK_ADAPTERS = {
   },
   quik: {
     id: 'quik', label: 'Quik! Forms API (Schwab / Fidelity library)', ready: false,
-    // The pieces the founder must supply before this adapter can be built:
+    // Taxonomy research done 2026-06-12 (docs/quik-field-taxonomy.md) - the payload
+    // below already exports Execute-shaped FormFields. The pieces the founder must
+    // still supply before this adapter can be built:
     missing: [
-      'Quik! Forms API agreement + credentials (customer id, API key) - sales@quikforms.com / quikforms.com',
+      'Quik! Forms API agreement + credentials (customer id, OAuthToken; ask for UAT first) - sales@quikforms.com',
       'Custodian relationship: the firm\'s Schwab master-account "G-number" (and/or Fidelity firm id) for form routing',
-      'Per-custodian form ids to support first (e.g. Schwab Individual/Joint/IRA new-account, Fidelity equivalents)',
-      'Field-dictionary mapping confirmation against Quik\'s field names (their docs ship a per-form dictionary)',
-      'DocuSign envelope routing decision: Quik\'s built-in e-sign vs. Prism\'s existing docusign-envelope flow',
+      'Quik! Form IDs for the first form set - discover via GET /forms/search once credentialed (e.g. Schwab Individual/Joint/IRA new-account)',
+      'Field-dictionary confirmation (GET /forms/fields) for the names the export flags as unverified (* in the rows below)',
+      'E-sign: adopt Quik!\'s DocuSign Self Service model - Quik! returns the signable PDF, Prism\'s docusign-envelope flow owns the envelope (confirm the API tier includes it)',
       'Compliance sign-off: SSN release into the form payload happens server-side only (client-identifiers edge fn)',
     ],
   },
@@ -60,12 +69,19 @@ const PAPERWORK_CUSTODIANS = [
   { value: 'fidelity', label: 'Fidelity',        firmIdLabel: 'Fidelity firm id (G-number equivalent)' },
 ];
 
-// One prefill field: { key, label, value, source, status: 'ok'|'missing'|'gated' }
+// One prefill field: { key, label, value, source, status: 'ok'|'missing'|'gated', quik }
 // 'gated' = Prism holds it but releases it only server-side (SSN full value).
-const _pwField = (key, label, value, source, status) => ({
+// `quik` = the Quik! taxonomy mapping for the field: an array of
+// { name, value, verified } because one Prism field can fan out to several
+// Quik! names (full name -> 1own.FName + 1own.LName). verified:false = the
+// name follows Quik!'s convention but is NOT yet confirmed against a per-form
+// dictionary (GET /forms/fields) - see docs/quik-field-taxonomy.md §6.
+const _pwField = (key, label, value, source, status, quik) => ({
   key, label, value: value ?? '', source,
   status: status || (value != null && value !== '' ? 'ok' : 'missing'),
+  quik: quik || null,
 });
+const _qf = (name, value, verified) => ({ name, value: value ?? '', verified: !!verified });
 
 /* ─── The payload builder - what Prism can prefill TODAY ─────────────────
    identifiers = rows from db.getIdentifiers() (last4 only - the full value
@@ -82,19 +98,32 @@ function buildPaperworkPayload({ client, profile, identifiers, custodian, accoun
     : members;
   const ids = Array.isArray(identifiers) ? identifiers : [];
 
-  const ownerBlocks = owners.map(m => {
+  const ownerBlocks = owners.map((m, idx) => {
     const ssn = ids.find(r => r.member_id === m.id && r.kind === 'ssn');
+    const role = `${idx + 1}own`; // Quik! role instance: 1own, 2own, ... (max 50)
+    // Quik! wants FName/LName; Prism stores one name string. Best-effort split
+    // (first word / last word, middles dropped) until first/last capture exists.
+    const nameParts = String(m.name || '').trim().split(/\s+/).filter(Boolean);
+    const fname = nameParts[0] || '';
+    const lname = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
     return {
       memberId: m.id,
+      quikRole: role,
       fields: [
-        _pwField('full_name', 'Full legal name', m.name, 'Numbers panel · Household'),
-        _pwField('date_of_birth', 'Date of birth', m.dateOfBirth, 'Numbers panel · Household'),
+        _pwField('full_name', 'Full legal name', m.name, 'Numbers panel · Household', undefined,
+          [_qf(`${role}.FName`, fname, true), _qf(`${role}.LName`, lname, true)]),
+        _pwField('date_of_birth', 'Date of birth', m.dateOfBirth, 'Numbers panel · Household', undefined,
+          [_qf(`${role}.DOB`, m.dateOfBirth, false)]),
         _pwField('ssn', 'Social Security number',
           ssn ? `•••-••-${ssn.last4} (released at submission)` : '',
-          'Encrypted identifier store', ssn ? 'gated' : 'missing'),
-        _pwField('residential_address', 'Residential address', '', 'NOT CAPTURED YET - profile gap'),
-        _pwField('employment', 'Employer / occupation', '', 'NOT CAPTURED YET - profile gap'),
-        _pwField('citizenship', 'Citizenship', '', 'NOT CAPTURED YET - profile gap'),
+          'Encrypted identifier store', ssn ? 'gated' : 'missing',
+          [_qf(`${role}.SSN`, '', true)]),
+        _pwField('residential_address', 'Residential address', '', 'NOT CAPTURED YET - profile gap', undefined,
+          [_qf(`${role}.H.Addr1`, '', true)]),
+        _pwField('employment', 'Employer / occupation', '', 'NOT CAPTURED YET - profile gap', undefined,
+          [_qf(`${role}.Emp.Occupation`, '', false)]),
+        _pwField('citizenship', 'Citizenship', '', 'NOT CAPTURED YET - profile gap', undefined,
+          [_qf(`${role}.Citizenship`, '', false)]),
       ],
     };
   });
@@ -104,30 +133,57 @@ function buildPaperworkPayload({ client, profile, identifiers, custodian, accoun
   const invested = (Number(p.taxable?.balance) || 0)
     + (Number(p.retirement?.iraBalance) || 0) + (Number(p.retirement?.fourohonekBalance) || 0)
     + (Number(p.retirement?.rothBalance) || 0) + (Number(p.retirement?.hsaBalance) || 0);
+  const annualIncome = grossMonthly > 0 ? Math.round(grossMonthly * 12) : (Number(p.income?.monthlyTakehome) || 0) * 12 || '';
 
+  // NOTE on 1acc.RegType: the registration-type checkbox is lookup-coded with
+  // per-form positional values (docs/quik-field-taxonomy.md §3) - emit it only
+  // once the per-form dictionary lands; 1acc.Reg (title text) is safe today.
   const account = [
-    _pwField('custodian', 'Custodian', custDef.label, 'Selected'),
-    _pwField('registration', 'Registration', typeDef.label, 'Selected'),
+    _pwField('custodian', 'Custodian', custDef.label, 'Selected'), // routing choice, not a form field
+    _pwField('registration', 'Registration', typeDef.label, 'Selected', undefined,
+      [_qf('1acc.Reg', typeDef.label, true)]),
     _pwField('household', 'Household / account title', client?.name, 'Client record'),
-    ...(typeDef.needsEin ? [_pwField('trust_ein', 'Trust EIN', '', 'Encrypted identifier store (kind: ein) - capture when the trust docs land')] : []),
-    _pwField('annual_income', 'Annual income (est.)', grossMonthly > 0 ? Math.round(grossMonthly * 12) : (Number(p.income?.monthlyTakehome) || 0) * 12 || '', 'Numbers panel · Income'),
-    _pwField('net_worth', 'Investable assets (est.)', invested || '', 'Numbers panel · balances'),
+    ...(typeDef.needsEin ? [_pwField('trust_ein', 'Trust EIN', '', 'Encrypted identifier store (kind: ein) - capture when the trust docs land', undefined,
+      [_qf('1trust.TaxID', '', false)])] : []),
+    _pwField('annual_income', 'Annual income (est.)', annualIncome, 'Numbers panel · Income', undefined,
+      [_qf('1own.AnnualIncome', annualIncome, false)]),
+    _pwField('net_worth', 'Investable assets (est.)', invested || '', 'Numbers panel · balances', undefined,
+      [_qf('1own.NetWorth', invested || '', false)]),
     _pwField('risk_profile', 'Risk profile', p.risk?.answers?.length ? 'On file (questionnaire complete)' : '', 'Risk questionnaire'),
-    _pwField('filing_state', 'State (tax filing)', p.taxes?.state, 'Numbers panel · Planning & tax'),
+    _pwField('filing_state', 'State (tax filing)', p.taxes?.state, 'Numbers panel · Planning & tax', undefined,
+      [_qf('1own.H.State', p.taxes?.state, false)]),
   ];
 
   const firm = [
-    _pwField('firm_name', 'Firm', firmName, 'Firm record'),
-    _pwField('advisor', 'Advisor of record', advisorName, 'Advisor record'),
-    _pwField('firm_custodian_id', custDef.firmIdLabel, '', 'BLANK - founder queue (custodian relationship)'),
+    _pwField('firm_name', 'Firm', firmName, 'Firm record', undefined,
+      [_qf('1ria.FirmName', firmName, false)]),
+    _pwField('advisor', 'Advisor of record', advisorName, 'Advisor record', undefined,
+      [_qf('1rep.FullName', advisorName, false)]),
+    _pwField('firm_custodian_id', custDef.firmIdLabel, '', 'BLANK - founder queue (custodian relationship)', undefined,
+      [_qf('1macc.AcctNum', '', false)]), // macc = master-account role: the G-number's likely home (confirm)
   ];
 
   const allFields = [...ownerBlocks.flatMap(o => o.fields), ...account, ...firm];
+
+  // The Execute-call shape (docs/quik-field-taxonomy.md §4): the live adapter
+  // posts { QuikFormID, FormFields } to /qfe/execute/pdf server-side, appending
+  // the SSN FormFields (gatedFields) from the client-identifiers edge fn.
+  const quikEntries = allFields.flatMap(f => (f.quik || []).map(q => ({ ...q, status: f.status })));
+  const quik = {
+    service: 'POST https://websvcs.quikforms.com/rest/quikformsengine/qfe/execute/pdf',
+    quikFormId: null, // founder queue: per-custodian/registration Form IDs via GET /forms/search
+    formFields: quikEntries
+      .filter(q => q.status === 'ok' && q.value !== '' && q.value != null)
+      .map(q => ({ FieldName: q.name, FieldValue: String(q.value) })),
+    gatedFields: quikEntries.filter(q => q.status === 'gated').map(q => q.name),
+    unverifiedFields: [...new Set(quikEntries.filter(q => !q.verified).map(q => q.name))],
+  };
+
   return {
-    version: 1,
+    version: 2,
     generated_at: new Date().toISOString(),
     custodian: custDef.value, registration: typeDef.value,
-    owners: ownerBlocks, account, firm,
+    owners: ownerBlocks, account, firm, quik,
     readiness: {
       prefilled: allFields.filter(f => f.status === 'ok').length,
       gated: allFields.filter(f => f.status === 'gated').length,
@@ -174,7 +230,14 @@ const PaperworkModal = ({ client, profileData, onClose }) => {
   };
   const FieldRow = ({ f }) => (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, padding: '4px 0', borderTop: '1px solid var(--border)', fontSize: 12.5 }}>
-      <span style={{ color: 'var(--ink-mute)', flex: '0 0 38%' }}>{f.label}</span>
+      <span style={{ color: 'var(--ink-mute)', flex: '0 0 38%' }}>
+        {f.label}
+        {Array.isArray(f.quik) && f.quik.length > 0 && (
+          <span style={{ display: 'block', fontFamily: 'ui-monospace, monospace', fontSize: 9.5, color: 'var(--ink-faint)' }}>
+            {f.quik.map(q => q.name + (q.verified ? '' : '*')).join(' · ')}
+          </span>
+        )}
+      </span>
       <span style={{ color: 'var(--ink)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {String(f.value || '')}{!f.value && <em style={{ color: 'var(--ink-faint)', fontStyle: 'italic' }}>{f.source}</em>}
       </span>
@@ -190,8 +253,9 @@ const PaperworkModal = ({ client, profileData, onClose }) => {
       </h2>
       <div style={{ fontSize: 12, color: 'var(--ink-mute)', lineHeight: 1.5, marginBottom: 12 }}>
         Proof of concept: what Prism prefills onto custodian account-opening forms today, what is held
-        back for server-side release (SSNs), and what is still uncaptured. Export the payload below -
-        the Quik! adapter consumes the same structure once the integration blanks are filled.
+        back for server-side release (SSNs), and what is still uncaptured. Field names follow the
+        Quik! taxonomy (shown under each label); * marks names pending confirmation against the
+        per-form Quik! dictionary. The export below already carries the Quik!-shaped FormFields.
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>

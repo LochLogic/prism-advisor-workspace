@@ -308,8 +308,13 @@ mentions) plus seven design items. **All seven were green-lit and built in round
    Prism already holds the household data and has DocuSign envelope plumbing
    (`docusign-envelope` / `docusign-connect`). **Track (partner-gated):** (1) research
    the Quik! Forms API (form library + prefill + e-sign hand-off is exactly their
-   product); (2) map the Prism profile to the common account-opening field sets; (3)
-   route signatures through the existing DocuSign integration. Needs a design partner
+   product) - DONE 2026-06-12 from public docs, see
+   [quik-field-taxonomy.md](quik-field-taxonomy.md); (2) map the Prism profile to the
+   common account-opening field sets - first pass shipped: the paperwork payload emits
+   Execute-shaped FormFields in Quik!'s `<n><role>.<Base>` taxonomy, unverified names
+   flagged for dictionary confirmation; (3)
+   route signatures through the existing DocuSign integration (validated: Quik!'s
+   DocuSign Self Service model returns the signable PDF for exactly this). Needs a design partner
    with a live Schwab or Fidelity relationship to test against - high "open the
    account from the planning session" wedge value when one asks.
 7. **Training & onboarding content - PHASE 1 SHIPPED round 23** (the
