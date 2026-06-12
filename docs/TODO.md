@@ -41,7 +41,12 @@ independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
   then. Missing fields are not blockers: Quik! fields can stay editable per
   recipient inside DocuSign, so the client completes their own fields in the
   envelope. Later wedge: the planning session suggests the package (phase
-  milestones / goals → preselected paperwork).
+  milestones / goals → preselected paperwork). **Adapter tiers (2026-06-12):**
+  Quik! = Tier 1 (start now, long-tail fallback forever); custodian-direct
+  SSO + prefill (Schwab digital onboarding / Wealthscape Integration Xchange)
+  = Tier 2, stubs + blanks lists in `PAPERWORK_ADAPTERS`, gated on the design
+  partner's custody relationship (their custodian goes first); headless
+  onboarding APIs = Tier 3 at scale. Full rationale in ROADMAP item 6.
 - [ ] **More guides** - portal guide for clients, firm-admin guide; the pipeline
   (docs/guides → Help drawer + printable page) is one markdown file per guide.
 - [ ] **Stripe webhook retry-storm hardening** (C0) - `stripe-webhook` returns HTTP
