@@ -459,9 +459,14 @@ function ProfileProvider({ children }) {
     annualExpenses, streams: incomeStreams,
   }), [planningAge, profile.goals.retireAt, totalInvested, annualRetirementContribution, annualExpenses, incomeStreams]);
 
-  // ── Funding goals (education / home / custom) ───────────────────
+  // ── Funding goals (education / home / retirement / custom) ──────
+  // Retirement-type goals are resolved through calc-core.resolveGoal so their
+  // funding reflects the live IRA/401(k)/Roth balances, never a hand-typed copy.
   const goalItems   = Array.isArray(profile.goals?.items) ? profile.goals.items : [];
-  const goalsFunding = useMemo(() => goalItems.map(g => ({ goal: g, ...(_calc.goalFunding(g)) })), [goalItems]);
+  const goalsFunding = useMemo(() => goalItems.map(g => {
+    const rg = _calc.resolveGoal(g, profile.retirement);
+    return { goal: rg, ...(_calc.goalFunding(rg)) };
+  }), [goalItems, profile.retirement]);
 
   // ── Protection & estate (W5) ────────────────────────────────────
   const insurance     = Array.isArray(profile.insurance) ? profile.insurance : [];

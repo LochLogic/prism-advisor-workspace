@@ -1118,5 +1118,58 @@ your queue: SSN go/no-go and the Quik!/custodian business contact.
 **Files:** `src/{data,client-portal,components,numbers-panel,calculators,store}.jsx`,
 `src/calc-core.cjs`, `src/styles.css`, `docs/{TODO,ROADMAP,sprint-log,ARCHITECTURE}.md`.
 
+## 2026-06-11 - Round 23: all seven meeting tracks green-lit and built
+
+PR #74. Build · smoke · calc (238) · lint green; every track verified in the
+browser preview. **One migration (hand-apply), one new edge secret, one gated
+edge deploy** - all in your queue; **no money**. Code is live on merge; the SSN
+store stays "pending setup" until the three setup steps land.
+
+The user approved all seven round-22 design tracks (SSN default-no overridden:
+"solidly needed for prefilling account docs later"). Shipped:
+
+1. **Smart Retirement goal** - `calc-core.resolveGoal` + `retirementGoalLink`
+   (unit-tested): a retirement-type goal's "Saved so far" reads live IRA +
+   401(k) + Roth balances in every consumer (drawer read-only linked field with
+   auto contribution prefill, portal goal cards, quick-view "· linked" rows,
+   QBR print). Verified: linked field showed the Marsh $1.84M.
+2. **Asset Location what-if** - move $X between taxable / tax-deferred /
+   tax-free; sleeves + placement table re-fit live (capped at the source
+   sleeve), `InsightAction` "Add to agenda" hook carries the modeled move.
+3. **Documentation gates** - `requiresDoc: '<vault category>'` task flag;
+   pilots: P01 IPS, P03 liability schedule (statement), P07 estate. The
+   checkbox blocks clients with a vault pointer ("Needs: IPS" chip scrolls to
+   Documents); advisors check through with an audited
+   `milestone.gate_override`. Vault uploads now fire `px:document-uploaded`
+   so gates unlock without a reload. Verified on a prospect (empty vault).
+4. **Advisor CX playbook, phase 1** - `advisorPlaybook` defaults in data.jsx
+   (questions / expectations / gather / cadence × 7 phases, framework comment
+   documents the firm-override contract for phase 2) + a collapsible
+   advisor-only card in the client quick-view for the client's current phase.
+5. **Encrypted SSN capture** - migration 044 `client_identifiers`
+   (service-role-only, zero RLS grants), `client-identifiers` edge fn
+   (AES-256-GCM via `IDENTIFIER_ENC_KEY`, advisor-or-self tenancy in code,
+   set/reveal/clear audit-logged, reveal advisor-only), four `window.db`
+   methods, per-member SSN rows in the drawer's Household cards (last4
+   masked, 15-second advisor reveal, demo/pending-setup explainers).
+   deploy.yml + config.toml updated for the new fn.
+6. **Custodian paperwork POC** - new `src/paperwork.jsx` (advisor bundle):
+   `buildPaperworkPayload` maps profile + identifiers → account-opening field
+   sets (7 registration types × Schwab/Fidelity) with prefilled / gated /
+   missing status per field, quick-view **Paperwork** modal + JSON payload
+   export, and `PAPERWORK_ADAPTERS.quik.missing` - the six business blanks -
+   rendered as an in-product checklist. Honest gaps surfaced: address /
+   employment / citizenship are not captured yet.
+7. **Help + training, phase 1** - `docs/guides/advisor-onboarding.md` ("first
+   30 days"), build.mjs renders ONE markdown source into BOTH the advisor
+   bundle (`window.__pxGuides` → searchable Help drawer, BookOpen topbar
+   button) and a print-styled `/guides/<slug>/` page (browser Print → the
+   searchable PDF the advisor asked for; CSP style-hash covered, no scripts).
+
+**Files:** `src/{data,calc-core.cjs,store,components,numbers-panel,client-portal,calculators,advisor-modal,app,paperwork}.{jsx,cjs}`,
+`src/styles.css`, `build.mjs`, `build-files.mjs`, `scripts/calc.test.mjs`,
+`supabase/{migrations/044,functions/client-identifiers,config.toml}`,
+`.github/workflows/deploy.yml`, `docs/{guides/advisor-onboarding.md,TODO,ROADMAP,ARCHITECTURE,sprint-log}.md`.
+
 ---
 <!-- New sprints append above this line, newest first. -->

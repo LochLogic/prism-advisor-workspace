@@ -731,6 +731,9 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
   // Client portal invite (C3): { busy, link, copied, error }
   const [invite, setInvite] = useStateAdv(null);
 
+  // Custodian account-paperwork POC modal (round 23, src/paperwork.jsx)
+  const [paperworkOpen, setPaperworkOpen] = useStateAdv(false);
+
   // Performance state
   const [perfBal,   setPerfBal]   = useStateAdv(undefined);
   const [perfFlows, setPerfFlows] = useStateAdv([]);
@@ -1219,8 +1222,9 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     const propsEquity = (Array.isArray(pd.properties) ? pd.properties : []).reduce((s, p) => s + (Number(p.value || 0) - Number(p.mortgageBalance || 0)), 0);
     const netWorth = invested + emergency - totalDebt + homeEquity + propsEquity;
     const goals = (Array.isArray(pd.goals?.items) ? pd.goals.items : []).map(g => {
-      const f = C.goalFunding?.(g) || {};
-      return { label: g.label || 'Goal', pct: g.targetAmount > 0 ? Math.min(100, Math.round((g.currentFunding / g.targetAmount) * 100)) : 0, status: f.status || '-' };
+      const rg = C.resolveGoal ? C.resolveGoal(g, pd.retirement) : g;   // retirement goals read live balances
+      const f = C.goalFunding?.(rg) || {};
+      return { label: rg.label || 'Goal', pct: rg.targetAmount > 0 ? Math.min(100, Math.round((rg.currentFunding / rg.targetAmount) * 100)) : 0, status: f.status || '-' };
     });
     const insurance = Array.isArray(pd.insurance) ? pd.insurance : [];
     const lifeCoverage = insurance.filter(i => i.type === 'life').reduce((s, i) => s + (Number(i.coverageAmount) || 0), 0);
@@ -1397,6 +1401,12 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
               aria-label="Print client report"
               onClick={() => window.printClientReport?.(client, phase, meetings || [])}>
               <Icons.Download size={12} /> Print
+            </button>
+            {/* Custodian paperwork POC (round 23) - prefill preview + payload export */}
+            <button className="px-btn px-btn-sm px-btn-ghost"
+              aria-label="Account paperwork"
+              onClick={() => setPaperworkOpen(true)}>
+              <Icons.FileText size={12} /> Paperwork
             </button>
             {/* Discoverable path to removing a household (it archives - RLS keeps
                 the row, the roster drops it). Opens the centered confirmation
@@ -1615,14 +1625,15 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
               return (
                 <div style={{ marginBottom: 16 }}>
                   <div style={{ ...LABEL_STYLE, marginBottom: 8 }}>Goals</div>
-                  {items.map(g => {
+                  {items.map(raw => {
+                    const g = window.PrismCalc?.resolveGoal ? window.PrismCalc.resolveGoal(raw, profileData?.retirement) : raw;
                     const f = gf(g);
                     const tone = (f.status === 'funded' || f.status === 'on pace') ? 'var(--forest)'
                       : f.status === 'behind' ? 'var(--gold)' : 'var(--brick)';
                     const label = { funded: 'Funded', 'on pace': 'On pace', behind: 'Behind', 'past due': 'Past due' }[f.status] || f.status;
                     return (
                       <div key={g.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '5px 0', fontSize: 13 }}>
-                        <span style={{ color: 'var(--ink)' }}>{g.label || 'Goal'}</span>
+                        <span style={{ color: 'var(--ink)' }}>{g.label || 'Goal'}{g.linked ? ' · linked' : ''}</span>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--ink-mute)', fontSize: 12 }}>
                           {g.targetAmount > 0 ? Math.min(100, Math.round((g.currentFunding / g.targetAmount) * 100)) : 0}%
                           <span style={{ fontWeight: 600, color: tone, border: `1px solid ${tone}`, borderRadius: 20, padding: '1px 8px' }}>{label}</span>
@@ -1631,6 +1642,40 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                     );
                   })}
                 </div>
+              );
+            })()}
+
+            {/* Advisor CX playbook (round 23 framework pre-step) - the firm's
+                per-phase script for the client's CURRENT phase: questions to
+                ask, expectations to set, documents to gather, the cadence to
+                promise. Default content lives in data.jsx `advisorPlaybook`;
+                firm-authored overrides are the planned phase 2 (see the
+                framework comment there). Advisor bundle only - clients never
+                see the internal script. */}
+            {(() => {
+              const phaseId = Number(client.phase) || 0;
+              const pb = window.advisorPlaybook?.[phaseId];
+              const ph = phasesData.find(p => p.id === phaseId);
+              if (!pb || !ph) return null;
+              const SECTION = { fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '.08em',
+                                color: 'var(--ink-faint)', fontWeight: 600, margin: '10px 0 4px' };
+              return (
+                <details style={{ marginBottom: 16, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-elev)' }}>
+                  <summary style={{ cursor: 'pointer', padding: '10px 12px', fontSize: 12.5, fontWeight: 600, color: 'var(--ink)' }}>
+                    Advisor playbook · Phase {ph.num} {ph.title}
+                    <span style={{ fontWeight: 400, color: 'var(--ink-faint)' }}> - the firm script for this stage</span>
+                  </summary>
+                  <div style={{ padding: '0 12px 12px', fontSize: 12.5, lineHeight: 1.55, color: 'var(--ink-mute)' }}>
+                    <div style={SECTION}>Questions to ask</div>
+                    {pb.questions.map((q, i) => <div key={i} style={{ padding: '1px 0' }}>· {q}</div>)}
+                    <div style={SECTION}>Expectations to set</div>
+                    <div>{pb.expectations}</div>
+                    <div style={SECTION}>Gather</div>
+                    {pb.gather.map((g, i) => <div key={i} style={{ padding: '1px 0' }}>· {g}</div>)}
+                    <div style={SECTION}>Cadence</div>
+                    <div>{pb.cadence}</div>
+                  </div>
+                </details>
               );
             })()}
 
@@ -2426,6 +2471,11 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
           </>
         )}
       </div>
+      {/* Custodian paperwork POC (round 23) - renders above the quick view */}
+      {paperworkOpen && (
+        <PaperworkModal client={client} profileData={profileData}
+          onClose={() => setPaperworkOpen(false)} />
+      )}
     </Modal>
   );
 };

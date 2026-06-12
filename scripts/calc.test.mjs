@@ -219,6 +219,26 @@ if (!QUIET) console.log('calc-core unit tests\n');
   assert(JSON.stringify(a) === JSON.stringify(b), 'readiness: deterministic for identical inputs');
 }
 
+/* ── resolveGoal / retirementGoalLink (smart Retirement goal, round 23) ── */
+{
+  const retirement = { iraBalance: 50_000, fourohonekBalance: 200_000, rothBalance: 30_000,
+                       iraContributed: 6_000, fourohonekContributed: 18_000, hsaBalance: 99_999 };
+  const link = C.retirementGoalLink(retirement);
+  assert(link.currentFunding === 280_000, 'retirementGoalLink: IRA + 401(k) + Roth balances (HSA excluded)');
+  assert(link.monthlyContribution === 2_000, 'retirementGoalLink: annual IRA + 401(k) contributions / 12');
+  assert(C.retirementGoalLink(undefined).currentFunding === 0, 'retirementGoalLink: missing retirement → zeros');
+
+  const linked = C.resolveGoal({ type: 'retirement', targetAmount: 1_000_000, currentFunding: 7, monthlyContribution: 0 }, retirement);
+  assert(linked.currentFunding === 280_000 && linked.linked === true, 'resolveGoal: retirement goal funding comes from balances, not the typed value');
+  assert(linked.monthlyContribution === 2_000, 'resolveGoal: zero contribution falls back to the linked auto value');
+
+  const overridden = C.resolveGoal({ type: 'retirement', targetAmount: 1_000_000, monthlyContribution: 3_500 }, retirement);
+  assert(overridden.monthlyContribution === 3_500, 'resolveGoal: a typed contribution overrides the auto value');
+
+  const edu = { type: 'education', targetAmount: 80_000, currentFunding: 12_000, monthlyContribution: 250 };
+  assert(C.resolveGoal(edu, retirement) === edu, 'resolveGoal: non-retirement goals pass through untouched');
+}
+
 /* ── goalFunding ──────────────────────────────────────────────────── */
 {
   const asOf = '2026-06-01';

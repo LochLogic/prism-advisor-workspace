@@ -2,7 +2,7 @@
 
 > **Purpose:** condensed router for AI/dev work. Tells you *which* file owns a
 > concern and what it exports - not every line. Read the named file for deep logic.
-> **Last synced:** 2026-06-10 round-14 sprint (firm-admin CSV exports + audit filter · platform usage stats; round 13: security-advisor sweep · portal PWA+push · px_events analytics). **Regenerate when:** `build-files.mjs`
+> **Last synced:** 2026-06-11 round-23 sprint (smart Retirement goal · Asset-Location what-if · milestone doc gates · advisor playbook · encrypted SSN store + `client-identifiers` edge fn · `src/paperwork.jsx` custodian-paperwork POC · Help drawer + build-time guides). **Regenerate when:** `build-files.mjs`
 > load order changes, a `src/*` file is added/split, or `window.db`/`PrismCalc` gain methods.
 
 ---
@@ -33,7 +33,9 @@ Static hosting = **Cloudflare Workers**. See [memory: project-architecture].
 ## 3. File tree (tracked, node_modules omitted)
 
 ```
-build.mjs              concat src in load order → esbuild JSX/minify → dist/ + _site/ deploy dir
+build.mjs              concat src in load order → esbuild JSX/minify → dist/ + _site/ deploy dir;
+                       also renders docs/guides/*.md → window.__pxGuides (ADVISOR bundle only)
+                       + printable /guides/<slug>/ pages (round 23 Help/training)
 build-files.mjs        SINGLE SOURCE OF TRUTH for src load order (sharedFiles/sourceFiles/portalFiles)
 index|landing|login|signup|portal.html   entry HTML pages (marketing + app shells)
 dpa|privacy|security|sla|terms.html      static legal pages
@@ -47,6 +49,8 @@ src/
   portal-sw.js         portal service worker (push notifications only, NO fetch cache - NOT bundled; copied by build.mjs to /portal-sw.js, scope /portal/)
   icons.jsx            window.Icons - Lucide-style SVG set
   data.jsx             domain mock data + phasesData/advisor; the 7 Wealth-Horizons phases
+                       (task flags incl. `requiresDoc` doc gates, round 23) + `advisorPlaybook`
+                       (per-phase firm script defaults; firm overrides are a planned table)
   calc-core.cjs        window.PrismCalc - ALL financial math (pure, also unit-tested)
   db.jsx               window.db - the entire Supabase data-access layer (~60 methods)
   store.jsx            React context providers (Profile/Task/View/Notification) + print/* + fmt helpers
@@ -57,20 +61,27 @@ src/
   shell.jsx            chrome shared by BOTH bundles: LoadingScreen, NotificationBell, AccountChip, 2FA, ErrorBoundary
   calculators.jsx      basic + advanced advisor tools; `calculators` registry keyed by phase `calc`/`calcs`;
                        `InsightAction` (round 11) - advisor-only "Add to agenda" hook turning tool verdicts into CRM tasks
-  numbers-panel.jsx    window.NumbersDrawer - household ledger editor (DOB picker, accounts, cashflows)
-  client-portal.jsx    window.ClientPortal - View B: client roadmap, phase cards, Discuss-with-Advisor
-  advisor-modal.jsx    NewClientModal + ClientPreviewModal (advisor bundle only)
+  numbers-panel.jsx    window.NumbersDrawer - household ledger editor (DOB picker, accounts, cashflows;
+                       round 23: per-member encrypted SSN capture via db.*Identifier*, advisor-only reveal)
+  client-portal.jsx    window.ClientPortal - View B: client roadmap, phase cards, Discuss-with-Advisor;
+                       PhaseCard enforces `requiresDoc` milestone gates (advisor override audited)
+  paperwork.jsx        custodian account-paperwork POC (round 23): buildPaperworkPayload + PaperworkModal
+                       + PAPERWORK_ADAPTERS (Quik! blanks list) - ADVISOR bundle only, loads before advisor-modal
+  advisor-modal.jsx    NewClientModal + ClientPreviewModal (advisor bundle only; quick view carries the
+                       advisor playbook card + Paperwork button, round 23)
   advisor-dashboard.jsx window.AdvisorDashboard - View A: KPIs, roster, alerts, flagged-Q inbox
   firm-admin.jsx       window.FirmAdminDashboard - advisor mgmt, firm clients, fee schedules, audit log, ledger-gate toggle
   platform-admin.jsx   window.PlatformOwnerDashboard - founder tier (#/platform): firm overview, provision/suspend, plan overrides
-  app.jsx              window.App - advisor entry: auth gate, topbar, view switch
+  app.jsx              window.App - advisor entry: auth gate, topbar, view switch, Help drawer
+                       (searchable window.__pxGuides + /guides/<slug>/ printable link)
   portal-app.jsx       window.PortalApp - slim client entry (/portal bundle)
   styles.css / print.css   hand-authored CSS (print.css = report/invoice print layout)
 
 portal-manifest.webmanifest   PWA manifest (copied to /portal/manifest.webmanifest); icons/ = portal PNG icons
 
 supabase/
-  migrations/001-043   schema evolution (names are self-describing; 001 = base schema)
+  migrations/001-044   schema evolution (names are self-describing; 001 = base schema;
+                       044 = client_identifiers, service-role-only encrypted SSN store)
   functions/           Edge Functions (Deno) - see §6
   functions/_shared/   auth.ts, cors.ts, docusign.ts, calendar.ts (provider plumbing), fees.ts (canonical BACKEND fee math)
   tests/               integration.sql, rls_isolation.sql (tenant-isolation proofs)
@@ -87,6 +98,7 @@ scripts/
 
 content/pages.mjs      static SEO/intent pages rendered to HTML at build
 docs/                  ROADMAP (forward), TODO (live board), sprint-log (baseline), WHITEPAPER  [see memory]
+docs/guides/           advisor help guides (markdown source → Help drawer + printable PDF pages)
 e2e/demo.spec.ts       Playwright smoke
 .github/workflows/     ci, deploy, scheduled-publish, seo-digest, seo-health
 ```
@@ -131,11 +143,19 @@ e2e/demo.spec.ts       Playwright smoke
   upserted in place), `withdrawLedgerChange`, `getPendingLedgerChanges` (advisor inbox),
   `reviewLedgerChange(row, advisorId, approve, note)` (approve = saveProfile then close).
   All methods no-op/return null until the migration is applied.
+- Encrypted identifiers (round 23, migration 044): `getIdentifiers(clientId)` →
+  `[{member_id, kind, last4, updated_at}]`, `setIdentifier(clientId, memberId, value, kind)`,
+  `revealIdentifier` (ADVISOR-only, audit-logged server-side), `clearIdentifier` - all via
+  the `client-identifiers` edge fn (AES-GCM, IDENTIFIER_ENC_KEY; table is service-role-only,
+  no RLS grants). The full value NEVER enters profile JSON / prints / exports / AI contexts.
+  Demo no-ops; `{error:'not_configured'}` until migration + secret + fn deploy land.
 
 **`window.PrismCalc`** (`src/calc-core.cjs`) - pure financial math (frontend copy; backend
 copy is `functions/_shared/fees.ts`): `monthlyExpenseTotal, buildValueSeries, modifiedDietz,
 perfPeriods, debtPayoffMonths, hsaProjection, monteCarlo, rothLadder, estateProjection, tlh,
-retirementReadiness, goalFunding, annualFeeForAum, lifeCoverageGap, assetComposition,
+retirementReadiness, goalFunding, retirementGoalLink + resolveGoal (round 23 - a
+'retirement'-type goal's funding auto-links to IRA+401k+Roth balances; EVERY goal consumer
+must resolve through it), annualFeeForAum, lifeCoverageGap, assetComposition,
 riskProfile, RISK_ALLOCATIONS, assetLocationPlan` · planning-depth (Tier B):
 `contributionWaterfall, withdrawalSequence, rothConversionWindow, FED_BRACKETS_2025` ·
 client-utility: `bracketPosition` (shared bracket-headroom engine), `w2Position`
@@ -225,6 +245,7 @@ mirrored in `src/brand-boot.js` for the pre-auth pages).
 | `calendar-oauth` | Advisor JWT → Google/Microsoft calendar connect lifecycle (auth_url / exchange / status / disconnect); tokens → `calendar_connections` (service-role only) |
 | `calendar-events` | Advisor JWT → upcoming / freebusy / create across connected calendars; auto token refresh. Callback pages: `/oauth/{google,microsoft}/callback` (one `oauth-callback.html`, written twice by build.mjs) |
 | `send-push` | Advisor JWT → web-push to a client's installed portal (PWA); tenant-checked, VAPID server-side, prunes dead endpoints |
+| `client-identifiers` | Advisor-or-self JWT → encrypted SSN/ITIN/EIN store (round 23): list / set / reveal (advisor-only) / clear; AES-256-GCM with `IDENTIFIER_ENC_KEY`, tenancy enforced in code, set/reveal/clear audit-logged; `not_configured` until migration 044 + secret land |
 | `log-error` | Public sink for client error reporter |
 | `error-digest` | Cluster new client_errors → Slack alert |
 | `health` | Pipeline liveness probe |

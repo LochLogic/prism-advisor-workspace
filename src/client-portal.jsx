@@ -1,12 +1,20 @@
 // Prism - Client Portal (View B). The collaborative roadmap shown to clients.
 // Phases, tasks, Discuss-with-Advisor flagging, advanced tools, milestone modal.
 
-const PhaseCard = ({ phase, onOpenMilestone }) => {
+const PhaseCard = ({ phase, onOpenMilestone, vaultCats, viewerRole, clientId }) => {
   const { taskStates, toggleTask, openPhases, togglePhase, flagForAdvisor, isFlagged, activePhase } = useTasks();
   const { showToast, openNumbers } = useView();
   const ctx = useProfile();
   const [flagModal, setFlagModal] = React.useState(null); // { phaseId, taskId, label }
   const [flagText,  setFlagText]  = React.useState('');
+
+  // Documentation gate (round 23): a task with `requiresDoc: '<category>'`
+  // stays locked until the client's vault holds a document of that category.
+  // `vaultCats` is the live category set from ClientPortal (null while loading
+  // → never lock on a flash). Advisors may check through the gate; the
+  // override is written to the audit log so the firm can see it happened.
+  const docGateCat = (task) =>
+    task.requiresDoc && vaultCats && !vaultCats.has(task.requiresDoc) ? task.requiresDoc : null;
 
   const isOpen = !!openPhases[phase.id];
   const completed = phase.tasks.filter(t => taskStates[phase.id]?.[t.id]).length;
@@ -31,6 +39,24 @@ const PhaseCard = ({ phase, onOpenMilestone }) => {
   // When clicking checkbox of last incomplete task → fire milestone
   const handleToggle = (taskId) => {
     const wasUnchecked = !taskStates[phase.id]?.[taskId];
+    // Documentation gate: block a CHECK (never an uncheck) while the required
+    // document is missing. Clients are pointed at the vault; advisors pass
+    // through with an audited override.
+    const task = phase.tasks.find(t => t.id === taskId);
+    const gateCat = wasUnchecked && task ? docGateCat(task) : null;
+    if (gateCat) {
+      const catLabel = _docCatLabel(gateCat);
+      if (viewerRole !== 'advisor') {
+        showToast(`Waiting on a ${catLabel} document - upload it in Documents below, or ask your advisor`);
+        return;
+      }
+      window.db?.audit?.('milestone.gate_override', {
+        entityType: 'task', entityId: `${phase.id}:${taskId}`, clientId,
+        summary: `Advisor checked "${task.label}" without the required ${catLabel} document on file`,
+        metadata: { phase: phase.num, requiresDoc: gateCat },
+      });
+      showToast(`Override recorded - checked without the ${catLabel} document`);
+    }
     const willCompletePhase = wasUnchecked && completed + 1 === phase.tasks.length;
     toggleTask(phase.id, taskId);
     if (willCompletePhase) {
@@ -91,6 +117,16 @@ const PhaseCard = ({ phase, onOpenMilestone }) => {
                       {done && <Icons.Check size={11} strokeWidth={3} />}
                     </button>
                     <span className="px-task-label">{task.label}</span>
+                    {!done && docGateCat(task) && (
+                      <button className="px-task-act is-locked"
+                        title={`This milestone unlocks when a ${_docCatLabel(task.requiresDoc)} document is in the vault${viewerRole === 'advisor' ? ' - advisors can check through with an audited override' : ''}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          document.getElementById('px-vault-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }}>
+                        <Icons.Lock size={10} /> Needs: {_docCatLabel(task.requiresDoc)}
+                      </button>
+                    )}
                     {task.panel === 'numbers' && (
                       <button className="px-task-act is-discuss" title="Open the household numbers panel and fill in your cash flow"
                         onClick={(e) => { e.stopPropagation(); openNumbers?.(); }}>
@@ -445,6 +481,31 @@ const ClientPortal = ({ onOpenNumbers }) => {
   const prospectObj = isProspectView
     ? (prospectsCtx.prospects.find(p => p.id === activeClientId) || viewingClient)
     : null;
+
+  // Vault categories on file - feeds the milestone documentation gates
+  // (PhaseCard `requiresDoc`). null while loading so gates never flash locked.
+  // Re-syncs on the vault's upload/delete events; prospects start empty.
+  const [vaultCats, setVaultCats] = React.useState(null);
+  React.useEffect(() => {
+    let on = true;
+    const load = async () => {
+      if (window.db?.isUUID(activeClientId)) {
+        const docs = await window.db.getDocuments(activeClientId);
+        if (on) setVaultCats(new Set((docs || []).map(d => d.category)));
+      } else {
+        const seed = (isProspectView || !window.demoDocuments) ? [] : window.demoDocuments();
+        if (on) setVaultCats(new Set(seed.map(d => d.category)));
+      }
+    };
+    load();
+    window.addEventListener('px:document-uploaded', load);
+    window.addEventListener('px:document-deleted', load);
+    return () => {
+      on = false;
+      window.removeEventListener('px:document-uploaded', load);
+      window.removeEventListener('px:document-deleted', load);
+    };
+  }, [activeClientId, isProspectView]);
   const convertProspect = async () => {
     if (converting) return;
     setConverting(true);
@@ -987,8 +1048,9 @@ const ClientPortal = ({ onOpenNumbers }) => {
           />
         </div>
 
-        {/* Documents - review & download what the advisor has shared */}
-        <div className="px-card" style={{ padding: 18, marginBottom: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 }}>
+        {/* Documents - review & download what the advisor has shared.
+            id = the scroll target for milestone documentation-gate chips. */}
+        <div id="px-vault-card" className="px-card" style={{ padding: 18, marginBottom: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 }}>
           <div className="px-eyebrow" style={{ marginBottom: 12 }}>Documents</div>
           <DocumentVault
             clientId={activeClientId}
@@ -1093,7 +1155,8 @@ const ClientPortal = ({ onOpenNumbers }) => {
         {/* Phases */}
         <div className="px-horizons">
           {phasesData.map(phase => (
-            <PhaseCard key={phase.id} phase={phase} onOpenMilestone={setMilestoneModal} />
+            <PhaseCard key={phase.id} phase={phase} onOpenMilestone={setMilestoneModal}
+              vaultCats={vaultCats} viewerRole={role} clientId={activeClientId} />
           ))}
 
           <div className="px-phase-end">

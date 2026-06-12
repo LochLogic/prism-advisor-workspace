@@ -662,9 +662,26 @@ const TaxReturnInsightTool = () => {
 const AssetLocationTool = () => {
   const { profile, riskProfile } = useProfile();
   const r = profile.retirement;
-  const taxDeferred = (r.iraBalance || 0) + (r.fourohonekBalance || 0);
-  const taxFree     = (r.hsaBalance || 0) + (r.rothBalance || 0);   // Roth + HSA = tax-free
-  const taxable     = profile.taxable?.balance || 0;
+  const baseDeferred = (r.iraBalance || 0) + (r.fourohonekBalance || 0);
+  const baseFree     = (r.hsaBalance || 0) + (r.rothBalance || 0);   // Roth + HSA = tax-free
+  const baseTaxable  = profile.taxable?.balance || 0;
+
+  // What-if lever (round 23, industry-advisor ask): trial a contribution,
+  // rollover, or conversion placement by moving dollars between sleeves and
+  // watching the placement re-fit live. Display-only - nothing writes back.
+  const SLEEVES = [['taxable', 'Taxable'], ['deferred', 'Tax-deferred'], ['free', 'Tax-free']];
+  const sleeveLabel = (k) => (SLEEVES.find(([v]) => v === k) || [])[1];
+  const [moveAmt,  setMoveAmt]  = useStateC(0);
+  const [moveFrom, setMoveFrom] = useStateC('taxable');
+  const [moveTo,   setMoveTo]   = useStateC('free');
+  const bases = { taxable: baseTaxable, deferred: baseDeferred, free: baseFree };
+  const applied = Math.max(0, Math.min(Number(moveAmt) || 0, bases[moveFrom]));  // a sleeve can't go negative
+  const whatIf = moveFrom !== moveTo && applied > 0;
+  const adj = { ...bases };
+  if (whatIf) { adj[moveFrom] -= applied; adj[moveTo] += applied; }
+  const taxable = adj.taxable, taxDeferred = adj.deferred, taxFree = adj.free;
+  const delta = (k) => whatIf && (k === moveFrom || k === moveTo)
+    ? ` · ${k === moveTo ? '+' : '-'}${fmt$(applied, { short: true })} what-if` : '';
 
   // Bespoke placement of the household's ACTUAL dollars, fit to their strategic
   // allocation (from the risk profile). Falls back to an illustrative rule-of-thumb
@@ -679,13 +696,47 @@ const AssetLocationTool = () => {
   const rows = plan ? plan.rows : STATIC;
 
   return (
-    <ToolShell title="Asset Location optimizer" advanced>
+    <ToolShell title="Asset Location optimizer" advanced hint="Move a dollar amount between sleeves to see the placement re-fit">
       <div className="px-tool-grid">
-        <StatCell label="Taxable sleeve" value={fmt$(taxable, { short: true })} foot="Long-term gains rate" />
-        <StatCell label="Tax-deferred" value={fmt$(taxDeferred, { short: true })} foot="Ordinary income at withdrawal" />
-        <StatCell label="Tax-free (HSA + Roth)" value={fmt$(taxFree, { short: true })} foot="Zero tax on withdrawal" />
+        <StatCell label="Taxable sleeve" value={fmt$(taxable, { short: true })} foot={`Long-term gains rate${delta('taxable')}`} />
+        <StatCell label="Tax-deferred" value={fmt$(taxDeferred, { short: true })} foot={`Ordinary income at withdrawal${delta('deferred')}`} />
+        <StatCell label="Tax-free (HSA + Roth)" value={fmt$(taxFree, { short: true })} foot={`Zero tax on withdrawal${delta('free')}`} />
         <StatCell label="Projected tax alpha" value="0.40 – 0.85%" tone="good" foot="annualized · model est." />
       </div>
+
+      {/* The lever: where should the next (or moved) dollar live? */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 8, alignItems: 'end', marginTop: 14 }}>
+        <label className="px-field">
+          <span className="px-field-label">Amount to move</span>
+          <div className="px-input-affix">
+            <span className="px-affix">$</span>
+            <NumInput value={moveAmt} step="5000" onCommit={setMoveAmt} />
+          </div>
+        </label>
+        <label className="px-field">
+          <span className="px-field-label">From</span>
+          <select className="px-select" value={moveFrom} onChange={(e) => setMoveFrom(e.target.value)}>
+            {SLEEVES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+        </label>
+        <label className="px-field">
+          <span className="px-field-label">To</span>
+          <select className="px-select" value={moveTo} onChange={(e) => setMoveTo(e.target.value)}>
+            {SLEEVES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+        </label>
+        <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => setMoveAmt(0)}
+          disabled={!whatIf} style={{ marginBottom: 2 }} title="Clear the what-if">
+          Reset
+        </button>
+      </div>
+      {whatIf && (
+        <div style={{ fontSize: 11.5, color: 'var(--ink-mute)', marginTop: 8, lineHeight: 1.5 }}>
+          What-if: <b>{fmt$(applied, { short: true })}</b> moved {sleeveLabel(moveFrom)} → {sleeveLabel(moveTo)}
+          {applied < (Number(moveAmt) || 0) ? ` (capped at the ${sleeveLabel(moveFrom)} balance)` : ''} -
+          the sleeve totals and the placement table below re-fit to the move. Display only; your numbers are unchanged.
+        </div>
+      )}
 
       <div style={{ marginTop: 16 }}>
         <div className="px-eyebrow" style={{ marginBottom: 10 }}>
@@ -728,6 +779,15 @@ const AssetLocationTool = () => {
           </div>
         )}
       </div>
+      {plan && (
+        <InsightAction
+          title={whatIf
+            ? `Asset location - evaluate moving ${fmt$(applied, { short: true })} ${sleeveLabel(moveFrom)} → ${sleeveLabel(moveTo)}`
+            : `Asset location - annual placement review (${fmt$(plan.total, { short: true })} invested)`}
+          detail={whatIf
+            ? `What-if modeled in the Asset Location tool: ${fmt$(applied)} from ${sleeveLabel(moveFrom)} to ${sleeveLabel(moveTo)}. Confirm the vehicle (contribution / rollover / conversion), the tax cost of the move, and the post-move placement of tax-inefficient assets.`
+            : `Re-fit the household's placement${riskProfile ? ` at the ${riskProfile.band} allocation` : ''}: tax-inefficient assets (bonds, REITs, active funds) sheltered first, broad index in taxable and Roth.`} />
+      )}
     </ToolShell>
   );
 };

@@ -374,6 +374,20 @@ input, select, textarea { font-family: inherit; color: inherit; }
 .px-drawer-head { padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
 .px-drawer-body { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 18px 22px; }
 
+/* Help drawer guide content (round 23) - rendered from docs/guides markdown */
+.px-help-md { font-size: 13px; line-height: 1.65; color: var(--ink-mute); }
+.px-help-md h1 { font-family: var(--serif); font-size: 19px; font-weight: 600; color: var(--ink); line-height: 1.3; margin: 0 0 10px; }
+.px-help-md h2 { font-family: var(--serif); font-size: 15px; font-weight: 600; color: var(--ink); margin: 22px 0 6px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+.px-help-md h3 { font-size: 13px; font-weight: 600; color: var(--ink); margin: 14px 0 4px; }
+.px-help-md p { margin: 0 0 10px; }
+.px-help-md ul, .px-help-md ol { margin: 0 0 10px; padding-left: 20px; }
+.px-help-md li { margin: 3px 0; }
+.px-help-md b { color: var(--ink); }
+.px-help-md code { font-family: var(--mono); font-size: .9em; background: var(--bg-elev); padding: 1px 5px; border-radius: 4px; }
+.px-help-md table { border-collapse: collapse; width: 100%; font-size: 12px; margin: 0 0 10px; }
+.px-help-md th, .px-help-md td { text-align: left; border: 1px solid var(--border); padding: 5px 8px; }
+.px-help-md th { color: var(--ink); background: var(--bg-elev); }
+
 /* Numbers-drawer section headers: promoted from plain eyebrows (10px muted)
    so each ledger section reads as a clear break while scrolling. The accent
    tick keeps them scannable without shouting. */
@@ -1080,6 +1094,9 @@ i.px-split-dot {
 /* Quiet pointer for tools already rendered further down the page */
 .px-task-act.is-ghost { color: var(--ink-faint); border-color: transparent; background: transparent; }
 .px-task-act.is-ghost:hover { color: var(--ink-mute); border-color: var(--border-2); background: var(--surface-2); }
+/* Documentation gate (round 23): milestone waits on a vault document */
+.px-task-act.is-locked { color: var(--brick, #a14d3a); border-color: currentColor; background: transparent; opacity: .85; }
+.px-task-act.is-locked:hover { opacity: 1; background: var(--surface-2); color: var(--brick, #a14d3a); }
 
 /* Phase end - completed CTA */
 .px-phase-complete-cta {

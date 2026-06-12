@@ -275,6 +275,32 @@ function goalFunding({ targetAmount, targetDate, currentFunding = 0, monthlyCont
   return { monthsRemaining: n, projected, fundedRatio, requiredMonthly, gapMonthly, status };
 }
 
+// Smart Retirement goal (round 23). A goal item whose type is 'retirement'
+// never hand-tracks its funding - the retirement accounts ARE the funding.
+// resolveGoal swaps in the live linked figures so every consumer (drawer,
+// portal goal cards, advisor quick view, QBR print) reads one source of truth:
+//   currentFunding      ← IRA + 401(k) + Roth balances (always; read-only in UI)
+//   monthlyContribution ← annual IRA + 401(k) contributions / 12, used only
+//                         when the goal doesn't carry its own override.
+// Non-retirement goals pass through untouched.
+function retirementGoalLink(retirement) {
+  const r = retirement || {};
+  return {
+    currentFunding: (Number(r.iraBalance) || 0) + (Number(r.fourohonekBalance) || 0) + (Number(r.rothBalance) || 0),
+    monthlyContribution: Math.round(((Number(r.iraContributed) || 0) + (Number(r.fourohonekContributed) || 0)) / 12),
+  };
+}
+function resolveGoal(goal, retirement) {
+  if (!goal || goal.type !== 'retirement') return goal;
+  const link = retirementGoalLink(retirement);
+  return {
+    ...goal,
+    currentFunding: link.currentFunding,
+    monthlyContribution: (Number(goal.monthlyContribution) || 0) > 0 ? goal.monthlyContribution : link.monthlyContribution,
+    linked: true,
+  };
+}
+
 // Tax-loss harvesting estimate from the share of the taxable book below basis.
 function tlh({ taxableBalance, lossPct, offsetRatePct }) {
   const harvestable = taxableBalance * (lossPct / 100);
@@ -1119,7 +1145,7 @@ const PrismCalc = {
   monthlyExpenseTotal,
   buildValueSeries, modifiedDietz, perfPeriods,
   debtPayoffMonths, hsaProjection, monteCarlo, rothLadder, estateProjection, tlh,
-  retirementReadiness, goalFunding, annualFeeForAum, lifeCoverageGap, assetComposition,
+  retirementReadiness, goalFunding, retirementGoalLink, resolveGoal, annualFeeForAum, lifeCoverageGap, assetComposition,
   riskProfile, RISK_ALLOCATIONS, assetLocationPlan,
   contributionWaterfall, withdrawalSequence, rothConversionWindow, FED_BRACKETS_2025,
   bracketPosition, w2Position, termLifePremium, yearsToIndependence, debtVsInvest,

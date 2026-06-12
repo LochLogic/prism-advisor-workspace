@@ -35,6 +35,11 @@ verify_jwt = true
 [functions.send-push]
 verify_jwt = true
 
+# Encrypted government-ID storage (round 23) - advisor or the client themself;
+# authorization + audit enforced in code, value AES-GCM encrypted server-side.
+[functions.client-identifiers]
+verify_jwt = true
+
 # Advisor calendar sync (Google/Microsoft) — connection lifecycle + events.
 [functions.calendar-oauth]
 verify_jwt = true
