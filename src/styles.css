@@ -374,6 +374,22 @@ input, select, textarea { font-family: inherit; color: inherit; }
 .px-drawer-head { padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
 .px-drawer-body { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 18px 22px; }
 
+/* Numbers-drawer section headers: promoted from plain eyebrows (10px muted)
+   so each ledger section reads as a clear break while scrolling. The accent
+   tick keeps them scannable without shouting. */
+.px-drawer .px-eyebrow.is-section {
+  font-size: 11.5px;
+  color: var(--ink);
+  letter-spacing: 0.12em;
+}
+.px-drawer .px-eyebrow.is-section::before {
+  content: '';
+  width: 14px; height: 3px;
+  border-radius: 2px;
+  background: var(--accent, var(--gold));
+  flex: none;
+}
+
 /* ── Inputs ──────────────────────────────────────────────────────── */
 .px-input, .px-select {
   width: 100%;

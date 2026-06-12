@@ -81,22 +81,8 @@ const US_STATES = [
   ['WA','Washington'],['WV','West Virginia'],['WI','Wisconsin'],['WY','Wyoming'],
 ];
 
-// Numeric input that never traps a leading zero. The stored value is a number
-// (0 for "nothing yet"), but rendering that 0 into a controlled input means the
-// first keystroke lands AFTER it ("05"). So: render '' for 0/empty with a "0"
-// placeholder, hold the raw string in a local draft while the field is being
-// edited (so intermediate states like "0." survive), and commit the parsed
-// number on every change. Blur drops the draft and re-syncs to the stored value.
-const NumInput = ({ value, onCommit, step, placeholder = '0', ...rest }) => {
-  const [draft, setDraft] = React.useState(null);
-  const settled = (value === 0 || value == null || value === '') ? '' : String(value);
-  return (
-    <input type="number" value={draft != null ? draft : settled} step={step} placeholder={placeholder}
-      onChange={(e) => { setDraft(e.target.value); onCommit(e.target.value === '' ? 0 : (parseFloat(e.target.value) || 0)); }}
-      onBlur={() => setDraft(null)}
-      {...rest} />
-  );
-};
+// NumInput (the draft-holding numeric input that never traps a leading zero)
+// moved to components.jsx so the phase tools share it - the rationale lives there.
 
 // NumField must be at module scope - defining it inside a component
 // causes React to remount the input on every render, losing focus mid-edit.
@@ -449,7 +435,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
           {/* Household members */}
           <section style={{ marginBottom: 22 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <div className="px-eyebrow">Household</div>
+              <div className="px-eyebrow is-section">Household</div>
               <button className="px-btn px-btn-sm px-btn-ghost" style={{ padding: '3px 8px' }} onClick={addMember}>
                 <Icons.Plus size={10} /> Add person
               </button>
@@ -494,7 +480,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
 
           {/* Income */}
           <section style={{ marginBottom: 22 }}>
-            <div className="px-eyebrow" style={{ marginBottom: 10 }}>Income</div>
+            <div className="px-eyebrow is-section" style={{ marginBottom: 10 }}>Income</div>
             {hasIncomeSources ? (
               <label className="px-field">
                 <span className="px-field-label">Monthly take-home</span>
@@ -557,7 +543,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
 
           {/* Housing - rent vs. own */}
           <section style={{ marginBottom: 22 }}>
-            <div className="px-eyebrow" style={{ marginBottom: 10 }}>Housing</div>
+            <div className="px-eyebrow is-section" style={{ marginBottom: 10 }}>Housing</div>
             <div className="px-seg" role="tablist" aria-label="Housing type" style={{ marginBottom: 10 }}>
               <button role="tab" aria-selected={!isOwner} className={`px-seg-btn ${!isOwner ? 'is-on' : ''}`}
                 onClick={() => update('housing.type', 'rent')}>Rent</button>
@@ -679,7 +665,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
           {/* Additional properties - second homes / rentals (equity → net worth) */}
           <section style={{ marginBottom: 22 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <div className="px-eyebrow">Additional properties</div>
+              <div className="px-eyebrow is-section">Additional properties</div>
               <button className="px-btn px-btn-sm px-btn-ghost" style={{ padding: '3px 8px' }} onClick={addProperty}>
                 <Icons.Plus size={10} /> Add property
               </button>
@@ -761,7 +747,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
           {/* Expenses */}
           <section style={{ marginBottom: 22 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <div className="px-eyebrow">Essential outflow</div>
+              <div className="px-eyebrow is-section">Essential outflow</div>
               <button className="px-btn px-btn-sm px-btn-ghost" style={{ padding: '3px 8px' }} onClick={addCustomExpense}>
                 <Icons.Plus size={10} /> Add box
               </button>
@@ -834,7 +820,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
           {/* Savings + reserve */}
           <section style={{ marginBottom: 22 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <div className="px-eyebrow">Cash reserve <FieldHint text="Link the reserve to one or more accounts on file and their summed balances become the reserve figure, kept in sync automatically. With no linked accounts, type the number yourself." /></div>
+              <div className="px-eyebrow is-section">Cash reserve <FieldHint text="Link the reserve to one or more accounts on file and their summed balances become the reserve figure, kept in sync automatically. With no linked accounts, type the number yourself." /></div>
               {acctRows.length > 0 && reserveIds.length < acctRows.length && (
                 <button className="px-btn px-btn-sm px-btn-ghost" style={{ padding: '3px 8px' }} onClick={addReserveAccount}>
                   <Icons.Plus size={10} /> Add reserve account
@@ -874,7 +860,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
           {/* Liabilities */}
           <section style={{ marginBottom: 22 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <div className="px-eyebrow">Liabilities</div>
+              <div className="px-eyebrow is-section">Liabilities</div>
               <button className="px-btn px-btn-sm px-btn-ghost" style={{ padding: '3px 8px' }} onClick={addDebt}>
                 <Icons.Plus size={10} /> Add debt
               </button>
@@ -932,7 +918,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
 
           {/* Retirement */}
           <section style={{ marginBottom: 22 }}>
-            <div className="px-eyebrow" style={{ marginBottom: 10 }}>Retirement assets</div>
+            <div className="px-eyebrow is-section" style={{ marginBottom: 10 }}>Retirement assets</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <NumField label="HSA balance" path="retirement.hsaBalance" value={profile.retirement.hsaBalance} step="500"  onUpdate={update}/>
               <NumField label="IRA balance" path="retirement.iraBalance" value={profile.retirement.iraBalance} step="500"  onUpdate={update}/>
@@ -973,7 +959,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
           {/* Guaranteed retirement income - SS / pension / annuity */}
           <section style={{ marginBottom: 22 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <div className="px-eyebrow">Guaranteed income</div>
+              <div className="px-eyebrow is-section">Guaranteed income</div>
               <button className="px-btn px-btn-sm px-btn-ghost" style={{ padding: '3px 8px' }} onClick={addStream}>
                 <Icons.Plus size={10} /> Add stream
               </button>
@@ -1040,7 +1026,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
 
           {/* Taxable */}
           <section style={{ marginBottom: 22 }}>
-            <div className="px-eyebrow" style={{ marginBottom: 10 }}>Taxable brokerage</div>
+            <div className="px-eyebrow is-section" style={{ marginBottom: 10 }}>Taxable brokerage</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <NumField label="Balance" path="taxable.balance" value={profile.taxable.balance} step="1000"  onUpdate={update}/>
               <NumField label="Monthly contribution" path="taxable.monthlyContrib" value={profile.taxable.monthlyContrib}  onUpdate={update}/>
@@ -1050,7 +1036,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
           {/* Equity compensation - concentrated single-stock positions (RSU / ISO) */}
           <section style={{ marginBottom: 22 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <div className="px-eyebrow">Equity compensation</div>
+              <div className="px-eyebrow is-section">Equity compensation</div>
               <button className="px-btn px-btn-sm px-btn-ghost" style={{ padding: '3px 8px' }} onClick={addEquity}>
                 <Icons.Plus size={10} /> Add position
               </button>
@@ -1114,7 +1100,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
           {/* Insurance - protection capture (life / disability / LTC) */}
           <section style={{ marginBottom: 22 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <div className="px-eyebrow">Protection</div>
+              <div className="px-eyebrow is-section">Protection</div>
               <button className="px-btn px-btn-sm px-btn-ghost" style={{ padding: '3px 8px' }} onClick={addInsurance}>
                 <Icons.Plus size={10} /> Add policy
               </button>
@@ -1179,7 +1165,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
 
           {/* Estate readiness checklist */}
           <section style={{ marginBottom: 22 }}>
-            <div className="px-eyebrow" style={{ marginBottom: 10 }}>Estate readiness</div>
+            <div className="px-eyebrow is-section" style={{ marginBottom: 10 }}>Estate readiness</div>
             {ESTATE_DEFS.map(({ key, label }) => {
               const item = (profile.estate || {})[key] || { status: 'none', lastReviewed: '' };
               const isComplete = item.status === 'complete';
@@ -1225,7 +1211,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
 
           {/* Planning & tax */}
           <section style={{ marginBottom: 22 }}>
-            <div className="px-eyebrow" style={{ marginBottom: 10 }}>Planning &amp; tax</div>
+            <div className="px-eyebrow is-section" style={{ marginBottom: 10 }}>Planning &amp; tax</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <label className="px-field">
                 <span className="px-field-label">Planning age{primaryMember ? ` · ${primaryMember.name || 'primary'}` : ''}</span>
@@ -1389,7 +1375,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
           {/* Funding goals - education / home / custom, tracked to a target date */}
           <section style={{ marginBottom: 22 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <div className="px-eyebrow">Goals</div>
+              <div className="px-eyebrow is-section">Goals</div>
               <button className="px-btn px-btn-sm px-btn-ghost" style={{ padding: '3px 8px' }} onClick={addGoal}>
                 <Icons.Plus size={10} /> Add goal
               </button>

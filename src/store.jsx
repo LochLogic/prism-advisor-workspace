@@ -1858,7 +1858,7 @@ function printQBRReport(opts) {
     }
     if (pf.rmd && pf.rmd.firstRmd) {
       const fr = pf.rmd.firstRmd;
-      lines.push(`<div class="rpt-p">Projected first RMD at age ${fr.age}: <b>≈ ${fmt$(fr.amount, { short: true })}/yr</b> on a tax-deferred balance growing to ${fmt$(fr.balance, { short: true })} - frames the Roth-conversion window in the years before.</div>`);
+      lines.push(`<div class="rpt-p">Projected first required minimum distribution (RMD) at age ${fr.age}: <b>≈ ${fmt$(fr.amount, { short: true })}/yr</b> on a tax-deferred balance growing to ${fmt$(fr.balance, { short: true })} - frames the Roth-conversion window in the years before.</div>`);
     }
     return `<div class="section-lbl">Plan flags</div>${lines.join('')}`;
   };

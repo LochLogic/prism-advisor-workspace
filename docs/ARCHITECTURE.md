@@ -1,7 +1,7 @@
-# PRISM Advisor Workspace — Architecture Map
+# PRISM Advisor Workspace | Architecture Map
 
 > **Purpose:** condensed router for AI/dev work. Tells you *which* file owns a
-> concern and what it exports — not every line. Read the named file for deep logic.
+> concern and what it exports - not every line. Read the named file for deep logic.
 > **Last synced:** 2026-06-10 round-14 sprint (firm-admin CSV exports + audit filter · platform usage stats; round 13: security-advisor sweep · portal PWA+push · px_events analytics). **Regenerate when:** `build-files.mjs`
 > load order changes, a `src/*` file is added/split, or `window.db`/`PrismCalc` gain methods.
 
@@ -11,7 +11,7 @@
 
 A single-tenant-per-firm B2B SaaS for RIAs (registered investment advisors): an
 advisor command center + a client roadmap portal. React via **window-globals + esbuild
-concat** (no module bundler — files share one global scope; cross-file refs are bare
+concat** (no module bundler - files share one global scope; cross-file refs are bare
 names assigned to `window`). Backend = **Supabase** (Postgres + RLS + Edge Functions).
 Static hosting = **Cloudflare Workers**. See [memory: project-architecture].
 
@@ -21,8 +21,8 @@ Static hosting = **Cloudflare Workers**. See [memory: project-architecture].
   `build-files.mjs` into one scope. A file uses `Foo` from an earlier file directly,
   and publishes its own surface via `window.Foo = Foo` (or `Object.assign(window, {...})`).
 - **Two bundles, one source pool** (`build.mjs`):
-  - `dist/bundle.js` → `/app` — advisor/admin app (all files).
-  - `dist/portal.js` → `/portal` — slim client portal; **excludes** advisor-modal,
+  - `dist/bundle.js` → `/app` - advisor/admin app (all files).
+  - `dist/portal.js` → `/portal` - slim client portal; **excludes** advisor-modal,
     advisor-dashboard, firm-admin, platform-admin (smaller payload + smaller client attack surface).
 - **Load order = dependency order.** Adding a file means editing `build-files.mjs`
   (single source of truth, also consumed by the linter so they can't drift).
@@ -41,35 +41,37 @@ wrangler.jsonc         Cloudflare Workers config
 playwright.config.ts   e2e config
 
 src/
-  error-reporter.js    window.__pxReportError — captures errors → log-error edge fn
+  error-reporter.js    window.__pxReportError - captures errors → log-error edge fn
   supabase-client.js   window.__sb = supabase client (null if CDN fails → demo mode)
-  brand-boot.js        standalone pre-auth brand paint (login/signup/landing only — NOT in the bundles/build-files.mjs; copied + cache-busted by build.mjs)
-  portal-sw.js         portal service worker (push notifications only, NO fetch cache — NOT bundled; copied by build.mjs to /portal-sw.js, scope /portal/)
-  icons.jsx            window.Icons — Lucide-style SVG set
+  brand-boot.js        standalone pre-auth brand paint (login/signup/landing only - NOT in the bundles/build-files.mjs; copied + cache-busted by build.mjs)
+  portal-sw.js         portal service worker (push notifications only, NO fetch cache - NOT bundled; copied by build.mjs to /portal-sw.js, scope /portal/)
+  icons.jsx            window.Icons - Lucide-style SVG set
   data.jsx             domain mock data + phasesData/advisor; the 7 Wealth-Horizons phases
-  calc-core.cjs        window.PrismCalc — ALL financial math (pure, also unit-tested)
-  db.jsx               window.db — the entire Supabase data-access layer (~60 methods)
+  calc-core.cjs        window.PrismCalc - ALL financial math (pure, also unit-tested)
+  db.jsx               window.db - the entire Supabase data-access layer (~60 methods)
   store.jsx            React context providers (Profile/Task/View/Notification) + print/* + fmt helpers
-  auth.jsx             window.AuthProvider/useAuth — session, role detection, sign-out
-  components.jsx       shared UI: Modal, Avatar, Sparkline, MilestoneAchievedModal, Toast
+  auth.jsx             window.AuthProvider/useAuth - session, role detection, sign-out
+  components.jsx       shared UI: Modal, Avatar, Sparkline, MilestoneAchievedModal, Toast, NumInput
+                       (round 22: NumInput is THE numeric input - leading-zero-safe; raw
+                       `<input type="number">` over number state is a known trap, don't reintroduce)
   shell.jsx            chrome shared by BOTH bundles: LoadingScreen, NotificationBell, AccountChip, 2FA, ErrorBoundary
   calculators.jsx      basic + advanced advisor tools; `calculators` registry keyed by phase `calc`/`calcs`;
-                       `InsightAction` (round 11) — advisor-only "Add to agenda" hook turning tool verdicts into CRM tasks
-  numbers-panel.jsx    window.NumbersDrawer — household ledger editor (DOB picker, accounts, cashflows)
-  client-portal.jsx    window.ClientPortal — View B: client roadmap, phase cards, Discuss-with-Advisor
+                       `InsightAction` (round 11) - advisor-only "Add to agenda" hook turning tool verdicts into CRM tasks
+  numbers-panel.jsx    window.NumbersDrawer - household ledger editor (DOB picker, accounts, cashflows)
+  client-portal.jsx    window.ClientPortal - View B: client roadmap, phase cards, Discuss-with-Advisor
   advisor-modal.jsx    NewClientModal + ClientPreviewModal (advisor bundle only)
-  advisor-dashboard.jsx window.AdvisorDashboard — View A: KPIs, roster, alerts, flagged-Q inbox
-  firm-admin.jsx       window.FirmAdminDashboard — advisor mgmt, firm clients, fee schedules, audit log, ledger-gate toggle
-  platform-admin.jsx   window.PlatformOwnerDashboard — founder tier (#/platform): firm overview, provision/suspend, plan overrides
-  app.jsx              window.App — advisor entry: auth gate, topbar, view switch
-  portal-app.jsx       window.PortalApp — slim client entry (/portal bundle)
+  advisor-dashboard.jsx window.AdvisorDashboard - View A: KPIs, roster, alerts, flagged-Q inbox
+  firm-admin.jsx       window.FirmAdminDashboard - advisor mgmt, firm clients, fee schedules, audit log, ledger-gate toggle
+  platform-admin.jsx   window.PlatformOwnerDashboard - founder tier (#/platform): firm overview, provision/suspend, plan overrides
+  app.jsx              window.App - advisor entry: auth gate, topbar, view switch
+  portal-app.jsx       window.PortalApp - slim client entry (/portal bundle)
   styles.css / print.css   hand-authored CSS (print.css = report/invoice print layout)
 
 portal-manifest.webmanifest   PWA manifest (copied to /portal/manifest.webmanifest); icons/ = portal PNG icons
 
 supabase/
   migrations/001-043   schema evolution (names are self-describing; 001 = base schema)
-  functions/           Edge Functions (Deno) — see §6
+  functions/           Edge Functions (Deno) - see §6
   functions/_shared/   auth.ts, cors.ts, docusign.ts, calendar.ts (provider plumbing), fees.ts (canonical BACKEND fee math)
   tests/               integration.sql, rls_isolation.sql (tenant-isolation proofs)
   config.toml
@@ -79,7 +81,7 @@ scripts/
   lint.mjs             custom linter (resolves bare cross-file globals via build-files.mjs;
                        also asserts src/ coverage ↔ build-files.mjs + portal isolation)
   calc.test.mjs        zero-dep unit tests over calc-core.cjs (--quiet → failures + count only)
-  outline.mjs          file outline (declarations + window.* exports + line numbers) — AI token saver
+  outline.mjs          file outline (declarations + window.* exports + line numbers) - AI token saver
   db-test.mjs / rls-test.mjs   run supabase/tests/*.sql
   publish-due.mjs / gsc-digest.mjs / seo-check.mjs / build-whitepaper.mjs / serve.mjs   ops/SEO/content
 
@@ -91,7 +93,7 @@ e2e/demo.spec.ts       Playwright smoke
 
 ## 4. Key export surfaces (the contracts you'll call)
 
-**`window.db`** (`src/db.jsx`) — Supabase data layer. Method groups:
+**`window.db`** (`src/db.jsx`) - Supabase data layer. Method groups:
 - Clients: `getClients, getBookTotals, createClient, updateClient, archiveClient, updateClientNotes, createClientInvite, claimClient, mapClient, syncClientTotals`
 - Accounts/ledger: `getAccounts, upsertAccount, deleteAccount, getCashFlows, addCashFlow, deleteCashFlow`
 - Profile: `getProfile, saveProfile, getProfileVersions`
@@ -99,7 +101,7 @@ e2e/demo.spec.ts       Playwright smoke
 - Alerts/meetings: `getAlerts, snoozeAlert, getMeetings, logMeeting, requestMeeting, updateMeetingStatus, deleteMeeting`
 - Firm/billing: `getAdvisors, getFirmClients, getFeeSchedules, createFeeSchedule, getInvoices, updateInvoiceStatus, getSubscription`
 - Compliance: `getAcknowledgements, getFirmAcknowledgements (firm-wide, round 7), createAcknowledgement, signAcknowledgement, sendDocusignEnvelope, audit, getAuditLog ({limit, clientId, since})`
-- Messaging/docs: `getMessages, sendMessage, markMessagesRead, getUnreadMessageClients, getDocuments, uploadDocument, getDocumentUrl, deleteDocument, getDocumentRequests, requestDocument, resolveDocumentRequest` (doc requests ride on `messages` via `context='doc-request:<cat>'` / `'doc-request-done:<id>'` — crm_tasks has no client RLS, messages do; zero schema change, audit-logged)
+- Messaging/docs: `getMessages, sendMessage, markMessagesRead, getUnreadMessageClients, getDocuments, uploadDocument, getDocumentUrl, deleteDocument, getDocumentRequests, requestDocument, resolveDocumentRequest` (doc requests ride on `messages` via `context='doc-request:<cat>'` / `'doc-request-done:<id>'` - crm_tasks has no client RLS, messages do; zero schema change, audit-logged)
 - Misc: `getPhases, getBalanceHistory, getBookBalanceHistory, getTasks/createTask/updateTask/deleteTask, isUUID, timeAgo`
 - Analytics/push (round 13): `track(event, {clientId, meta})` → `px_track` RPC
   (migration 041; fire-and-forget, no-ops in demo/pre-migration);
@@ -119,18 +121,18 @@ e2e/demo.spec.ts       Playwright smoke
   round 12d added `set_advisor_role` admin⇄advisor)
 - Identity (rounds 12c/d): `updateAdvisorProfile` (own name/honorific/credentials/
   address_style; advisors_update_self RLS), `getMyAdvisor` (px_my_advisor RPC,
-  migration 038 — a CLIENT's advisor display fields; clients can't read `advisors`),
+  migration 038 - a CLIENT's advisor display fields; clients can't read `advisors`),
   `updateFirmBrand` also accepts a non-empty `name` (firm rename). Client-facing
   advisor reference = `advisorFormalName({honorific, fullName, addressStyle})`
-  (data.jsx) — 'first' | 'last' | 'formal'; NULL style = legacy derivation.
-- Ledger approval gate (round 12, migration 036): `getLedgerGate` (px_ledger_gate RPC —
+  (data.jsx) - 'first' | 'last' | 'formal'; NULL style = legacy derivation.
+- Ledger approval gate (round 12, migration 036): `getLedgerGate` (px_ledger_gate RPC  - 
   client-safe), `setLedgerGate/getFirmLedgerGate` (firms.ledger_approval_required),
   `getPendingLedgerChange(clientId)`, `submitLedgerChange` (one open draft per client,
   upserted in place), `withdrawLedgerChange`, `getPendingLedgerChanges` (advisor inbox),
   `reviewLedgerChange(row, advisorId, approve, note)` (approve = saveProfile then close).
   All methods no-op/return null until the migration is applied.
 
-**`window.PrismCalc`** (`src/calc-core.cjs`) — pure financial math (frontend copy; backend
+**`window.PrismCalc`** (`src/calc-core.cjs`) - pure financial math (frontend copy; backend
 copy is `functions/_shared/fees.ts`): `monthlyExpenseTotal, buildValueSeries, modifiedDietz,
 perfPeriods, debtPayoffMonths, hsaProjection, monteCarlo, rothLadder, estateProjection, tlh,
 retirementReadiness, goalFunding, annualFeeForAum, lifeCoverageGap, assetComposition,
@@ -149,14 +151,14 @@ withholding rate; front-phase tax-data play, round 6), `termLifePremium`
 reserve-months-of-essentials with disability benefit + elimination period).
 ⚠ Client returns are NET of advisory fees, advisor GROSS [see memory: performance-net-of-fees].
 ⚠ `FED_BRACKETS_2025`, `RMD_UNIFORM_DIVISORS`, the §415(c) mega-backdoor limit, and SS
-credit/reduction factors are dated assumptions — reindex annually (like `estateProjection`'s exemption).
+credit/reduction factors are dated assumptions - reindex annually (like `estateProjection`'s exemption).
 Profile JSON gained `equityComp[]` (concentrated positions) and a `pia` field on `social_security`
 income streams; captured in `numbers-panel.jsx`. Round 6 added `taxes.w2 = { box1, box2 }`;
-round 9 superseded it with `taxes.w2s[]` ({id,label,box1,box2} per earner/job — the legacy
+round 9 superseded it with `taxes.w2s[]` ({id,label,box1,box2} per earner/job - the legacy
 single `w2` is surfaced as the first entry until first edit; COMBINED box1 drives
 `w2Position`). Round 9 also added `housing.termYears`/`housing.startYear` (optional;
 scheduled-payoff readout) and made `insurance[].owner` a member-name dropdown.
-No migration — profile is a JSON blob. Round 7 added `taxes.t1040` (keyed 1040 lines)
+No migration - profile is a JSON blob. Round 7 added `taxes.t1040` (keyed 1040 lines)
 → `tax1040Insights` (Holistiplan-lite observation engine; dated companions
 `LTCG_ZERO_TOP_2025`, `IRMAA_TIER1_2025`, plus `FEDERAL_ESTATE_EXEMPTION_2025` now
 named/exported) rendered by the Phase-04 `taxreturn` tool. `monteCarlo`'s RNG is
@@ -169,15 +171,15 @@ mulberry32 (seeded, deterministic). Vault document deletion fires a
 `useTheme`; report printers `printClientReport, printMilestoneReport, printComplianceReport, printExamPacket
 (firm books-&-records, round 7), printPerformanceReport, printInvoiceReport,
 printQBRReport, printIPSReport, printProposalPacket (prospect close-the-deal print,
-round 8 — button on the portal prospect banner)`; `openEstateSample(key)` (round 9 —
+round 8 - button on the portal prospect banner)`; `openEstateSample(key)` (round 9  - 
 illustrative will/trust/POA/directive/beneficiary-review discussion documents, bannered
 not-legal-advice, `.sample-banner` in print.css, no auto-print); helpers
 `escapeHtml, sanitizeHtml, fmt$, fmtPct, fmtN, emptyProfile, mergeProfile,
-downloadCSV` (round 14 — shared formula-injection-safe CSV download; used by the
+downloadCSV` (round 14 - shared formula-injection-safe CSV download; used by the
 roster export and the firm-admin Clients/Invoices/Audit CSVs).
-Also `ProspectProvider/useProspects` — unsaved "prospect-" households → one-click convert.
+Also `ProspectProvider/useProspects` - unsaved "prospect-" households → one-click convert.
 Round 9: `createProspect` seeds `px_tasks`/`px_open` to the chosen starting phase;
-prospect profiles load/merge on `emptyProfile` (never the demo sample — ProfileProvider
+prospect profiles load/merge on `emptyProfile` (never the demo sample - ProfileProvider
 lazy-inits from the right source so no demo-data flash); prospect views suppress
 `demoMessages()`.
 Also white-label brand engine: `applyFirmBrand(brand)` (inline `--brand`/`--accent*` CSS vars
@@ -218,7 +220,7 @@ mirrored in `src/brand-boot.js` for the pre-auth pages).
 | `docusign-envelope` | Advisor → escalate acknowledgement into DocuSign envelope |
 | `plaid-create-link-token` / `plaid-exchange-token` | Plaid Link → import account balances |
 | `worm-export` | SEC 17a-4 audit-log retention export → private bucket |
-| `ai-assist` | Advisor JWT → Gemini (server-side key): draft_reply / household_summary / talking_points / attention / w2_extract (round 9 — base64 image/PDF ≤4 MB via `file`, JSON box extraction) |
+| `ai-assist` | Advisor JWT → Gemini (server-side key): draft_reply / household_summary / talking_points / attention / w2_extract (round 9 - base64 image/PDF ≤4 MB via `file`, JSON box extraction) |
 | `platform-admin` | Founder JWT checked against px_platform_owners → service-role firm administration: whoami / overview (incl. 30-day px_events usage per firm, round 14) / firm_detail / provision_firm / suspend_firm / reactivate_firm / set_plan (all audit-logged `platform.*`) |
 | `calendar-oauth` | Advisor JWT → Google/Microsoft calendar connect lifecycle (auth_url / exchange / status / disconnect); tokens → `calendar_connections` (service-role only) |
 | `calendar-events` | Advisor JWT → upcoming / freebusy / create across connected calendars; auto token refresh. Callback pages: `/oauth/{google,microsoft}/callback` (one `oauth-callback.html`, written twice by build.mjs) |
@@ -244,12 +246,12 @@ CI required checks: `ci + Cloudflare Workers Builds + rls-isolation + e2e` [see 
 ## 8. Gotchas
 
 - Editing a `src/*` file's exports = update `window.*` assignment AND check `build-files.mjs` load order (a file can only use names from files **above** it).
-- `phasesData` is mutated in place after DB fetch (white-label per firm) — don't freeze it at module load; recompute phase options at call time.
-- Frontend `PrismCalc` and backend `_shared/fees.ts` are **parallel** fee implementations — change both together.
+- `phasesData` is mutated in place after DB fetch (white-label per firm) - don't freeze it at module load; recompute phase options at call time.
+- Frontend `PrismCalc` and backend `_shared/fees.ts` are **parallel** fee implementations - change both together.
 - Portal bundle must never reference advisor-only files (advisor-modal/dashboard/firm-admin) or the `/portal` build breaks.
 - White-label theming = inline CSS custom properties on `<html>` (`--brand`,
-  `--brand-hover`, `--accent`, `--accent-soft`, `--accent-line`) — inline beats every
+  `--brand-hover`, `--accent`, `--accent-soft`, `--accent-line`) - inline beats every
   stylesheet rule incl. dark theme. Firm logos are **data URIs** in `firms.logo_url`
-  (≤200 KB; CSP `img-src` allows `data:` but no external hosts — don't switch to a
+  (≤200 KB; CSP `img-src` allows `data:` but no external hosts - don't switch to a
   storage URL without a CSP change).
 - Phase → tools: each phase in `data.jsx` carries `calcs: [...]` (preferred, any count) or legacy `calc`/`calc2`, keying into the `calculators` registry; `client-portal.jsx` resolves either form. Add a tool = register it in `calculators` + reference its key from a phase.

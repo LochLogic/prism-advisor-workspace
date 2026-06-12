@@ -794,8 +794,8 @@ function tax1040Insights({ filingStatus = 'mfj', age = 0, lines = {} } = {}) {
   // 8 · QCD eligibility - IRA distributions while charitably inclined at 70½+.
   if (iraDist > 0 && age >= 70.5) {
     add('qcd', 'opportunity', 'IRA distributions could flow through a QCD',
-      'Qualified charitable distributions (up to $108k, 2025) sent directly from the IRA count toward RMDs and ' +
-      'never hit AGI - usually beating a cash gift plus a deduction.');
+      'Qualified charitable distributions (up to $108k, 2025) sent directly from the IRA count toward ' +
+      'required minimum distributions (RMDs) and never hit AGI - usually beating a cash gift plus a deduction.');
   }
 
   // 9 · Taxable Social Security + other income → provisional-income lever.
