@@ -316,6 +316,46 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
   // Contributions section entry period - display-only; storage stays annual.
   const [contribFreq, setContribFreq] = React.useState('yr');
 
+  // ── Section jump nav + open-with-focus (round 25) ──────────────────
+  // The drawer is ~14 sections deep; the chip bar under the header jumps to
+  // any of them. Labels are collected from the rendered `.is-section`
+  // eyebrows (first text node only - some embed a FieldHint), so adding a
+  // section to the drawer adds it to the nav with no second list to maintain.
+  const { numbersFocus } = useView();
+  const bodyRef = React.useRef(null);
+  const [navSections, setNavSections] = React.useState([]);
+  const sectionEls = () => [...(bodyRef.current?.querySelectorAll('.px-eyebrow.is-section') || [])];
+  const sectionLabel = (el) =>
+    (el.childNodes[0]?.nodeType === 3 ? el.childNodes[0].textContent : el.textContent).trim();
+  React.useEffect(() => { setNavSections(sectionEls().map(sectionLabel)); }, []);
+  // Scroll the drawer body directly. Smooth programmatic scrolling silently
+  // no-ops in some environments (reduced-motion / embedded Chromium), so a
+  // short verify-step falls back to an instant jump - landing is guaranteed.
+  const scrollBodyTo = (el, block) => {
+    const body = bodyRef.current;
+    if (!el || !body) return;
+    const offset = el.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop;
+    const top = block === 'center' ? offset - body.clientHeight / 2 + el.clientHeight / 2 : offset - 8;
+    const target = Math.max(0, Math.round(top));
+    const before = body.scrollTop;
+    body.scrollTo({ top: target, behavior: 'smooth' });
+    setTimeout(() => {
+      if (body.scrollTop === before && Math.abs(target - before) > 4) body.scrollTop = target;
+    }, 220);
+  };
+  const jumpTo = (label) => scrollBodyTo(sectionEls().find(e => sectionLabel(e) === label), 'start');
+  // Open-with-focus: 'identity' (paperwork click-through / portal nudge) expands
+  // every Identity & paperwork block and scrolls to the first remaining gap.
+  // The drawer remounts per open, so a mount effect reads the focus once.
+  React.useEffect(() => {
+    if (numbersFocus !== 'identity') return;
+    const t = setTimeout(() => {
+      bodyRef.current?.querySelectorAll('details[data-identity]').forEach(d => { d.open = true; });
+      scrollBodyTo(bodyRef.current?.querySelector('[data-kyc-gap]'), 'center');
+    }, 80);
+    return () => clearTimeout(t);
+  }, []);
+
   // Estate-category vault documents, for the "link a document" picker below. A
   // linked doc is what marks an estate item "Complete & shared" (solid green,
   // openable in the client portal). Demo clients use the seeded estate docs.
@@ -543,7 +583,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
   return (
     <>
       <div className="px-drawer-backdrop" onClick={onClose} />
-      <aside className="px-drawer" role="dialog" aria-label="Your numbers">
+      <aside className="px-drawer is-wide" role="dialog" aria-label="Your numbers">
         <div className="px-drawer-head">
           <div>
             <div className="px-eyebrow">Household ledger</div>
@@ -562,6 +602,14 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
             </button>
           </div>
         </div>
+        {/* Section jump nav (round 25) - the drawer outgrew blind scrolling */}
+        {navSections.length > 0 && (
+          <div className="px-drawer-nav" role="navigation" aria-label="Jump to section">
+            {navSections.map(s => (
+              <button key={s} type="button" onClick={() => jumpTo(s)}>{s}</button>
+            ))}
+          </div>
+        )}
         {/* Advisor-approval gate (clients only, per-firm opt-in). Informs without
             discouraging: editing stays fully open; the strip just explains where
             the numbers go and reflects the advisor's last decision. */}
@@ -623,7 +671,7 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
             )}
           </div>
         )}
-        <div className="px-drawer-body">
+        <div className="px-drawer-body" ref={bodyRef}>
 
           {/* Snapshot */}
           <div className="px-card" style={{ padding: 14, marginBottom: 22, background: 'var(--surface-2)' }}>
@@ -706,7 +754,8 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                   const nameParts = (m.name || '').trim().split(/\s+/).filter(Boolean);
                   const working = ['employed', 'self_employed'].includes(id.employmentStatus);
                   return (
-                    <details style={{ marginTop: 8, borderTop: '1px dashed var(--border)', paddingTop: 6 }}>
+                    <details data-identity="" {...(gaps > 0 ? { 'data-kyc-gap': '' } : {})}
+                      style={{ marginTop: 8, borderTop: '1px dashed var(--border)', paddingTop: 6 }}>
                       <summary style={{ cursor: 'pointer', fontSize: 11.5, color: 'var(--ink-mute)' }}>
                         Identity &amp; paperwork
                         <FieldHint text="What custodian account applications ask for. Filling it in here means new-account paperwork arrives prefilled, with nothing to chase at signing time." />
@@ -783,8 +832,13 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
             {/* Household address + trusted contact (round 24) - shared by every
                 member unless they set their own above. The trusted contact is
                 the FINRA Rule 4512 person custodians ask about on applications. */}
-            {(profile.members || []).length > 0 && (
-              <div style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 10, marginBottom: 8, background: 'var(--surface)' }}>
+            {(profile.members || []).length > 0 && (() => {
+              const a = (profile.contact || {}).address || {};
+              const tc = (profile.contact || {}).trustedContact || {};
+              const hhGap = !(a.street1 && a.city && a.state && a.zip) || !(tc.name && (tc.phone || tc.email));
+              return (
+              <div {...(hhGap ? { 'data-kyc-gap': '' } : {})}
+                style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 10, marginBottom: 8, background: 'var(--surface)' }}>
                 <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ink-mute)', marginBottom: 8 }}>
                   Residential address
                   <FieldHint text="The household's legal address. It prefills custodian account paperwork; a member who lives elsewhere can set their own address under Identity & paperwork." />
@@ -803,7 +857,8 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                   <TextField label="Email" value={(profile.contact || {}).trustedContact?.email} onChange={(v) => update('contact.trustedContact.email', v)} />
                 </div>
               </div>
-            )}
+              );
+            })()}
           </section>
 
           {/* Income */}

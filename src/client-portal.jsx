@@ -720,7 +720,9 @@ const ClientPortal = ({ onOpenNumbers }) => {
                   to chase at signing time. Still needed: {preview}{more > 0 ? ` and ${more} more` : ''}.
                 </div>
               </div>
-              <button className="px-btn px-btn-primary px-btn-sm" onClick={onOpenNumbers}>
+              {/* 'identity' focus (round 25): the drawer opens with every
+                  Identity & paperwork block expanded, scrolled to the first gap */}
+              <button className="px-btn px-btn-primary px-btn-sm" onClick={() => onOpenNumbers('identity')}>
                 <Icons.Edit size={12} /> Complete details
               </button>
             </div>

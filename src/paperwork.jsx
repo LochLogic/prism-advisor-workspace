@@ -298,7 +298,7 @@ function buildPaperworkPayload({ client, profile, identifiers, custodian, accoun
 }
 
 /* ─── The modal - advisor-facing POC surface (client quick-view button) ── */
-const PaperworkModal = ({ client, profileData, onClose }) => {
+const PaperworkModal = ({ client, profileData, onClose, onEditNumbers }) => {
   const [custodian, setCustodian] = React.useState('schwab');
   const [accountType, setAccountType] = React.useState('individual');
   const [action, setAction] = React.useState('open');
@@ -346,7 +346,17 @@ const PaperworkModal = ({ client, profileData, onClose }) => {
       <span style={{ color: 'var(--ink)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {String(f.value || '')}{!f.value && <em style={{ color: 'var(--ink-faint)', fontStyle: 'italic' }}>{f.source}</em>}
       </span>
-      <span style={{ color: STATUS[f.status].color, fontSize: 10.5, fontWeight: 600, whiteSpace: 'nowrap' }}>{STATUS[f.status].label}</span>
+      {/* Missing data the Numbers drawer holds is one click away (round 25):
+          close this modal stack, open the drawer focused on the identity gaps. */}
+      {f.status === 'missing' && /Numbers panel/.test(f.source) && onEditNumbers ? (
+        <button className="px-btn px-btn-sm px-btn-ghost" onClick={onEditNumbers}
+          title="Open the Numbers drawer to capture this"
+          style={{ padding: '2px 8px', fontSize: 10.5, fontWeight: 600, color: 'var(--brick, #a14d3a)', whiteSpace: 'nowrap' }}>
+          Add <Icons.ArrowRight size={10} />
+        </button>
+      ) : (
+        <span style={{ color: STATUS[f.status].color, fontSize: 10.5, fontWeight: 600, whiteSpace: 'nowrap' }}>{STATUS[f.status].label}</span>
+      )}
     </div>
   );
 

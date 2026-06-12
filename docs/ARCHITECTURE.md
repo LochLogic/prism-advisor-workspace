@@ -2,7 +2,7 @@
 
 > **Purpose:** condensed router for AI/dev work. Tells you *which* file owns a
 > concern and what it exports - not every line. Read the named file for deep logic.
-> **Last synced:** 2026-06-12 round-25 sprint (KYC identity capture: `members[].identity` + household `contact` block, `memberIdentity`/`kycCompleteness` store helpers, Numbers-drawer Identity & paperwork section + `KYC_OPTIONS`, portal completeness nudge, paperwork prefill consumes it all). Prior: round 23/24 (encrypted SSN store, `src/paperwork.jsx` POC, Quik! taxonomy + action packages + adapter tiers). **Regenerate when:** `build-files.mjs`
+> **Last synced:** 2026-06-12 round-25b sprint (KYC identity capture: `members[].identity` + household `contact` block, `memberIdentity`/`kycCompleteness` store helpers, Numbers-drawer Identity & paperwork section + `KYC_OPTIONS`, portal completeness nudge, paperwork prefill consumes it all; 25b: wide Numbers drawer `.is-wide` + runtime section jump nav, `openNumbers/openClientNumbers(…, focus)` + `numbersFocus` open-with-focus, paperwork-modal missing rows click through to the drawer). Prior: round 23/24 (encrypted SSN store, `src/paperwork.jsx` POC, Quik! taxonomy + action packages + adapter tiers). **Regenerate when:** `build-files.mjs`
 > load order changes, a `src/*` file is added/split, or `window.db`/`PrismCalc` gain methods.
 
 ---
@@ -64,7 +64,10 @@ src/
   numbers-panel.jsx    window.NumbersDrawer + KYC_OPTIONS/kycLabel - household ledger editor (DOB picker,
                        accounts, cashflows; round 23: per-member encrypted SSN capture via db.*Identifier*,
                        advisor-only reveal; round 25: per-member "Identity & paperwork" KYC capture +
-                       household address/trusted contact - shared drawer, so clients self-serve in the portal)
+                       household address/trusted contact - shared drawer, so clients self-serve in the portal;
+                       round 25b: wide variant (.is-wide, Numbers only) + section jump nav collected at
+                       runtime from .is-section eyebrows + ViewContext `numbersFocus` open-with-focus
+                       ('identity' expands KYC blocks, scrolls to first data-kyc-gap))
   client-portal.jsx    window.ClientPortal - View B: client roadmap, phase cards, Discuss-with-Advisor;
                        PhaseCard enforces `requiresDoc` milestone gates (advisor override audited);
                        round 25: "Account paperwork details" nudge card (kycCompleteness → Numbers drawer)
