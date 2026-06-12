@@ -8,10 +8,33 @@ const defaultProfile = {
   // Household members - the people behind the plan. The "primary" member's age
   // drives planning math (retirement horizon, legacy projection); spouse/dependents
   // give the advisor the relationship context the roadmap promises.
+  // Each member can carry an `identity` block (round 24) - the KYC data
+  // custodian account-opening forms ask for. Captured in the Numbers drawer
+  // (advisor or client), consumed by the paperwork prefill engine. SSNs are
+  // NOT here - they live only in the encrypted identifier store.
   members: [
-    { id: 'm1', name: 'Robert Marsh', role: 'primary', dateOfBirth: '1962-04-15' },
-    { id: 'm2', name: 'Eileen Marsh', role: 'spouse',  dateOfBirth: '1964-09-22' },
+    { id: 'm1', name: 'Robert Marsh', role: 'primary', dateOfBirth: '1962-04-15',
+      identity: { firstName: 'Robert', middleName: 'Alan', lastName: 'Marsh',
+        email: 'robert.marsh@example.com', phone: '(415) 555-0142',
+        maritalStatus: 'married', citizenship: 'us', citizenshipCountry: '',
+        employmentStatus: 'employed', employer: 'Hexagon Systems', occupation: 'VP of Engineering',
+        govIdType: 'drivers_license', govIdLast4: '4821',
+        differentAddress: false, address: { street1: '', street2: '', city: '', state: '', zip: '' } } },
+    { id: 'm2', name: 'Eileen Marsh', role: 'spouse',  dateOfBirth: '1964-09-22',
+      identity: { firstName: 'Eileen', middleName: '', lastName: 'Marsh',
+        email: 'eileen.marsh@example.com', phone: '(415) 555-0186',
+        maritalStatus: 'married', citizenship: 'us', citizenshipCountry: '',
+        employmentStatus: 'self_employed', employer: 'Marsh Design Studio', occupation: 'Principal designer',
+        govIdType: 'drivers_license', govIdLast4: '7733',
+        differentAddress: false, address: { street1: '', street2: '', city: '', state: '', zip: '' } } },
   ],
+  // Household contact block (round 24): the residential address members share
+  // (a member's identity.differentAddress overrides it) and the trusted
+  // contact person custodians ask for under FINRA Rule 4512.
+  contact: {
+    address: { street1: '418 Cypress Hill Rd', street2: '', city: 'Mill Valley', state: 'CA', zip: '94941' },
+    trustedContact: { name: 'Daniel Marsh', relationship: 'Son', phone: '(415) 555-0117', email: 'daniel.marsh@example.com' },
+  },
   // income.monthlyTakehome is the spendable cash that drives the cash-flow math.
   // income.sources is optional composition (salary / RSU / bonus / self-employment)
   // captured for tax planning - it does NOT alter take-home or surplus.
@@ -88,6 +111,10 @@ const defaultProfile = {
 // and so advisors aren't shown the demo's sample numbers as if they were real.
 const emptyProfile = {
   members:  [],
+  contact: {
+    address: { street1: '', street2: '', city: '', state: '', zip: '' },
+    trustedContact: { name: '', relationship: '', phone: '', email: '' },
+  },
   income:   { monthlyTakehome: 0, sources: [] },
   expenses: { housing: 0, food: 0, transport: 0, utilities: 0, healthcare: 0, other: 0, custom: [] },
   housing: { type: 'rent', homeValue: 0, mortgageBalance: 0, mortgageApr: 0, escrowMonthly: 0, extraPrincipal: 0 },
@@ -130,6 +157,59 @@ function mergeProfile(base, data) {
     return out;
   }
   return data !== undefined ? data : base;
+}
+
+/* ─── KYC / paperwork identity (round 24) ─────────────────────────────
+   Members are stored as an array, so mergeProfile cannot backfill missing
+   keys inside them - every consumer of member.identity goes through
+   memberIdentity() to get a fully-shaped block. kycCompleteness() is the
+   one shared definition of "ready for account paperwork": the Numbers
+   drawer, the portal nudge card, and the paperwork modal all read it so
+   they can never disagree on what is missing. SSNs are tracked separately
+   (encrypted identifier store), not here. */
+const emptyIdentity = {
+  firstName: '', middleName: '', lastName: '',
+  email: '', phone: '',
+  maritalStatus: '', citizenship: '', citizenshipCountry: '',
+  employmentStatus: '', employer: '', occupation: '',
+  govIdType: '', govIdLast4: '',
+  differentAddress: false,
+  address: { street1: '', street2: '', city: '', state: '', zip: '' },
+};
+const memberIdentity = (m) => ({
+  ...emptyIdentity,
+  ...((m && m.identity) || {}),
+  address: { ...emptyIdentity.address, ...((m && m.identity && m.identity.address) || {}) },
+});
+const addressComplete = (a) => !!(a && a.street1 && a.city && a.state && a.zip);
+
+function kycCompleteness(profile) {
+  const p = profile || {};
+  const adults = (Array.isArray(p.members) ? p.members : []).filter(m => m.role !== 'dependent');
+  const hh = p.contact || {};
+  const items = [
+    { label: 'Residential address', ok: addressComplete(hh.address) },
+    { label: 'Trusted contact', ok: !!(hh.trustedContact?.name && (hh.trustedContact?.phone || hh.trustedContact?.email)) },
+  ];
+  for (const m of adults) {
+    const id = memberIdentity(m);
+    const who = (m.name || '').trim().split(/\s+/)[0] || 'Member';
+    const employed = ['employed', 'self_employed'].includes(id.employmentStatus);
+    items.push(
+      { label: `${who} · legal name`, ok: !!((id.firstName && id.lastName) || (m.name || '').trim()) },
+      { label: `${who} · date of birth`, ok: !!m.dateOfBirth },
+      { label: `${who} · phone & email`, ok: !!(id.phone && id.email) },
+      { label: `${who} · citizenship`, ok: !!id.citizenship },
+      { label: `${who} · marital status`, ok: !!id.maritalStatus },
+      { label: `${who} · employment`, ok: !!id.employmentStatus && (!employed || !!(id.employer && id.occupation)) },
+      { label: `${who} · government ID`, ok: !!(id.govIdType && id.govIdLast4) },
+      // A member living away from the household needs their own complete address
+      { label: `${who} · address`, ok: !id.differentAddress || addressComplete(id.address) },
+    );
+  }
+  const done = items.filter(i => i.ok).length;
+  return { items, done, total: items.length, complete: done === items.length,
+           missing: items.filter(i => !i.ok).map(i => i.label) };
 }
 
 const ProfileContext = createContext(null);
@@ -2085,7 +2165,7 @@ function downloadCSV(filename, headers, rows) {
 
 Object.assign(window, {
   downloadCSV,
-  ProfileProvider, useProfile, emptyProfile, mergeProfile, openEstateSample, openPlanningSample,
+  ProfileProvider, useProfile, emptyProfile, mergeProfile, memberIdentity, kycCompleteness, openEstateSample, openPlanningSample,
   TaskProvider, useTasks, demoTaskSeed,
   ViewProvider, useView,
   NotificationProvider, useNotifications,

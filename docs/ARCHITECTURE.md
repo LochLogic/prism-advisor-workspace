@@ -2,7 +2,7 @@
 
 > **Purpose:** condensed router for AI/dev work. Tells you *which* file owns a
 > concern and what it exports - not every line. Read the named file for deep logic.
-> **Last synced:** 2026-06-11 round-23 sprint (smart Retirement goal · Asset-Location what-if · milestone doc gates · advisor playbook · encrypted SSN store + `client-identifiers` edge fn · `src/paperwork.jsx` custodian-paperwork POC · Help drawer + build-time guides). **Regenerate when:** `build-files.mjs`
+> **Last synced:** 2026-06-12 round-25 sprint (KYC identity capture: `members[].identity` + household `contact` block, `memberIdentity`/`kycCompleteness` store helpers, Numbers-drawer Identity & paperwork section + `KYC_OPTIONS`, portal completeness nudge, paperwork prefill consumes it all). Prior: round 23/24 (encrypted SSN store, `src/paperwork.jsx` POC, Quik! taxonomy + action packages + adapter tiers). **Regenerate when:** `build-files.mjs`
 > load order changes, a `src/*` file is added/split, or `window.db`/`PrismCalc` gain methods.
 
 ---
@@ -61,10 +61,13 @@ src/
   shell.jsx            chrome shared by BOTH bundles: LoadingScreen, NotificationBell, AccountChip, 2FA, ErrorBoundary
   calculators.jsx      basic + advanced advisor tools; `calculators` registry keyed by phase `calc`/`calcs`;
                        `InsightAction` (round 11) - advisor-only "Add to agenda" hook turning tool verdicts into CRM tasks
-  numbers-panel.jsx    window.NumbersDrawer - household ledger editor (DOB picker, accounts, cashflows;
-                       round 23: per-member encrypted SSN capture via db.*Identifier*, advisor-only reveal)
+  numbers-panel.jsx    window.NumbersDrawer + KYC_OPTIONS/kycLabel - household ledger editor (DOB picker,
+                       accounts, cashflows; round 23: per-member encrypted SSN capture via db.*Identifier*,
+                       advisor-only reveal; round 25: per-member "Identity & paperwork" KYC capture +
+                       household address/trusted contact - shared drawer, so clients self-serve in the portal)
   client-portal.jsx    window.ClientPortal - View B: client roadmap, phase cards, Discuss-with-Advisor;
-                       PhaseCard enforces `requiresDoc` milestone gates (advisor override audited)
+                       PhaseCard enforces `requiresDoc` milestone gates (advisor override audited);
+                       round 25: "Account paperwork details" nudge card (kycCompleteness → Numbers drawer)
   paperwork.jsx        custodian account-paperwork POC (round 23): buildPaperworkPayload + PaperworkModal
                        + PAPERWORK_ADAPTERS (tiered: Quik! + custodian-direct stubs, each with a blanks list) + PAPERWORK_PACKAGES (action → form-slot
                        bundles; picker built post-credentials) - ADVISOR bundle only, loads before advisor-modal;
@@ -188,7 +191,14 @@ mulberry32 (seeded, deterministic). Vault document deletion fires a
 `px:document-deleted` window event; ProfileProvider clears matching
 `estate.*.documentId` links.
 
-**`store.jsx`** (via `Object.assign(window,…)`): providers `ProfileProvider/useProfile`,
+**`store.jsx`** (via `Object.assign(window,…)`): KYC identity helpers (round 25)
+`memberIdentity(m)` (fully-shaped `members[].identity` accessor - members are an array,
+so mergeProfile can't backfill inside them; always read identity through this) and
+`kycCompleteness(profile)` (the ONE definition of paperwork readiness - drawer badges,
+the portal nudge, and the paperwork modal all derive from it). Profile JSON carries
+`members[].identity` (name parts/contact/citizenship/marital/employment/govId last4/
+optional own address) + household `contact` (residential address, trusted contact).
+Providers `ProfileProvider/useProfile`,
 `TaskProvider/useTasks`, `ViewProvider/useView`, `NotificationProvider/useNotifications`,
 `useTheme`; report printers `printClientReport, printMilestoneReport, printComplianceReport, printExamPacket
 (firm books-&-records, round 7), printPerformanceReport, printInvoiceReport,

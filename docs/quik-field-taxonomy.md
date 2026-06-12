@@ -122,9 +122,10 @@ Names that follow the convention but are NOT yet confirmed (flagged `verified: f
 `QUIK_FIELDS`, surfaced as `unverifiedFields` in the export payload): owner `DOB`,
 citizenship, employment/occupation, suitability (annual income / net worth), state,
 `1rep.*` advisor fields, `1macc.*` for the G-number, trust EIN. Confirm every one against
-`GET /forms/fields` for the chosen Form IDs before live submission. Owner full names must
-be split into `FName`/`LName` (Prism stores one name string; the split is best-effort
-until member first/last capture exists).
+`GET /forms/fields` for the chosen Form IDs before live submission. Owner names: round 25
+added real first/middle/last capture (`members[].identity`, Numbers drawer); the
+best-effort split of the single name string remains only as the fallback for households
+that have not filled the identity block in yet.
 
 ## 7. UX decision: action packages, not a forms list
 

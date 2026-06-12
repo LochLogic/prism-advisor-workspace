@@ -1181,4 +1181,103 @@ the Management API after PR merge (the PR is the approval gate; `db push`
 remains forbidden - the migration ledger stays unmanaged).
 
 ---
+
+## 2026-06-12 - Round 24: Quik! taxonomy research · action packages · three-tier paperwork strategy
+
+Three PRs (#76, #77, #78), all merged + live same-day. The custodian-paperwork
+POC (round 23 item 6) went from "blanks list" to a researched, strategy-locked
+integration track. No migrations, no secrets, no money.
+
+1. **Quik! field-taxonomy research (PR #76)** - public-docs pass (their
+   Confluence + support site; no credentials), written up in
+   `docs/quik-field-taxonomy.md`: the `<n><role>.<Base>` naming convention
+   (1own.FName / 2own.LName / 1acc.Reg), the full ~100-row parent-role list,
+   checkbox lookup-value coding, both API surfaces (QFEM v2000 metadata API
+   incl. `GET /forms/fields` per-form dictionaries; Forms Engine
+   `POST /qfe/execute/pdf`, UAT endpoint exists), and the DocuSign **Self
+   Service** model - Quik! returns the signable PDF, so Prism's own
+   docusign-envelope flow owns the envelope (one audit trail; the round-23
+   e-sign recommendation is now evidence-backed). `buildPaperworkPayload`
+   emits the Execute-shaped `quik` block: `formFields` `[{FieldName,
+   FieldValue}]` with role instancing + FName/LName split, `gatedFields`
+   (SSN, server-side release only), `unverifiedFields` (names pending
+   dictionary confirmation; `*` in the modal). Decision: NO blank-form
+   library - the public Schwab/Fidelity pages are retail catalogs, and the
+   per-form dictionary supersedes PDFs entirely.
+2. **Action packages (PR #77)** - founder-approved UX reframe: advisors pick
+   a TASK, not a form. `PAPERWORK_PACKAGES` (Open account / ACAT in / Update
+   beneficiaries / ACH) encodes form slots with `formId: null`; one Execute
+   call generates a whole package (QuikFormID list). Modal gains the Action
+   select + "Forms in this package" box (`appliesTo` filters beneficiary
+   slots to IRA/Roth). Payload v3. The picker flow (multi-select, Create,
+   PDF preview, DocuSign routing, vault + doc-gate close) is deliberately
+   deferred until UAT credentials so it is built once against real
+   `GET /forms/search` results. Later wedge: the planning session suggests
+   the package.
+3. **Three-tier adapter strategy (PR #78)** - evaluated Schwab Advisor Center
+   + Fidelity Wealthscape (Integration Xchange) vs. Quik!: custodian-native
+   onboarding is better for supported paths but is an AND, not an OR.
+   Tier 1 Quik! (startable now, long-tail fallback forever) · Tier 2
+   custodian-direct SSO + prefill, Wealthbox-shaped (new `schwab` +
+   `wealthscape` stubs in `PAPERWORK_ADAPTERS` with concrete blanks lists;
+   gated on a design partner's custody relationship, their custodian goes
+   first; same unlock feeds holdings aggregation) · Tier 3 headless
+   onboarding APIs at scale. Modal renders a blanks checklist per non-ready
+   adapter (Quik! 6 / Schwab 4 / Wealthscape 4). Rationale in ROADMAP item 6.
+
+**Your queue (unchanged, sharpened):** sales@quikforms.com - ask for UAT
+credentials first and confirm the tier includes the Forms Engine PDF endpoint
++ e-sign metadata; G-number; design partner. Everything in code is ready to
+consume credentials the day they land.
+
+**Files:** `src/paperwork.jsx`,
+`docs/{quik-field-taxonomy.md (new),TODO,ROADMAP,ARCHITECTURE,sprint-log}.md`.
+
+---
+
+## 2026-06-12 - Round 25: KYC identity capture - the paperwork window's data gaps, closed at onboarding
+
+The paperwork POC flagged six "NOT CAPTURED YET" gaps per account owner
+(address, employer, citizenship, name split...). This round builds the capture
+workflow so that data is gathered during onboarding instead of chased at
+signing time. Decisions (founder-clicked): HYBRID capture + FULL KYC field set.
+
+1. **Data model (store.jsx, profile JSON - no migration):** `members[].identity`
+   (first/middle/last, email, phone, marital status, citizenship + country,
+   employment status/employer/occupation, government-ID type + last4, optional
+   own address) and a household `contact` block (residential address + FINRA
+   4512 trusted contact). Members are an array, so mergeProfile can't backfill
+   inside them - all consumers read through the new `memberIdentity(m)` helper.
+   `kycCompleteness(profile)` is the single shared readiness definition, so the
+   drawer badges, portal nudge, and paperwork modal can never disagree. SSNs
+   stay out of profile JSON (encrypted identifier store, round 23). Demo
+   household seeded with full sample identity data.
+2. **Capture, two surfaces over one model:** the Numbers drawer Household
+   section gains a collapsed "Identity & paperwork" block per member (with a
+   "N to capture" badge) plus household residential address + trusted contact.
+   Because the drawer is SHARED by both bundles, clients get the same surface
+   in their portal, with the existing ledger-approval gate giving the advisor
+   review of client-submitted changes. `KYC_OPTIONS`/`kycLabel`
+   (numbers-panel) are the one source for option values + labels.
+3. **Portal nudge (client-portal.jsx):** an "Account paperwork details · X of
+   Y on file" card (suppressed for blank-slate/prospect/complete households)
+   that lists what's still needed and opens the drawer - PreciseFP-style
+   self-serve intake without new request plumbing.
+4. **Paperwork window consumes it (paperwork.jsx):** the six per-owner gaps
+   are now live prefills with Quik! mappings (FName/MName/LName real, not
+   split; H.Addr1/Addr2/City/State/Zip; HPhone/EMail/Marital/Citizenship/
+   Emp.Name/Emp.Occupation - new names provisional pending dictionary
+   confirmation), plus government-ID readiness and a trusted-contact row (no
+   Quik! role guessed for it). The residential address now owns `1own.H.State`
+   (the filing-state row no longer double-emits it). Fully-captured payload:
+   19 prefilled · 1 gated (SSN) · 1 missing (the G-number, founder queue).
+
+Verified in-browser: drawer fields render and write through (badge updates
+live), the portal card shows correct counts on a legacy profile, and the
+payload emits each new FormField once. Gate green (57 smoke / 238 calc / lint).
+
+**Files:** `src/{store,numbers-panel,client-portal,paperwork}.jsx`,
+`docs/{ARCHITECTURE,quik-field-taxonomy,sprint-log}.md`.
+
+---
 <!-- New sprints append above this line, newest first. -->
