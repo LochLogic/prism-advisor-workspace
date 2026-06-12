@@ -104,7 +104,7 @@ const PhaseCard = ({ phase, onOpenMilestone }) => {
                         <Icons.FileText size={10} /> View sample
                       </button>
                     )}
-                    {task.tool === 'advanced' && (
+                    {(task.tool === 'advanced' || task.seeTool) && (
                       <button className="px-task-act is-ghost" title="The tool is already on this page - jump to it"
                         onClick={(e) => {
                           e.stopPropagation();

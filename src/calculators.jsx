@@ -128,7 +128,7 @@ const FreedomDateTool = () => {
         <span className="px-field-label">Annual amount invested</span>
         <div className="px-input-affix">
           <span className="px-affix">$</span>
-          <input type="number" value={annualSavings} step="1000" onChange={(e) => setAnnualSavings(parseFloat(e.target.value) || 0)} />
+          <NumInput value={annualSavings} step="1000" onCommit={setAnnualSavings} />
         </div>
       </label>
       <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 10, lineHeight: 1.5 }}>
@@ -187,13 +187,13 @@ const NetWorthTrajectoryTool = () => {
           <span className="px-field-label">Annual amount saved</span>
           <div className="px-input-affix">
             <span className="px-affix">$</span>
-            <input type="number" value={annualSavings} step="1000" onChange={(e) => setAnnualSavings(parseFloat(e.target.value) || 0)} />
+            <NumInput value={annualSavings} step="1000" onCommit={setAnnualSavings} />
           </div>
         </label>
         <label className="px-field">
           <span className="px-field-label">Horizon</span>
           <div className="px-input-affix">
-            <input type="number" value={years} min="1" max="60" step="1" onChange={(e) => setYears(parseInt(e.target.value) || 20)} />
+            <NumInput value={years} min="1" max="60" step="1" onCommit={setYears} />
             <span className="px-affix px-affix-r">yr</span>
           </div>
         </label>
@@ -273,7 +273,7 @@ const CoverageGapTool = () => {
         <label className="px-field">
           <span className="px-field-label">Income multiple</span>
           <div className="px-input-affix">
-            <input type="number" value={multiple} min="0" step="1" onChange={(e) => setMultiple(parseFloat(e.target.value) || 0)} />
+            <NumInput value={multiple} min="0" step="1" onCommit={setMultiple} />
             <span className="px-affix px-affix-r">×</span>
           </div>
         </label>
@@ -281,7 +281,7 @@ const CoverageGapTool = () => {
           <span className="px-field-label">Coverage in place</span>
           <div className="px-input-affix">
             <span className="px-affix">$</span>
-            <input type="number" value={existing} step="50000" onChange={(e) => setExisting(parseFloat(e.target.value) || 0)} />
+            <NumInput value={existing} step="50000" onCommit={setExisting} />
           </div>
         </label>
       </div>
@@ -352,13 +352,13 @@ const IncomeRunwayTool = () => {
           <span className="px-field-label">Monthly disability benefit</span>
           <div className="px-input-affix">
             <span className="px-affix">$</span>
-            <input type="number" value={benefit} step="250" onChange={(e) => setBenefit(parseFloat(e.target.value) || 0)} />
+            <NumInput value={benefit} step="250" onCommit={setBenefit} />
           </div>
         </label>
         <label className="px-field">
           <span className="px-field-label">Waiting period</span>
           <div className="px-input-affix">
-            <input type="number" value={waitMonths} min="0" step="1" onChange={(e) => setWaitMonths(parseInt(e.target.value) || 0)} />
+            <NumInput value={waitMonths} min="0" step="1" onCommit={setWaitMonths} />
             <span className="px-affix px-affix-r">mo</span>
           </div>
         </label>
@@ -394,7 +394,7 @@ const AvalancheTool = () => {
         <span className="px-field-label">Extra principal per month</span>
         <div className="px-input-affix">
           <span className="px-affix">$</span>
-          <input type="number" value={extra} step="100" onChange={(e) => setExtra(parseFloat(e.target.value) || 0)} />
+          <NumInput value={extra} step="100" onCommit={setExtra} />
         </div>
       </label>
     </ToolShell>
@@ -441,7 +441,7 @@ const DebtVsInvestTool = () => {
       <label className="px-field" style={{ marginTop: 14 }}>
         <span className="px-field-label">Expected after-tax investment return</span>
         <div className="px-input-affix">
-          <input type="number" value={returnPct} step="0.5" onChange={(e) => setReturnPct(parseFloat(e.target.value) || 0)} />
+          <NumInput value={returnPct} step="0.5" onCommit={setReturnPct} />
           <span className="px-affix px-affix-r">%</span>
         </div>
       </label>
@@ -539,7 +539,7 @@ const BracketHeadroomTool = () => {
           <span className="px-field-label">Ordinary income</span>
           <div className="px-input-affix">
             <span className="px-affix">$</span>
-            <input type="number" value={income} step="5000" onChange={(e) => setIncome(parseFloat(e.target.value) || 0)} />
+            <NumInput value={income} step="5000" onCommit={setIncome} />
           </div>
         </label>
         <label className="px-field">
@@ -764,7 +764,7 @@ const MonteCarloTool = () => {
         <label className="px-field">
           <span className="px-field-label">Horizon (years)</span>
           <div className="px-input-affix">
-            <input type="number" value={yearsHorizon} min="5" max="60" onChange={(e) => setYears(parseInt(e.target.value) || 0)} />
+            <NumInput value={yearsHorizon} min="5" max="60" onCommit={setYears} />
             <span className="px-affix px-affix-r">yr</span>
           </div>
         </label>
@@ -772,7 +772,7 @@ const MonteCarloTool = () => {
           <span className="px-field-label">Annual withdrawal</span>
           <div className="px-input-affix">
             <span className="px-affix">$</span>
-            <input type="number" value={withdrawal} step="5000" onChange={(e) => setWithdrawal(parseFloat(e.target.value) || 0)} />
+            <NumInput value={withdrawal} step="5000" onCommit={setWithdrawal} />
           </div>
         </label>
       </div>
@@ -808,13 +808,13 @@ const RothLadderTool = () => {
           <span className="px-field-label">Annual conversion</span>
           <div className="px-input-affix">
             <span className="px-affix">$</span>
-            <input type="number" value={annualConvert} step="5000" onChange={(e) => setAnnual(parseFloat(e.target.value) || 0)} />
+            <NumInput value={annualConvert} step="5000" onCommit={setAnnual} />
           </div>
         </label>
         <label className="px-field">
           <span className="px-field-label">Marginal tax rate</span>
           <div className="px-input-affix">
-            <input type="number" value={bracket} onChange={(e) => setBracket(parseFloat(e.target.value) || 0)} />
+            <NumInput value={bracket} onCommit={setBracket} />
             <span className="px-affix px-affix-r">%</span>
           </div>
         </label>
@@ -872,21 +872,21 @@ const EstateTool = () => {
         <label className="px-field">
           <span className="px-field-label">Years to estate</span>
           <div className="px-input-affix">
-            <input type="number" value={grossUp} onChange={(e) => setGrossUp(parseInt(e.target.value) || 0)} />
+            <NumInput value={grossUp} onCommit={setGrossUp} />
             <span className="px-affix px-affix-r">yr</span>
           </div>
         </label>
         <label className="px-field">
           <span className="px-field-label">Withdrawal rate</span>
           <div className="px-input-affix">
-            <input type="number" value={withdrawalRate} step="0.1" onChange={(e) => setWdRate(parseFloat(e.target.value) || 0)} />
+            <NumInput value={withdrawalRate} step="0.1" onCommit={setWdRate} />
             <span className="px-affix px-affix-r">%</span>
           </div>
         </label>
         <label className="px-field">
           <span className="px-field-label">Gen-2 horizon</span>
           <div className="px-input-affix">
-            <input type="number" value={g2Years} onChange={(e) => setG2Years(parseInt(e.target.value) || 0)} />
+            <NumInput value={g2Years} onCommit={setG2Years} />
             <span className="px-affix px-affix-r">yr</span>
           </div>
         </label>
@@ -919,14 +919,14 @@ const TLHTool = () => {
         <label className="px-field">
           <span className="px-field-label">Portfolio at a loss</span>
           <div className="px-input-affix">
-            <input type="number" value={lossPct} min="0" max="100" onChange={(e) => setLossPct(parseFloat(e.target.value) || 0)} />
+            <NumInput value={lossPct} min="0" max="100" onCommit={setLossPct} />
             <span className="px-affix px-affix-r">%</span>
           </div>
         </label>
         <label className="px-field">
           <span className="px-field-label">Offset tax rate</span>
           <div className="px-input-affix">
-            <input type="number" value={offsetRate} step="0.1" onChange={(e) => setOffsetRate(parseFloat(e.target.value) || 0)} />
+            <NumInput value={offsetRate} step="0.1" onCommit={setOffsetRate} />
             <span className="px-affix px-affix-r">%</span>
           </div>
         </label>
@@ -980,13 +980,13 @@ const ContributionPriorityTool = () => {
           <span className="px-field-label">Annual amount to invest</span>
           <div className="px-input-affix">
             <span className="px-affix">$</span>
-            <input type="number" value={capacity} step="1000" onChange={(e) => setCapacity(parseFloat(e.target.value) || 0)} />
+            <NumInput value={capacity} step="1000" onCommit={setCapacity} />
           </div>
         </label>
         <label className="px-field">
           <span className="px-field-label">Employer match (% of salary)</span>
           <div className="px-input-affix">
-            <input type="number" value={matchPct} step="0.5" onChange={(e) => setMatchPct(parseFloat(e.target.value) || 0)} />
+            <NumInput value={matchPct} step="0.5" onCommit={setMatchPct} />
             <span className="px-affix px-affix-r">%</span>
           </div>
         </label>
@@ -1066,14 +1066,14 @@ const WithdrawalSequenceTool = () => {
           <span className="px-field-label">Annual retirement spending</span>
           <div className="px-input-affix">
             <span className="px-affix">$</span>
-            <input type="number" value={spending} step="5000" onChange={(e) => setSpending(parseFloat(e.target.value) || 0)} />
+            <NumInput value={spending} step="5000" onCommit={setSpending} />
           </div>
         </label>
         <label className="px-field">
           <span className="px-field-label">Guaranteed annual income</span>
           <div className="px-input-affix">
             <span className="px-affix">$</span>
-            <input type="number" value={otherIncome} step="1000" onChange={(e) => setOther(parseFloat(e.target.value) || 0)} />
+            <NumInput value={otherIncome} step="1000" onCommit={setOther} />
           </div>
         </label>
       </div>
@@ -1142,7 +1142,7 @@ const RothConversionWindowTool = () => {
           <span className="px-field-label">Other taxable income (gap years)</span>
           <div className="px-input-affix">
             <span className="px-affix">$</span>
-            <input type="number" value={income} step="5000" onChange={(e) => setIncome(parseFloat(e.target.value) || 0)} />
+            <NumInput value={income} step="5000" onCommit={setIncome} />
           </div>
         </label>
         <label className="px-field">
@@ -1230,7 +1230,7 @@ const MortgagePayoffTool = () => {
         <label className="px-field" style={{ marginTop: 14 }}>
           <span className="px-field-label">Monthly payment (P&amp;I)</span>
           <div className="px-input-affix"><span className="px-affix">$</span>
-            <input type="number" value={payment} step="100" onChange={(e) => setPayment(parseFloat(e.target.value) || 0)} /></div>
+            <NumInput value={payment} step="100" onCommit={setPayment} /></div>
         </label>
       </ToolShell>
     );
@@ -1251,12 +1251,12 @@ const MortgagePayoffTool = () => {
         <label className="px-field">
           <span className="px-field-label">Monthly payment (P&amp;I)</span>
           <div className="px-input-affix"><span className="px-affix">$</span>
-            <input type="number" value={payment} step="100" onChange={(e) => setPayment(parseFloat(e.target.value) || 0)} /></div>
+            <NumInput value={payment} step="100" onCommit={setPayment} /></div>
         </label>
         <label className="px-field">
           <span className="px-field-label">Extra principal / mo</span>
           <div className="px-input-affix"><span className="px-affix">$</span>
-            <input type="number" value={extra} step="100" onChange={(e) => setExtra(parseFloat(e.target.value) || 0)} /></div>
+            <NumInput value={extra} step="100" onCommit={setExtra} /></div>
         </label>
       </div>
       <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 10, lineHeight: 1.5 }}>
@@ -1312,32 +1312,32 @@ const HDHPvsPPOTool = () => {
         <label className="px-field">
           <span className="px-field-label">Expected annual claims</span>
           <div className="px-input-affix"><span className="px-affix">$</span>
-            <input type="number" value={claims} step="500" onChange={(e) => setClaims(parseFloat(e.target.value) || 0)} /></div>
+            <NumInput value={claims} step="500" onCommit={setClaims} /></div>
         </label>
         <label className="px-field">
           <span className="px-field-label">Employer HSA contribution</span>
           <div className="px-input-affix"><span className="px-affix">$</span>
-            <input type="number" value={employerHsa} step="250" onChange={(e) => setEmployerHsa(parseFloat(e.target.value) || 0)} /></div>
+            <NumInput value={employerHsa} step="250" onCommit={setEmployerHsa} /></div>
         </label>
         <label className="px-field">
           <span className="px-field-label">HDHP premium / yr</span>
           <div className="px-input-affix"><span className="px-affix">$</span>
-            <input type="number" value={hdhpPremium} step="100" onChange={(e) => setHdhpPremium(parseFloat(e.target.value) || 0)} /></div>
+            <NumInput value={hdhpPremium} step="100" onCommit={setHdhpPremium} /></div>
         </label>
         <label className="px-field">
           <span className="px-field-label">PPO premium / yr</span>
           <div className="px-input-affix"><span className="px-affix">$</span>
-            <input type="number" value={ppoPremium} step="100" onChange={(e) => setPpoPremium(parseFloat(e.target.value) || 0)} /></div>
+            <NumInput value={ppoPremium} step="100" onCommit={setPpoPremium} /></div>
         </label>
         <label className="px-field">
           <span className="px-field-label">HDHP deductible</span>
           <div className="px-input-affix"><span className="px-affix">$</span>
-            <input type="number" value={hdhpDeductible} step="250" onChange={(e) => setHdhpDed(parseFloat(e.target.value) || 0)} /></div>
+            <NumInput value={hdhpDeductible} step="250" onCommit={setHdhpDed} /></div>
         </label>
         <label className="px-field">
           <span className="px-field-label">PPO deductible</span>
           <div className="px-input-affix"><span className="px-affix">$</span>
-            <input type="number" value={ppoDeductible} step="250" onChange={(e) => setPpoDed(parseFloat(e.target.value) || 0)} /></div>
+            <NumInput value={ppoDeductible} step="250" onCommit={setPpoDed} /></div>
         </label>
       </div>
       <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 10, lineHeight: 1.5 }}>
@@ -1393,12 +1393,12 @@ const MegaBackdoorTool = () => {
         <label className="px-field">
           <span className="px-field-label">Your 401(k) deferral / yr</span>
           <div className="px-input-affix"><span className="px-affix">$</span>
-            <input type="number" value={deferral} step="500" onChange={(e) => setDeferral(parseFloat(e.target.value) || 0)} /></div>
+            <NumInput value={deferral} step="500" onCommit={setDeferral} /></div>
         </label>
         <label className="px-field">
           <span className="px-field-label">Employer contribution / yr</span>
           <div className="px-input-affix"><span className="px-affix">$</span>
-            <input type="number" value={employer} step="500" onChange={(e) => setEmployer(parseFloat(e.target.value) || 0)} /></div>
+            <NumInput value={employer} step="500" onCommit={setEmployer} /></div>
         </label>
       </div>
       <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, fontSize: 12, color: 'var(--ink)', cursor: 'pointer' }}>
@@ -1463,13 +1463,13 @@ const EquityCompTool = () => {
         <label className="px-field">
           <span className="px-field-label">Capital-gains rate</span>
           <div className="px-input-affix">
-            <input type="number" value={capGains} step="1" onChange={(e) => setCapGains(parseFloat(e.target.value) || 0)} />
+            <NumInput value={capGains} step="1" onCommit={setCapGains} />
             <span className="px-affix px-affix-r">%</span></div>
         </label>
         <label className="px-field">
           <span className="px-field-label">Concentration target</span>
           <div className="px-input-affix">
-            <input type="number" value={threshold} step="1" onChange={(e) => setThreshold(parseFloat(e.target.value) || 0)} />
+            <NumInput value={threshold} step="1" onCommit={setThreshold} />
             <span className="px-affix px-affix-r">%</span></div>
         </label>
       </div>
@@ -1526,13 +1526,13 @@ const RMDProjectionTool = () => {
         <label className="px-field">
           <span className="px-field-label">Growth rate</span>
           <div className="px-input-affix">
-            <input type="number" value={growth} step="0.5" onChange={(e) => setGrowth(parseFloat(e.target.value) || 0)} />
+            <NumInput value={growth} step="0.5" onCommit={setGrowth} />
             <span className="px-affix px-affix-r">%</span></div>
         </label>
         <label className="px-field">
           <span className="px-field-label">Marginal tax rate</span>
           <div className="px-input-affix">
-            <input type="number" value={rate} step="1" onChange={(e) => setRate(parseFloat(e.target.value) || 0)} />
+            <NumInput value={rate} step="1" onCommit={setRate} />
             <span className="px-affix px-affix-r">%</span></div>
         </label>
       </div>
@@ -1611,7 +1611,7 @@ const SSClaimingTool = () => {
         <label className="px-field" style={{ marginTop: 14 }}>
           <span className="px-field-label">PIA (monthly benefit at 67)</span>
           <div className="px-input-affix"><span className="px-affix">$</span>
-            <input type="number" value={pia} step="100" onChange={(e) => setPia(parseFloat(e.target.value) || 0)} /></div>
+            <NumInput value={pia} step="100" onCommit={setPia} /></div>
         </label>
       </ToolShell>
     );
@@ -1656,18 +1656,18 @@ const SSClaimingTool = () => {
         <label className="px-field">
           <span className="px-field-label">PIA (at 67)</span>
           <div className="px-input-affix"><span className="px-affix">$</span>
-            <input type="number" value={pia} step="100" onChange={(e) => setPia(parseFloat(e.target.value) || 0)} /></div>
+            <NumInput value={pia} step="100" onCommit={setPia} /></div>
         </label>
         <label className="px-field">
           <span className="px-field-label">Live to age</span>
           <div className="px-input-affix">
-            <input type="number" value={longevity} step="1" onChange={(e) => setLongevity(parseInt(e.target.value) || 0)} />
+            <NumInput value={longevity} step="1" onCommit={setLongevity} />
             <span className="px-affix px-affix-r">yr</span></div>
         </label>
         <label className="px-field">
           <span className="px-field-label">Discount rate</span>
           <div className="px-input-affix">
-            <input type="number" value={discount} step="0.5" onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)} />
+            <NumInput value={discount} step="0.5" onCommit={setDiscount} />
             <span className="px-affix px-affix-r">%</span></div>
         </label>
       </div>

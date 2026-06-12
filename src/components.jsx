@@ -636,4 +636,31 @@ const DocumentVault = ({ clientId, role, firmId, advisorId, demoSeed = [], empty
   );
 };
 
-Object.assign(window, { Modal, ClientAvatar, Sparkline, Toast, MilestoneAchievedModal, MessageThread, DocumentVault });
+// Numeric input without the leading-zero trap. A raw controlled
+// <input type="number"> backed by a number state renders "0" the moment the
+// field is cleared, and the next keystroke lands AFTER it ("05") - which the
+// browser then keeps showing, because React compares number inputs loosely.
+// So: render '' for 0/empty with a "0" placeholder, hold the raw string in a
+// local draft while the field is being edited (so intermediate states like
+// "0." survive), commit the parsed number on every change, and collapse a
+// digit typed after a lone "0" into the digit itself. Blur drops the draft
+// and re-syncs to the stored value. Shared by the Numbers drawer and every
+// phase tool.
+const NumInput = ({ value, onCommit, step, placeholder = '0', ...rest }) => {
+  const [draft, setDraft] = React.useState(null);
+  const settled = (value === 0 || value == null || value === '') ? '' : String(value);
+  return (
+    <input type="number" value={draft != null ? draft : settled} step={step} placeholder={placeholder}
+      onChange={(e) => {
+        const prev = draft != null ? draft : settled;
+        let raw = e.target.value;
+        if ((prev === '0' || prev === '-0') && /^-?0\d/.test(raw)) raw = raw.replace(/^(-?)0+/, '$1');
+        setDraft(raw);
+        onCommit(raw === '' ? 0 : (parseFloat(raw) || 0));
+      }}
+      onBlur={() => setDraft(null)}
+      {...rest} />
+  );
+};
+
+Object.assign(window, { Modal, ClientAvatar, Sparkline, Toast, MilestoneAchievedModal, MessageThread, DocumentVault, NumInput });
