@@ -30,14 +30,23 @@
 /* ─── Adapter registry - the blanks list lives HERE ──────────────────────
    `ready: false` adapters render as a checklist in the modal so the founder
    can see exactly what to chase. When the pieces exist, implement
-   `submit(payload)` on the adapter and flip `ready`. */
+   `submit(payload)` on the adapter and flip `ready`.
+
+   ADAPTER TIERS (strategy decided 2026-06-12, recorded in ROADMAP item 6):
+   the action-package UX is transport-agnostic; the same "Open account"
+   package can be fulfilled by any adapter below. Tier 1 = Quik! forms +
+   DocuSign (startable now, the long-tail fallback forever). Tier 2 =
+   custodian-direct SSO + prefill handoff into the custodian's own digital
+   onboarding (Wealthbox-shaped; no envelope, no NIGO; gated on a design
+   partner's custody relationship). Tier 3 = headless onboarding APIs
+   (enterprise agreements; only at scale). */
 const PAPERWORK_ADAPTERS = {
   manual: {
     id: 'manual', label: 'Manual - JSON export / advisor retype', ready: true,
     note: 'Available today: export the prefill payload and key it into the custodian form, or attach it to the client file.',
   },
   quik: {
-    id: 'quik', label: 'Quik! Forms API (Schwab / Fidelity library)', ready: false,
+    id: 'quik', label: 'Quik! Forms API (Schwab / Fidelity forms library, Tier 1)', ready: false,
     // Taxonomy research done 2026-06-12 (docs/quik-field-taxonomy.md) - the payload
     // below already exports Execute-shaped FormFields. The pieces the founder must
     // still supply before this adapter can be built:
@@ -48,6 +57,28 @@ const PAPERWORK_ADAPTERS = {
       'Field-dictionary confirmation (GET /forms/fields) for the names the export flags as unverified (* in the rows below)',
       'E-sign: adopt Quik!\'s DocuSign Self Service model - Quik! returns the signable PDF, Prism\'s docusign-envelope flow owns the envelope (confirm the API tier includes it)',
       'Compliance sign-off: SSN release into the form payload happens server-side only (client-identifiers edge fn)',
+    ],
+  },
+  schwab: {
+    id: 'schwab', label: 'Schwab digital onboarding (custodian-direct, Tier 2)', ready: false,
+    // SSO + prefill handoff into Schwab Advisor Center's digital onboarding:
+    // client approves natively (no envelope), accounts open in minutes.
+    missing: [
+      'Design partner custodying at Schwab - the firm relationship is the gate; their Schwab G-number routes everything',
+      'Schwab third-party integration agreement (OpenView Gateway, operated by PTI) - apply via advisorservices.schwab.com Integration Partner form; expect security diligence',
+      'Scope confirmation: data-prefill handoff into Schwab Advisor Center digital onboarding first; headless Digital Account Open API is the Tier-3 enterprise track',
+      'Same partnership also unlocks custody read APIs (balances/positions) - coordinate with the ROADMAP holdings-aggregation item',
+    ],
+  },
+  wealthscape: {
+    id: 'wealthscape', label: 'Fidelity Wealthscape / Integration Xchange (custodian-direct, Tier 2)', ready: false,
+    // SSO + prefill handoff into Wealthscape account onboarding with
+    // click-to-agree investor authorization (the Wealthbox-shaped integration).
+    missing: [
+      'Design partner custodying at Fidelity - access starts from the firm\'s Relationship Manager',
+      'Integration Xchange vendor onboarding + the firm\'s Wealthscape admin filing the "User Access Request Form for Integration Services"',
+      'Scope confirmation: SSO + account-opening prefill first; the onboarding/maintenance/funding APIs are the Tier-3 enterprise track',
+      'Same partnership also unlocks custody read APIs (balances/positions) - coordinate with the ROADMAP holdings-aggregation item',
     ],
   },
 };
@@ -356,15 +387,18 @@ const PaperworkModal = ({ client, profileData, onClose }) => {
       <div className="px-eyebrow" style={{ margin: '10px 0 4px' }}>Firm routing</div>
       {payload.firm.map(f => <FieldRow key={f.key} f={f} />)}
 
-      {/* The integration checklist - the founder's blanks list, in-product */}
-      <details style={{ margin: '12px 0', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-elev)' }}>
-        <summary style={{ cursor: 'pointer', padding: '8px 12px', fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>
-          Quik! adapter - what unlocks auto-routing ({PAPERWORK_ADAPTERS.quik.missing.length} blanks)
-        </summary>
-        <div style={{ padding: '0 12px 10px', fontSize: 12, lineHeight: 1.55, color: 'var(--ink-mute)' }}>
-          {PAPERWORK_ADAPTERS.quik.missing.map((m, i) => <div key={i} style={{ padding: '2px 0' }}>· {m}</div>)}
-        </div>
-      </details>
+      {/* The integration checklists - the founder's blanks lists, in-product,
+          one per non-ready adapter (Tier 1 Quik!, Tier 2 custodian-direct) */}
+      {Object.values(PAPERWORK_ADAPTERS).filter(a => !a.ready && Array.isArray(a.missing)).map(a => (
+        <details key={a.id} style={{ margin: '8px 0', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-elev)' }}>
+          <summary style={{ cursor: 'pointer', padding: '8px 12px', fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>
+            {a.label} - what unlocks it ({a.missing.length} blanks)
+          </summary>
+          <div style={{ padding: '0 12px 10px', fontSize: 12, lineHeight: 1.55, color: 'var(--ink-mute)' }}>
+            {a.missing.map((m, i) => <div key={i} style={{ padding: '2px 0' }}>· {m}</div>)}
+          </div>
+        </details>
+      ))}
 
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
         <button className="px-btn px-btn-ghost" onClick={onClose}>Close</button>

@@ -323,7 +323,23 @@ mentions) plus seven design items. **All seven were green-lit and built in round
    SSN release) → PDF preview → DocuSign envelope → signed docs to vault, satisfying
    `requiresDoc` milestone gates. The differentiator to build toward: the planning
    session suggests the paperwork (open retirement goal with no IRA → IRA-opening
-   package; P07 estate milestones → beneficiary package). Needs a design partner
+   package; P07 estate milestones → beneficiary package).
+   **Adapter tiers (decided 2026-06-12; stubs live in `PAPERWORK_ADAPTERS`):** the
+   action-package UX is transport-agnostic, so fulfillment is tiered:
+   *Tier 1 - Quik! + DocuSign:* the only track startable without a custody
+   relationship; covers Schwab + Fidelity + Pershing in one integration and remains
+   the long-tail fallback (trusts, maintenance forms, odd transfers) forever.
+   *Tier 2 - custodian-direct SSO + prefill* (Schwab Advisor Center digital
+   onboarding via the OpenView Gateway partner program; Fidelity Wealthscape via
+   Integration Xchange + the firm's "User Access Request Form for Integration
+   Services"): the Wealthbox-shaped handoff - client approves natively, no envelope,
+   no NIGO, accounts open in minutes. Gated on a design partner's custody
+   relationship; their custodian picks which adapter is built first. The same
+   partnership unlocks custody read APIs (balances/positions) - coordinate with the
+   holdings-aggregation item.
+   *Tier 3 - headless onboarding APIs* (Schwab Digital Account Open / Wealthscape
+   onboarding+funding APIs): enterprise agreements, only worth it once enough firms
+   custody at one custodian through Prism. Needs a design partner
    with a live Schwab or Fidelity relationship to test against - high "open the
    account from the planning session" wedge value when one asks.
 7. **Training & onboarding content - PHASE 1 SHIPPED round 23** (the
