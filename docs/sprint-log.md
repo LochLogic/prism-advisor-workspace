@@ -1171,5 +1171,14 @@ The user approved all seven round-22 design tracks (SSN default-no overridden:
 `supabase/{migrations/044,functions/client-identifiers,config.toml}`,
 `.github/workflows/deploy.yml`, `docs/{guides/advisor-onboarding.md,TODO,ROADMAP,ARCHITECTURE,sprint-log}.md`.
 
+**Setup addendum (2026-06-12):** all three activation steps completed same-day,
+Claude-run with explicit user authorization - migration 044 applied via the
+Management API (verified: RLS on, zero policies/grants), `IDENTIFIER_ENC_KEY`
+generated + set (user holds the copy from chat), gated deploy run 27424899440
+green with `client-identifiers` ACTIVE. The encrypted SSN store is fully live.
+**Operating-model change:** repo migrations are now Claude-applied to prod via
+the Management API after PR merge (the PR is the approval gate; `db push`
+remains forbidden - the migration ledger stays unmanaged).
+
 ---
 <!-- New sprints append above this line, newest first. -->
