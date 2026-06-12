@@ -1234,4 +1234,50 @@ consume credentials the day they land.
 `docs/{quik-field-taxonomy.md (new),TODO,ROADMAP,ARCHITECTURE,sprint-log}.md`.
 
 ---
+
+## 2026-06-12 - Round 25: KYC identity capture - the paperwork window's data gaps, closed at onboarding
+
+The paperwork POC flagged six "NOT CAPTURED YET" gaps per account owner
+(address, employer, citizenship, name split...). This round builds the capture
+workflow so that data is gathered during onboarding instead of chased at
+signing time. Decisions (founder-clicked): HYBRID capture + FULL KYC field set.
+
+1. **Data model (store.jsx, profile JSON - no migration):** `members[].identity`
+   (first/middle/last, email, phone, marital status, citizenship + country,
+   employment status/employer/occupation, government-ID type + last4, optional
+   own address) and a household `contact` block (residential address + FINRA
+   4512 trusted contact). Members are an array, so mergeProfile can't backfill
+   inside them - all consumers read through the new `memberIdentity(m)` helper.
+   `kycCompleteness(profile)` is the single shared readiness definition, so the
+   drawer badges, portal nudge, and paperwork modal can never disagree. SSNs
+   stay out of profile JSON (encrypted identifier store, round 23). Demo
+   household seeded with full sample identity data.
+2. **Capture, two surfaces over one model:** the Numbers drawer Household
+   section gains a collapsed "Identity & paperwork" block per member (with a
+   "N to capture" badge) plus household residential address + trusted contact.
+   Because the drawer is SHARED by both bundles, clients get the same surface
+   in their portal, with the existing ledger-approval gate giving the advisor
+   review of client-submitted changes. `KYC_OPTIONS`/`kycLabel`
+   (numbers-panel) are the one source for option values + labels.
+3. **Portal nudge (client-portal.jsx):** an "Account paperwork details · X of
+   Y on file" card (suppressed for blank-slate/prospect/complete households)
+   that lists what's still needed and opens the drawer - PreciseFP-style
+   self-serve intake without new request plumbing.
+4. **Paperwork window consumes it (paperwork.jsx):** the six per-owner gaps
+   are now live prefills with Quik! mappings (FName/MName/LName real, not
+   split; H.Addr1/Addr2/City/State/Zip; HPhone/EMail/Marital/Citizenship/
+   Emp.Name/Emp.Occupation - new names provisional pending dictionary
+   confirmation), plus government-ID readiness and a trusted-contact row (no
+   Quik! role guessed for it). The residential address now owns `1own.H.State`
+   (the filing-state row no longer double-emits it). Fully-captured payload:
+   19 prefilled · 1 gated (SSN) · 1 missing (the G-number, founder queue).
+
+Verified in-browser: drawer fields render and write through (badge updates
+live), the portal card shows correct counts on a legacy profile, and the
+payload emits each new FormField once. Gate green (57 smoke / 238 calc / lint).
+
+**Files:** `src/{store,numbers-panel,client-portal,paperwork}.jsx`,
+`docs/{ARCHITECTURE,quik-field-taxonomy,sprint-log}.md`.
+
+---
 <!-- New sprints append above this line, newest first. -->

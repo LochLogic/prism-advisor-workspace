@@ -161,29 +161,59 @@ function buildPaperworkPayload({ client, profile, identifiers, custodian, accoun
   const ownerBlocks = owners.map((m, idx) => {
     const ssn = ids.find(r => r.member_id === m.id && r.kind === 'ssn');
     const role = `${idx + 1}own`; // Quik! role instance: 1own, 2own, ... (max 50)
-    // Quik! wants FName/LName; Prism stores one name string. Best-effort split
-    // (first word / last word, middles dropped) until first/last capture exists.
+    // Identity & paperwork block (round 24, captured in the Numbers drawer).
+    // First/last fall back to a best-effort split of the one name string for
+    // households that have not filled in the identity block yet.
+    const id = memberIdentity(m);
     const nameParts = String(m.name || '').trim().split(/\s+/).filter(Boolean);
-    const fname = nameParts[0] || '';
-    const lname = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+    const fname = id.firstName || nameParts[0] || '';
+    const lname = id.lastName || (nameParts.length > 1 ? nameParts[nameParts.length - 1] : '');
+    const fullName = (id.firstName && id.lastName)
+      ? [id.firstName, id.middleName, id.lastName].filter(Boolean).join(' ') : (m.name || '');
+    // Address: the household's unless this member lives elsewhere.
+    const addr = (id.differentAddress && id.address.street1) ? id.address : ((p.contact || {}).address || {});
+    const addrOneLine = addr.street1
+      ? [addr.street1, addr.street2, [addr.city, addr.state].filter(Boolean).join(', ') + (addr.zip ? ` ${addr.zip}` : '')].filter(Boolean).join(', ')
+      : '';
+    const citizenship = id.citizenship
+      ? kycLabel('citizenship', id.citizenship) + (id.citizenship !== 'us' && id.citizenshipCountry ? ` (${id.citizenshipCountry})` : '')
+      : '';
+    const working = ['employed', 'self_employed'].includes(id.employmentStatus);
+    const employment = id.employmentStatus
+      ? [kycLabel('employment', id.employmentStatus), working ? id.employer : '', working ? id.occupation : ''].filter(Boolean).join(' · ')
+      : '';
+    const HOUSEHOLD = 'Numbers panel · Household';
     return {
       memberId: m.id,
       quikRole: role,
       fields: [
-        _pwField('full_name', 'Full legal name', m.name, 'Numbers panel · Household', undefined,
-          [_qf(`${role}.FName`, fname, true), _qf(`${role}.LName`, lname, true)]),
-        _pwField('date_of_birth', 'Date of birth', m.dateOfBirth, 'Numbers panel · Household', undefined,
+        _pwField('full_name', 'Full legal name', fullName, HOUSEHOLD, undefined,
+          [_qf(`${role}.FName`, fname, true), _qf(`${role}.MName`, id.middleName, false), _qf(`${role}.LName`, lname, true)]),
+        _pwField('date_of_birth', 'Date of birth', m.dateOfBirth, HOUSEHOLD, undefined,
           [_qf(`${role}.DOB`, m.dateOfBirth, false)]),
         _pwField('ssn', 'Social Security number',
           ssn ? `•••-••-${ssn.last4} (released at submission)` : '',
           'Encrypted identifier store', ssn ? 'gated' : 'missing',
           [_qf(`${role}.SSN`, '', true)]),
-        _pwField('residential_address', 'Residential address', '', 'NOT CAPTURED YET - profile gap', undefined,
-          [_qf(`${role}.H.Addr1`, '', true)]),
-        _pwField('employment', 'Employer / occupation', '', 'NOT CAPTURED YET - profile gap', undefined,
-          [_qf(`${role}.Emp.Occupation`, '', false)]),
-        _pwField('citizenship', 'Citizenship', '', 'NOT CAPTURED YET - profile gap', undefined,
-          [_qf(`${role}.Citizenship`, '', false)]),
+        _pwField('residential_address', 'Residential address', addrOneLine,
+          id.differentAddress ? `${HOUSEHOLD} (member's own address)` : HOUSEHOLD, undefined,
+          [_qf(`${role}.H.Addr1`, addr.street1, true), _qf(`${role}.H.Addr2`, addr.street2, false),
+           _qf(`${role}.H.City`, addr.city, false), _qf(`${role}.H.State`, addr.state, false),
+           _qf(`${role}.H.Zip`, addr.zip, false)]),
+        _pwField('phone', 'Phone', id.phone, HOUSEHOLD, undefined,
+          [_qf(`${role}.HPhone`, id.phone, false)]),
+        _pwField('email', 'Email', id.email, HOUSEHOLD, undefined,
+          [_qf(`${role}.EMail`, id.email, false)]),
+        _pwField('marital_status', 'Marital status', id.maritalStatus ? kycLabel('marital', id.maritalStatus) : '', HOUSEHOLD, undefined,
+          [_qf(`${role}.Marital`, id.maritalStatus ? kycLabel('marital', id.maritalStatus) : '', false)]),
+        _pwField('citizenship', 'Citizenship', citizenship, HOUSEHOLD, undefined,
+          [_qf(`${role}.Citizenship`, citizenship, false)]),
+        _pwField('employment', 'Employment / occupation', employment, HOUSEHOLD, undefined,
+          [_qf(`${role}.Emp.Name`, working ? id.employer : '', false),
+           _qf(`${role}.Emp.Occupation`, working ? id.occupation : '', false)]),
+        // Readiness check only - the full ID number is never stored; the client
+        // keys it inside the e-sign envelope (Quik! fields stay recipient-editable).
+        _pwField('gov_id', 'Government ID', id.govIdType ? `${kycLabel('govId', id.govIdType)} ••${id.govIdLast4}` : '', HOUSEHOLD),
       ],
     };
   });
@@ -210,8 +240,16 @@ function buildPaperworkPayload({ client, profile, identifiers, custodian, accoun
     _pwField('net_worth', 'Investable assets (est.)', invested || '', 'Numbers panel · balances', undefined,
       [_qf('1own.NetWorth', invested || '', false)]),
     _pwField('risk_profile', 'Risk profile', p.risk?.answers?.length ? 'On file (questionnaire complete)' : '', 'Risk questionnaire'),
-    _pwField('filing_state', 'State (tax filing)', p.taxes?.state, 'Numbers panel · Planning & tax', undefined,
-      [_qf('1own.H.State', p.taxes?.state, false)]),
+    // No quik mapping: the residential address (round 24) owns 1own.H.State;
+    // mapping the filing state there too would double-emit and could conflict.
+    _pwField('filing_state', 'State (tax filing)', p.taxes?.state, 'Numbers panel · Planning & tax'),
+    // Trusted contact (FINRA Rule 4512) - no Quik! mapping emitted yet: the
+    // trusted-contact role name is unconfirmed; verify against the per-form
+    // dictionary once credentialed rather than guessing.
+    _pwField('trusted_contact', 'Trusted contact',
+      (p.contact?.trustedContact?.name)
+        ? [p.contact.trustedContact.name, p.contact.trustedContact.relationship, p.contact.trustedContact.phone || p.contact.trustedContact.email].filter(Boolean).join(' · ')
+        : '', 'Numbers panel · Household'),
   ];
 
   const firm = [

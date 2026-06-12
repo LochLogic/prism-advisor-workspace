@@ -694,6 +694,39 @@ const ClientPortal = ({ onOpenNumbers }) => {
           </div>
         )}
 
+        {/* Paperwork-details nudge (round 24) - household has numbers but the
+            account-opening KYC details (address, employment, citizenship...)
+            are incomplete. Completing them is what makes custodian paperwork
+            arrive prefilled instead of as a stack of blanks to chase. */}
+        {!isBlankSlate && !isProspectView && (() => {
+          const kyc = kycCompleteness(ctx.profile);
+          if ((ctx.profile?.members || []).length === 0 || kyc.complete) return null;
+          const preview = kyc.missing.slice(0, 3).join(' · ');
+          const more = kyc.missing.length - 3;
+          return (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
+              background: 'var(--surface)', border: '1px solid var(--border)',
+              borderLeft: '3px solid var(--gold)', borderRadius: 'var(--radius-lg)',
+              padding: '16px 18px', margin: '12px 0 4px',
+            }}>
+              <span style={{ color: 'var(--gold)', display: 'flex', flexShrink: 0 }}><Icons.FileText size={18} /></span>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={{ fontFamily: 'var(--serif)', fontSize: 16, color: 'var(--ink)', marginBottom: 2 }}>
+                  Account paperwork details · {kyc.done} of {kyc.total} on file
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--ink-mute)', lineHeight: 1.5 }}>
+                  These details prefill account applications and transfer forms, so there is nothing
+                  to chase at signing time. Still needed: {preview}{more > 0 ? ` and ${more} more` : ''}.
+                </div>
+              </div>
+              <button className="px-btn px-btn-primary px-btn-sm" onClick={onOpenNumbers}>
+                <Icons.Edit size={12} /> Complete details
+              </button>
+            </div>
+          );
+        })()}
+
         {/* Portfolio summary strip */}
         <div className="px-portstrip">
           <div className="px-portstat">

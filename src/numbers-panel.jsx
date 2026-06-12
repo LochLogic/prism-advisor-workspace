@@ -84,6 +84,88 @@ const US_STATES = [
 // NumInput (the draft-holding numeric input that never traps a leading zero)
 // moved to components.jsx so the phase tools share it - the rationale lives there.
 
+/* ─── KYC / identity capture (round 24) ────────────────────────────────
+   The option lists are the single source of truth for both the selects here
+   and the label lookups in the paperwork prefill engine (src/paperwork.jsx
+   reads window.KYC_OPTIONS - numbers-panel loads first in both bundles).
+   Values are stable codes; labels are display-only. */
+const KYC_OPTIONS = {
+  marital: [
+    ['single', 'Single'], ['married', 'Married'], ['domestic_partner', 'Domestic partner'],
+    ['divorced', 'Divorced'], ['widowed', 'Widowed'],
+  ],
+  citizenship: [
+    ['us', 'U.S. citizen'], ['permanent_resident', 'U.S. permanent resident'],
+    ['non_resident', 'Non-resident alien'],
+  ],
+  employment: [
+    ['employed', 'Employed'], ['self_employed', 'Self-employed'], ['retired', 'Retired'],
+    ['student', 'Student'], ['homemaker', 'Homemaker'], ['not_employed', 'Not employed'],
+  ],
+  govId: [
+    ['drivers_license', "Driver's license"], ['passport', 'Passport'],
+    ['state_id', 'State ID'], ['military_id', 'Military ID'],
+  ],
+};
+const kycLabel = (group, value) =>
+  ((KYC_OPTIONS[group] || []).find(([v]) => v === value) || [])[1] || '';
+
+// Plain text input in the drawer's field style (NumField's non-numeric sibling).
+// Module scope for the same reason as NumField: an inline definition remounts
+// the input on every render and drops focus mid-edit.
+const TextField = ({ label, value, placeholder, onChange, hint, inputMode, maxLength }) => (
+  <label className="px-field">
+    <span className="px-field-label">{label}{hint && <FieldHint text={hint} />}</span>
+    <div className="px-input-affix">
+      <input type="text" value={value || ''} placeholder={placeholder || ''} inputMode={inputMode}
+        maxLength={maxLength} onChange={(e) => onChange(e.target.value)} />
+    </div>
+  </label>
+);
+
+// Street/city/state/zip group - used for the household address and a member's
+// own address when they live elsewhere. `onField(field, value)` writes back.
+const AddressFields = ({ value, onField }) => {
+  const a = value || {};
+  return (
+    <>
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8, marginBottom: 8 }}>
+        <TextField label="Street address" value={a.street1} placeholder="Street and number" onChange={(v) => onField('street1', v)} />
+        <TextField label="Apt / unit" value={a.street2} onChange={(v) => onField('street2', v)} />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 130px 90px', gap: 8 }}>
+        <TextField label="City" value={a.city} onChange={(v) => onField('city', v)} />
+        <label className="px-field">
+          <span className="px-field-label">State</span>
+          <select className="px-select" value={a.state || ''} onChange={(e) => onField('state', e.target.value)}>
+            <option value="">Select</option>
+            {US_STATES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+        </label>
+        <TextField label="ZIP" value={a.zip} inputMode="numeric" maxLength={10} onChange={(v) => onField('zip', v)} />
+      </div>
+    </>
+  );
+};
+
+// How many identity blanks a member still has - mirrors the per-member checks
+// in kycCompleteness (store.jsx) so the summary badge and the household-level
+// completeness can never disagree.
+const identityGaps = (m) => {
+  const id = memberIdentity(m);
+  const employed = ['employed', 'self_employed'].includes(id.employmentStatus);
+  return [
+    (id.firstName && id.lastName) || (m.name || '').trim(),
+    m.dateOfBirth,
+    id.phone && id.email,
+    id.maritalStatus,
+    id.citizenship,
+    id.employmentStatus && (!employed || (id.employer && id.occupation)),
+    id.govIdType && id.govIdLast4,
+    !id.differentAddress || (id.address.street1 && id.address.city && id.address.state && id.address.zip),
+  ].filter(ok => !ok).length;
+};
+
 /* ─── Government ID (SSN) per household member - round 23 ──────────────
    The key to custodian account paperwork (Schwab/Fidelity prefill track).
    SECURITY RULES (do not relax):
@@ -316,6 +398,15 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
   const removeMember = (id) => setProfile(p => ({ ...p, members: (p.members || []).filter(m => m.id !== id) }));
   const updateMember = (id, field, value) => setProfile(p => ({
     ...p, members: (p.members || []).map(m => m.id === id ? { ...m, [field]: value } : m),
+  }));
+  // Identity & paperwork (round 24) - nested writes into member.identity.
+  const updateIdentity = (id, field, value) => setProfile(p => ({
+    ...p, members: (p.members || []).map(m => m.id === id
+      ? { ...m, identity: { ...(m.identity || {}), [field]: value } } : m),
+  }));
+  const updateIdentityAddr = (id, field, value) => setProfile(p => ({
+    ...p, members: (p.members || []).map(m => m.id === id
+      ? { ...m, identity: { ...(m.identity || {}), address: { ...((m.identity || {}).address || {}), [field]: value } } } : m),
   }));
 
   // ── Income sources (optional composition) ──
@@ -604,8 +695,115 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
                   record={(identifiers || []).find(r => r.member_id === m.id && r.kind === 'ssn')}
                   live={isLiveClient} configured={identifiers !== null}
                   isAdvisor={isAdvisorViewer} onChanged={refreshIdentifiers} />
+
+                {/* Identity & paperwork (round 24) - the KYC fields custodian
+                    account-opening forms ask for. Collapsed by default; the
+                    badge counts what is still blank so an advisor can scan. */}
+                {(() => {
+                  const id = memberIdentity(m);
+                  const upd = (f, v) => updateIdentity(m.id, f, v);
+                  const gaps = m.role !== 'dependent' ? identityGaps(m) : 0;
+                  const nameParts = (m.name || '').trim().split(/\s+/).filter(Boolean);
+                  const working = ['employed', 'self_employed'].includes(id.employmentStatus);
+                  return (
+                    <details style={{ marginTop: 8, borderTop: '1px dashed var(--border)', paddingTop: 6 }}>
+                      <summary style={{ cursor: 'pointer', fontSize: 11.5, color: 'var(--ink-mute)' }}>
+                        Identity &amp; paperwork
+                        <FieldHint text="What custodian account applications ask for. Filling it in here means new-account paperwork arrives prefilled, with nothing to chase at signing time." />
+                        {gaps > 0 && <span style={{ color: 'var(--gold)', fontWeight: 600 }}> · {gaps} to capture</span>}
+                      </summary>
+                      <div style={{ paddingTop: 8 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
+                          <TextField label="First name" value={id.firstName} placeholder={nameParts[0] || ''} onChange={(v) => upd('firstName', v)} />
+                          <TextField label="Middle" value={id.middleName} onChange={(v) => upd('middleName', v)} />
+                          <TextField label="Last name" value={id.lastName} placeholder={nameParts.length > 1 ? nameParts[nameParts.length - 1] : ''} onChange={(v) => upd('lastName', v)} />
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                          <TextField label="Email" value={id.email} placeholder="name@example.com" onChange={(v) => upd('email', v)} />
+                          <TextField label="Phone" value={id.phone} placeholder="(555) 555-5555" onChange={(v) => upd('phone', v)} />
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                          <label className="px-field">
+                            <span className="px-field-label">Marital status</span>
+                            <select className="px-select" value={id.maritalStatus} onChange={(e) => upd('maritalStatus', e.target.value)}>
+                              <option value="">Select</option>
+                              {KYC_OPTIONS.marital.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                            </select>
+                          </label>
+                          <label className="px-field">
+                            <span className="px-field-label">Citizenship</span>
+                            <select className="px-select" value={id.citizenship} onChange={(e) => upd('citizenship', e.target.value)}>
+                              <option value="">Select</option>
+                              {KYC_OPTIONS.citizenship.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                            </select>
+                          </label>
+                        </div>
+                        {id.citizenship && id.citizenship !== 'us' && (
+                          <div style={{ marginBottom: 8 }}>
+                            <TextField label="Country of citizenship" value={id.citizenshipCountry} onChange={(v) => upd('citizenshipCountry', v)} />
+                          </div>
+                        )}
+                        <div style={{ display: 'grid', gridTemplateColumns: working ? '1fr 1fr 1fr' : '1fr', gap: 8, marginBottom: 8 }}>
+                          <label className="px-field">
+                            <span className="px-field-label">Employment</span>
+                            <select className="px-select" value={id.employmentStatus} onChange={(e) => upd('employmentStatus', e.target.value)}>
+                              <option value="">Select</option>
+                              {KYC_OPTIONS.employment.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                            </select>
+                          </label>
+                          {working && <TextField label={id.employmentStatus === 'self_employed' ? 'Business name' : 'Employer'} value={id.employer} onChange={(v) => upd('employer', v)} />}
+                          {working && <TextField label="Occupation" value={id.occupation} onChange={(v) => upd('occupation', v)} />}
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                          <label className="px-field">
+                            <span className="px-field-label">Government ID</span>
+                            <select className="px-select" value={id.govIdType} onChange={(e) => upd('govIdType', e.target.value)}>
+                              <option value="">Select</option>
+                              {KYC_OPTIONS.govId.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                            </select>
+                          </label>
+                          <TextField label="ID · last 4" value={id.govIdLast4} inputMode="numeric" maxLength={4}
+                            hint="Only the last four digits are stored, as a readiness check. The full ID number is keyed at signing or completed by the client inside the e-sign envelope."
+                            onChange={(v) => upd('govIdLast4', v.replace(/\D/g, ''))} />
+                        </div>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, color: 'var(--ink-mute)', cursor: 'pointer', marginBottom: id.differentAddress ? 8 : 0 }}>
+                          <input type="checkbox" checked={!!id.differentAddress} onChange={(e) => upd('differentAddress', e.target.checked)} />
+                          Lives at a different address than the household
+                        </label>
+                        {id.differentAddress && (
+                          <AddressFields value={id.address} onField={(f, v) => updateIdentityAddr(m.id, f, v)} />
+                        )}
+                      </div>
+                    </details>
+                  );
+                })()}
               </div>
             ))}
+
+            {/* Household address + trusted contact (round 24) - shared by every
+                member unless they set their own above. The trusted contact is
+                the FINRA Rule 4512 person custodians ask about on applications. */}
+            {(profile.members || []).length > 0 && (
+              <div style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 10, marginBottom: 8, background: 'var(--surface)' }}>
+                <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ink-mute)', marginBottom: 8 }}>
+                  Residential address
+                  <FieldHint text="The household's legal address. It prefills custodian account paperwork; a member who lives elsewhere can set their own address under Identity & paperwork." />
+                </div>
+                <AddressFields value={(profile.contact || {}).address} onField={(f, v) => update(`contact.address.${f}`, v)} />
+                <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ink-mute)', margin: '14px 0 8px' }}>
+                  Trusted contact
+                  <FieldHint text="Someone your custodian may reach if they cannot contact you or suspect financial exploitation (FINRA Rule 4512). Asked for on most account applications; they get no access to the account." />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8, marginBottom: 8 }}>
+                  <TextField label="Name" value={(profile.contact || {}).trustedContact?.name} onChange={(v) => update('contact.trustedContact.name', v)} />
+                  <TextField label="Relationship" value={(profile.contact || {}).trustedContact?.relationship} placeholder="e.g. Son" onChange={(v) => update('contact.trustedContact.relationship', v)} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <TextField label="Phone" value={(profile.contact || {}).trustedContact?.phone} onChange={(v) => update('contact.trustedContact.phone', v)} />
+                  <TextField label="Email" value={(profile.contact || {}).trustedContact?.email} onChange={(v) => update('contact.trustedContact.email', v)} />
+                </div>
+              </div>
+            )}
           </section>
 
           {/* Income */}
@@ -1603,4 +1801,4 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
   );
 };
 
-window.NumbersDrawer = NumbersDrawer;
+Object.assign(window, { NumbersDrawer, KYC_OPTIONS, kycLabel });
