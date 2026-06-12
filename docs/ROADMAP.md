@@ -314,7 +314,16 @@ mentions) plus seven design items. **All seven were green-lit and built in round
    Execute-shaped FormFields in Quik!'s `<n><role>.<Base>` taxonomy, unverified names
    flagged for dictionary confirmation; (3)
    route signatures through the existing DocuSign integration (validated: Quik!'s
-   DocuSign Self Service model returns the signable PDF for exactly this). Needs a design partner
+   DocuSign Self Service model returns the signable PDF for exactly this).
+   **UX shape (decided 2026-06-12):** advisors choose an action package ("Open
+   account", "Transfer assets in", "Update beneficiaries", "Money movement"), not a
+   raw form - each resolves to a QuikFormID bundle generated in one Execute call
+   (`PAPERWORK_PACKAGES` in paperwork.jsx); a form-search fallback covers the long
+   tail. Advisor flow: pick package → readiness check → Create (edge fn, server-side
+   SSN release) → PDF preview → DocuSign envelope → signed docs to vault, satisfying
+   `requiresDoc` milestone gates. The differentiator to build toward: the planning
+   session suggests the paperwork (open retirement goal with no IRA → IRA-opening
+   package; P07 estate milestones → beneficiary package). Needs a design partner
    with a live Schwab or Fidelity relationship to test against - high "open the
    account from the planning session" wedge value when one asks.
 7. **Training & onboarding content - PHASE 1 SHIPPED round 23** (the

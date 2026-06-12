@@ -66,7 +66,8 @@ src/
   client-portal.jsx    window.ClientPortal - View B: client roadmap, phase cards, Discuss-with-Advisor;
                        PhaseCard enforces `requiresDoc` milestone gates (advisor override audited)
   paperwork.jsx        custodian account-paperwork POC (round 23): buildPaperworkPayload + PaperworkModal
-                       + PAPERWORK_ADAPTERS (Quik! blanks list) - ADVISOR bundle only, loads before advisor-modal;
+                       + PAPERWORK_ADAPTERS (Quik! blanks list) + PAPERWORK_PACKAGES (action → form-slot
+                       bundles; picker built post-credentials) - ADVISOR bundle only, loads before advisor-modal;
                        payload exports Quik! Execute-shaped FormFields (docs/quik-field-taxonomy.md)
   advisor-modal.jsx    NewClientModal + ClientPreviewModal (advisor bundle only; quick view carries the
                        advisor playbook card + Paperwork button, round 23)

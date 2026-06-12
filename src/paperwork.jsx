@@ -52,6 +52,33 @@ const PAPERWORK_ADAPTERS = {
   },
 };
 
+/* ─── Action packages - how advisors actually think ──────────────────────
+   Advisors pick a task ("open account", "transfer assets in"), not a form;
+   each task implies a bundle of custodian forms, and Quik!'s Execute call
+   takes a QuikFormID LIST, so one call generates the whole package.
+   `formId: null` = the slot is the design contract; real Form IDs come from
+   GET /forms/search once credentialed (founder queue) - never guess them.
+   `appliesTo` filters a slot to the registrations it exists for.
+   The picker UI (multi-select, Create, PDF preview, DocuSign routing) is
+   deliberately NOT built until UAT credentials exist, so it is built once
+   against the real catalog. */
+const PAPERWORK_PACKAGES = [
+  { value: 'open', label: 'Open account', forms: [
+    { slot: 'application', label: 'Account application', formId: null },
+    { slot: 'beneficiary', label: 'Beneficiary designation', formId: null, appliesTo: ['ira', 'roth'] },
+    { slot: 'advisory',    label: 'Advisory agreement / fee authorization', formId: null },
+  ] },
+  { value: 'transfer', label: 'Transfer assets in (ACAT)', forms: [
+    { slot: 'acat', label: 'Transfer of assets (ACAT)', formId: null },
+  ] },
+  { value: 'beneficiary', label: 'Update beneficiaries', forms: [
+    { slot: 'beneficiary', label: 'Beneficiary designation / change', formId: null, appliesTo: ['ira', 'roth'] },
+  ] },
+  { value: 'money', label: 'Money movement (ACH)', forms: [
+    { slot: 'ach', label: 'ACH / MoneyLink authorization', formId: null },
+  ] },
+];
+
 /* Account registrations the POC understands. `owners` picks which household
    members land on the form; `needsEin` flags trust-style registrations. */
 const PAPERWORK_ACCOUNT_TYPES = [
@@ -87,10 +114,12 @@ const _qf = (name, value, verified) => ({ name, value: value ?? '', verified: !!
    identifiers = rows from db.getIdentifiers() (last4 only - the full value
    never reaches this code; a live adapter asks the client-identifiers edge
    fn to release it directly into the form engine server-side). */
-function buildPaperworkPayload({ client, profile, identifiers, custodian, accountType, firmName, advisorName }) {
+function buildPaperworkPayload({ client, profile, identifiers, custodian, accountType, action, firmName, advisorName }) {
   const p = profile || {};
   const typeDef = PAPERWORK_ACCOUNT_TYPES.find(t => t.value === accountType) || PAPERWORK_ACCOUNT_TYPES[0];
   const custDef = PAPERWORK_CUSTODIANS.find(c => c.value === custodian) || PAPERWORK_CUSTODIANS[0];
+  const pkgDef = PAPERWORK_PACKAGES.find(a => a.value === action) || PAPERWORK_PACKAGES[0];
+  const pkgForms = pkgDef.forms.filter(f => !f.appliesTo || f.appliesTo.includes(typeDef.value));
   const members = Array.isArray(p.members) ? p.members : [];
   const adults = members.filter(m => m.role !== 'dependent');
   const owners = typeDef.owners === 'primary' ? adults.filter(m => m.role === 'primary').slice(0, 1)
@@ -171,7 +200,9 @@ function buildPaperworkPayload({ client, profile, identifiers, custodian, accoun
   const quikEntries = allFields.flatMap(f => (f.quik || []).map(q => ({ ...q, status: f.status })));
   const quik = {
     service: 'POST https://websvcs.quikforms.com/rest/quikformsengine/qfe/execute/pdf',
-    quikFormId: null, // founder queue: per-custodian/registration Form IDs via GET /forms/search
+    // QuikFormID is a list: one Execute call generates the whole action package.
+    // All null until GET /forms/search runs with real credentials (founder queue).
+    quikFormIds: pkgForms.map(f => f.formId),
     formFields: quikEntries
       .filter(q => q.status === 'ok' && q.value !== '' && q.value != null)
       .map(q => ({ FieldName: q.name, FieldValue: String(q.value) })),
@@ -180,9 +211,13 @@ function buildPaperworkPayload({ client, profile, identifiers, custodian, accoun
   };
 
   return {
-    version: 2,
+    version: 3,
     generated_at: new Date().toISOString(),
     custodian: custDef.value, registration: typeDef.value,
+    package: {
+      action: pkgDef.value, label: pkgDef.label,
+      forms: pkgForms.map(({ slot, label, formId }) => ({ slot, label, formId })),
+    },
     owners: ownerBlocks, account, firm, quik,
     readiness: {
       prefilled: allFields.filter(f => f.status === 'ok').length,
@@ -197,6 +232,7 @@ function buildPaperworkPayload({ client, profile, identifiers, custodian, accoun
 const PaperworkModal = ({ client, profileData, onClose }) => {
   const [custodian, setCustodian] = React.useState('schwab');
   const [accountType, setAccountType] = React.useState('individual');
+  const [action, setAction] = React.useState('open');
   const [identifiers, setIdentifiers] = React.useState(null);
   const { authUser } = useAuth();
 
@@ -209,7 +245,7 @@ const PaperworkModal = ({ client, profileData, onClose }) => {
   }, [client?.id]);
 
   const payload = buildPaperworkPayload({
-    client, profile: profileData, identifiers, custodian, accountType,
+    client, profile: profileData, identifiers, custodian, accountType, action,
     firmName: authUser?.firms?.name || authUser?.firm_name || advisor.firm,
     advisorName: authUser?.full_name || advisor.fullName,
   });
@@ -259,6 +295,12 @@ const PaperworkModal = ({ client, profileData, onClose }) => {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+        <label className="px-field" style={{ gridColumn: '1 / -1' }}>
+          <span className="px-field-label">Action</span>
+          <select className="px-select" value={action} onChange={e => setAction(e.target.value)}>
+            {PAPERWORK_PACKAGES.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
+          </select>
+        </label>
         <label className="px-field">
           <span className="px-field-label">Custodian</span>
           <select className="px-select" value={custodian} onChange={e => setCustodian(e.target.value)}>
@@ -271,6 +313,30 @@ const PaperworkModal = ({ client, profileData, onClose }) => {
             {PAPERWORK_ACCOUNT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
         </label>
+      </div>
+
+      {/* The action's form package - slots are the design contract; real Form
+          IDs (and the multi-select + Create + preview flow) arrive with UAT
+          credentials, built once against GET /forms/search. */}
+      <div style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '8px 12px', marginBottom: 12, background: 'var(--bg-elev)' }}>
+        <div className="px-eyebrow" style={{ marginBottom: 4 }}>Forms in this package</div>
+        {payload.package.forms.length === 0 && (
+          <div style={{ fontSize: 12, color: 'var(--ink-mute)', fontStyle: 'italic', padding: '2px 0' }}>
+            No forms in this package for the selected registration.
+          </div>
+        )}
+        {payload.package.forms.map(f => (
+          <div key={f.slot} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, fontSize: 12, padding: '2px 0' }}>
+            <span style={{ color: 'var(--ink)' }}>{f.label}</span>
+            <span style={{ color: 'var(--ink-faint)', fontSize: 10.5, fontStyle: 'italic', whiteSpace: 'nowrap' }}>
+              {f.formId ? `Quik! form ${f.formId}` : 'Form ID pending Quik! credentials'}
+            </span>
+          </div>
+        ))}
+        <div style={{ fontSize: 10.5, color: 'var(--ink-faint)', marginTop: 4 }}>
+          One Execute call generates the whole package (QuikFormID list); generated and signed
+          documents land in the vault and can satisfy milestone document gates.
+        </div>
       </div>
 
       <div style={{ fontSize: 11.5, color: 'var(--ink-mute)', marginBottom: 10 }}>
@@ -311,4 +377,4 @@ const PaperworkModal = ({ client, profileData, onClose }) => {
   );
 };
 
-Object.assign(window, { PaperworkModal, buildPaperworkPayload, PAPERWORK_ADAPTERS, PAPERWORK_ACCOUNT_TYPES, PAPERWORK_CUSTODIANS });
+Object.assign(window, { PaperworkModal, buildPaperworkPayload, PAPERWORK_ADAPTERS, PAPERWORK_PACKAGES, PAPERWORK_ACCOUNT_TYPES, PAPERWORK_CUSTODIANS });

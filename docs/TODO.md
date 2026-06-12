@@ -32,6 +32,16 @@ independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
   Execute-shaped `quik.formFields` ([quik-field-taxonomy.md](quik-field-taxonomy.md)),
   so the adapter is an edge fn: POST /qfe/execute/pdf + SSN release server-side,
   then route signatures through the existing DocuSign flow (Self Service model).
+  **UX design locked (2026-06-12, founder-approved):** advisors pick an ACTION
+  package, not a form - `PAPERWORK_PACKAGES` in paperwork.jsx is the contract
+  (open account / ACAT in / beneficiaries / ACH), with form search as the
+  long-tail fallback. Build the picker (multi-select, Create, PDF preview,
+  DocuSign routing, vault + doc-gate close) only when UAT credentials land,
+  against real `GET /forms/search` results - resolve package slots to Form IDs
+  then. Missing fields are not blockers: Quik! fields can stay editable per
+  recipient inside DocuSign, so the client completes their own fields in the
+  envelope. Later wedge: the planning session suggests the package (phase
+  milestones / goals → preselected paperwork).
 - [ ] **More guides** - portal guide for clients, firm-admin guide; the pipeline
   (docs/guides → Help drawer + printable page) is one markdown file per guide.
 - [ ] **Stripe webhook retry-storm hardening** (C0) - `stripe-webhook` returns HTTP
