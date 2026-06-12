@@ -1181,4 +1181,57 @@ the Management API after PR merge (the PR is the approval gate; `db push`
 remains forbidden - the migration ledger stays unmanaged).
 
 ---
+
+## 2026-06-12 - Round 24: Quik! taxonomy research · action packages · three-tier paperwork strategy
+
+Three PRs (#76, #77, #78), all merged + live same-day. The custodian-paperwork
+POC (round 23 item 6) went from "blanks list" to a researched, strategy-locked
+integration track. No migrations, no secrets, no money.
+
+1. **Quik! field-taxonomy research (PR #76)** - public-docs pass (their
+   Confluence + support site; no credentials), written up in
+   `docs/quik-field-taxonomy.md`: the `<n><role>.<Base>` naming convention
+   (1own.FName / 2own.LName / 1acc.Reg), the full ~100-row parent-role list,
+   checkbox lookup-value coding, both API surfaces (QFEM v2000 metadata API
+   incl. `GET /forms/fields` per-form dictionaries; Forms Engine
+   `POST /qfe/execute/pdf`, UAT endpoint exists), and the DocuSign **Self
+   Service** model - Quik! returns the signable PDF, so Prism's own
+   docusign-envelope flow owns the envelope (one audit trail; the round-23
+   e-sign recommendation is now evidence-backed). `buildPaperworkPayload`
+   emits the Execute-shaped `quik` block: `formFields` `[{FieldName,
+   FieldValue}]` with role instancing + FName/LName split, `gatedFields`
+   (SSN, server-side release only), `unverifiedFields` (names pending
+   dictionary confirmation; `*` in the modal). Decision: NO blank-form
+   library - the public Schwab/Fidelity pages are retail catalogs, and the
+   per-form dictionary supersedes PDFs entirely.
+2. **Action packages (PR #77)** - founder-approved UX reframe: advisors pick
+   a TASK, not a form. `PAPERWORK_PACKAGES` (Open account / ACAT in / Update
+   beneficiaries / ACH) encodes form slots with `formId: null`; one Execute
+   call generates a whole package (QuikFormID list). Modal gains the Action
+   select + "Forms in this package" box (`appliesTo` filters beneficiary
+   slots to IRA/Roth). Payload v3. The picker flow (multi-select, Create,
+   PDF preview, DocuSign routing, vault + doc-gate close) is deliberately
+   deferred until UAT credentials so it is built once against real
+   `GET /forms/search` results. Later wedge: the planning session suggests
+   the package.
+3. **Three-tier adapter strategy (PR #78)** - evaluated Schwab Advisor Center
+   + Fidelity Wealthscape (Integration Xchange) vs. Quik!: custodian-native
+   onboarding is better for supported paths but is an AND, not an OR.
+   Tier 1 Quik! (startable now, long-tail fallback forever) · Tier 2
+   custodian-direct SSO + prefill, Wealthbox-shaped (new `schwab` +
+   `wealthscape` stubs in `PAPERWORK_ADAPTERS` with concrete blanks lists;
+   gated on a design partner's custody relationship, their custodian goes
+   first; same unlock feeds holdings aggregation) · Tier 3 headless
+   onboarding APIs at scale. Modal renders a blanks checklist per non-ready
+   adapter (Quik! 6 / Schwab 4 / Wealthscape 4). Rationale in ROADMAP item 6.
+
+**Your queue (unchanged, sharpened):** sales@quikforms.com - ask for UAT
+credentials first and confirm the tier includes the Forms Engine PDF endpoint
++ e-sign metadata; G-number; design partner. Everything in code is ready to
+consume credentials the day they land.
+
+**Files:** `src/paperwork.jsx`,
+`docs/{quik-field-taxonomy.md (new),TODO,ROADMAP,ARCHITECTURE,sprint-log}.md`.
+
+---
 <!-- New sprints append above this line, newest first. -->
