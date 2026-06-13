@@ -67,7 +67,10 @@ src/
                        household address/trusted contact - shared drawer, so clients self-serve in the portal;
                        round 25b: wide variant (.is-wide, Numbers only) + section jump nav collected at
                        runtime from .is-section eyebrows + ViewContext `numbersFocus` open-with-focus
-                       ('identity' expands KYC blocks, scrolls to first data-kyc-gap))
+                       ('identity' expands KYC blocks, scrolls to first data-kyc-gap);
+                       round 26: .is-section eyebrows are fold toggles (same runtime DOM collection) -
+                       state persists per client in localStorage `px-numfolds:<id>`, blank/first-open
+                       sections always greet expanded, jump nav + 'identity' focus unfold their target)
   client-portal.jsx    window.ClientPortal - View B: client roadmap, phase cards, Discuss-with-Advisor;
                        PhaseCard enforces `requiresDoc` milestone gates (advisor override audited);
                        round 25: "Account paperwork details" nudge card (kycCompleteness → Numbers drawer)

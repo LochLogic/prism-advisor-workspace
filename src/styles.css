@@ -427,6 +427,25 @@ input, select, textarea { font-family: inherit; color: inherit; }
   flex: none;
 }
 
+/* Foldable sections (round 26): the eyebrow itself is the toggle. Folded
+   content stays in the DOM (display:none) so the jump nav, blank checks,
+   and identity deep-links keep working on hidden sections. */
+.px-drawer .px-eyebrow.is-section { cursor: pointer; -webkit-user-select: none; user-select: none; }
+.px-drawer .px-eyebrow.is-section::after {
+  content: '';
+  width: 6px; height: 6px; flex: none;
+  margin-left: 2px;
+  border-right: 1.5px solid var(--ink-faint);
+  border-bottom: 1.5px solid var(--ink-faint);
+  transform: rotate(45deg) translateY(-2px);
+  transition: transform .12s;
+}
+.px-drawer .px-eyebrow.is-section:hover::after { border-color: var(--ink); }
+.px-drawer-body section.is-folded .px-eyebrow.is-section::after { transform: rotate(-45deg) translate(-1px, 1px); }
+.px-drawer-body section.is-folded > *:not(:first-child) { display: none; }
+.px-drawer-body section.is-folded > :first-child .px-btn { display: none; }
+.px-drawer-body section.is-folded { margin-bottom: 8px; }
+
 /* ── Inputs ──────────────────────────────────────────────────────── */
 .px-input, .px-select {
   width: 100%;
