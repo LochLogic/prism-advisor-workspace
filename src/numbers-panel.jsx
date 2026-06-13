@@ -343,7 +343,58 @@ const NumbersDrawer = ({ isOpen, onClose }) => {
       if (body.scrollTop === before && Math.abs(target - before) > 4) body.scrollTop = target;
     }, 220);
   };
-  const jumpTo = (label) => scrollBodyTo(sectionEls().find(e => sectionLabel(e) === label), 'start');
+  // Foldable sections (round 26). Each .is-section eyebrow toggles its parent
+  // <section> closed - same zero-maintenance DOM collection as the jump nav,
+  // so new sections fold for free. Folds persist per client, with two guards:
+  // a first open (nothing stored) shows everything, and a section with nothing
+  // filled in ignores its stored fold so blanks always greet you expanded.
+  const foldKey = `px-numfolds:${activeClientId}`;
+  const [folded, setFolded] = React.useState(() => new Set());
+  const toggleFold = (label) => setFolded(prev => {
+    const next = new Set(prev);
+    if (next.has(label)) next.delete(label); else next.add(label);
+    try { localStorage.setItem(foldKey, JSON.stringify([...next])); } catch { /* private mode */ }
+    return next;
+  });
+  // "Has anything been entered here yet?" - any non-empty, non-zero input.
+  // Folded content stays in the DOM (display:none), so this works either way.
+  const sectionHasData = (sec) => [...sec.querySelectorAll('input')].some(i => {
+    if (i.type === 'checkbox' || i.type === 'radio') return i.checked;
+    const v = (i.value || '').trim();
+    return v !== '' && v !== '0';
+  });
+  React.useEffect(() => {
+    if (numbersFocus) return;   // open-with-focus wants the full ledger visible
+    let stored = [];
+    try { stored = JSON.parse(localStorage.getItem(foldKey) || '[]'); } catch { /* ignore */ }
+    if (!Array.isArray(stored)) stored = [];
+    const keep = stored.filter(label => {
+      const sec = sectionEls().find(e => sectionLabel(e) === label)?.closest('section');
+      return sec && sectionHasData(sec);
+    });
+    if (keep.length > 0) setFolded(new Set(keep));
+  }, []);
+  // Sync fold state + toggle affordances onto the rendered eyebrows.
+  React.useLayoutEffect(() => {
+    sectionEls().forEach(el => {
+      const sec = el.closest('section');
+      if (!sec) return;
+      const label = sectionLabel(el);
+      sec.classList.toggle('is-folded', folded.has(label));
+      el.setAttribute('role', 'button');
+      el.setAttribute('tabindex', '0');
+      el.setAttribute('aria-expanded', String(!folded.has(label)));
+      el.onclick = (e) => { if (!e.target.closest('.px-hint')) toggleFold(label); };
+      el.onkeydown = (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleFold(label); }
+      };
+    });
+  });
+  // Unfolding the target doesn't move its own header, so jump straight away.
+  const jumpTo = (label) => {
+    if (folded.has(label)) toggleFold(label);
+    scrollBodyTo(sectionEls().find(e => sectionLabel(e) === label), 'start');
+  };
   // Open-with-focus: 'identity' (paperwork click-through / portal nudge) expands
   // every Identity & paperwork block and scrolls to the first remaining gap.
   // The drawer remounts per open, so a mount effect reads the focus once.
