@@ -15,8 +15,8 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",
-    "esbuild": "^0.28.0",
-    "eslint": "^10.4.1",
+    "esbuild": "^0.28.1",
+    "eslint": "^10.5.0",
     "globals": "^17.6.0",
     "supabase": "^2.106.0",
     "wrangler": "^4.100.0"
