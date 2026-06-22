@@ -468,6 +468,9 @@ per-row fallback while the migration is pending.)*
 ### Monetize & scale GTM
 - Live trial → paid flow; finalize pricing from design-partner signal.
 - Scale the one channel that converts; keep SEO compounding underneath.
+- **Business-model menu beyond the subscription track** (white-label/licensing,
+  bootstrap-vs-raise, embedded finance, acquisition) lives in
+  [`MONETIZATION.md`](MONETIZATION.md) - the living strategy doc.
 
 ### Clean-room GTM review (2026-06-21)
 A fresh-eyes pass across client perception, advisor perception, workflow, value, and
