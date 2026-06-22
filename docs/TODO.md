@@ -59,6 +59,26 @@ independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
   200 for permanent/unprocessable, 4xx/5xx only for retryable. *↔ money-adjacent;
   deferred by decision - needs the gated `stripe-webhook` edge redeploy with your go.
   Repo intentionally left in sync with what's deployed.*
+### Round-26 clean-room GTM review follow-ons (2026-06-21; the four surface fixes shipped, these are the deferred findings)
+- [ ] **Client-voice copy pass** on the phase rationales + descriptions in `src/data.jsx`.
+  They read in CFP/advisor register ("cash flow precedes capital allocation",
+  "tax-inefficient assets live in tax-deferred space") - but the wedge depends on clients
+  finding the portal warm and legible. Rewrite the client-facing copy to a smart-friend
+  register; keep the advisor view unsoftened. Highest-ROI improvement to the wedge itself.
+  (Ties to the "inform without discouraging" tone rule.)
+- [ ] **Non-linear roadmap** - `src/client-portal.jsx` hard-locks phases beyond
+  `activePhase + 1` (`isLocked`). Real lives aren't linear (estate need + a mortgage at
+  once), and locked phases full of wealth a household lacks read as "look how far you
+  are". Consider "primary focus, everything visible" (emphasize one phase, hard-lock
+  none) or at least soften the lock copy.
+- [ ] **Instrument the wedge** - confirm `px_events` / `px_track` captures CLIENT login +
+  return cadence (not just advisor-authored events), so we can actually see whether
+  clients log in twice (the design-partner success metric) - the one behavior the whole
+  valuation rests on.
+- [ ] **Replace the founder band with a real testimonial** the moment a design partner
+  hits a "this is genuinely useful" moment (kit: ask then, not before). The "Built in the
+  open" founder band is the honest placeholder until then.
+
 *Partner-gated depth (holdings aggregation, object-lock WORM, module refactor) lives in
 ROADMAP and is built only when a partner asks - not queued here.*
 

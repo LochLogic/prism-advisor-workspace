@@ -45,7 +45,7 @@
   .msg.error{background:var(--brick-soft);color:var(--brick);}
   .msg.success{background:var(--forest-soft);color:var(--forest);}
   .magic-card{text-align:center;}
-  .magic-icon{font-size:34px;margin-bottom:12px;}
+  .magic-icon{color:var(--gold);margin-bottom:12px;line-height:0;}
   .footer{text-align:center;margin-top:18px;font-size:12px;color:var(--ink-faint);line-height:1.6;}
   .footer a{color:var(--gold);text-decoration:none;cursor:pointer;}
   .footer a:hover{text-decoration:underline;}
@@ -109,7 +109,7 @@
 
   <!-- Confirmation-sent card -->
   <div class="card magic-card is-hidden" id="sent-card">
-    <div class="magic-icon">âœ‰ï¸</div>
+    <div class="magic-icon"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></div>
     <div class="card-title tac">Confirm your email</div>
     <p class="card-p">
       We sent a confirmation link to <strong id="sent-to"></strong>.
@@ -162,7 +162,7 @@
     });
     if (error) { showMsg(error.message); setLoading(false); return; }
 
-    // If email confirmation is disabled, a session exists immediately â†’ go finish setup.
+    // If email confirmation is disabled, a session exists immediately, so finish setup.
     if (data.session) { window.location.href = '/app'; return; }
 
     // Otherwise prompt to confirm by email; provisioning completes after they land back in the app.

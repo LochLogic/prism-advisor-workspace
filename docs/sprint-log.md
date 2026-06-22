@@ -1324,4 +1324,45 @@ header right under the drawer chrome (fallback proven: smooth no-ops at
 `src/styles.css`, `docs/{ARCHITECTURE,TODO,sprint-log}.md`.
 
 ---
+
+## 2026-06-21 - Clean-room GTM review: landing-page trust/positioning/pricing + client-view preview
+
+PR #87. Build · smoke · calc · lint green. **No migration, no secrets, no money** -
+static marketing pages only, shipped under standing deploy autonomy. Cloudflare Workers
+Build redeploys `_site` on merge. Verified against the production CSP locally
+(`serve.mjs` + generated `_headers`): no console errors, inline scripts externalized and
+executing, desktop + mobile renders correct.
+
+A clean-room architecture + GTM review (client perception, advisor perception, workflow,
+value, marketing) produced a prioritized findings list. The four highest-ROI
+marketing-surface fixes shipped here; the deferred findings are recorded in `TODO.md`
+and `ROADMAP.md`.
+
+- **Pulled the fabricated testimonials.** The homepage carried three invented named
+  CFP/CFA quotes ("Sarah M.", "David K.", "Jennifer L.") under "shaped Prism during
+  early access" while we are pre-first-paying-advisor - a credibility landmine for a
+  fiduciary audience and a contradiction of our own honesty discipline. Replaced with an
+  honest **"Built in the open" founder / founding-design-partner band** (real founder +
+  LeMay Ventures, working Start-free + demo CTAs). Doubles as the design-partner
+  recruitment surface and answers the "who are you / is this real?" objection.
+- **Hero now leads with the wedge.** H1 went from "Your clients' wealth, refracted into
+  seven horizons" (the planning structure - the comparison-inviting frame) to **"The
+  living roadmap your clients actually open."** with a between-meetings subhead. Aligns
+  the homepage with the ROADMAP's "lead with the wedge in 10 seconds, everywhere".
+  meta / OG / Twitter descriptions rewritten wedge-first; added a `/security.html` trust
+  link in the hero note.
+- **Pricing legibility.** Household caps now read "per firm" (closes the
+  per-advisor-price x per-advisor-cap double-meter ambiguity flagged in ROADMAP) plus a
+  "Priced per advisor; household limits apply per firm" clarifier.
+- **"What your clients actually see" section** - an inline, CSP-clean HTML/CSS preview of
+  the client portal (donut progress, done/active/locked phase rows, two-way discuss
+  thread) + an "Open the live client demo" CTA that enters demo and deep-links `#/client`
+  straight to the roadmap. The thing we sell (clients log in and love it) is now shown,
+  not just described.
+- **Mojibake swept** from `signup.html` (corrupt envelope emoji -> inline SVG envelope;
+  a stray arrow glyph in a JS comment) per the foundational no-mojibake rule.
+
+**Files:** `landing.html`, `signup.html`, `docs/{TODO,ROADMAP,sprint-log}.md`.
+
+---
 <!-- New sprints append above this line, newest first. -->

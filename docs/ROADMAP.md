@@ -459,6 +459,26 @@ per-row fallback while the migration is pending.)*
 - Live trial → paid flow; finalize pricing from design-partner signal.
 - Scale the one channel that converts; keep SEO compounding underneath.
 
+### Clean-room GTM review (2026-06-21)
+A fresh-eyes pass across client perception, advisor perception, workflow, value, and
+marketing. **Four highest-ROI surface fixes shipped** (see sprint-log 2026-06-21):
+fabricated testimonials pulled for an honest founder/design-partner band; the hero
+re-led with the wedge; per-firm pricing legibility; a "what your clients see" portal
+preview. **Deferred findings, now tracked** (build items in `TODO.md`):
+- *Client-voice copy* on the phase rationales - the portal is written in advisor
+  register; the wedge needs it warm and legible. Likely the single biggest improvement
+  to the wedge itself.
+- *Non-linear roadmap* - the hard 1→7 lock fits few real households; "primary focus,
+  everything visible" suits the lived reality better.
+- *Instrument the wedge* - make sure analytics captures client login + return, the one
+  behavior the valuation rests on.
+- *Depth-vs-wedge discipline (strategy, not a build)* - much planning depth (Monte
+  Carlo, Roth ladders, asset location, RMD, SS, equity-comp, 1040) shipped pre-partner,
+  against "deepen on demand only", and invites the incumbent comparison the wedge avoids.
+  Decide consciously whether to keep extending it. Relatedly, fold the dated tax
+  constants (`FED_BRACKETS_2025` et al.) into one "as-of / review-by" module with a CI
+  year-roll guard - an accuracy liability as the calendar turns.
+
 ---
 
 ## Standing principle
