@@ -49,8 +49,8 @@ now AUTHOR their own per-phase advisor script, deep-merged over the data.jsx def
 - **RLS isolation** (`rls_isolation.sql` check 9): firm-scoped read + cross-tenant denial +
   non-admin write rejection on `firm_playbooks`.
 
-**Deploy hand-off:** apply migration 045 to prod (Management API, after merge - the PR is the
-approval gate; confirm-gated per the migration rule). Then it is live; no edge deploy, no
+**Deploy hand-off:** migration 045 APPLIED to prod 2026-06-22 via the Management API (table +
+RLS + 4 policies verified, 0 rows) - the CX playbook authoring is live. No edge deploy, no
 secrets. *Phase 3 (firm-admin quality view: on-script % per advisor) stays in ROADMAP.*
 
 ## 2026-06-22 (sprint 27a) - Firm-admin guide · dated-tax-constants module + CI year-roll guard · prospect tracker

@@ -10,8 +10,8 @@
 > guides pipeline's `<!-- audience: client -->` marker). **Prod audit 2026-06-22:** repo
 > migrations `001-044` applied (verified by object existence; the ledger is unmanaged so
 > `list_migrations` is empty by design) and all 17 repo edge functions ACTIVE. *Sprint 27b
-> added migration `045` (firm_playbooks) - PENDING the prod apply, so repo is one migration
-> ahead of live until then.* The frontend tax constants were also consolidated into one
+> added migration `045` (firm_playbooks), APPLIED to prod 2026-06-22 (table + RLS + 4 policies
+> verified) - repo = live again.* The frontend tax constants were also consolidated into one
 > dated `TAX_FACTS` module (sprint 27a) with a CI year-roll guard.
 > Detail of 25b (KYC identity capture: `members[].identity` + household `contact`,
 > `memberIdentity`/`kycCompleteness`, Numbers-drawer Identity section + `KYC_OPTIONS`, wide
@@ -119,7 +119,7 @@ supabase/
   migrations/001-045   schema evolution (names are self-describing; 001 = base schema;
                        044 = client_identifiers, service-role-only encrypted SSN store;
                        045 = firm_playbooks, firm-authored CX playbook overrides [sprint 27b,
-                       PENDING prod apply])
+                       applied to prod 2026-06-22])
   functions/           Edge Functions (Deno) - see §6
   functions/_shared/   auth.ts, cors.ts, docusign.ts, calendar.ts (provider plumbing), fees.ts (canonical BACKEND fee math)
   tests/               integration.sql, rls_isolation.sql (tenant-isolation proofs)
