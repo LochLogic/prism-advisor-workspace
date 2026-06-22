@@ -192,7 +192,7 @@ async function dbGetFirmClients() {
   try {
     const { data, error } = await _sb()
       .from('clients')
-      .select('id, advisor_id, aum, current_phase, fee_schedule_id, household_name, short_name')
+      .select('id, advisor_id, aum, current_phase, fee_schedule_id, household_name, short_name, last_meeting_at')
       .eq('active', true);
     if (error) throw error;
     return data;

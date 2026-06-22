@@ -19,6 +19,41 @@
 
 ---
 
+## 2026-06-22 (sprint 27c) - CX playbook phase 3: firm-admin quality view (on-script %)
+
+PR (pending). Build · smoke (57) · calc (244) · lint all green. **No migration, no secrets,
+no money, no edge function** - reads signals already on the `clients` table.
+
+**What shipped** - the final phase of the round-23 advisor-feedback CX-playbook track: a
+firm-admin quality lens so the firm can manage CX consistency, not just author the script.
+- **Honest, derived metric (no new tracking surface).** The playbook makes four promises
+  per phase (ask / set expectations / gather / cadence); only CADENCE has a reliable digital
+  footprint - `clients.last_meeting_at`, advanced by every logged meeting (migrations 005/013).
+  So "on-script %" = **cadence adherence**: a household is "on cadence" when a meeting was
+  logged within `CX_CADENCE_DAYS` (120 = a quarter + grace; the playbooks promise quarterly
+  reviews). We deliberately do NOT fake adherence on the other three promises - those happen
+  in the room. This follows the round-26c precedent (computed signal over manual checkboxes);
+  no migration, no advisor friction.
+- **`db.jsx`:** `getFirmClients` now also selects `last_meeting_at` (same `clients_select_firm_admin`
+  RLS - no new policy, no new method).
+- **Firm-admin "CX quality" section** (`firm-admin.jsx`, placed right after the phase-2
+  authoring section so author → measure read together; advisor bundle only):
+  - Firm-wide headline: `X% of N households on cadence` + `K need a review`, color-toned.
+  - Per-advisor table (advisors with a book only, sorted by adherence): Households · On cadence
+    (% + n/total) · Needs review (with a "(K never met)" sub-count, or "caught up").
+  - **Playbook coverage strip:** where the book actually sits by phase vs. which phases the
+    firm has authored a script for ("Customized"/"Default" chip per phase + a "M households
+    still on the Prism default script" nudge) - ties the quality view back to phase-2 authoring,
+    from data already loaded (zero new reads).
+- **Verification:** build/lint/57 smoke/244 calc green; admin shell loads in demo with no
+  console errors (the section self-hides when there's no book, like every firm-admin data
+  section in demo - `authUser` is null there); the adherence + coverage math verified numerically
+  against representative mock data in the preview (60% firm / 33% vs 100% per advisor / zero-book
+  advisor excluded / coverage + default-exposure correct).
+
+**Deploy hand-off:** none beyond the merge - no migration, no secrets, no edge function. Live
+on the next Cloudflare build. Closes the round-23 CX-playbook track (phases 1-3 all shipped).
+
 ## 2026-06-22 (sprint 27b) - Firm-authored CX playbook (advisor playbook phase 2)
 
 PR (pending). Build · smoke (57) · calc (244) · lint all green; new RLS-isolation check 9

@@ -26,11 +26,6 @@ independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
 - [ ] **Zapier / public API.**
 
 ### Round-23 follow-on build items (the meeting tracks all shipped; these are the nexts)
-- [ ] **CX playbook phase 3** - firm-admin quality view (on-script % per advisor),
-  rolling up playbook completion. *(Phase 2 SHIPPED sprint 27b: firm-admin authoring
-  via `firm_playbooks` [migration 045], deep-merged over the data.jsx defaults by
-  `mergePlaybook`; the quick-view card shows the firm's authored script with a
-  "Customized" chip. Migration 045 APPLIED to prod 2026-06-22 - the feature is live.)*
 - [ ] **Quik! adapter** - implement `PAPERWORK_ADAPTERS.quik.submit(payload)` the
   moment the business blanks (your queue) exist; the payload already emits
   Execute-shaped `quik.formFields` ([quik-field-taxonomy.md](quik-field-taxonomy.md)),
@@ -68,6 +63,13 @@ independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
   (round 26b) and the `tasks[].label` milestone text (round 26d) are now client-voiced,
   substance and numbers kept. The remaining advisor-register copy lives in the
   planning-tool surfaces (`calculators.jsx`); soften only if a partner flags it.
+
+*Shipped 2026-06-22 and removed from this board (sprint 27c, no migration / no secrets /
+no money): **CX playbook phase 3** - the firm-admin "CX quality" section (on-script % per
+advisor), closing the round-23 CX-playbook track. On-script % is derived honestly from
+CADENCE (`clients.last_meeting_at`, the one playbook promise with a digital footprint):
+per-advisor adherence table + a playbook-coverage strip (book-by-phase vs. which phases the
+firm has scripted). Reads the existing firm-admin `clients` RLS path - no new migration/method.*
 
 *Shipped 2026-06-22 and removed from this board (round 26d, no migration / no secrets /
 no money): the **KYC paperwork-details nudge is now dismissible** (keyed to the

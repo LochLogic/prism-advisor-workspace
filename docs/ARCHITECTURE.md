@@ -12,7 +12,9 @@
 > `list_migrations` is empty by design) and all 17 repo edge functions ACTIVE. *Sprint 27b
 > added migration `045` (firm_playbooks), APPLIED to prod 2026-06-22 (table + RLS + 4 policies
 > verified) - repo = live again.* The frontend tax constants were also consolidated into one
-> dated `TAX_FACTS` module (sprint 27a) with a CI year-roll guard.
+> dated `TAX_FACTS` module (sprint 27a) with a CI year-roll guard. *Sprint 27c shipped CX
+> playbook phase 3 (firm-admin "CX quality" section: on-script % per advisor from cadence) -
+> no migration, no new `window.*`/db method; `getFirmClients` now also selects `last_meeting_at`.*
 > Detail of 25b (KYC identity capture: `members[].identity` + household `contact`,
 > `memberIdentity`/`kycCompleteness`, Numbers-drawer Identity section + `KYC_OPTIONS`, wide
 > drawer `.is-wide` + jump nav + `numbersFocus`) and round 23/24 (encrypted SSN store,
@@ -106,7 +108,9 @@ src/
   advisor-modal.jsx    NewClientModal + ClientPreviewModal (advisor bundle only; quick view carries the
                        advisor playbook card + Paperwork button, round 23)
   advisor-dashboard.jsx window.AdvisorDashboard - View A: KPIs, roster, alerts, flagged-Q inbox
-  firm-admin.jsx       window.FirmAdminDashboard - advisor mgmt, firm clients, fee schedules, audit log, ledger-gate toggle
+  firm-admin.jsx       window.FirmAdminDashboard - advisor mgmt, firm clients, fee schedules, audit log, ledger-gate toggle,
+                       CX playbook authoring (phase 2) + CX quality section (phase 3, sprint 27c: on-script %
+                       per advisor from clients.last_meeting_at cadence + a playbook-coverage-by-phase strip)
   platform-admin.jsx   window.PlatformOwnerDashboard - founder tier (#/platform): firm overview, provision/suspend, plan overrides
   app.jsx              window.App - advisor entry: auth gate, topbar, view switch, Help drawer
                        (searchable window.__pxGuides + /guides/<slug>/ printable link)
