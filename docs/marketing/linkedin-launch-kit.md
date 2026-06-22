@@ -1,7 +1,7 @@
-# LinkedIn Company Page — Launch Kit
+# LinkedIn Company Page - Launch Kit
 
 Assets + copy for standing up the Prism company page. Companion to the founder-voice
-drafts in [`founder-content-starter.md`](../founder-content-starter.md) — this file is
+drafts in [`founder-content-starter.md`](../founder-content-starter.md) - this file is
 the **company** voice (slightly more polished, still human, never enterprise-speak).
 
 ## Images (in this folder)
@@ -9,7 +9,7 @@ the **company** voice (slightly more polished, still human, never enterprise-spe
 | File | Use | Size |
 |---|---|---|
 | `linkedin-logo.png` | Page logo | 400×400 (LinkedIn min 268×268) |
-| `linkedin-banner.png` | Page cover | 2256×382 (2× of LinkedIn's 1128×191 — uploads crisp on retina) |
+| `linkedin-banner.png` | Page cover | 2256×382 (2× of LinkedIn's 1128×191 - uploads crisp on retina) |
 
 Regenerate any time with `node scripts/linkedin-assets.mjs` (brand navy `#1c2e4a`,
 the same prism mark the app uses).
@@ -17,7 +17,7 @@ the same prism mark the app uses).
 ## Page setup fields
 
 - **Name:** Prism Advisor Workspace
-- **Tagline (120 chars):** The advisor workspace for solo & small RIAs — living client roadmaps, two-way collaboration, compliance built in.
+- **Tagline (120 chars):** The advisor workspace for solo & small RIAs - living client roadmaps, two-way collaboration, compliance built in.
 - **Website:** https://prismaw.com
 - **Industry:** Financial Services (or Software Development)
 - **Specialties:** financial planning software, client portal, RIA technology, compliance, practice management
@@ -57,5 +57,5 @@ There's a fully populated demo at prismaw.com. There's no signup, just click aro
 
 **Posting notes:** attach 2–3 product screenshots or a short screen recording of the
 client roadmap (visual posts dramatically outperform text-only for product launches);
-have Cory reshare from his personal profile with one personal line — the personal
+have Cory reshare from his personal profile with one personal line - the personal
 reshare is where the actual reach is.
