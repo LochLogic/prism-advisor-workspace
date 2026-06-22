@@ -131,8 +131,10 @@ e2e/demo.spec.ts       Playwright smoke
   `savePushSubscription/removePushSubscription` (push_subscriptions, migration 042).
   Advisor-authored sendMessage / requestDocument / createAcknowledgement also
   fan out to the `send-push` edge fn (fire-and-forget `_pushToClient`). Events
-  instrumented: login (auth.jsx), invite_created/claimed, message_sent,
-  plan_updated, report_printed (store.jsx printers), push_subscribed (portal-app).
+  instrumented: login (auth.jsx; SIGNED_IN only), invite_created/claimed, message_sent,
+  plan_updated, report_printed (store.jsx printers), push_subscribed +
+  portal_opened (portal-app; the client-return signal - fires on every portal open,
+  resumed sessions included, so engagement/return-cadence is measurable where `login` alone undercounts).
 - Branding/AI (2026-06-09): `getFirmBrand, updateFirmBrand, getBrandForSlug` (anon RPC
   `px_brand_for_slug`, migration 032), `aiAssist(action, context)` → `ai-assist` edge fn
 - Calendar (round 10): `getCalendarStatus, connectCalendar(provider), disconnectCalendar,

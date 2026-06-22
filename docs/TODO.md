@@ -59,25 +59,26 @@ independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
   200 for permanent/unprocessable, 4xx/5xx only for retryable. *↔ money-adjacent;
   deferred by decision - needs the gated `stripe-webhook` edge redeploy with your go.
   Repo intentionally left in sync with what's deployed.*
-### Round-26 clean-room GTM review follow-ons (2026-06-21; the four surface fixes shipped, these are the deferred findings)
-- [ ] **Client-voice copy pass** on the phase rationales + descriptions in `src/data.jsx`.
-  They read in CFP/advisor register ("cash flow precedes capital allocation",
-  "tax-inefficient assets live in tax-deferred space") - but the wedge depends on clients
-  finding the portal warm and legible. Rewrite the client-facing copy to a smart-friend
-  register; keep the advisor view unsoftened. Highest-ROI improvement to the wedge itself.
-  (Ties to the "inform without discouraging" tone rule.)
+### Round-26 clean-room GTM review follow-ons (2026-06-21)
 - [ ] **Non-linear roadmap** - `src/client-portal.jsx` hard-locks phases beyond
   `activePhase + 1` (`isLocked`). Real lives aren't linear (estate need + a mortgage at
   once), and locked phases full of wealth a household lacks read as "look how far you
   are". Consider "primary focus, everything visible" (emphasize one phase, hard-lock
-  none) or at least soften the lock copy.
-- [ ] **Instrument the wedge** - confirm `px_events` / `px_track` captures CLIENT login +
-  return cadence (not just advisor-authored events), so we can actually see whether
-  clients log in twice (the design-partner success metric) - the one behavior the whole
-  valuation rests on.
+  none) or at least soften the lock copy. *(Design write-up in the 2026-06-21 chat /
+  sprint-log; see ROADMAP for the end-state shape.)*
 - [ ] **Replace the founder band with a real testimonial** the moment a design partner
   hits a "this is genuinely useful" moment (kit: ask then, not before). The "Built in the
   open" founder band is the honest placeholder until then.
+- [ ] **Client-voice copy - phase 2 (optional)** - the descriptions + rationales were
+  warmed 2026-06-21 (round 26b). The remaining jargon lives in `tasks[].label` milestone
+  text ("Open laddered HYSA / Treasury MMF, 4-tier", "Execute backdoor Roth if above
+  phase-out") and the planning-tool copy; soften the client-visible task labels next if a
+  partner flags them.
+
+*Shipped 2026-06-21 (round 26b), removed from this board: the client-voice copy pass on
+phase descriptions + rationales, and "instrument the wedge" (`portal_opened` event).
+Migrations 040-043 verified live in prod (px_events/px_track/push_subscriptions/RLS
+indexes all present) - the round-13 "apply 040-043" human item below is stale.*
 
 *Partner-gated depth (holdings aggregation, object-lock WORM, module refactor) lives in
 ROADMAP and is built only when a partner asks - not queued here.*
@@ -91,16 +92,9 @@ in dashboards I can't reach. **Bold = the hard blockers gating any live client.*
 Project ref: `phabxcijbbphfxvjedfj` · Domain: `prismaw.com`.
 
 ### Round-13 - SQL-editor pastes + one Auth toggle (code is LIVE 2026-06-10)
-- [ ] **Apply migrations 040 → 041 → 042 → 043** in the Supabase SQL editor, in order
-  (039 you already ran live on 2026-06-10 - the file is committed for the record):
-  [`040_security_advisor_hardening.sql`](../supabase/migrations/040_security_advisor_hardening.sql)  - 
-  search_path pins + anon-EXECUTE revokes (the Security Advisor warning sweep);
-  [`041_product_events.sql`](../supabase/migrations/041_product_events.sql)  - 
-  `px_events` + `px_track` (analytics writes silently no-op until applied);
-  [`042_push_subscriptions.sql`](../supabase/migrations/042_push_subscriptions.sql)  - 
-  push subscription storage (portal push starts working the moment this lands);
-  [`043_rls_index_coverage.sql`](../supabase/migrations/043_rls_index_coverage.sql)  - 
-  RLS-predicate index gap-fill.
+- [x] ~~**Apply migrations 040 → 041 → 042 → 043**~~ *(verified live in prod 2026-06-21:
+  `px_events` + `px_track`, `push_subscriptions`, and the RLS-predicate indexes all
+  present. The `portal_opened` analytics event ships against them.)*
 - [ ] **Enable leaked-password protection** - Supabase → Authentication → password
   settings (HaveIBeenPwned check; Pro-plan feature, pairs with the Pro upgrade below).
   Clears the last actionable Security Advisor warning.

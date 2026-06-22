@@ -1365,4 +1365,52 @@ and `ROADMAP.md`.
 **Files:** `landing.html`, `signup.html`, `docs/{TODO,ROADMAP,sprint-log}.md`.
 
 ---
+
+## 2026-06-21 - Round 26b: client-voice copy pass · wedge analytics · founder-band softening + .testi cleanup
+
+PR #88. Build · smoke (57) · calc (238) · lint green. **No migration, no secrets, no
+money.** Verified in the production-CSP preview (`serve.mjs` + `_headers`): landing
+founder band softened with the `.testi` rules fully removed, and the demo client portal
+renders the new warm phase copy (sampled verbatim, old jargon absent from every
+rationale body). Same-day follow-up to round 26, working the clean-room review's deferred
+findings.
+
+- **Client-voice copy pass (the headline).** Rewrote all seven phase `description` +
+  `rationale` strings in `src/data.jsx` from CFP/advisor register to a smart-friend voice
+  - "Cash flow precedes capital allocation" became "Before we grow your money, we get it
+  steady"; "tax-inefficient assets live in tax-deferred space" became "we tuck the
+  tax-heavy holdings, like bonds and REITs, inside retirement accounts". Substance and the
+  numeric anchors are kept (the ~7% debt hurdle, the estimated 0.5-1.5% TLH band, the
+  six-/seven-figure sequencing claim, all hedged as before); only the cold institutional
+  phrasing and acronym-soup go. The wedge depends on clients finding the portal warm and
+  legible, so this is the single biggest improvement to the wedge itself. `<b>` emphasis
+  preserved (rationale renders via `sanitizeHtml`). Advisor verdicts/metrics untouched
+  (the "unsoftened advisor view" rule is about verdicts, not the shared educational copy).
+  e2e asserts none of this prose, so no test churn.
+- **Instrument the wedge.** Added a `portal_opened` event (`src/portal-app.jsx`,
+  client-bind effect) that fires on EVERY client portal open - resumed sessions included
+  - unlike auth.jsx's `login`, which only fires on `SIGNED_IN` and so undercounts returns.
+  `px_track` stamps `actor_role='client'` + `client_id` + `firm_id` server-side. Now the
+  design-partner success metric ("logged in twice") is queryable. Confirmed migration 041
+  (`px_events`/`px_track`) is live in prod - it had recorded **0 client logins** to date,
+  empirically the gap this closes. Migrations 040-043 all verified applied (stale TODO
+  item cleared).
+- **Founder-band hand-hold softened.** Per founder note that the white-glove promise read
+  a touch too far: "free white-glove setup - I import your first households with you on a
+  call" became "hands-on help getting set up ... All I ask in return is your honest
+  feedback over the first few months". Warm and inviting, less of a personal-labor
+  over-commitment.
+- **Dead-CSS cleanup.** Removed the now-unused `.testimonials/.testi*` rules left behind
+  when round 26 replaced the testimonials section, and the stale `.testi-grid` reference
+  in the mobile media query.
+
+Docs: `041_product_events.sql` + ARCHITECTURE §4 event taxonomy gained `portal_opened`;
+TODO trimmed the two shipped items and the stale migration row; ROADMAP marks them
+shipped and carries the non-linear-roadmap end-state design + the depth-vs-wedge call.
+
+**Files:** `src/data.jsx`, `src/portal-app.jsx`, `landing.html`,
+`supabase/migrations/041_product_events.sql`,
+`docs/{ARCHITECTURE,TODO,ROADMAP,sprint-log}.md`.
+
+---
 <!-- New sprints append above this line, newest first. -->

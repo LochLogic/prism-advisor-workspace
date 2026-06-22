@@ -461,18 +461,33 @@ per-row fallback while the migration is pending.)*
 
 ### Clean-room GTM review (2026-06-21)
 A fresh-eyes pass across client perception, advisor perception, workflow, value, and
-marketing. **Four highest-ROI surface fixes shipped** (see sprint-log 2026-06-21):
-fabricated testimonials pulled for an honest founder/design-partner band; the hero
-re-led with the wedge; per-firm pricing legibility; a "what your clients see" portal
-preview. **Deferred findings, now tracked** (build items in `TODO.md`):
-- *Client-voice copy* on the phase rationales - the portal is written in advisor
-  register; the wedge needs it warm and legible. Likely the single biggest improvement
-  to the wedge itself.
-- *Non-linear roadmap* - the hard 1→7 lock fits few real households; "primary focus,
-  everything visible" suits the lived reality better.
-- *Instrument the wedge* - make sure analytics captures client login + return, the one
-  behavior the valuation rests on.
-- *Depth-vs-wedge discipline (strategy, not a build)* - much planning depth (Monte
+marketing.
+
+**Shipped (rounds 26 + 26b, see sprint-log):** the four surface fixes - fabricated
+testimonials pulled for an honest founder/design-partner band, wedge-first hero, per-firm
+pricing legibility, a "what your clients see" portal preview; then the **client-voice
+copy pass** on all seven phase descriptions + rationales (advisor register → smart-friend
+voice, substance and numbers kept), the **founder-band hand-hold softened** (dropped the
+"I import your households on a call" over-commitment), and **`portal_opened` analytics** so
+client return-cadence is finally measurable (the SIGNED_IN-only `login` event undercounted
+it; prod had 0 client logins recorded).
+
+**Still open:**
+- **Non-linear roadmap (the priority follow-on).** Today `client-portal.jsx` hard-locks any
+  phase beyond `activePhase + 1`. End-state shape: drop the hard lock and make the seven
+  horizons a **status model, not a gate**. Each phase shows one of {*Done*; *Active* - the
+  one or two the advisor is steering now; *Open* - visible and explorable, just not the
+  focus; *Not yet relevant* - dimmed, with a one-line "why / when this comes into play"}.
+  The advisor sets the household's **primary focus** (1-2 phases) instead of a single
+  linear pointer, so a 58-year-old with both an estate need and a mortgage is never told
+  estate planning is "locked". Clients see the whole journey and can read ahead. Keep what
+  works: the celebratory milestone moments, the `requiresDoc` document gates, and the
+  per-phase progress all stay - only the linear *progression* assumption is removed. Net:
+  the roadmap reflects a real financial life (several things true at once) instead of a
+  board game. Build notes: `isLocked` becomes a `phaseStatus(phase, profile, focus)`
+  helper; `activePhase` (single int) generalizes to a `focusPhases` set on the client
+  record; the "Building · time on your side" tone rule covers the *Not yet relevant* copy.
+- **Depth-vs-wedge discipline (strategy, not a build)** - much planning depth (Monte
   Carlo, Roth ladders, asset location, RMD, SS, equity-comp, 1040) shipped pre-partner,
   against "deepen on demand only", and invites the incumbent comparison the wedge avoids.
   Decide consciously whether to keep extending it. Relatedly, fold the dated tax

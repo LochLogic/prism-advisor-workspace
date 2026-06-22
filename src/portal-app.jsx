@@ -134,6 +134,11 @@ function PortalInner() {
           })
         : null);
       setView('client');
+      // Engagement signal (the wedge): a client opened their portal. Fires on every
+      // open - resumed session included, unlike auth.jsx's SIGNED_IN-only `login` - so
+      // return cadence ("did the client come back?") is measurable. px_track stamps
+      // actor_role='client' + client_id + firm_id server-side; no-ops in demo / pre-migration.
+      window.db?.track?.('portal_opened');
     }
   }, [role, authUser?.id]);
 
