@@ -32,7 +32,9 @@ Warm intros convert ~10× better than cold. Weight everything toward warm first.
 ---
 
 ## Week 0 (2–3 evenings) - Build the list + tracker
-**Tracker columns** (Google Sheet is fine):
+**Ready-made template:** [`docs/samples/prospect-tracker.csv`](samples/prospect-tracker.csv) -
+import it into Google Sheets (File, Import). It is pre-stubbed with the source mix below
+(warm-weighted) and a worked example row; just fill in names. Columns:
 `Name · Firm · Source(warm/XYPN/NAPFA/Kitces/LinkedIn/Reddit) · Channel · Status(todo→contacted→replied→demo'd→onboarding→active→passed) · Last touch · Next action · Notes`
 
 **Fill ~50 rows, in this priority order:**

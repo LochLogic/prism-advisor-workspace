@@ -19,6 +19,40 @@
 
 ---
 
+## 2026-06-22 (sprint 27a) - Firm-admin guide · dated-tax-constants module + CI year-roll guard · prospect tracker
+
+PR (pending). Build · smoke (57) · calc (244) · lint all green. **No migration, no
+secrets, no money, no edge function.** Three unblocked items off the board, all
+docs/calc only.
+
+**What shipped**
+- **Firm-admin guide** (`docs/guides/firm-admin-guide.md`): the third in-app guide, the
+  one firm admins lacked (advisors + clients already had theirs). Covers branding, the
+  advisor roster + roles, fee schedules + billing + invoice approval, the Workflow
+  ledger-approval gate, and the compliance audit trail + books-and-records packet. Auto-
+  wired by the existing guides pipeline - one markdown file → searchable Help-drawer entry
+  (advisor bundle) + printable `/guides/firm-admin-guide/` page. Verified: 3 guides render,
+  embedded in `bundle.js`, correctly absent from `portal.js`. Clears the "more guides -
+  firm-admin guide" Claude-queue item.
+- **Dated tax constants → one `TAX_FACTS` module + CI year-roll guard** (`calc-core.cjs`,
+  `calc.test.mjs`): the federal tax figures that were scattered through calc-core
+  (estate exemption, ordinary brackets, 0% LTCG top, IRMAA tier 1, the §415(c)/§402(g)
+  limits, the QCD cap) now live in one dated object, `TAX_FACTS` ({ taxYear: 2025,
+  reviewByYear: 2026, … }). The legacy named exports (`FED_BRACKETS_2025` et al.) are now
+  thin references into it, so the export surface and every number are unchanged (244 calc
+  tests, all green). A new year-roll guard in calc.test.mjs fails CI once the calendar
+  passes `reviewByYear`, so the figures can't silently rot. Statutory tables that change
+  rarely (RMD divisors, SS factors) intentionally stay out. Closes the accuracy-liability
+  half of the ROADMAP depth-vs-wedge "still open" item.
+- **Prospect tracker template** (`docs/samples/prospect-tracker.csv`): a ready-to-import,
+  warm-weighted ~50-row CSV matching the columns in `first-outreach-plan.md` (now linked
+  from it), source mix pre-stubbed (warm/XYPN/NAPFA/LinkedIn/Reddit) with a worked example
+  row. Supports the human-queue GTM "build a prospect tracker" step.
+
+**Deploy hand-off:** none beyond a normal merge + Cloudflare static deploy. No human-queue
+items. (CX playbook phase 2 - the fourth picked item - lands separately as 27b: it carries
+a `firm_playbooks` migration that wants a confirm-before-apply.)
+
 ## 2026-06-22 (round 26d) - Client-voice milestone labels · dismissible KYC nudge · client portal guide
 
 PR (pending). Build · smoke (57) · calc (238) · lint all green. **No migration, no

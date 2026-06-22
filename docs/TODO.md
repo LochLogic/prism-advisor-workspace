@@ -49,11 +49,10 @@ independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
   = Tier 2, stubs + blanks lists in `PAPERWORK_ADAPTERS`, gated on the design
   partner's custody relationship (their custodian goes first); headless
   onboarding APIs = Tier 3 at scale. Full rationale in ROADMAP item 6.
-- [ ] **More guides** - firm-admin guide; the pipeline (docs/guides → Help drawer +
-  printable page) is one markdown file per guide. *(Client portal guide shipped round
-  26d - `docs/guides/client-portal-guide.md`, audience-marked so the printable reads
-  "Client guide" not "Advisor guide"; lives in the advisor Help drawer for the advisor
-  to share.)*
+- [ ] **More guides** - the pipeline (docs/guides → Help drawer + printable page) is one
+  markdown file per guide. *(Shipped: advisor onboarding [round 23], client portal guide
+  [round 26d], firm-admin guide [sprint 27a]. Next candidates: per-surface walkthrough
+  clips, or a compliance/exam-prep guide if a partner asks.)*
 - [ ] **Stripe webhook retry-storm hardening** (C0) - `stripe-webhook` returns HTTP
   400 for any exception → Stripe retries ~3 days even for unrecoverable cases. Return
   200 for permanent/unprocessable, 4xx/5xx only for retryable. *↔ money-adjacent;

@@ -170,10 +170,42 @@ function rothLadder({ tradBalance, annualConvert, bracketPct, growth = 0.06, yea
   return out;
 }
 
-// Federal estate-tax exemption - a DATED assumption like FED_BRACKETS_2025;
-// reindex annually (2025 figure, per-person). Named + exported so the tools can
-// label the year instead of burying the number in a default parameter.
-const FEDERAL_ESTATE_EXEMPTION_2025 = 13_990_000;
+// ── Dated tax facts | single annual-review home (2025 tax year) ──────────────
+// Every figure here is indexed to a specific tax year and MUST be reindexed as the
+// calendar turns. They used to live scattered through this file (estate exemption,
+// ordinary brackets, the 0% LTCG top, IRMAA tier 1, the §415(c)/§402(g) limits, the
+// QCD cap); this object is now their one home, so an annual update touches one place.
+// The year-roll guard in scripts/calc.test.mjs reads `reviewByYear` and fails CI once
+// the calendar passes it, so these numbers can't silently rot. `reviewByYear` = the
+// LAST calendar year the current figures may stand; bump it (and the figures) on the
+// IRS annual inflation-adjustment release. Statutory tables that change rarely rather
+// than annually (RMD_UNIFORM_DIVISORS, the Social Security reduction/credit factors)
+// are intentionally NOT here - they are not a calendar-annual liability.
+const TAX_FACTS = {
+  taxYear: 2025,
+  reviewByYear: 2026,
+  estateExemption: 13_990_000,            // federal estate-tax exemption, per person
+  brackets: {                             // ordinary-income brackets; thresholds = TOP of band (taxable income, post-std-deduction)
+    single: { stdDeduction: 15_000, bands: [
+      [11_925, 0.10], [48_475, 0.12], [103_350, 0.22], [197_300, 0.24],
+      [250_525, 0.32], [626_350, 0.35], [Infinity, 0.37],
+    ] },
+    mfj: { stdDeduction: 30_000, bands: [
+      [23_850, 0.10], [96_950, 0.12], [206_700, 0.22], [394_600, 0.24],
+      [501_050, 0.32], [751_600, 0.35], [Infinity, 0.37],
+    ] },
+  },
+  ltcgZeroTop: { single: 48_350,  mfj: 96_700 },    // top of the 0% long-term cap-gains band (taxable income)
+  irmaaTier1:  { single: 106_000, mfj: 212_000 },   // first Medicare IRMAA MAGI tier (proximity flag, not a bill)
+  sec415cLimit: 70_000,                   // §415(c) defined-contribution total-additions limit
+  sec415cLimit50plus: 77_500,             // §415(c) with the age-50+ catch-up
+  electiveDeferralLimit: 23_500,          // §402(g) employee elective-deferral limit
+  qcdLimit: 108_000,                      // qualified charitable distribution annual cap
+};
+
+// Federal estate-tax exemption (per-person). References TAX_FACTS (the dated home);
+// kept as a named export so the tools can label the year instead of burying the number.
+const FEDERAL_ESTATE_EXEMPTION_2025 = TAX_FACTS.estateExemption;
 
 // Estate projection: grow/draw to date of death, apply the federal estate tax
 // above the exemption, then compound the net to a second generation.
@@ -578,20 +610,10 @@ function withdrawalSequence({
   };
 }
 
-// ── Federal ordinary-income brackets + standard deduction (2025, dated) ──────
-// A maintainable, clearly-dated assumption (like the estate exemption in
-// estateProjection). Update annually for inflation indexing. Thresholds are the
-// TOP of each bracket (taxable income, i.e. AFTER the standard deduction).
-const FED_BRACKETS_2025 = {
-  single: { stdDeduction: 15_000, bands: [
-    [11_925, 0.10], [48_475, 0.12], [103_350, 0.22], [197_300, 0.24],
-    [250_525, 0.32], [626_350, 0.35], [Infinity, 0.37],
-  ] },
-  mfj: { stdDeduction: 30_000, bands: [
-    [23_850, 0.10], [96_950, 0.12], [206_700, 0.22], [394_600, 0.24],
-    [501_050, 0.32], [751_600, 0.35], [Infinity, 0.37],
-  ] },
-};
+// Federal ordinary-income brackets + standard deduction. References TAX_FACTS (the
+// dated home, above) - reindex there annually. Thresholds are the TOP of each bracket
+// (taxable income, i.e. AFTER the standard deduction).
+const FED_BRACKETS_2025 = TAX_FACTS.brackets;
 
 // ── Roth-conversion window sizing (C4 planning depth) ────────────────────────
 // The years between retirement and the start of RMDs (age 73) - before Social
@@ -700,11 +722,11 @@ function w2Position({ box1 = 0, box2 = 0, filingStatus = 'mfj' } = {}) {
 }
 
 // ── 1040 capture → planning observations (Holistiplan-lite) ─────────────────
-// Dated 2025 companions to FED_BRACKETS_2025 - reindex annually together.
-// LTCG 0% band top (taxable income) and the first IRMAA MAGI tier (2025 premiums,
-// based on 2023 MAGI in real life; used here as a proximity flag, not a bill).
-const LTCG_ZERO_TOP_2025  = { single: 48_350,  mfj: 96_700 };
-const IRMAA_TIER1_2025    = { single: 106_000, mfj: 212_000 };
+// Companions to the brackets, sourced from TAX_FACTS (the dated home) - reindex there.
+// LTCG 0% band top (taxable income) and the first IRMAA MAGI tier (based on 2023 MAGI
+// in real life; used here as a proximity flag, not a bill).
+const LTCG_ZERO_TOP_2025  = TAX_FACTS.ltcgZeroTop;
+const IRMAA_TIER1_2025    = TAX_FACTS.irmaaTier1;
 
 // The fuller layer over w2Position: key lines off a filed Form 1040 → deterministic
 // planning observations. No OCR, no upload - the advisor (or client) keys ~8 lines
@@ -820,7 +842,7 @@ function tax1040Insights({ filingStatus = 'mfj', age = 0, lines = {} } = {}) {
   // 8 · QCD eligibility - IRA distributions while charitably inclined at 70½+.
   if (iraDist > 0 && age >= 70.5) {
     add('qcd', 'opportunity', 'IRA distributions could flow through a QCD',
-      'Qualified charitable distributions (up to $108k, 2025) sent directly from the IRA count toward ' +
+      `Qualified charitable distributions (up to $${Math.round(TAX_FACTS.qcdLimit / 1000)}k, ${TAX_FACTS.taxYear}) sent directly from the IRA count toward ` +
       'required minimum distributions (RMDs) and never hit AGI - usually beating a cash gift plus a deduction.');
   }
 
@@ -963,17 +985,17 @@ function hdhpVsPpo({
 
 // ── Mega-Backdoor Roth capacity (Phase 05 - answers flagged q02) ─────────────
 // "Should we be doing a Mega Backdoor Roth?" The capacity is whatever's left under the
-// §415(c) total-additions limit ($70,000 in 2025, $77,500 with the 50+ catch-up) after
-// the employee's own elective deferral and all employer contributions - that headroom
-// can be filled with after-tax 401(k) dollars and converted to Roth, IF the plan allows
-// after-tax contributions + in-service conversion. Also reports remaining elective-
-// deferral room. All inputs default so partial data is safe.
+// §415(c) total-additions limit (see TAX_FACTS for the dated figures, $70k base / $77.5k
+// with the 50+ catch-up) after the employee's own elective deferral and all employer
+// contributions - that headroom can be filled with after-tax 401(k) dollars and converted
+// to Roth, IF the plan allows after-tax contributions + in-service conversion. Also reports
+// remaining elective-deferral room. All inputs default so partial data is safe.
 function megaBackdoorCapacity({
   age = 40, employeeDeferral = 0, employerContribution = 0,
-  totalAdditionsLimit = null, deferralLimit = 23_500,
+  totalAdditionsLimit = null, deferralLimit = TAX_FACTS.electiveDeferralLimit,
 } = {}) {
   const limit = totalAdditionsLimit != null ? Math.max(0, Number(totalAdditionsLimit) || 0)
-    : ((Number(age) || 0) >= 50 ? 77_500 : 70_000);
+    : ((Number(age) || 0) >= 50 ? TAX_FACTS.sec415cLimit50plus : TAX_FACTS.sec415cLimit);
   const deferral = Math.max(0, Number(employeeDeferral) || 0);
   const employer = Math.max(0, Number(employerContribution) || 0);
   const deferralRoom    = Math.max(0, deferralLimit - deferral);
@@ -1154,6 +1176,7 @@ const PrismCalc = {
   equityCompConcentration,
   netWorthTrajectory, incomeRunway,
   tax1040Insights, LTCG_ZERO_TOP_2025, IRMAA_TIER1_2025, FEDERAL_ESTATE_EXEMPTION_2025,
+  TAX_FACTS,
 };
 
 if (typeof window !== 'undefined') window.PrismCalc = PrismCalc;
