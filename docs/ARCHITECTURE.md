@@ -2,7 +2,19 @@
 
 > **Purpose:** condensed router for AI/dev work. Tells you *which* file owns a
 > concern and what it exports - not every line. Read the named file for deep logic.
-> **Last synced:** 2026-06-12 round-25b sprint (KYC identity capture: `members[].identity` + household `contact` block, `memberIdentity`/`kycCompleteness` store helpers, Numbers-drawer Identity & paperwork section + `KYC_OPTIONS`, portal completeness nudge, paperwork prefill consumes it all; 25b: wide Numbers drawer `.is-wide` + runtime section jump nav, `openNumbers/openClientNumbers(…, focus)` + `numbersFocus` open-with-focus, paperwork-modal missing rows click through to the drawer). Prior: round 23/24 (encrypted SSN store, `src/paperwork.jsx` POC, Quik! taxonomy + action packages + adapter tiers). **Regenerate when:** `build-files.mjs`
+> **Last synced:** 2026-06-22 (round 26d + prod audit). Since 25b, no structural change
+> (no new `src/*` file, no load-order change, no new `window.db`/`PrismCalc` method) -
+> only copy + behavior: rounds 26-26c (GTM surface fixes, client-voice phase descriptions,
+> non-linear "Ahead" roadmap, `portal_opened` analytics) and 26d (client-voice `tasks[].label`
+> milestone text, dismissible KYC nudge `px-kycdismiss:<id>`, client portal guide via the
+> guides pipeline's `<!-- audience: client -->` marker). **Prod audit 2026-06-22:** all repo
+> migrations `001-044` applied (verified by object existence; the ledger is unmanaged so
+> `list_migrations` is empty by design) and all 17 repo edge functions ACTIVE - repo = live.
+> Detail of 25b (KYC identity capture: `members[].identity` + household `contact`,
+> `memberIdentity`/`kycCompleteness`, Numbers-drawer Identity section + `KYC_OPTIONS`, wide
+> drawer `.is-wide` + jump nav + `numbersFocus`) and round 23/24 (encrypted SSN store,
+> `src/paperwork.jsx`, Quik! taxonomy + action packages) is reflected in the body below.
+> **Regenerate when:** `build-files.mjs`
 > load order changes, a `src/*` file is added/split, or `window.db`/`PrismCalc` gain methods.
 
 ---

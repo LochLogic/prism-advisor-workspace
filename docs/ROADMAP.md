@@ -353,8 +353,11 @@ mentions) plus seven design items. **All seven were green-lit and built in round
    short per-surface walkthrough clips later.
 
 ### Tier C - Reach & retention
-- **Client PWA + push** - installable client portal + push on new
-  message/task/document. *Needs a VAPID keypair (human queue).*
+- **Client PWA + push - SHIPPED 2026-06-10 (rounds 12b + 13).** Installable client portal
+  (`portal-manifest.webmanifest`, `portal-sw.js`) with web-push on new message / document
+  request / acknowledgement (VAPID server-side, `push_subscriptions` migration 042, the
+  `send-push` edge fn fan-out, `PushSetupButton` in portal-app). VAPID keypair set round
+  12b. *Next when wanted:* push on task/plan changes, richer notification deep-links.
 - **Exam-ready compliance export - SHIPPED 2026-06-09 (round 7).** One-click
   books-&-records packet from the firm-admin compliance section, with a 90-day /
   12-month / full-history audit window: advisor roster, fee schedules, client
@@ -405,12 +408,14 @@ mentions) plus seven design items. **All seven were green-lit and built in round
   client drill-in, Stripe subscription override.
 
 ### Observability & scale
-- **Product analytics** - first-party activation events (login, invite, message,
-  plan-update, report) into a small events table; answers "is the design partner
-  actually using it."
-- **RLS-predicate index coverage audit** - confirm `advisor_id`/`firm_id`/`client_id`
-  (esp. the firm-admin cross-firm read) are indexed so RLS doesn't force seq scans as
-  tables grow.
+- **Product analytics - SHIPPED 2026-06-10 (round 13).** First-party activation events
+  (login, invite created/claimed, message, plan-update, report, push_subscribed, and
+  `portal_opened` added round 26b) into `px_events` via the `px_track` RPC (migration 041);
+  `db.track` is fire-and-forget and no-ops in demo. Surfaced as the platform-admin 30-day
+  activity column (round 14). *Next when wanted:* a funnel/retention view.
+- **RLS-predicate index coverage audit - DONE 2026-06-10 (round 13, migration 043).**
+  `advisor_id`/`firm_id`/`client_id` predicate indexes added (esp. the firm-admin
+  cross-firm read) so RLS doesn't force seq scans as tables grow.
 - **Uptime monitor** on `health` + the app (human queue).
 
 ### Depth on demand (partner-gated - build only when a partner asks)
