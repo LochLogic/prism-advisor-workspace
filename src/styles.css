@@ -429,7 +429,10 @@ input, select, textarea { font-family: inherit; color: inherit; }
 
 /* Foldable sections (round 26): the eyebrow itself is the toggle. Folded
    content stays in the DOM (display:none) so the jump nav, blank checks,
-   and identity deep-links keep working on hidden sections. */
+   and identity deep-links keep working on hidden sections. The hide + margin
+   rules use !important on purpose: many of the drawer's content rows carry an
+   inline `display: flex/grid` (and the section an inline margin), which a plain
+   stylesheet `display: none` would lose to, leaving sections half-collapsed. */
 .px-drawer .px-eyebrow.is-section { cursor: pointer; -webkit-user-select: none; user-select: none; }
 .px-drawer .px-eyebrow.is-section::after {
   content: '';
@@ -442,9 +445,9 @@ input, select, textarea { font-family: inherit; color: inherit; }
 }
 .px-drawer .px-eyebrow.is-section:hover::after { border-color: var(--ink); }
 .px-drawer-body section.is-folded .px-eyebrow.is-section::after { transform: rotate(-45deg) translate(-1px, 1px); }
-.px-drawer-body section.is-folded > *:not(:first-child) { display: none; }
-.px-drawer-body section.is-folded > :first-child .px-btn { display: none; }
-.px-drawer-body section.is-folded { margin-bottom: 8px; }
+.px-drawer-body section.is-folded > *:not(:first-child) { display: none !important; }
+.px-drawer-body section.is-folded > :first-child .px-btn { display: none !important; }
+.px-drawer-body section.is-folded { margin-bottom: 8px !important; }
 
 /* ── Inputs ──────────────────────────────────────────────────────── */
 .px-input, .px-select {
