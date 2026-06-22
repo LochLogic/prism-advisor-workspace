@@ -507,9 +507,9 @@ methodology kept, no error-prone "not yet relevant" relevance heuristics):
 - **Depth-vs-wedge discipline (strategy, not a build)** - much planning depth (Monte
   Carlo, Roth ladders, asset location, RMD, SS, equity-comp, 1040) shipped pre-partner,
   against "deepen on demand only", and invites the incumbent comparison the wedge avoids.
-  Decide consciously whether to keep extending it. Relatedly, fold the dated tax
-  constants (`FED_BRACKETS_2025` et al.) into one "as-of / review-by" module with a CI
-  year-roll guard - an accuracy liability as the calendar turns.
+  Decide consciously whether to keep extending it. *(The related accuracy-liability piece
+  is now handled: the dated federal tax figures were folded into one `TAX_FACTS`
+  "as-of / review-by" module in calc-core with a CI year-roll guard, shipped sprint 27.)*
 
 ---
 

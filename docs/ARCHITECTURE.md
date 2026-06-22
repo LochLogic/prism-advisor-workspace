@@ -191,7 +191,7 @@ retirementReadiness, goalFunding, retirementGoalLink + resolveGoal (round 23 - a
 'retirement'-type goal's funding auto-links to IRA+401k+Roth balances; EVERY goal consumer
 must resolve through it), annualFeeForAum, lifeCoverageGap, assetComposition,
 riskProfile, RISK_ALLOCATIONS, assetLocationPlan` · planning-depth (Tier B):
-`contributionWaterfall, withdrawalSequence, rothConversionWindow, FED_BRACKETS_2025` ·
+`contributionWaterfall, withdrawalSequence, rothConversionWindow, FED_BRACKETS_2025, TAX_FACTS` ·
 client-utility: `bracketPosition` (shared bracket-headroom engine), `w2Position`
 (W-2 Box-1/Box-2 capture → parsed marginal rate via `bracketPosition` + effective
 withholding rate; front-phase tax-data play, round 6), `termLifePremium`
@@ -204,8 +204,14 @@ withholding rate; front-phase tax-data play, round 6), `termLifePremium`
 (P01 year-by-year projection; negative balances not compounded), `incomeRunway` (P02
 reserve-months-of-essentials with disability benefit + elimination period).
 ⚠ Client returns are NET of advisory fees, advisor GROSS [see memory: performance-net-of-fees].
-⚠ `FED_BRACKETS_2025`, `RMD_UNIFORM_DIVISORS`, the §415(c) mega-backdoor limit, and SS
-credit/reduction factors are dated assumptions - reindex annually (like `estateProjection`'s exemption).
+⚠ The annually-indexed federal tax figures now live in ONE dated home, `TAX_FACTS`
+(exported) - `{ taxYear, reviewByYear, estateExemption, brackets, ltcgZeroTop, irmaaTier1,
+§415(c)/§402(g) limits, qcdLimit }`. The legacy names (`FED_BRACKETS_2025`,
+`FEDERAL_ESTATE_EXEMPTION_2025`, `LTCG_ZERO_TOP_2025`, `IRMAA_TIER1_2025`) are now thin
+references into it; reindex `TAX_FACTS` only. `scripts/calc.test.mjs` carries a year-roll
+guard that fails CI once the calendar passes `reviewByYear`. Statutory tables that change
+rarely (`RMD_UNIFORM_DIVISORS`, the SS credit/reduction factors) are intentionally NOT in
+TAX_FACTS - not a calendar-annual liability.
 Profile JSON gained `equityComp[]` (concentrated positions) and a `pia` field on `social_security`
 income streams; captured in `numbers-panel.jsx`. Round 6 added `taxes.w2 = { box1, box2 }`;
 round 9 superseded it with `taxes.w2s[]` ({id,label,box1,box2} per earner/job - the legacy

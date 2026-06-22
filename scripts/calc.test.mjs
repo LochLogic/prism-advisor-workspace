@@ -738,6 +738,28 @@ if (!QUIET) console.log('calc-core unit tests\n');
   assert([a, b, c, d].every(r => r.observations.every(o => tones.has(o.tone))), 'tax1040Insights: tones are client-safe enum');
 }
 
+/* ── TAX_FACTS | dated tax constants + year-roll guard ────────────────── */
+{
+  const tf = C.TAX_FACTS;
+  assert(tf && typeof tf.taxYear === 'number' && typeof tf.reviewByYear === 'number',
+    'TAX_FACTS: exposes numeric taxYear + reviewByYear');
+  // Single dated home: the named legacy exports must still POINT AT TAX_FACTS, so a
+  // reindex of one object can't drift from what the tools actually read.
+  assert(C.FED_BRACKETS_2025 === tf.brackets, 'TAX_FACTS: FED_BRACKETS_2025 references TAX_FACTS.brackets');
+  assert(C.FEDERAL_ESTATE_EXEMPTION_2025 === tf.estateExemption, 'TAX_FACTS: estate exemption references TAX_FACTS');
+  assert(C.LTCG_ZERO_TOP_2025 === tf.ltcgZeroTop && C.IRMAA_TIER1_2025 === tf.irmaaTier1,
+    'TAX_FACTS: LTCG-zero-top + IRMAA-tier-1 reference TAX_FACTS');
+  // Numbers unchanged by the refactor (catches an accidental edit to the dated figures).
+  assert(tf.estateExemption === 13_990_000 && tf.brackets.mfj.stdDeduction === 30_000 && tf.qcdLimit === 108_000,
+    'TAX_FACTS: 2025 figures intact (estate exemption / MFJ std deduction / QCD cap)');
+  // YEAR-ROLL GUARD: fails once the calendar passes reviewByYear, forcing a conscious
+  // reindex of the dated figures rather than letting them silently rot another year.
+  const nowYear = new Date().getFullYear();
+  assert(nowYear <= tf.reviewByYear,
+    `TAX_FACTS year-roll: figures are dated to ${tf.taxYear} (review-by ${tf.reviewByYear}) but the calendar is ${nowYear}. ` +
+    `Reindex calc-core TAX_FACTS to the current IRS inflation-adjusted figures and bump reviewByYear.`);
+}
+
 if (!QUIET) console.log('');
 if (failures) { console.error(`FAILED: ${failures} test(s)`); process.exit(1); }
 console.log(`All ${passes} calc-core tests passed.`);
