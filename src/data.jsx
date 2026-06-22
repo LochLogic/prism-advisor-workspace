@@ -460,8 +460,11 @@ const estateStatusView = (status) => {
    - Rendered ADVISOR-ONLY: the Playbook card in the client quick-view
      (advisor-modal.jsx, advisor bundle). Never reference it from portal
      files - the client must not see the firm's internal script.
-   - Phase 3 of the track rolls completion into a firm-admin quality view;
-     nothing here should assume that exists yet. */
+   - Phase 3 (SHIPPED sprint 27c): the firm-admin "CX quality" section
+     (firm-admin.jsx) rolls cadence adherence into an on-script % per advisor +
+     a playbook-coverage strip. It reads `clients.last_meeting_at` (the one
+     playbook promise - cadence - with a digital footprint), NOT any completion
+     field on these entries; keep this object a pure reference script. */
 const advisorPlaybook = {
   0: { // Foundation
     questions: [

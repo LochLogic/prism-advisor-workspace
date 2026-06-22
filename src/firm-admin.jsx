@@ -286,6 +286,48 @@ const FirmAdminDashboard = () => {
     return stats;
   }, [advisors, firmClients]);
 
+  // ── CX playbook adherence (advisor playbook phase 3) ──────────────────────────
+  // An honest, derived quality read for the firm. The playbook makes four promises
+  // per phase (ask / set expectations / gather / cadence); CADENCE is the only one
+  // with a reliable digital footprint - clients.last_meeting_at, advanced by every
+  // logged meeting (migrations 005/013). "On cadence" = met within CX_CADENCE_DAYS
+  // (a quarter + grace; the playbooks promise quarterly reviews). We deliberately do
+  // NOT fake adherence on the other three - those happen in the room. The coverage
+  // panel ties this back to the firm's authored script (phase 2). Firm-admin only.
+  const CX_CADENCE_DAYS = 120;
+  const cxQuality = useMemoAdv(() => {
+    const cutoff = Date.now() - CX_CADENCE_DAYS * 86400000;
+    const per = {};
+    (advisors || []).forEach(a => { per[a.id] = { total: 0, onCadence: 0, overdue: 0, neverMet: 0 }; });
+    let firmTotal = 0, firmOn = 0;
+    (firmClients || []).forEach(c => {
+      const s = per[c.advisor_id];
+      if (!s) return;
+      s.total++; firmTotal++;
+      const last = c.last_meeting_at ? new Date(c.last_meeting_at).getTime() : null;
+      if (last && last >= cutoff) { s.onCadence++; firmOn++; }
+      else { s.overdue++; if (!last) s.neverMet++; }
+    });
+    Object.values(per).forEach(s => { s.pct = s.total ? Math.round((s.onCadence / s.total) * 100) : null; });
+    return { per, firmTotal, firmOn, firmPct: firmTotal ? Math.round((firmOn / firmTotal) * 100) : null };
+  }, [advisors, firmClients]);
+
+  // Where the book actually sits by phase, vs. which phases the firm has scripted.
+  // Surfaces "households still on the Prism default" - a nudge to finish authoring.
+  const phaseCoverage = useMemoAdv(() => {
+    const phases = (window.phasesData || []).filter(p => window.advisorPlaybook?.[p.id]);
+    const counts = {};
+    (firmClients || []).forEach(c => { const ph = Number(c.current_phase) || 0; counts[ph] = (counts[ph] || 0) + 1; });
+    const rows = phases.map(p => ({
+      id: p.id, num: p.num, title: p.title,
+      households: counts[p.id] || 0,
+      customized: !!(firmPlaybooks && firmPlaybooks[p.id]),
+    }));
+    const defaultExposure = rows.filter(p => !p.customized).reduce((s, p) => s + p.households, 0);
+    return { rows, defaultExposure };
+  }, [firmClients, firmPlaybooks]);
+  const cadenceTone = (pct) => pct == null ? 'var(--ink-faint)' : pct >= 80 ? 'var(--forest)' : pct >= 50 ? 'var(--gold)' : 'var(--brick)';
+
   const totalAUM = useMemoAdv(() =>
     (firmClients || []).reduce((s, c) => s + (Number(c.aum) || 0), 0),
     [firmClients]
@@ -508,6 +550,103 @@ const FirmAdminDashboard = () => {
                   <button className="px-btn px-btn-sm px-btn-primary" onClick={savePlaybook} disabled={pbSaving}>
                     {pbSaving ? 'Saving…' : 'Save playbook'}
                   </button>
+                </div>
+              </div>
+            </>
+          );
+        })()}
+
+        {/* ── CX quality: playbook adherence (advisor playbook phase 3) ──
+            A derived quality read - of the playbook's four promises, cadence is the
+            one with a digital footprint (last_meeting_at). On-cadence % per advisor +
+            where the book sits vs. the firm's authored script. Firm-admin only. */}
+        {advisors !== undefined && firmClients !== undefined && (() => {
+          const q = cxQuality;
+          const days = CX_CADENCE_DAYS;
+          if (!q.firmTotal) return null; // nothing to grade until the firm has a book
+          const roster = (advisors || []).filter(a => (cxQuality.per[a.id]?.total || 0) > 0)
+            .slice().sort((a, b) => (cxQuality.per[b.id].pct ?? -1) - (cxQuality.per[a.id].pct ?? -1));
+          return (
+            <>
+              <div className="px-section-head" style={{ marginTop: 8 }}>
+                <h2>CX quality <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--ink-mute)', marginLeft: 6 }}>playbook adherence</span></h2>
+              </div>
+              <div style={{ padding: 14, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, marginBottom: 24 }}>
+                <div style={{ fontSize: 12, color: 'var(--ink-mute)', lineHeight: 1.5, marginBottom: 14 }}>
+                  How the book is tracking against the playbook's cadence promise - the one of its four
+                  commitments with a digital footprint. "On cadence" means a meeting was logged in the
+                  last {days} days (a quarter plus grace). Asking the right questions, setting expectations,
+                  and gathering documents happen in the room; this measures the relationship rhythm around them.
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
+                  <span className="px-num-serif" style={{ fontSize: 30, fontWeight: 700, color: cadenceTone(q.firmPct) }}>{q.firmPct}%</span>
+                  <span style={{ fontSize: 12.5, color: 'var(--ink-mute)' }}>
+                    of {q.firmTotal} household{q.firmTotal === 1 ? '' : 's'} on cadence firm-wide
+                    {q.firmTotal - q.firmOn > 0 && <> · <span style={{ color: 'var(--gold)', fontWeight: 600 }}>{q.firmTotal - q.firmOn} need a review</span></>}
+                  </span>
+                </div>
+
+                <div className="px-roster">
+                  <table className="px-table">
+                    <thead>
+                      <tr>
+                        <th style={{ width: '40%' }}>Advisor</th>
+                        <th className="is-num">Households</th>
+                        <th className="is-num">On cadence</th>
+                        <th className="is-num">Needs review</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {roster.map(a => {
+                        const s = cxQuality.per[a.id];
+                        const tone = cadenceTone(s.pct);
+                        return (
+                          <tr key={a.id}>
+                            <td>
+                              <span style={{ fontSize: 13, color: 'var(--ink)' }}>{a.full_name}</span>
+                              {a.id === authUser?.id && <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--ink-faint)' }}>you</span>}
+                            </td>
+                            <td className="is-num"><span className="px-num-serif">{s.total}</span></td>
+                            <td className="is-num">
+                              <span className="px-num-serif" style={{ color: tone, fontWeight: 600 }}>{s.pct}%</span>
+                              <span style={{ fontSize: 11, color: 'var(--ink-faint)' }}> · {s.onCadence}/{s.total}</span>
+                            </td>
+                            <td className="is-num">
+                              {s.overdue > 0
+                                ? <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--gold)' }}>
+                                    {s.overdue}{s.neverMet > 0 ? <span style={{ fontWeight: 400, color: 'var(--ink-faint)' }}> ({s.neverMet} never met)</span> : null}
+                                  </span>
+                                : <span style={{ fontSize: 12, color: 'var(--forest)' }}>caught up</span>}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Playbook coverage - where the book sits by phase vs. what the firm has scripted */}
+                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-faint)', textTransform: 'uppercase', letterSpacing: '.06em', margin: '20px 0 8px' }}>
+                  Where your book sits {phaseCoverage.defaultExposure > 0 && (
+                    <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--gold)', marginLeft: 6 }}>
+                      {phaseCoverage.defaultExposure} household{phaseCoverage.defaultExposure === 1 ? '' : 's'} still on the Prism default script
+                    </span>
+                  )}
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {phaseCoverage.rows.filter(p => p.households > 0).map(p => (
+                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 11px',
+                      background: 'var(--bg-elev)', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12 }}>
+                      <span style={{ color: 'var(--ink-mute)' }}>Phase {p.num} · {p.title}</span>
+                      <span className="px-num-serif" style={{ fontWeight: 700, color: 'var(--ink)' }}>{p.households}</span>
+                      <span style={{ fontSize: 10, fontWeight: 600, padding: '0 7px', borderRadius: 20,
+                        color: p.customized ? 'var(--forest)' : 'var(--ink-faint)',
+                        border: `1px solid ${p.customized ? 'var(--forest)' : 'var(--border-2)'}` }}>
+                        {p.customized ? 'Customized' : 'Default'}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </>
