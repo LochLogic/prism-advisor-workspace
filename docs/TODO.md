@@ -60,12 +60,6 @@ independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
   deferred by decision - needs the gated `stripe-webhook` edge redeploy with your go.
   Repo intentionally left in sync with what's deployed.*
 ### Round-26 clean-room GTM review follow-ons (2026-06-21)
-- [ ] **Non-linear roadmap** - `src/client-portal.jsx` hard-locks phases beyond
-  `activePhase + 1` (`isLocked`). Real lives aren't linear (estate need + a mortgage at
-  once), and locked phases full of wealth a household lacks read as "look how far you
-  are". Consider "primary focus, everything visible" (emphasize one phase, hard-lock
-  none) or at least soften the lock copy. *(Design write-up in the 2026-06-21 chat /
-  sprint-log; see ROADMAP for the end-state shape.)*
 - [ ] **Replace the founder band with a real testimonial** the moment a design partner
   hits a "this is genuinely useful" moment (kit: ask then, not before). The "Built in the
   open" founder band is the honest placeholder until then.
@@ -75,10 +69,14 @@ independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
   phase-out") and the planning-tool copy; soften the client-visible task labels next if a
   partner flags them.
 
-*Shipped 2026-06-21 (round 26b), removed from this board: the client-voice copy pass on
-phase descriptions + rationales, and "instrument the wedge" (`portal_opened` event).
-Migrations 040-043 verified live in prod (px_events/px_track/push_subscriptions/RLS
-indexes all present) - the round-13 "apply 040-043" human item below is stale.*
+*Shipped 2026-06-21 and removed from this board: (26b) the client-voice copy pass on phase
+descriptions + rationales, and "instrument the wedge" (`portal_opened` event); (26c) the
+**non-linear roadmap** - the phase lock is gone, phases past the working horizon render
+"Ahead" (explorable, not gated), and the advisor's existing `current_phase` extends the
+in-play range (the near-retiree fix). No schema change; future multi-focus / relevance-hint
+options deferred to a partner ask (see ROADMAP). Migrations 040-043 verified live in prod
+(px_events/px_track/push_subscriptions/RLS indexes all present) - the round-13 "apply
+040-043" human item below is stale.*
 
 *Partner-gated depth (holdings aggregation, object-lock WORM, module refactor) lives in
 ROADMAP and is built only when a partner asks - not queued here.*

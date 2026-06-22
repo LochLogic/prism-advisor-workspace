@@ -463,30 +463,39 @@ per-row fallback while the migration is pending.)*
 A fresh-eyes pass across client perception, advisor perception, workflow, value, and
 marketing.
 
-**Shipped (rounds 26 + 26b, see sprint-log):** the four surface fixes - fabricated
+**Shipped (rounds 26 + 26b + 26c, see sprint-log):** the four surface fixes - fabricated
 testimonials pulled for an honest founder/design-partner band, wedge-first hero, per-firm
 pricing legibility, a "what your clients see" portal preview; then the **client-voice
 copy pass** on all seven phase descriptions + rationales (advisor register → smart-friend
 voice, substance and numbers kept), the **founder-band hand-hold softened** (dropped the
 "I import your households on a call" over-commitment), and **`portal_opened` analytics** so
 client return-cadence is finally measurable (the SIGNED_IN-only `login` event undercounted
-it; prod had 0 client logins recorded).
+it; prod had 0 client logins recorded); then the **non-linear roadmap** (26c, below).
+
+**Non-linear roadmap - SHIPPED 2026-06-21 (round 26c).** A pre-build review found the
+end-state I'd sketched was over-built: the phase "lock" was already only an `opacity:.55`
+dim (not a true gate), `activePhase` is *computed* from milestone completion (a good live
+signal, not something to replace with manual focus management), and `current_phase` is an
+**existing advisor-set field the portal ignored**. So the shipped design is lighter and
+lower-risk than the original sketch (no schema change, no new advisor UI, sequence/
+methodology kept, no error-prone "not yet relevant" relevance heuristics):
+- The harsh `is-locked` phase dim is gone. Phases past the working horizon now render as
+  **"Ahead"** - fully visible and **explorable** (the head opens like any other), just
+  gently set apart (a small "Ahead" chip, dashed node, `opacity:.82`). Forward-looking,
+  never discouraging.
+- The **working horizon** = `max(activePhase + 1, current_phase)`. So a household the
+  advisor has placed in a later phase (the 56-year-old with an estate need) sees *all*
+  the relevant horizons in-play, never faded - the advisor's existing `current_phase`
+  dropdown finally drives the portal. Defaults (`current_phase` 0) reproduce the prior
+  next-phase boundary shape, so nothing regresses for existing clients.
+- Kept intact: the computed "Now" highlight, milestone celebrations, `requiresDoc`
+  document gates (a *separate* mechanism - those still gate), per-phase progress, the
+  seven-horizon sequence. Only the discouraging *progression lock* was removed.
+- *Future option (not built):* let the advisor mark more than one phase "in focus" and a
+  data-driven relevance hint - deferred until a partner asks; today's `current_phase`
+  lever covers the real cases without the risk of a wrong "not relevant" claim.
 
 **Still open:**
-- **Non-linear roadmap (the priority follow-on).** Today `client-portal.jsx` hard-locks any
-  phase beyond `activePhase + 1`. End-state shape: drop the hard lock and make the seven
-  horizons a **status model, not a gate**. Each phase shows one of {*Done*; *Active* - the
-  one or two the advisor is steering now; *Open* - visible and explorable, just not the
-  focus; *Not yet relevant* - dimmed, with a one-line "why / when this comes into play"}.
-  The advisor sets the household's **primary focus** (1-2 phases) instead of a single
-  linear pointer, so a 58-year-old with both an estate need and a mortgage is never told
-  estate planning is "locked". Clients see the whole journey and can read ahead. Keep what
-  works: the celebratory milestone moments, the `requiresDoc` document gates, and the
-  per-phase progress all stay - only the linear *progression* assumption is removed. Net:
-  the roadmap reflects a real financial life (several things true at once) instead of a
-  board game. Build notes: `isLocked` becomes a `phaseStatus(phase, profile, focus)`
-  helper; `activePhase` (single int) generalizes to a `focusPhases` set on the client
-  record; the "Building · time on your side" tone rule covers the *Not yet relevant* copy.
 - **Depth-vs-wedge discipline (strategy, not a build)** - much planning depth (Monte
   Carlo, Roth ladders, asset location, RMD, SS, equity-comp, 1040) shipped pre-partner,
   against "deepen on demand only", and invites the incumbent comparison the wedge avoids.
