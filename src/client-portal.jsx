@@ -1,7 +1,7 @@
 // Prism - Client Portal (View B). The collaborative roadmap shown to clients.
 // Phases, tasks, Discuss-with-Advisor flagging, advanced tools, milestone modal.
 
-const PhaseCard = ({ phase, onOpenMilestone, vaultCats, viewerRole, clientId }) => {
+const PhaseCard = ({ phase, onOpenMilestone, vaultCats, viewerRole, clientId, horizonEdge }) => {
   const { taskStates, toggleTask, openPhases, togglePhase, flagForAdvisor, isFlagged, activePhase } = useTasks();
   const { showToast, openNumbers } = useView();
   const ctx = useProfile();
@@ -21,7 +21,12 @@ const PhaseCard = ({ phase, onOpenMilestone, vaultCats, viewerRole, clientId }) 
   const progress = (completed / phase.tasks.length) * 100;
   const isComplete = completed === phase.tasks.length;
   const isActive = phase.id === activePhase;
-  const isLocked = phase.id > activePhase + 1;
+  // Phases past the working horizon read as "Ahead": fully visible and explorable
+  // (never gated - the head still opens), just gently set apart. The horizon edge honors
+  // the advisor's set current_phase, so a household placed in a later phase never sees
+  // earlier-sequenced horizons treated as out of reach. Replaces the old hard-feeling
+  // `isLocked` (which was only an opacity dim anyway).
+  const isAhead = phase.id > horizonEdge;
 
   const PhaseIcon = Icons[phase.icon] || Icons.Briefcase;
   // A phase may carry a `calcs` array (preferred, any number of tools) or the legacy
@@ -65,7 +70,7 @@ const PhaseCard = ({ phase, onOpenMilestone, vaultCats, viewerRole, clientId }) 
   };
 
   return (
-    <div className={`px-phase ${isOpen ? 'is-open' : ''} ${isComplete ? 'is-done' : ''} ${isActive ? 'is-active' : ''} ${isLocked ? 'is-locked' : ''}`}
+    <div className={`px-phase ${isOpen ? 'is-open' : ''} ${isComplete ? 'is-done' : ''} ${isActive ? 'is-active' : ''} ${isAhead ? 'is-ahead' : ''}`}
          data-phase-id={phase.id}>
       <div className="px-phase-spine" />
       <div className="px-phase-node">
@@ -78,6 +83,7 @@ const PhaseCard = ({ phase, onOpenMilestone, vaultCats, viewerRole, clientId }) 
             <div className="px-phase-eyebrow">
               <span>Phase {phase.num}</span>
               <b>· {phase.tag}</b>
+              {isAhead && <span className="px-phase-ahead">Ahead</span>}
             </div>
             <h3 className="px-phase-title">{phase.title}</h3>
             <p className="px-phase-desc">{phase.description}</p>
@@ -473,6 +479,11 @@ const ClientPortal = ({ onOpenNumbers }) => {
   const activePhaseObj = phasesData.find(p => p.id === activePhase) || phasesData[0];
   // Use the real client object from ViewContext; fall back to mock only in demo mode
   const viewingClient = activeClient || clientsData.find(c => c.id === activeClientId) || clientsData[0];
+  // Working horizon: phases up to here render in full; beyond reads as "Ahead" (visible,
+  // explorable, gently set apart - never gated). It extends to the advisor's set
+  // current_phase so a later-stage household never sees earlier horizons faded out from
+  // under them. Defaults (current_phase 0) reproduce the prior next-phase boundary shape.
+  const horizonEdge = Math.max(activePhase + 1, Number(viewingClient?.phase) || 0);
 
   // Prospect banner - shown when the advisor is walking an unsaved prospect
   // through the roadmap. "Convert" promotes it to a real client (carrying the
@@ -1191,7 +1202,7 @@ const ClientPortal = ({ onOpenNumbers }) => {
         <div className="px-horizons">
           {phasesData.map(phase => (
             <PhaseCard key={phase.id} phase={phase} onOpenMilestone={setMilestoneModal}
-              vaultCats={vaultCats} viewerRole={role} clientId={activeClientId} />
+              vaultCats={vaultCats} viewerRole={role} clientId={activeClientId} horizonEdge={horizonEdge} />
           ))}
 
           <div className="px-phase-end">

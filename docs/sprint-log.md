@@ -1413,4 +1413,49 @@ shipped and carries the non-linear-roadmap end-state design + the depth-vs-wedge
 `docs/{ARCHITECTURE,TODO,ROADMAP,sprint-log}.md`.
 
 ---
+
+## 2026-06-21 - Round 26c: non-linear roadmap (the phase "lock" becomes "Ahead", advisor current_phase drives it)
+
+PR #89. Build · smoke (57) · calc (238) · lint green. **No migration, no secrets, no
+money.** Verified in the production-CSP preview across three demo households (early /
+late / near-retiree) - DOM + screenshot.
+
+A pre-build review (requested) found the end-state I'd sketched in round 26b was
+over-built, and the code reality argued for something lighter and lower-risk:
+- The phase "lock" was already only an `opacity:.55` dim, not a true gate (the head
+  always opened). So this was a *perception* fix, not an unblocking.
+- `activePhase` is **computed** from milestone completion (a live signal) - not something
+  to replace with manual focus management (that would add advisor burden).
+- `current_phase` is an **existing advisor-set field the portal ignored** - the natural,
+  zero-cost lever for "where this household actually is".
+
+Shipped accordingly (no schema change, no new advisor UI, sequence/methodology kept, no
+error-prone "not yet relevant" relevance heuristics - the very wrongness we were fixing):
+- **`isLocked` → `isAhead`.** Phases past the working horizon render **"Ahead"**: fully
+  visible and explorable (head opens like any other), gently set apart with a small
+  "Ahead" chip, dashed node, and `opacity:.82` (was a harsh `.55`). Forward-looking, never
+  discouraging. (`src/client-portal.jsx`, `src/styles.css`.)
+- **Working horizon = `max(activePhase + 1, current_phase)`.** A household the advisor
+  placed in a later phase (e.g. the 56-year-old with an estate need) now sees every
+  relevant horizon in-play, never faded - the advisor's `current_phase` dropdown finally
+  drives the client portal. `current_phase` 0 (the default) reproduces the prior
+  next-phase boundary shape, so existing clients don't regress.
+- **Kept intact:** the computed "Now" highlight, milestone celebrations, `requiresDoc`
+  document gates (a separate mechanism - still gates), per-phase progress, the
+  seven-horizon sequence. Only the discouraging *progression lock* was removed. The
+  task-level `.px-task-act.is-locked` (doc gate) is untouched.
+
+Verification: c008 (phase 2) shows Foundation/Reserve Done, Liability "Now",
+Tax-Advantaged "In play", and Retirement/Capital/Legacy "Ahead" (chip + .82, openable on
+click - `headDisabled:false`). c007 (Beatrice, age 56, `current_phase` 6) shows
+`aheadCount:0` with Legacy "In play" - the near-retiree fix. c001 (late-stage) unchanged.
+
+*Future option (not built, deferred to a partner ask):* advisor multi-phase focus + a
+data-driven relevance hint. Today's `current_phase` lever covers the real cases without
+risking a wrong "not relevant" claim.
+
+**Files:** `src/client-portal.jsx`, `src/styles.css`,
+`docs/{ARCHITECTURE,TODO,ROADMAP,sprint-log}.md`.
+
+---
 <!-- New sprints append above this line, newest first. -->

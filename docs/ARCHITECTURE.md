@@ -73,7 +73,12 @@ src/
                        sections always greet expanded, jump nav + 'identity' focus unfold their target)
   client-portal.jsx    window.ClientPortal - View B: client roadmap, phase cards, Discuss-with-Advisor;
                        PhaseCard enforces `requiresDoc` milestone gates (advisor override audited);
-                       round 25: "Account paperwork details" nudge card (kycCompleteness → Numbers drawer)
+                       round 25: "Account paperwork details" nudge card (kycCompleteness → Numbers drawer);
+                       round 26c: phases past the working horizon render "Ahead" (visible + explorable,
+                       gently set apart - NOT gated; replaced the old is-locked opacity dim). horizonEdge =
+                       max(activePhase+1, current_phase), so the advisor's current_phase extends the in-play
+                       range. `activePhase` stays the COMPUTED first-incomplete phase (store.jsx). NB the
+                       task-level `.px-task-act.is-locked` is a SEPARATE requiresDoc doc-gate, not the phase)
   paperwork.jsx        custodian account-paperwork POC (round 23): buildPaperworkPayload + PaperworkModal
                        + PAPERWORK_ADAPTERS (tiered: Quik! + custodian-direct stubs, each with a blanks list) + PAPERWORK_PACKAGES (action → form-slot
                        bundles; picker built post-credentials) - ADVISOR bundle only, loads before advisor-modal;

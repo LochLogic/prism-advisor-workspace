@@ -1235,8 +1235,16 @@ i.px-split-dot {
 .px-phase-end-sub { font-size: 12px; opacity: 0.7; margin-top: 2px; }
 
 /* Phase locked state */
-.px-phase.is-locked { opacity: 0.55; }
-.px-phase.is-locked .px-phase-node { background: var(--bg-elev); }
+/* "Ahead" - phases past the working horizon: still fully visible and explorable (the
+   head opens like any other), just gently set apart. No hard lock. The advisor's
+   current_phase extends the in-play range (see client-portal.jsx horizonEdge). */
+.px-phase.is-ahead { opacity: .82; }
+.px-phase.is-ahead .px-phase-node { background: var(--bg-elev); color: var(--ink-faint); border-style: dashed; }
+.px-phase-ahead {
+  margin-left: 8px; font-size: 9.5px; font-weight: 600; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--ink-faint);
+  border: 1px solid var(--border-2); border-radius: 20px; padding: 1px 7px;
+}
 
 /* ── Milestone Achieved modal ────────────────────────────────────── */
 .px-milestone-modal { max-width: 640px; padding: 0; }
