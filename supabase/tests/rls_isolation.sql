@@ -74,6 +74,12 @@ do $$ begin
        'aaaa3333-0000-4000-8000-000000000001/ipsA.pdf')
     on conflict (id) do nothing;
   end if;
+  -- Seed a CX playbook override for Firm A (used by check 9; migration 045).
+  if to_regclass('public.firm_playbooks') is not null then
+    insert into firm_playbooks (firm_id, phase, questions, cadence) values
+      ('aaaa0000-0000-4000-8000-000000000001', 0, array['rls-test question'], 'rls-test cadence')
+    on conflict (firm_id, phase) do nothing;
+  end if;
 end $$;
 
 -- Helper: become a given Supabase user (sets the JWT claims the RLS helpers read).
@@ -212,6 +218,35 @@ begin
              or client_id = 'bbbb3333-0000-4000-8000-000000000002');
     if n <> 0 then raise exception 'FAIL 8b: px_audit accepted a foreign firm_id/client_id'; end if;
     raise notice 'PASS 8 · audit trail is not client-forgeable';
+  end if;
+end $$;
+
+-- ── 9 · Firm CX playbook: firm-scoped read, admin-gated write (migration 045) ─
+do $$
+declare n int; affected int;
+begin
+  if to_regclass('public.firm_playbooks') is null then
+    raise notice 'SKIP 9 · firm_playbooks not present (run migration 045)';
+  else
+    -- 9a · Advisor A reads only their own firm's playbook rows.
+    perform pg_temp.act_as('aaaa2222-0000-4000-8000-000000000001');  -- Advisor A (Firm A)
+    select count(*) into n from firm_playbooks;
+    if n <> 1 then raise exception 'FAIL 9a: Advisor A sees % playbook rows, expected 1 (own firm)', n; end if;
+    -- 9b · Advisor B cannot read Firm A's playbook (cross-tenant isolation).
+    perform pg_temp.act_as('bbbb2222-0000-4000-8000-000000000002');  -- Advisor B (Firm B)
+    select count(*) into n from firm_playbooks;
+    if n <> 0 then raise exception 'FAIL 9b: Advisor B can read Firm A''s playbook (cross-tenant leak)'; end if;
+    -- 9c · A non-admin advisor cannot author (write is admin-gated).
+    perform pg_temp.act_as('aaaa2222-0000-4000-8000-000000000001');  -- Advisor A, role 'advisor'
+    begin
+      insert into firm_playbooks (firm_id, phase, cadence)
+        values ('aaaa0000-0000-4000-8000-000000000001', 1, 'should be blocked');
+      get diagnostics affected = row_count;
+      if affected <> 0 then raise exception 'FAIL 9c: non-admin advisor authored a playbook (write not admin-gated)'; end if;
+    exception
+      when insufficient_privilege then null;  -- RLS rejection is the pass path
+    end;
+    raise notice 'PASS 9 · firm playbook: firm-scoped read, admin-gated write';
   end if;
 end $$;
 

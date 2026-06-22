@@ -7,9 +7,12 @@
 > only copy + behavior: rounds 26-26c (GTM surface fixes, client-voice phase descriptions,
 > non-linear "Ahead" roadmap, `portal_opened` analytics) and 26d (client-voice `tasks[].label`
 > milestone text, dismissible KYC nudge `px-kycdismiss:<id>`, client portal guide via the
-> guides pipeline's `<!-- audience: client -->` marker). **Prod audit 2026-06-22:** all repo
+> guides pipeline's `<!-- audience: client -->` marker). **Prod audit 2026-06-22:** repo
 > migrations `001-044` applied (verified by object existence; the ledger is unmanaged so
-> `list_migrations` is empty by design) and all 17 repo edge functions ACTIVE - repo = live.
+> `list_migrations` is empty by design) and all 17 repo edge functions ACTIVE. *Sprint 27b
+> added migration `045` (firm_playbooks) - PENDING the prod apply, so repo is one migration
+> ahead of live until then.* The frontend tax constants were also consolidated into one
+> dated `TAX_FACTS` module (sprint 27a) with a CI year-roll guard.
 > Detail of 25b (KYC identity capture: `members[].identity` + household `contact`,
 > `memberIdentity`/`kycCompleteness`, Numbers-drawer Identity section + `KYC_OPTIONS`, wide
 > drawer `.is-wide` + jump nav + `numbersFocus`) and round 23/24 (encrypted SSN store,
@@ -64,7 +67,8 @@ src/
   icons.jsx            window.Icons - Lucide-style SVG set
   data.jsx             domain mock data + phasesData/advisor; the 7 Wealth-Horizons phases
                        (task flags incl. `requiresDoc` doc gates, round 23) + `advisorPlaybook`
-                       (per-phase firm script defaults; firm overrides are a planned table)
+                       (per-phase firm script DEFAULTS) + `mergePlaybook` (sprint 27b - deep-merges
+                       a firm's `firm_playbooks` override over the defaults; the documented contract)
   calc-core.cjs        window.PrismCalc - ALL financial math (pure, also unit-tested)
   db.jsx               window.db - the entire Supabase data-access layer (~60 methods)
   store.jsx            React context providers (Profile/Task/View/Notification) + print/* + fmt helpers
@@ -112,8 +116,10 @@ src/
 portal-manifest.webmanifest   PWA manifest (copied to /portal/manifest.webmanifest); icons/ = portal PNG icons
 
 supabase/
-  migrations/001-044   schema evolution (names are self-describing; 001 = base schema;
-                       044 = client_identifiers, service-role-only encrypted SSN store)
+  migrations/001-045   schema evolution (names are self-describing; 001 = base schema;
+                       044 = client_identifiers, service-role-only encrypted SSN store;
+                       045 = firm_playbooks, firm-authored CX playbook overrides [sprint 27b,
+                       PENDING prod apply])
   functions/           Edge Functions (Deno) - see §6
   functions/_shared/   auth.ts, cors.ts, docusign.ts, calendar.ts (provider plumbing), fees.ts (canonical BACKEND fee math)
   tests/               integration.sql, rls_isolation.sql (tenant-isolation proofs)
@@ -177,6 +183,12 @@ e2e/demo.spec.ts       Playwright smoke
   upserted in place), `withdrawLedgerChange`, `getPendingLedgerChanges` (advisor inbox),
   `reviewLedgerChange(row, advisorId, approve, note)` (approve = saveProfile then close).
   All methods no-op/return null until the migration is applied.
+- Firm CX playbook (sprint 27b, migration 045): `getFirmPlaybooks()` → `{[phase]:
+  {questions, expectations, gather, cadence}}` (`{}` in demo / pre-migration so defaults
+  render), `saveFirmPlaybook(firmId, phase, patch)` (upsert one phase, admin-only by RLS,
+  audit `firm.playbook_save`), `resetFirmPlaybook(firmId, phase)` (delete = revert that
+  phase). Consumed via `window.mergePlaybook(advisorPlaybook[phase], override)` in the
+  quick-view card + the firm-admin "CX playbook" authoring section.
 - Encrypted identifiers (round 23, migration 044): `getIdentifiers(clientId)` →
   `[{member_id, kind, last4, updated_at}]`, `setIdentifier(clientId, memberId, value, kind)`,
   `revealIdentifier` (ADVISOR-only, audit-logged server-side), `clearIdentifier` - all via

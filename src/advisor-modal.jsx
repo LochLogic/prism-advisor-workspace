@@ -710,6 +710,8 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
   const [savingEdit, setSavingEdit] = useStateAdv(false);
   const [archiving, setArchiving] = useStateAdv(false);
   const [feeSchedules, setFeeSchedules] = useStateAdv([]);
+  // Firm-authored CX playbook overrides (migration 045); null until loaded → defaults render.
+  const [firmPlaybooks, setFirmPlaybooks] = useStateAdv(null);
 
   // Inline confirmation guards (replace window.confirm / immediate deletes)
   const [confirmArchive,      setConfirmArchive]      = useStateAdv(false);
@@ -767,6 +769,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
         fee_schedule_id: client.feeScheduleId || '',
       });
       if (window.db?.isUUID(client.id)) window.db.getFeeSchedules().then(r => setFeeSchedules(r || []));
+      if (window.db?.isUUID(client.id)) window.db.getFirmPlaybooks?.().then(p => setFirmPlaybooks(p || {}));
       if (window.db?.isUUID(client.id)) window.db.getAcknowledgements(client.id).then(r => setAcks(r || [])); else setAcks([]);
       setAckForm(null);
       setConfirmArchive(false);
@@ -1654,16 +1657,21 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                 see the internal script. */}
             {(() => {
               const phaseId = Number(client.phase) || 0;
-              const pb = window.advisorPlaybook?.[phaseId];
+              const base = window.advisorPlaybook?.[phaseId];
               const ph = phasesData.find(p => p.id === phaseId);
-              if (!pb || !ph) return null;
+              if (!base || !ph) return null;
+              // Deep-merge the firm's authored override (migration 045) over the default.
+              const override = firmPlaybooks?.[phaseId];
+              const pb = window.mergePlaybook ? window.mergePlaybook(base, override) : base;
+              const customized = !!override;
               const SECTION = { fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '.08em',
                                 color: 'var(--ink-faint)', fontWeight: 600, margin: '10px 0 4px' };
               return (
                 <details style={{ marginBottom: 16, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-elev)' }}>
                   <summary style={{ cursor: 'pointer', padding: '10px 12px', fontSize: 12.5, fontWeight: 600, color: 'var(--ink)' }}>
                     Advisor playbook · Phase {ph.num} {ph.title}
-                    <span style={{ fontWeight: 400, color: 'var(--ink-faint)' }}> - the firm script for this stage</span>
+                    <span style={{ fontWeight: 400, color: 'var(--ink-faint)' }}> - {customized ? 'your firm’s script for this stage' : 'the firm script for this stage'}</span>
+                    {customized && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 600, color: 'var(--forest)', border: '1px solid var(--forest)', borderRadius: 20, padding: '0 7px' }}>Customized</span>}
                   </summary>
                   <div style={{ padding: '0 12px 12px', fontSize: 12.5, lineHeight: 1.55, color: 'var(--ink-mute)' }}>
                     <div style={SECTION}>Questions to ask</div>

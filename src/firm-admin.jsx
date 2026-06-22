@@ -23,6 +23,11 @@ const FirmAdminDashboard = () => {
   const [ledgerGate,   setLedgerGate]   = useStateAdv(null);
   const [auditFilter,  setAuditFilter]  = useStateAdv('');
   const [auditMore,    setAuditMore]    = useStateAdv(false); // expanded beyond first 100
+  // Firm-authored CX playbook (migration 045). null = loading → section hidden.
+  const [firmPlaybooks, setFirmPlaybooks] = useStateAdv(null);
+  const [pbPhase,      setPbPhase]      = useStateAdv(0);
+  const [pbForm,       setPbForm]       = useStateAdv(null);
+  const [pbSaving,     setPbSaving]     = useStateAdv(false);
 
   React.useEffect(() => {
     if (!authUser?.id || !window.db) return;
@@ -36,7 +41,42 @@ const FirmAdminDashboard = () => {
     window.db.getFirmLedgerGate?.().then(r => {
       if (r && typeof r.ledger_approval_required === 'boolean') setLedgerGate(r.ledger_approval_required);
     });
+    window.db.getFirmPlaybooks?.().then(p => setFirmPlaybooks(p || {}));
   }, [authUser?.id]);
+
+  // ── Firm CX playbook authoring (advisor playbook phase 2) ──
+  // Prefill the editor from the merged current script (default, or the firm's override)
+  // whenever the selected phase or the loaded overrides change.
+  const pbToForm = (phase, overrides) => {
+    const merged = window.mergePlaybook(window.advisorPlaybook?.[phase] || {}, overrides?.[phase]);
+    return { questions: (merged.questions || []).join('\n'), expectations: merged.expectations || '',
+             gather: (merged.gather || []).join('\n'), cadence: merged.cadence || '' };
+  };
+  React.useEffect(() => {
+    if (firmPlaybooks === null) return;
+    setPbForm(pbToForm(pbPhase, firmPlaybooks));
+  }, [pbPhase, firmPlaybooks]);
+
+  const pbLines = (s) => String(s || '').split('\n').map(x => x.trim()).filter(Boolean);
+  const savePlaybook = async () => {
+    if (!pbForm) return;
+    setPbSaving(true);
+    const patch = { questions: pbLines(pbForm.questions), expectations: (pbForm.expectations || '').trim(),
+                    gather: pbLines(pbForm.gather), cadence: (pbForm.cadence || '').trim() };
+    const row = await window.db.saveFirmPlaybook(authUser.firm_id, pbPhase, patch);
+    setPbSaving(false);
+    if (row) {
+      setFirmPlaybooks(p => ({ ...(p || {}), [pbPhase]: patch }));
+      showToast('CX playbook saved - your advisors now see this script');
+    } else showToast('Could not save the playbook');
+  };
+  const resetPlaybook = async () => {
+    const ok = await window.db.resetFirmPlaybook(authUser.firm_id, pbPhase);
+    if (ok) {
+      setFirmPlaybooks(p => { const n = { ...(p || {}) }; delete n[pbPhase]; return n; });
+      showToast('Reverted to the Prism default');
+    } else showToast('Could not reset the playbook');
+  };
 
   const toggleLedgerGate = async () => {
     const next = !ledgerGate;
@@ -412,6 +452,67 @@ const FirmAdminDashboard = () => {
             </div>
           </>
         )}
+
+        {/* ── CX playbook authoring (advisor playbook phase 2, migration 045) ── */}
+        {firmPlaybooks !== null && pbForm && (() => {
+          const phases = (window.phasesData || []).filter(p => window.advisorPlaybook?.[p.id]);
+          const customCount = Object.keys(firmPlaybooks).length;
+          const customized = !!firmPlaybooks[pbPhase];
+          const LBL = { display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.05em', margin: '12px 0 4px' };
+          const HINT = { fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--ink-faint)', marginLeft: 6 };
+          const TA = { width: '100%', resize: 'vertical', fontFamily: 'inherit', fontSize: 12.5, lineHeight: 1.5 };
+          return (
+            <>
+              <div className="px-section-head" style={{ marginTop: 8 }}>
+                <h2>CX playbook <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--ink-mute)', marginLeft: 6 }}>advisor script · {customCount}/{phases.length} customized</span></h2>
+              </div>
+              <div style={{ padding: 14, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, marginBottom: 24 }}>
+                <div style={{ fontSize: 12, color: 'var(--ink-mute)', lineHeight: 1.5, marginBottom: 12 }}>
+                  The per-phase script your advisors see in a client's quick view: questions to ask, expectations
+                  to set, documents to gather, and the cadence to promise. Clients never see it. Edit a phase to
+                  author your firm's version; whatever you leave on the Prism default stays the default.
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <select className="px-select" style={{ width: 'auto' }} value={pbPhase}
+                    onChange={e => setPbPhase(Number(e.target.value))} aria-label="Playbook phase">
+                    {phases.map(p => <option key={p.id} value={p.id}>Phase {p.num} · {p.title}</option>)}
+                  </select>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: customized ? 'var(--forest)' : 'var(--ink-faint)' }}>
+                    {customized ? 'Customized' : 'Prism default'}
+                  </span>
+                </div>
+
+                <label style={LBL}>Questions to ask <span style={HINT}>one per line</span></label>
+                <textarea className="px-input" rows={4} style={TA} value={pbForm.questions}
+                  onChange={e => setPbForm(f => ({ ...f, questions: e.target.value }))} />
+
+                <label style={LBL}>Expectations to set</label>
+                <textarea className="px-input" rows={3} style={TA} value={pbForm.expectations}
+                  onChange={e => setPbForm(f => ({ ...f, expectations: e.target.value }))} />
+
+                <label style={LBL}>Documents to gather <span style={HINT}>one per line</span></label>
+                <textarea className="px-input" rows={4} style={TA} value={pbForm.gather}
+                  onChange={e => setPbForm(f => ({ ...f, gather: e.target.value }))} />
+
+                <label style={LBL}>Cadence</label>
+                <textarea className="px-input" rows={2} style={TA} value={pbForm.cadence}
+                  onChange={e => setPbForm(f => ({ ...f, cadence: e.target.value }))} />
+
+                <div style={{ display: 'flex', gap: 8, marginTop: 14, alignItems: 'center' }}>
+                  {customized && (
+                    <button className="px-btn px-btn-sm px-btn-ghost" style={{ color: 'var(--brick)' }} onClick={resetPlaybook}>
+                      Reset to default
+                    </button>
+                  )}
+                  <div style={{ flex: 1 }} />
+                  <button className="px-btn px-btn-sm px-btn-primary" onClick={savePlaybook} disabled={pbSaving}>
+                    {pbSaving ? 'Saving…' : 'Save playbook'}
+                  </button>
+                </div>
+              </div>
+            </>
+          );
+        })()}
 
         <div className="px-section-head">
           <h2>Advisor roster {advisors !== undefined && (

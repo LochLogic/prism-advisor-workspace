@@ -26,9 +26,11 @@ independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
 - [ ] **Zapier / public API.**
 
 ### Round-23 follow-on build items (the meeting tracks all shipped; these are the nexts)
-- [ ] **CX playbook phase 2** - firm-admin authoring of the per-phase playbook
-  (`firm_playbooks` table, deep-merged over the data.jsx defaults; framework
-  comment in data.jsx documents the contract). Phase 3 = quality view.
+- [ ] **CX playbook phase 3** - firm-admin quality view (on-script % per advisor),
+  rolling up playbook completion. *(Phase 2 SHIPPED sprint 27b: firm-admin authoring
+  via `firm_playbooks` [migration 045], deep-merged over the data.jsx defaults by
+  `mergePlaybook`; the quick-view card shows the firm's authored script with a
+  "Customized" chip. Migration 045 still needs the prod apply - see human queue.)*
 - [ ] **Quik! adapter** - implement `PAPERWORK_ADAPTERS.quik.submit(payload)` the
   moment the business blanks (your queue) exist; the payload already emits
   Execute-shaped `quik.formFields` ([quik-field-taxonomy.md](quik-field-taxonomy.md)),

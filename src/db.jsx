@@ -1514,6 +1514,62 @@ async function dbGetFirmLedgerGate() {
   } catch (e) { return null; } // column absent until 036 is applied
 }
 
+// ── Firm-authored CX playbook (migration 045) ────────────────────────────────
+// Per-phase overrides the frontend deep-merges over the data.jsx `advisorPlaybook`
+// defaults (window.mergePlaybook). getFirmPlaybooks returns { [phase]: {questions,
+// expectations, gather, cadence} } for the signed-in user's firm; save upserts one
+// phase; reset deletes it (reverting that phase to the default). All no-op safely in
+// demo / before the migration is applied, so the default playbook always renders.
+async function dbGetFirmPlaybooks() {
+  if (!_sb()) return {};
+  try {
+    const { data, error } = await _sb().from('firm_playbooks')
+      .select('phase, questions, expectations, gather, cadence');
+    if (error) throw error;
+    const out = {};
+    (data || []).forEach(r => { out[r.phase] = {
+      questions: r.questions || [], expectations: r.expectations || '',
+      gather: r.gather || [], cadence: r.cadence || '' }; });
+    return out;
+  } catch (e) { return {}; } // table absent until 045 → all defaults render
+}
+
+async function dbSaveFirmPlaybook(firmId, phase, patch) {
+  if (!_sb() || !isUUID(firmId)) return null;
+  const ph = Number(phase);
+  if (!(ph >= 0 && ph <= 6)) return null;
+  const arr = (v) => Array.isArray(v) && v.length ? v : null;          // empty = inherit default
+  const str = (v) => (typeof v === 'string' && v.trim()) ? v.trim() : null;
+  const row = {
+    firm_id: firmId, phase: ph,
+    questions: arr(patch?.questions), expectations: str(patch?.expectations),
+    gather: arr(patch?.gather), cadence: str(patch?.cadence),
+    updated_at: new Date().toISOString(),
+  };
+  try {
+    const { data, error } = await _sb().from('firm_playbooks')
+      .upsert(row, { onConflict: 'firm_id,phase' })
+      .select('phase, questions, expectations, gather, cadence').single();
+    if (error) throw error;
+    dbAudit('firm.playbook_save', { entityType: 'firm', entityId: firmId,
+      summary: `CX playbook updated for phase ${ph}` });
+    return data;
+  } catch (e) { console.warn('[db] saveFirmPlaybook:', e.message); return null; }
+}
+
+async function dbResetFirmPlaybook(firmId, phase) {
+  if (!_sb() || !isUUID(firmId)) return false;
+  const ph = Number(phase);
+  try {
+    const { error } = await _sb().from('firm_playbooks').delete()
+      .eq('firm_id', firmId).eq('phase', ph);
+    if (error) throw error;
+    dbAudit('firm.playbook_reset', { entityType: 'firm', entityId: firmId,
+      summary: `CX playbook reverted to default for phase ${ph}` });
+    return true;
+  } catch (e) { console.warn('[db] resetFirmPlaybook:', e.message); return false; }
+}
+
 const PLC_COLS = 'id, client_id, firm_id, payload, status, review_note, created_at, updated_at';
 
 async function dbGetPendingLedgerChange(clientId) {
@@ -1746,6 +1802,9 @@ window.db = {
   getLedgerGate:       dbGetLedgerGate,
   setLedgerGate:       dbSetLedgerGate,
   getFirmLedgerGate:   dbGetFirmLedgerGate,
+  getFirmPlaybooks:    dbGetFirmPlaybooks,
+  saveFirmPlaybook:    dbSaveFirmPlaybook,
+  resetFirmPlaybook:   dbResetFirmPlaybook,
   getPendingLedgerChange:  dbGetPendingLedgerChange,
   submitLedgerChange:      dbSubmitLedgerChange,
   withdrawLedgerChange:    dbWithdrawLedgerChange,

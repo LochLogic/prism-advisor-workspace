@@ -272,17 +272,20 @@ mentions) plus seven design items. **All seven were green-lit and built in round
    zero schema change since gate state is derivable. First candidates: liability
    schedule (P03), IPS/fiduciary acknowledgement (P01, could key off e-sign state
    instead), trust + beneficiary documents (P07).
-4. **Advisor CX roadmap (the firm's playbook) - PHASE 1 SHIPPED round 23**
-   (default `advisorPlaybook` in data.jsx + the advisor-only per-phase card in the
-   client quick-view; phases 2-3 below remain the forward track). Firms run a per-phase advisor
+4. **Advisor CX roadmap (the firm's playbook) - PHASES 1-2 SHIPPED (1: round 23, 2: sprint 27b)**
+   (P1: default `advisorPlaybook` in data.jsx + the advisor-only per-phase card in the
+   client quick-view. P2: firm-admin authoring via `firm_playbooks` [migration 045],
+   deep-merged over the defaults by `mergePlaybook`, audit-logged; the quick-view card
+   renders the firm's authored script with a "Customized" chip. **Phase 3 below remains the
+   forward track.**). Firms run a per-phase advisor
    playbook - questions to ask, timelines to set client expectations, documents to
    gather, what comes next - to keep advisors on script and let the firm manage
    quality. This is the advisor-side mirror of the client phases and a true
-   wedge-deepener (it sells to the *firm*). **Phasing:** (1) ship a default Prism
-   playbook as an advisor-only per-phase card in the client quick-view; (2)
-   firm-admin authoring (a `firm_playbooks` table, per-phase checklist + notes,
-   audit-logged) so each firm white-labels its own CX; (3) roll playbook completion
-   into a firm-admin quality view (on-script % per advisor).
+   wedge-deepener (it sells to the *firm*). **Phasing:** (1) DONE - a default Prism
+   playbook as an advisor-only per-phase card in the client quick-view; (2) DONE -
+   firm-admin authoring (`firm_playbooks`, per-phase fields, audit-logged) so each firm
+   white-labels its own CX; (3) NEXT - roll playbook completion into a firm-admin quality
+   view (on-script % per advisor).
 5. **SSN capture in the Numbers panel - BUILT round 23** (founder overrode the
    default-no on 2026-06-11: "this will be solidly needed for prefilling account
    docs"). Shipped exactly on the safe path: migration 044 `client_identifiers`
