@@ -4,19 +4,19 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Prism | The Advisor Workspace</title>
-<meta name="description" content="Prism is a lifecycle-planning workspace for RIAs: client roadmaps, a compliance-grade audit trail, CRM workflow, and realtime collaboration." />
+<meta name="description" content="Prism gives every client a living seven-horizon roadmap they actually open, plus two-way collaboration that keeps the relationship alive between meetings. One workspace for RIAs to plan, communicate, and stay compliant." />
 <link rel="canonical" href="https://prismaw.com/" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Prism Advisor Workspace" />
 <meta property="og:title" content="Prism | The Advisor Workspace" />
-<meta property="og:description" content="Lifecycle planning, compliance-grade audit trail, CRM workflow, account aggregation, and performance reporting - in one workspace for RIAs." />
+<meta property="og:description" content="A living roadmap your clients actually open, and a two-way thread that keeps the relationship alive between meetings. One workspace for RIAs to plan, communicate, and stay compliant." />
 <meta property="og:url" content="https://prismaw.com/" />
 <meta property="og:image" content="https://prismaw.com/og-image.png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Prism | The Advisor Workspace" />
-<meta name="twitter:description" content="Lifecycle planning, compliance, CRM, aggregation, and performance reporting for RIAs." />
+<meta name="twitter:description" content="The client portal your clients actually open - a living roadmap plus collaboration that keeps the relationship alive between meetings." />
 <meta name="twitter:image" content="https://prismaw.com/og-image.png" />
 <script type="application/ld+json">
 {
@@ -146,11 +146,61 @@
   footer{padding:36px 0;border-top:1px solid var(--border);margin-top:40px;}
   .foot-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--ink-faint);flex-wrap:wrap;gap:12px;}
 
+  /* What your clients see */
+  .clientview{background:var(--bg-elev);}
+  .cv-stage{max-width:720px;margin:0 auto;}
+  .cv-window{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:0 18px 50px rgba(28,46,74,.10);}
+  .cv-bar{display:flex;align-items:center;gap:7px;padding:11px 16px;background:var(--bg-elev);border-bottom:1px solid var(--border);}
+  .cv-dot{width:9px;height:9px;border-radius:50%;background:var(--border-2);}
+  .cv-url{margin-left:10px;font-size:11.5px;color:var(--ink-faint);letter-spacing:.02em;}
+  .cv-body{padding:24px;}
+  .cv-greeting{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+  .cv-hello{font-family:var(--serif);font-size:20px;font-weight:600;color:var(--ink);}
+  .cv-sub{font-size:12.5px;color:var(--ink-mute);margin-top:3px;}
+  .cv-ring{position:relative;width:54px;height:54px;border-radius:50%;background:conic-gradient(var(--forest) 62%,var(--forest-soft) 0);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .cv-ring::before{content:'';position:absolute;inset:5px;background:var(--surface);border-radius:50%;}
+  .cv-ring span{position:relative;font-size:12.5px;font-weight:700;color:var(--forest);}
+  .cv-phase{display:flex;align-items:center;gap:14px;padding:14px 0;border-top:1px solid var(--border);}
+  .cv-phase:first-of-type{border-top:none;}
+  .cv-node{width:30px;height:30px;border-radius:9px;background:var(--bg-elev);border:1px solid var(--border-2);color:var(--ink-mute);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;}
+  .cv-phase.is-done .cv-node{background:var(--forest);border-color:var(--forest);color:#fff;}
+  .cv-phase.is-active .cv-node{background:var(--gold);border-color:var(--gold);color:#fff;}
+  .cv-phase-main{flex:1;min-width:0;}
+  .cv-phase-name{font-size:13.5px;font-weight:600;color:var(--ink);margin-bottom:7px;}
+  .cv-phase.is-locked .cv-phase-name{color:var(--ink-faint);}
+  .cv-prog{height:6px;border-radius:6px;background:var(--bg-elev);overflow:hidden;}
+  .cv-prog-fill{height:100%;border-radius:6px;background:var(--forest);width:0;}
+  .cv-phase.is-done .cv-prog-fill{width:100%;}
+  .cv-phase.is-active .cv-prog-fill{width:60%;background:var(--gold);}
+  .cv-pct{font-size:12px;font-weight:600;color:var(--ink-mute);width:40px;text-align:right;flex-shrink:0;}
+  .cv-phase.is-locked .cv-pct{color:var(--ink-faint);font-weight:500;}
+  .cv-thread{margin-top:18px;padding-top:18px;border-top:1px dashed var(--border-2);display:flex;flex-direction:column;gap:10px;}
+  .cv-thread-label{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);}
+  .cv-msg{max-width:82%;font-size:13px;line-height:1.5;padding:10px 13px;border-radius:13px;}
+  .cv-msg-client{align-self:flex-end;background:var(--ink);color:#fff;border-bottom-right-radius:4px;}
+  .cv-msg-advisor{align-self:flex-start;background:var(--bg-elev);color:var(--ink-2);border:1px solid var(--border);border-bottom-left-radius:4px;}
+  .cv-adv{display:block;margin-top:5px;font-size:11px;color:var(--ink-faint);}
+
+  /* Founder / design-partner band (replaces early-access testimonials) */
+  .founder{padding:64px 0;}
+  .founder-inner{max-width:760px;}
+  .founder-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px;text-align:center;}
+  .founder-eyebrow{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:14px;}
+  .founder-card h2{font-family:var(--serif);font-size:28px;font-weight:500;letter-spacing:-.015em;margin-bottom:16px;}
+  .founder-card h2 em{font-style:italic;color:var(--gold);}
+  .founder-card p{font-size:15px;color:var(--ink-mute);line-height:1.65;max-width:600px;margin:0 auto 14px;}
+  .founder-deal{font-size:14px;color:var(--ink-2);}
+  .founder-cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:24px;}
+  .founder-sign{margin-top:22px;padding-top:18px;border-top:1px solid var(--border);font-size:12.5px;color:var(--ink-faint);}
+
   @media (max-width:760px){
     .hero h1{font-size:34px;}
     .features,.tiers,.testi-grid{grid-template-columns:1fr;}
     .nav-links .hide-sm{display:none;}
     .leading-inner{grid-template-columns:1fr;gap:32px;}
+    .cv-body{padding:18px;}
+    .founder-card{padding:26px;}
+    .founder-card h2{font-size:23px;}
   }
 
     /* C5 utility classes (replaced former inline style attributes) */
@@ -187,17 +237,17 @@
   <!-- Hero -->
   <header class="hero wrap">
     <div class="eyebrow">For registered investment advisors</div>
-    <h1>Your clients' wealth, <em>refracted</em> into seven horizons.</h1>
+    <h1>The living roadmap your clients <em>actually open</em>.</h1>
     <p>
-      Prism is the lifecycle-planning workspace where advisors build coordinated plans,
-      track every milestone, and collaborate with clients in real time - on a
-      compliance-minded foundation.
+      Prism gives every client a seven-horizon plan they can see any time, and a two-way
+      thread that keeps the relationship alive between quarterly meetings. One workspace
+      to run it all, on a compliance-minded foundation.
     </p>
     <div class="hero-cta">
       <button class="btn btn-primary btn-lg js-demo">Explore the live demo</button>
       <a class="btn btn-ghost btn-lg" href="signup.html">Create your workspace</a>
     </div>
-    <div class="hero-note">No account needed for the demo · Your data stays isolated by row-level security</div>
+    <div class="hero-note">No account needed for the demo · Your data stays isolated by <a href="/security.html" class="lk-gold-plain">row-level security</a></div>
   </header>
 
   <!-- Features -->
@@ -226,6 +276,70 @@
         <div class="feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
         <h3>A compliance-minded foundation</h3>
         <p>An append-only audit trail, immutable profile versioning, optional two-factor authentication, and a per-client export - built around <a href="/security.html" class="lk-gold">SEC 17a-3 / 17a-4 record-keeping principles</a>, so a growing practice stays accountable.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- What your clients see -->
+  <section id="client-view" class="clientview">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>What your clients actually see</h2>
+        <p>Not a folder of stale statements. A living roadmap they can open any time - with a direct line to you on any milestone.</p>
+      </div>
+      <div class="cv-stage">
+        <div class="cv-window">
+          <div class="cv-bar">
+            <span class="cv-dot"></span><span class="cv-dot"></span><span class="cv-dot"></span>
+            <span class="cv-url">prism · your wealth roadmap</span>
+          </div>
+          <div class="cv-body">
+            <div class="cv-greeting">
+              <div>
+                <div class="cv-hello">Welcome back, Yara</div>
+                <div class="cv-sub">You're in Phase 02 · Liquidity Reserve</div>
+              </div>
+              <div class="cv-ring"><span>62%</span></div>
+            </div>
+
+            <div class="cv-phase is-done">
+              <div class="cv-node"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+              <div class="cv-phase-main">
+                <div class="cv-phase-name">01 · Foundation</div>
+                <div class="cv-prog"><div class="cv-prog-fill"></div></div>
+              </div>
+              <div class="cv-pct">100%</div>
+            </div>
+
+            <div class="cv-phase is-active">
+              <div class="cv-node">02</div>
+              <div class="cv-phase-main">
+                <div class="cv-phase-name">02 · Liquidity Reserve</div>
+                <div class="cv-prog"><div class="cv-prog-fill"></div></div>
+              </div>
+              <div class="cv-pct">60%</div>
+            </div>
+
+            <div class="cv-phase is-locked">
+              <div class="cv-node"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+              <div class="cv-phase-main">
+                <div class="cv-phase-name">03 · Liability Optimization</div>
+                <div class="cv-prog"><div class="cv-prog-fill"></div></div>
+              </div>
+              <div class="cv-pct">Next</div>
+            </div>
+
+            <div class="cv-thread">
+              <div class="cv-thread-label">Discuss with your advisor</div>
+              <div class="cv-msg cv-msg-client">Should I top up the emergency reserve before I bump my 401(k)?</div>
+              <div class="cv-msg cv-msg-advisor">Good question - capture the full match first, then finish the reserve. I'll walk through it Tuesday.<span class="cv-adv">- M. Chen, your advisor</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tac mt22">
+        <button class="btn btn-primary btn-lg js-client-demo">Open the live client demo</button>
+        <div class="hero-note">The exact portal your clients log into - no account needed.</div>
       </div>
     </div>
   </section>
@@ -264,42 +378,29 @@
     </div>
   </div>
 
-  <!-- Testimonials -->
-  <section class="testimonials wrap">
-    <div class="section-head">
-      <h2>What advisors are saying</h2>
-      <p>From the practices that shaped Prism during early access.</p>
-    </div>
-    <div class="testi-grid">
-      <div class="testi">
-        <div class="testi-quote">Prism replaced three separate tools I was paying for. My clients actually open it - and when they do, they message me instead of letting questions sit for months.</div>
-        <div class="testi-attr">
-          <div class="testi-avatar">SM</div>
-          <div>
-            <div class="testi-name">Sarah M., CFP®</div>
-            <div class="testi-title">Independent RIA · Pacific Northwest</div>
-          </div>
+  <!-- Built with advisors (founding design-partner band) -->
+  <section class="founder">
+    <div class="wrap founder-inner">
+      <div class="founder-card">
+        <div class="founder-eyebrow">Built in the open</div>
+        <h2>Made <em>with</em> advisors, not just for them.</h2>
+        <p>
+          I'm Cory Lemay, and I'm building Prism for solo and small fee-only RIAs - the
+          practices caught between a spreadsheet-and-a-portal-nobody-opens and a six-figure
+          enterprise suite. The client-facing layer is the part that's stuck in 2012, so
+          that's the part I'm fixing first.
+        </p>
+        <p class="founder-deal">
+          I'm onboarding a small group of founding design partners now. You get free
+          white-glove setup - I import your first households with you on a call - and
+          founding-member pricing locked in. In return, your honest feedback over a couple
+          of months.
+        </p>
+        <div class="founder-cta">
+          <a class="btn btn-primary btn-lg" href="signup.html">Start free</a>
+          <button class="btn btn-ghost btn-lg js-demo">Explore the live demo</button>
         </div>
-      </div>
-      <div class="testi">
-        <div class="testi-quote">The roadmap structure is genuinely different. Clients come into reviews already knowing where they are - which means we spend the hour on decisions, not status updates.</div>
-        <div class="testi-attr">
-          <div class="testi-avatar">DK</div>
-          <div>
-            <div class="testi-name">David K., CFA</div>
-            <div class="testi-title">Fee-only planner · Mid-Atlantic</div>
-          </div>
-        </div>
-      </div>
-      <div class="testi">
-        <div class="testi-quote">I was skeptical about another portal. But Prism is the first one where the compliance trail doesn't feel like overhead - it's just there, and it's exactly what my compliance consultant wanted.</div>
-        <div class="testi-attr">
-          <div class="testi-avatar">JL</div>
-          <div>
-            <div class="testi-name">Jennifer L., CFP®, RICP®</div>
-            <div class="testi-title">Solo RIA · Southeast</div>
-          </div>
-        </div>
+        <div class="founder-sign">Cory Lemay · Founder, Prism · LeMay Ventures LLC</div>
       </div>
     </div>
   </section>
@@ -317,7 +418,7 @@
           <div class="tier-tagline">For the independent advisor getting started.</div>
           <div class="tier-price">$0<span> / preview</span></div>
           <ul class="tier-list">
-            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Up to 25 client households</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Up to 25 client households per firm</li>
             <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Roadmaps, calculators &amp; CRM</li>
             <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Audit trail &amp; 2FA</li>
           </ul>
@@ -328,7 +429,7 @@
           <div class="tier-tagline">For growing practices with a full book.</div>
           <div class="tier-price">$49<span> / advisor / mo</span></div>
           <ul class="tier-list">
-            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Up to 150 client households</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Up to 150 client households per firm</li>
             <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Account aggregation &amp; performance reporting</li>
             <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Calendar sync, AI drafting &amp; white-label branding</li>
             <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Priority support</li>
@@ -350,7 +451,8 @@
         </div>
       </div>
       <p class="hero-note tac mt22">
-        Pricing is indicative during preview - accounts are free and you won't be charged yet.
+        Priced per advisor; household limits apply per firm. Pricing is indicative during
+        preview - accounts are free and you won't be charged yet.
       </p>
     </div>
   </section>
@@ -401,6 +503,12 @@
       window.location.href = '/app';
     }
     document.querySelectorAll('.js-demo').forEach(b => b.addEventListener('click', enterDemo));
+    // Client-view CTA: enter the demo and land directly on the client roadmap (the wedge).
+    function enterClientDemo() {
+      try { sessionStorage.setItem('px_demo', '1'); } catch (e) {}
+      window.location.href = '/app#/client';
+    }
+    document.querySelectorAll('.js-client-demo').forEach(b => b.addEventListener('click', enterClientDemo));
     // If already signed in, surface a "Go to workspace" affordance in the nav.
     (async () => {
       if (!window.__sb) return;
