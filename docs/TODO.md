@@ -8,9 +8,11 @@
 > queue** (money, credentials, external accounts, legal, host/dashboard settings I
 > can't reach).
 >
-> Baseline reset 2026-06-08. All migrations through `034` are applied, the gated edge
-> deploy is done, and Realtime-RLS + the `CRON_SECRET` Vault entry are verified - the
-> repo and the live project are in sync.
+> Baseline reset 2026-06-08. The gated edge deploy is done, and Realtime-RLS + the
+> `CRON_SECRET` Vault entry are verified. **Prod audit 2026-06-22:** all repo migrations
+> `001-044` are applied (verified by object existence - the ledger is intentionally
+> unmanaged, so `list_migrations` is empty by design), and all 17 repo edge functions are
+> ACTIVE - the repo and the live project are in sync.
 
 ---
 
@@ -65,6 +67,13 @@ independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
   (round 26b) and the `tasks[].label` milestone text (round 26d) are now client-voiced,
   substance and numbers kept. The remaining advisor-register copy lives in the
   planning-tool surfaces (`calculators.jsx`); soften only if a partner flags it.
+- [ ] **Em-dash cleanup in the marketing/ops docs** (low priority, found in the 2026-06-22
+  audit): the living docs (ROADMAP/TODO/sprint-log/ARCHITECTURE) and `docs/guides/` are
+  clean, but `WHITEPAPER.md`, `design-partner-kit.md`, `first-outreach-plan.md`,
+  `founder-content-starter.md`, `docusign-setup.md`, `rls-ci-wiring.md`, and
+  `marketing/linkedin-launch-kit.md` still carry em-dashes (foundational style rule). Needs
+  a per-instance pass (comma / colon / " - " by context, not a blind replace) - the copy is
+  client/prospect-facing, so it should read well, not just pass the rule.
 
 *Shipped 2026-06-22 and removed from this board (round 26d, no migration / no secrets /
 no money): the **KYC paperwork-details nudge is now dismissible** (keyed to the
@@ -82,8 +91,8 @@ descriptions + rationales, and "instrument the wedge" (`portal_opened` event); (
 "Ahead" (explorable, not gated), and the advisor's existing `current_phase` extends the
 in-play range (the near-retiree fix). No schema change; future multi-focus / relevance-hint
 options deferred to a partner ask (see ROADMAP). Migrations 040-043 verified live in prod
-(px_events/px_track/push_subscriptions/RLS indexes all present) - the round-13 "apply
-040-043" human item below is stale.*
+(px_events/px_track/push_subscriptions/RLS indexes all present); the full migration +
+go-live human queue was reconciled against prod in the 2026-06-22 audit (see below).*
 
 *Partner-gated depth (holdings aggregation, object-lock WORM, module refactor) lives in
 ROADMAP and is built only when a partner asks - not queued here.*
@@ -96,41 +105,25 @@ Things I genuinely can't do - they cost money, need your identity/credentials, o
 in dashboards I can't reach. **Bold = the hard blockers gating any live client.**
 Project ref: `phabxcijbbphfxvjedfj` · Domain: `prismaw.com`.
 
-### Round-13 - SQL-editor pastes + one Auth toggle (code is LIVE 2026-06-10)
-- [x] ~~**Apply migrations 040 → 041 → 042 → 043**~~ *(verified live in prod 2026-06-21:
-  `px_events` + `px_track`, `push_subscriptions`, and the RLS-predicate indexes all
-  present. The `portal_opened` analytics event ships against them.)*
+### Round-12/13 go-live setup - VERIFIED APPLIED 2026-06-22 (prod audit)
+- [x] ~~**Apply migrations 035 → 044**~~ *(all verified present in prod 2026-06-22:
+  035/036 ledger+platform, **037** status-guard fix (guard reads `request.jwt.claims`,
+  not `auth.role()`), **038** `advisors.address_style` + `px_my_advisor` RPC, 039
+  security_invoker view, 040-043 px_events/px_track/push_subscriptions/RLS indexes, 044
+  `client_identifiers`. The earlier "apply 037+038 in the SQL editor" item was stale -
+  they were applied back at go-live, the checkbox just never got ticked.)*
+- [x] ~~**Give yourself the firm-admin role**~~ *(appears done - an `admin`-role advisor
+  exists in prod. Confirm it's your primary account; the Platform tab's Advisors roster
+  flips roles without SQL from here.)*
+- [x] ~~**Seed yourself as platform owner**~~ *(appears done - `px_platform_owners` has a
+  row in prod, so the Platform tab resolves. Confirm the seeded uid is the account you
+  actually sign in with.)*
 - [ ] **Enable leaked-password protection** - Supabase → Authentication → password
   settings (HaveIBeenPwned check; Pro-plan feature, pairs with the Pro upgrade below).
-  Clears the last actionable Security Advisor warning.
-
-### Round-12 go-live - SQL-editor pastes (shipped 2026-06-10, code is LIVE)
-- [x] ~~Apply migrations 035 + 036~~ *(done 2026-06-10)*
-- [ ] **Apply migrations 037 + 038** in the Supabase SQL editor, in order:
-  [`037_firm_status_guard_fix.sql`](../supabase/migrations/037_firm_status_guard_fix.sql)  - 
-  fixes the 035 status-guard trigger that broke every `firms` update from the
-  browser (your "save branding stopped working" report); branding saves, the
-  firm-rename field, and the Workflow toggle all start working.
-  [`038_advisor_address_style.sql`](../supabase/migrations/038_advisor_address_style.sql)  - 
-  adds `advisors.address_style` (how clients address you: first / last /
-  honorific+last) and the `px_my_advisor` RPC so real client sessions see their
-  actual advisor's name in the portal (they previously fell back to the demo
-  advisor - latent bug, fixed in round 12d).
-- [ ] **Give yourself the firm-admin role** - your early advisor row is role
-  `advisor`. Easiest now: one SQL line  - 
-  `update advisors set role = 'admin' where email = '<your email>';`
-  (then reload). From then on the Platform tab's per-firm **Advisors** roster
-  has Make firm admin / Make advisor buttons, so role changes never need SQL again.
-- [ ] **Seed yourself as platform owner** (one row; the auth uid is in
-  Supabase → Authentication → Users):
-  `insert into px_platform_owners (auth_user_id, email) values ('<auth-uid>', '<email>');`
-  Then the **Platform** tab appears in that account's advisor topbar (or deep-link `#/platform`).
-  *Which account:* the allowlist row is a **copy** (a reference to the auth user - the
-  account itself isn't moved or changed). The account must also hold an advisor/admin
-  seat, because the Platform tab lives in the advisor app. Easiest: seed your existing
-  advisor account's uid. If you'd rather keep a dedicated founder identity with the
-  unused email: sign up with it, complete the "name your firm" step (gives it a
-  sandbox firm + admin seat), then copy THAT account's uid into the insert.
+  Confirmed still disabled in the 2026-06-22 Security Advisor; it's the one Auth-side
+  toggle left. *(The advisor also flags several `SECURITY DEFINER` RPCs + `pg_net` in
+  public as WARN - those are by design: the RLS helper functions and client-facing RPCs
+  must be SECURITY DEFINER, reviewed in the clean-room passes. No action.)*
 
 ### Finish Microsoft calendar setup - one Azure click left
 - [ ] In the Azure app registration, add the redirect URI
@@ -245,6 +238,11 @@ e-sign Self Service model validated for our DocuSign flow. The blanks below stil
 ### Optional / as-needed
 - [ ] Finish the **GSC search-digest** setup (add the service account to the Search
   Console property + `GSC_SA_KEY` repo secret).
+- [ ] **Delete the orphan `clever-endpoint` edge function** (prod audit 2026-06-22):
+  an ACTIVE function sourced from `log-error.ts` - the original `log-error` deploy under
+  Supabase's auto-generated name, left behind when it was redeployed as `log-error`.
+  Harmless duplicate, not in the repo or `deploy.yml`. Remove from the Supabase dashboard
+  (Edge Functions) to keep live = repo. Cosmetic only.
 
 ---
 
