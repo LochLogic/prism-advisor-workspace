@@ -12,6 +12,53 @@
 
 ---
 
+> **Logging gap, rounds 15-26c (2026-06-11 → 2026-06-21):** these sprints recorded their
+> shipped work as "Shipped" notes inside [`ROADMAP.md`](ROADMAP.md) sections + the
+> [`TODO.md`](TODO.md) board rather than here (PRs #60-#89 in git carry the per-sprint
+> detail). Sprint-log resumes below at round 26d.
+
+---
+
+## 2026-06-22 (round 26d) - Client-voice milestone labels · dismissible KYC nudge · client portal guide
+
+PR (pending). Build · smoke (57) · calc (238) · lint all green. **No migration, no
+secrets, no money, no edge function.** Three pure-frontend/docs items + a docs cleanup;
+verified live in the demo portal (softened labels render, dismiss persists + re-surfaces
+on changed gaps, guide page renders as "Client guide").
+
+**What shipped**
+- **Client-voice copy, phase 3 - milestone labels** (`data.jsx`): the round-26b prose
+  pass (descriptions + rationales) finished into the `tasks[].label` checklist text across
+  all seven phases. Advisor register → smart-friend voice, substance and numbers kept
+  ("Open laddered HYSA / Treasury MMF, 4-tier" → "Open a high-yield savings or money market
+  account for your reserve"; "Execute backdoor Roth if above phase-out" → "Use a backdoor
+  Roth if your income is above the limit"). Tool/doc names left recognizable so "See tool
+  below" still maps. Labels are display-only (keyed by `id`), so no logic touched.
+- **Dismissible KYC paperwork-details nudge** (`client-portal.jsx`): the portal "Account
+  paperwork details" card now carries an X dismiss, keyed to the missing-set signature in
+  `localStorage` (`px-kycdismiss:<clientId>`). It stays hidden until the gaps actually
+  change (a field completed, or a new one opens), then returns on its own. Closes the
+  "stuck at 17/18 over one field sees it forever" seam - the last open item from the
+  round-25 CX review.
+- **Client portal guide** (`docs/guides/client-portal-guide.md`): a client-facing tour of
+  the portal, shipped through the existing guides pipeline (Help drawer + printable
+  `/guides/<slug>/` page). Added an optional `<!-- audience: client -->` marker
+  (`build.mjs`, default `advisor`) so the printable bar reads "Client guide" not "Advisor
+  guide"; marker is stripped before render so it never leaks into the body. Lives in the
+  advisor Help drawer for the advisor to share with clients.
+- **Docs cleanup:** the **custodian-grouped portal accounts view** was found already live
+  (shipped round 15, PR #60) - the ROADMAP Tier C + TODO queue entry was stale and is now
+  marked SHIPPED.
+
+**Files:** `src/data.jsx`, `src/client-portal.jsx`, `build.mjs`,
+`docs/guides/client-portal-guide.md`, `docs/ROADMAP.md`, `docs/TODO.md`,
+`docs/ARCHITECTURE.md`, `docs/sprint-log.md`.
+
+**Deploy hand-off:** none. Static frontend + guide; merge → Cloudflare Workers build
+redeploys `/app`, `/portal`, and `/guides/`. No human queue items unblocked or added.
+
+---
+
 ## 2026-06-10 (round 14) - Firm-admin CSV exports + audit filter · platform usage stats · pricing sanity check · client-accounts decision
 
 PR #59. Build · smoke · calc · lint green. **No migration, no secrets, no money.**

@@ -35,7 +35,9 @@ Static hosting = **Cloudflare Workers**. See [memory: project-architecture].
 ```
 build.mjs              concat src in load order → esbuild JSX/minify → dist/ + _site/ deploy dir;
                        also renders docs/guides/*.md → window.__pxGuides (ADVISOR bundle only)
-                       + printable /guides/<slug>/ pages (round 23 Help/training)
+                       + printable /guides/<slug>/ pages (round 23 Help/training); optional
+                       `<!-- audience: client -->` marker (round 26d) sets the printable bar
+                       label ("Client guide" vs default "Advisor guide"), stripped pre-render
 build-files.mjs        SINGLE SOURCE OF TRUTH for src load order (sharedFiles/sourceFiles/portalFiles)
 index|landing|login|signup|portal.html   entry HTML pages (marketing + app shells)
 dpa|privacy|security|sla|terms.html      static legal pages
@@ -73,7 +75,9 @@ src/
                        sections always greet expanded, jump nav + 'identity' focus unfold their target)
   client-portal.jsx    window.ClientPortal - View B: client roadmap, phase cards, Discuss-with-Advisor;
                        PhaseCard enforces `requiresDoc` milestone gates (advisor override audited);
-                       round 25: "Account paperwork details" nudge card (kycCompleteness → Numbers drawer);
+                       round 25: "Account paperwork details" nudge card (kycCompleteness → Numbers drawer;
+                       round 26d: dismissible, keyed to the missing-set signature in localStorage
+                       px-kycdismiss:<id> so it re-surfaces only when the gaps change);
                        round 26c: phases past the working horizon render "Ahead" (visible + explorable,
                        gently set apart - NOT gated; replaced the old is-locked opacity dim). horizonEdge =
                        max(activePhase+1, current_phase), so the advisor's current_phase extends the in-play

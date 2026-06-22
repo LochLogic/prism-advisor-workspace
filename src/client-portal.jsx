@@ -411,6 +411,9 @@ const ClientPortal = ({ onOpenNumbers }) => {
     }, 150);
   }, [pendingPhaseId, setPendingPhaseId, setOpenPhases]);
   const [milestoneModal, setMilestoneModal] = React.useState(null);
+  // Force a re-render after the paperwork-details nudge is dismissed (the
+  // dismissal itself persists in localStorage, read at render time below).
+  const [, bumpKycNudge] = React.useReducer(x => x + 1, 0);
 
   // Performance data for the client-facing report
   const [perfBal, setPerfBal] = React.useState(null);
@@ -708,10 +711,22 @@ const ClientPortal = ({ onOpenNumbers }) => {
         {/* Paperwork-details nudge (round 24) - household has numbers but the
             account-opening KYC details (address, employment, citizenship...)
             are incomplete. Completing them is what makes custodian paperwork
-            arrive prefilled instead of as a stack of blanks to chase. */}
+            arrive prefilled instead of as a stack of blanks to chase.
+            Dismissible (round 26d): a household stuck one field short shouldn't
+            see the nag forever. We key the dismissal to the missing-set
+            signature, so it stays hidden until the gaps actually change (a
+            field completed, or a new one opens) - then it returns on its own. */}
         {!isBlankSlate && !isProspectView && (() => {
           const kyc = kycCompleteness(ctx.profile);
           if ((ctx.profile?.members || []).length === 0 || kyc.complete) return null;
+          const sig = kyc.missing.join('|');
+          let dismissedSig = '';
+          try { dismissedSig = localStorage.getItem(`px-kycdismiss:${activeClientId}`) || ''; } catch {}
+          if (dismissedSig === sig) return null;
+          const dismiss = () => {
+            try { localStorage.setItem(`px-kycdismiss:${activeClientId}`, sig); } catch {}
+            bumpKycNudge();
+          };
           const preview = kyc.missing.slice(0, 3).join(' · ');
           const more = kyc.missing.length - 3;
           return (
@@ -735,6 +750,11 @@ const ClientPortal = ({ onOpenNumbers }) => {
                   Identity & paperwork block expanded, scrolled to the first gap */}
               <button className="px-btn px-btn-primary px-btn-sm" onClick={() => onOpenNumbers('identity')}>
                 <Icons.Edit size={12} /> Complete details
+              </button>
+              <button className="px-icon-btn" onClick={dismiss} aria-label="Dismiss for now"
+                title="Dismiss for now - we'll remind you if anything changes"
+                style={{ flexShrink: 0 }}>
+                <Icons.X size={15} />
               </button>
             </div>
           );
