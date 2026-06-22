@@ -30,7 +30,7 @@ independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
   rolling up playbook completion. *(Phase 2 SHIPPED sprint 27b: firm-admin authoring
   via `firm_playbooks` [migration 045], deep-merged over the data.jsx defaults by
   `mergePlaybook`; the quick-view card shows the firm's authored script with a
-  "Customized" chip. Migration 045 still needs the prod apply - see human queue.)*
+  "Customized" chip. Migration 045 APPLIED to prod 2026-06-22 - the feature is live.)*
 - [ ] **Quik! adapter** - implement `PAPERWORK_ADAPTERS.quik.submit(payload)` the
   moment the business blanks (your queue) exist; the payload already emits
   Execute-shaped `quik.formFields` ([quik-field-taxonomy.md](quik-field-taxonomy.md)),
