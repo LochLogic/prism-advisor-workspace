@@ -67,13 +67,6 @@ independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
   (round 26b) and the `tasks[].label` milestone text (round 26d) are now client-voiced,
   substance and numbers kept. The remaining advisor-register copy lives in the
   planning-tool surfaces (`calculators.jsx`); soften only if a partner flags it.
-- [ ] **Em-dash cleanup in the marketing/ops docs** (low priority, found in the 2026-06-22
-  audit): the living docs (ROADMAP/TODO/sprint-log/ARCHITECTURE) and `docs/guides/` are
-  clean, but `WHITEPAPER.md`, `design-partner-kit.md`, `first-outreach-plan.md`,
-  `founder-content-starter.md`, `docusign-setup.md`, `rls-ci-wiring.md`, and
-  `marketing/linkedin-launch-kit.md` still carry em-dashes (foundational style rule). Needs
-  a per-instance pass (comma / colon / " - " by context, not a blind replace) - the copy is
-  client/prospect-facing, so it should read well, not just pass the rule.
 
 *Shipped 2026-06-22 and removed from this board (round 26d, no migration / no secrets /
 no money): the **KYC paperwork-details nudge is now dismissible** (keyed to the
@@ -192,14 +185,6 @@ against it:
   [`first-outreach-plan.md`](first-outreach-plan.md).)*
 - [ ] **Stand up the founder content channel** (LinkedIn + newsletter). I can draft;
   you own the account, voice, and publish. *(Drafts: [`founder-content-starter.md`](founder-content-starter.md).)*
-- [ ] **Create the Prism company LinkedIn page** - everything you need is in
-  [`marketing/linkedin-launch-kit.md`](marketing/linkedin-launch-kit.md): logo +
-  banner PNGs (same folder), page-setup fields, the About description, and the
-  first-ever post draft. Attach product screenshots to the post and reshare from
-  your personal profile. *Round-16 assets: banner = the LinkedIn-specific
-  `branding/prism-banner-linkedin-2256.png` (no mark - LinkedIn overlays the page
-  logo there; wordmark pre-shifted right); logo = `branding/prism-logo-400.png`.
-  Masters + generators (`make-*.mjs`, SVGs) live in `branding/`.*
 - [ ] **Bust LinkedIn's share-preview cache** - run `https://prismaw.com` through
   the [Post Inspector](https://www.linkedin.com/post-inspector/) so new shares
   pick up the round-17 clean title ("Prism | The Advisor Workspace") and the
