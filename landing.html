@@ -122,18 +122,6 @@
   .leading-point-text strong{display:block;font-size:14px;font-weight:600;color:#fff;margin-bottom:3px;}
   .leading-point-text span{font-size:13px;color:rgba(255,255,255,.58);line-height:1.5;}
 
-  /* Testimonials */
-  .testimonials{padding:60px 0;}
-  .testi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}
-  .testi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:26px;display:flex;flex-direction:column;gap:14px;}
-  .testi-quote{font-family:var(--serif);font-size:15.5px;font-weight:400;line-height:1.65;color:var(--ink-2);flex:1;}
-  .testi-quote::before{content:'\201C';}
-  .testi-quote::after{content:'\201D';}
-  .testi-attr{display:flex;align-items:center;gap:10px;}
-  .testi-avatar{width:36px;height:36px;border-radius:50%;background:var(--gold-soft);color:var(--gold);font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-  .testi-name{font-size:12.5px;font-weight:600;color:var(--ink);}
-  .testi-title{font-size:11.5px;color:var(--ink-mute);}
-
   /* CTA band */
   .cta-band{background:var(--ink);color:#fff;border-radius:16px;padding:52px;text-align:center;margin:0 24px;}
   .cta-band h2{font-family:var(--serif);font-size:30px;font-weight:500;margin-bottom:12px;}
@@ -195,7 +183,7 @@
 
   @media (max-width:760px){
     .hero h1{font-size:34px;}
-    .features,.tiers,.testi-grid{grid-template-columns:1fr;}
+    .features,.tiers{grid-template-columns:1fr;}
     .nav-links .hide-sm{display:none;}
     .leading-inner{grid-template-columns:1fr;gap:32px;}
     .cv-body{padding:18px;}
@@ -391,10 +379,10 @@
           that's the part I'm fixing first.
         </p>
         <p class="founder-deal">
-          I'm onboarding a small group of founding design partners now. You get free
-          white-glove setup - I import your first households with you on a call - and
-          founding-member pricing locked in. In return, your honest feedback over a couple
-          of months.
+          I'm bringing on a small group of founding partners. You get hands-on help
+          getting set up, founding-member pricing locked in, and a direct line to shape
+          what gets built next. All I ask in return is your honest feedback over the first
+          few months.
         </p>
         <div class="founder-cta">
           <a class="btn btn-primary btn-lg" href="signup.html">Start free</a>

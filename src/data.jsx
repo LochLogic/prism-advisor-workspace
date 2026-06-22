@@ -15,9 +15,9 @@
 let phasesData = [
   {
     id: 0, num: '01', title: 'Foundation', tag: 'Stabilization',
-    description: 'Establish the operational base - predictable cash flow, current obligations, and a disciplined household ledger.',
+    description: 'Get the basics steady first: money coming in, money going out, and a clear picture of where it all goes each month.',
     icon: 'Shield',
-    rationale: "Before optimization, stabilization. <b>Cash flow precedes capital allocation.</b> A clear monthly accounting - every dollar in, every dollar out - is the prerequisite for every subsequent decision. We map the household ledger together in onboarding, then refresh quarterly.",
+    rationale: "Everything else builds on this. <b>Before we grow your money, we get it steady.</b> Once we can both see every dollar coming in and going out, every decision after this gets easier. We map it out together when you start, then keep it fresh each quarter.",
     tasks: [
       { id: 'p0t1', label: 'Complete household cash-flow worksheet', tool: 'discuss', panel: 'numbers' },
       { id: 'p0t2', label: 'Confirm essential expenses are current', tool: null },
@@ -31,9 +31,9 @@ let phasesData = [
   },
   {
     id: 1, num: '02', title: 'Liquidity Reserve', tag: 'Protection',
-    description: 'Build the operating cushion - six months of essential outflow held in laddered cash equivalents, isolated from market risk.',
+    description: 'Build your safety cushion: about six months of essential expenses, kept in safe, easy-to-reach savings so a surprise never derails the plan.',
     icon: 'Umbrella',
-    rationale: "The reserve is not a return vehicle. Its function is to <b>prevent forced liquidation of long-horizon assets during a drawdown</b>. Six months is standard for stable W-2 income; we extend to twelve for variable compensation, equity-heavy households, or pre-retirees.",
+    rationale: "This money is not here to earn big returns. It is here so that <b>when life surprises you, you never have to sell investments at a bad time to cover it</b>. Six months is the usual target for a steady paycheck; we aim for twelve if your income varies, much of your pay is in stock, or retirement is close.",
     tasks: [
       { id: 'p1t1', label: 'Open laddered HYSA / Treasury money market fund (MMF), 4-tier', tool: 'discuss' },
       { id: 'p1t2', label: 'Fund Month 1–3 reserve from working cash', tool: null },
@@ -47,9 +47,9 @@ let phasesData = [
   },
   {
     id: 2, num: '03', title: 'Liability Optimization', tag: 'Velocity',
-    description: 'Retire high-cost debt at a rate that exceeds plausible after-tax investment returns. Apply the avalanche method against APRs above 6%.',
+    description: 'Clear expensive debt fast. Paying off a high-interest balance is a guaranteed win that is hard for any investment to beat, so we tackle the priciest balances first.',
     icon: 'TrendDown',
-    rationale: "Debt servicing above ~7% APR produces a <b>guaranteed, tax-free negative return</b> that no reasonable portfolio can systematically beat after fees, taxes, and sequence risk. We attack the highest-APR balance first, hold minimums on the rest, and roll the freed payment forward. Balance transfers and rate negotiations are the first move, not the last.",
+    rationale: "A balance charging you more than about 7% is a <b>guaranteed loss every year</b> - and paying it off is a guaranteed return that beats what most portfolios can reliably earn after taxes and fees. So we knock out the highest-rate balance first, pay the minimum on the rest, then roll that freed-up payment to the next one. Lowering your rates and moving balances to cheaper terms come first, not last.",
     tasks: [
       { id: 'p2t1', label: 'Compile complete liability schedule', tool: 'discuss', doc: 'liability', requiresDoc: 'statement' },
       { id: 'p2t2', label: 'Negotiate rate reductions on revolving credit', tool: 'discuss' },
@@ -64,9 +64,9 @@ let phasesData = [
   },
   {
     id: 3, num: '04', title: 'Tax-Advantaged Foundations', tag: 'Shelter',
-    description: 'Fund the triple-advantaged HSA in full. The most efficient single vehicle in the US tax code when the household qualifies.',
+    description: 'Max out the HSA if you qualify. It is the most tax-friendly account in the country - the only one that is tax-free three different ways.',
     icon: 'Heart',
-    rationale: "The HSA is the only US account with <b>three-axis tax advantage</b>: deductible contributions, tax-free growth, and tax-free qualified withdrawals. We treat it as a stealth retirement bucket - invest the balance, pay current medical costs from cash flow, and retain receipts for tax-free reimbursement decades hence.",
+    rationale: "The HSA is the only account that is <b>tax-free in all three ways</b>: you deduct what you put in, it grows tax-free, and you pay no tax taking it out for health costs. The quiet trick: invest it, pay today's medical bills out of pocket, save the receipts, and reimburse yourself tax-free years from now - turning it into a stealth retirement account.",
     tasks: [
       { id: 'p3t1', label: 'Confirm high-deductible health plan (HDHP) eligibility for current plan year', tool: 'discuss' },
       { id: 'p3t2', label: 'Fund annual HSA limit ($4,400 / $8,750)', tool: null },
@@ -79,9 +79,9 @@ let phasesData = [
   },
   {
     id: 4, num: '05', title: 'Retirement Sleeve Construction', tag: 'Long Horizon',
-    description: 'Layer Roth/Traditional IRA contributions and complete employer plan deferrals. Establish target asset allocation by location.',
+    description: 'Build the retirement engine: fund your IRAs and 401(k), and put each investment in the account where it is taxed the least.',
     icon: 'Briefcase',
-    rationale: "Sleeve construction is a tax-location problem more than a security-selection problem. The household holds the same total equity exposure across accounts - but <b>tax-inefficient assets (corporate bonds, REITs, active funds) live in tax-deferred space</b>, while broad equity index funds anchor taxable and Roth. We model the optimal placement annually in the Asset Location tool.",
+    rationale: "Here it matters less what you own and more where you keep it. You hold the same overall mix - but <b>we tuck the tax-heavy holdings, like bonds and REITs, inside retirement accounts</b> where their yearly taxes do not sting, and keep simple stock index funds in your taxable and Roth accounts. We refine the placement each year with the Asset Location tool.",
     tasks: [
       { id: 'p4t1', label: 'Confirm Roth vs. Traditional split for current year', tool: 'discuss' },
       { id: 'p4t2', label: 'Execute backdoor Roth if above phase-out', tool: 'discuss' },
@@ -96,9 +96,9 @@ let phasesData = [
   },
   {
     id: 5, num: '06', title: 'Capital Deployment', tag: 'Velocity',
-    description: 'Extend the portfolio into taxable space with disciplined dollar-cost averaging, tax-loss harvesting, and broad index exposure.',
+    description: 'Put your surplus to work in a regular brokerage account: invest steadily each month, keep costs and taxes low, and let time compound it.',
     icon: 'TrendUp',
-    rationale: "Taxable capital is the lever that compresses time-to-independence. <b>Systematic tax-loss harvesting adds an estimated 0.50–1.50% in annualized after-tax return</b> across full market cycles - the engine our discretionary management runs on. We coordinate concentrated equity, 10b5-1 plans, and Roth conversion windows from this base.",
+    rationale: "This is the money that can move your independence date closer. <b>Quietly harvesting losses to offset taxes can add an estimated 0.5% to 1.5% a year</b> after taxes over a full market cycle - small each year, meaningful over decades. From here we also coordinate any concentrated company stock and the timing of Roth conversions.",
     tasks: [
       { id: 'p5t1', label: 'Open jointly-titled taxable brokerage', tool: null },
       { id: 'p5t2', label: 'Set automated monthly deployment', tool: null },
@@ -113,9 +113,9 @@ let phasesData = [
   },
   {
     id: 6, num: '07', title: 'Legacy & Drawdown', tag: 'Stewardship',
-    description: 'Sequence withdrawals tax-efficiently, optimize Roth conversion ladder, and structure the estate for intergenerational transfer.',
+    description: 'Turn savings into income the tax-smart way, and set up what you leave behind so more of it reaches the people you choose.',
     icon: 'Anchor',
-    rationale: "The accumulation problem and the distribution problem are different problems. <b>Withdrawal sequencing - taxable, then tax-deferred, then Roth - combined with Roth conversions during low-income years can preserve six- to seven-figure value across the lifecycle.</b> Estate structuring (revocable trust, beneficiary designations, basis step-up) is non-negotiable above HNW thresholds.",
+    rationale: "Saving for retirement and spending it well are two different skills. <b>Drawing your accounts in the right order - taxable first, then pre-tax, then Roth - and converting to Roth during lower-income years can keep a six- or seven-figure difference in your pocket over a lifetime.</b> And once your estate reaches a certain size, the right structure - a trust, up-to-date beneficiaries, the step-up in basis - makes sure it passes to your family, not the IRS.",
     tasks: [
       { id: 'p6t1', label: 'Build 5-year Roth conversion ladder', tool: 'advanced' },
       { id: 'p6t2', label: 'Size Roth conversions to bracket headroom', tool: 'advanced' },

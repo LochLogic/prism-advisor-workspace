@@ -10,6 +10,9 @@
 --
 -- Events instrumented in-app as of round 13: login, invite_created,
 -- invite_claimed, message_sent, plan_updated, report_printed, push_subscribed.
+-- 2026-06-21: + portal_opened (a client opened their portal; fires on EVERY open,
+-- resumed sessions included, so client return-cadence is measurable where the
+-- SIGNED_IN-only `login` event undercounts. See src/portal-app.jsx).
 --
 -- Reads: firm admins see their own firm's events (future in-app usage panel);
 -- the founder reads cross-firm via the service role / SQL editor. No client
