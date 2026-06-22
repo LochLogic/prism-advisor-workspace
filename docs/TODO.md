@@ -47,13 +47,11 @@ independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
   = Tier 2, stubs + blanks lists in `PAPERWORK_ADAPTERS`, gated on the design
   partner's custody relationship (their custodian goes first); headless
   onboarding APIs = Tier 3 at scale. Full rationale in ROADMAP item 6.
-- [ ] **More guides** - portal guide for clients, firm-admin guide; the pipeline
-  (docs/guides → Help drawer + printable page) is one markdown file per guide.
-- [ ] **KYC nudge dismissibility** (round-25 CX review, last remaining seam):
-  make the portal "Account paperwork details" card dismissible (or threshold
-  it) - a household stuck at 17/18 over one field sees it forever. The other
-  two seams (paperwork-modal click-through, drawer auto-expand/scroll) shipped
-  round 25b along with the wide drawer + section jump nav.
+- [ ] **More guides** - firm-admin guide; the pipeline (docs/guides → Help drawer +
+  printable page) is one markdown file per guide. *(Client portal guide shipped round
+  26d - `docs/guides/client-portal-guide.md`, audience-marked so the printable reads
+  "Client guide" not "Advisor guide"; lives in the advisor Help drawer for the advisor
+  to share.)*
 - [ ] **Stripe webhook retry-storm hardening** (C0) - `stripe-webhook` returns HTTP
   400 for any exception → Stripe retries ~3 days even for unrecoverable cases. Return
   200 for permanent/unprocessable, 4xx/5xx only for retryable. *↔ money-adjacent;
@@ -63,11 +61,20 @@ independently shippable; full descriptions in [`ROADMAP.md`](ROADMAP.md).
 - [ ] **Replace the founder band with a real testimonial** the moment a design partner
   hits a "this is genuinely useful" moment (kit: ask then, not before). The "Built in the
   open" founder band is the honest placeholder until then.
-- [ ] **Client-voice copy - phase 2 (optional)** - the descriptions + rationales were
-  warmed 2026-06-21 (round 26b). The remaining jargon lives in `tasks[].label` milestone
-  text ("Open laddered HYSA / Treasury MMF, 4-tier", "Execute backdoor Roth if above
-  phase-out") and the planning-tool copy; soften the client-visible task labels next if a
-  partner flags them.
+- [ ] **Client-voice copy - phase 3 (optional)** - phase descriptions + rationales
+  (round 26b) and the `tasks[].label` milestone text (round 26d) are now client-voiced,
+  substance and numbers kept. The remaining advisor-register copy lives in the
+  planning-tool surfaces (`calculators.jsx`); soften only if a partner flags it.
+
+*Shipped 2026-06-22 and removed from this board (round 26d, no migration / no secrets /
+no money): the **KYC paperwork-details nudge is now dismissible** (keyed to the
+missing-set signature, so it returns on its own if the gaps change - the "stuck at 17/18
+forever" seam, last open item from the round-25 CX review); the **`tasks[].label`
+milestone text is client-voiced** across all seven phases (the round-26b prose pass
+finished into the checklist); and a **client portal guide** ships through the existing
+guides pipeline (`docs/guides/client-portal-guide.md`). Also confirmed already-live and
+removed from ROADMAP: the **custodian-grouped portal accounts view** shipped round 15
+(PR #60) - the queue entry was stale.*
 
 *Shipped 2026-06-21 and removed from this board: (26b) the client-voice copy pass on phase
 descriptions + rationales, and "instrument the wedge" (`portal_opened` event); (26c) the

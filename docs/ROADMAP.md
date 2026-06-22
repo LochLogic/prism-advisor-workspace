@@ -366,16 +366,14 @@ mentions) plus seven design items. **All seven were green-lit and built in round
   audit-trail filter + load-more (100 → 500 on screen). Formula-injection
   neutralization centralized as `downloadCSV` (store.jsx). *Next when wanted:*
   per-client packets.
-- **Client portal accounts view (custodian-grouped) - queued 2026-06-10 (round 14).**
-  Clients think in real accounts ("my Schwab IRA, my Vanguard brokerage"), and trust
-  in the roadmap's numbers comes from seeing where they live. The data model already
-  carries everything needed (`accounts.custodian`, `type`, `balance`, `as_of`, Plaid
-  freshness) - this is a read-only "Your accounts" card in the client portal, grouped
-  by custodian with balances and an as-of stamp, plus a "something changed? tell your
-  advisor" hook into the existing message thread. **Scope line:** account/custodian
-  granularity *yes*; holdings-level granularity *no* - that stays in the partner-gated
-  holdings-aggregation track (a losing comparison vs. custodian apps the client
-  already has).
+- **Client portal accounts view (custodian-grouped) - SHIPPED 2026-06-11 (round 15,
+  PR #60).** A read-only "Your accounts" card in the client portal, grouped by custodian
+  with balances, a single total, and an as-of stamp, plus a "Something look different?
+  Ask {advisor}" hook that prefills the message thread (`px:prefill-message`). Reads ride
+  the `accounts_client_read` RLS policy off data already on file (`accounts.custodian`,
+  `type`, `balance`, `as_of`). **Scope held:** account/custodian granularity *yes*;
+  holdings-level granularity *no* - that stays in the partner-gated holdings-aggregation
+  track (a losing comparison vs. custodian apps the client already has).
 
 ### Trust & control
 - **Advisor MFA (TOTP)** - enforce in the advisor auth path (Supabase Auth supports
@@ -463,7 +461,7 @@ per-row fallback while the migration is pending.)*
 A fresh-eyes pass across client perception, advisor perception, workflow, value, and
 marketing.
 
-**Shipped (rounds 26 + 26b + 26c, see sprint-log):** the four surface fixes - fabricated
+**Shipped (rounds 26 + 26b + 26c + 26d):** the four surface fixes - fabricated
 testimonials pulled for an honest founder/design-partner band, wedge-first hero, per-firm
 pricing legibility, a "what your clients see" portal preview; then the **client-voice
 copy pass** on all seven phase descriptions + rationales (advisor register → smart-friend
@@ -471,6 +469,11 @@ voice, substance and numbers kept), the **founder-band hand-hold softened** (dro
 "I import your households on a call" over-commitment), and **`portal_opened` analytics** so
 client return-cadence is finally measurable (the SIGNED_IN-only `login` event undercounted
 it; prod had 0 client logins recorded); then the **non-linear roadmap** (26c, below).
+**Round 26d (2026-06-22)** finished the client-voice pass into the `tasks[].label`
+milestone text across all seven phases, made the **paperwork-details KYC nudge dismissible**
+(keyed to the missing-set signature so it re-surfaces only when the gaps change - the last
+open seam from the round-25 CX review), and shipped a **client portal guide** through the
+existing guides pipeline (audience-marked so the printable reads "Client guide").
 
 **Non-linear roadmap - SHIPPED 2026-06-21 (round 26c).** A pre-build review found the
 end-state I'd sketched was over-built: the phase "lock" was already only an `opacity:.55`
