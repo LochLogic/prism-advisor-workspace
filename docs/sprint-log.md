@@ -19,11 +19,45 @@
 
 ---
 
+## 2026-06-22 (sprint 27b) - Firm-authored CX playbook (advisor playbook phase 2)
+
+PR (pending). Build · smoke (57) · calc (244) · lint all green; new RLS-isolation check 9
+added. **Carries migration 045 (`firm_playbooks`) - apply to prod after merge (confirm-gated).**
+No secrets, no money, no edge function.
+
+**What shipped** - CX playbook phase 2 from the round-23 advisor-feedback track: firms can
+now AUTHOR their own per-phase advisor script, deep-merged over the data.jsx defaults.
+- **Migration 045 `firm_playbooks`** (firm_id, phase 0-6, questions[]/expectations/gather[]/
+  cadence, pk (firm_id,phase)). RLS mirrors the proven idiom: read = any advisor in the firm
+  (`px_current_firm_id()`); author (insert/update/delete) = firm admins only
+  (`px_is_firm_admin()`). Clients are excluded (px_current_firm_id() is null for them, and the
+  card is advisor-bundle only).
+- **Deep-merge contract** (`data.jsx` `mergePlaybook`, `window.mergePlaybook`): a field is
+  overridden only when the firm actually set it; an absent/empty array or blank string
+  inherits the default. Arrays replace wholesale. Always returns a fully-shaped
+  `{questions, expectations, gather, cadence}`. Pure + sanity-tested.
+- **db layer** (`db.jsx`): `getFirmPlaybooks` (→ `{[phase]: {...}}`, `{}` in demo / pre-migration
+  so defaults always render), `saveFirmPlaybook` (upsert one phase, audit `firm.playbook_save`),
+  `resetFirmPlaybook` (delete = revert that phase, audit `firm.playbook_reset`).
+- **Firm-admin authoring UI** (`firm-admin.jsx`): a "CX playbook" section (phase picker +
+  four textareas, "Customized / Prism default" status, x/7 customized count, Save +
+  Reset-to-default). Hidden in demo (authUser null), like the Workflow gate.
+- **Consumer** (`advisor-modal.jsx` quick-view card): loads the firm's overrides and renders
+  `mergePlaybook(default, override)`; a "Customized" chip + "your firm's script" copy when the
+  firm has authored that phase. Verified live in the demo quick-view (default still renders,
+  fully shaped, no "Customized" badge, no console errors).
+- **RLS isolation** (`rls_isolation.sql` check 9): firm-scoped read + cross-tenant denial +
+  non-admin write rejection on `firm_playbooks`.
+
+**Deploy hand-off:** apply migration 045 to prod (Management API, after merge - the PR is the
+approval gate; confirm-gated per the migration rule). Then it is live; no edge deploy, no
+secrets. *Phase 3 (firm-admin quality view: on-script % per advisor) stays in ROADMAP.*
+
 ## 2026-06-22 (sprint 27a) - Firm-admin guide · dated-tax-constants module + CI year-roll guard · prospect tracker
 
-PR (pending). Build · smoke (57) · calc (244) · lint all green. **No migration, no
-secrets, no money, no edge function.** Three unblocked items off the board, all
-docs/calc only.
+PR [#93](https://github.com/LochLogic/prism-advisor-workspace/pull/93). Build · smoke (57) ·
+calc (244) · lint all green. **No migration, no secrets, no money, no edge function.** Three
+unblocked items off the board, all docs/calc only.
 
 **What shipped**
 - **Firm-admin guide** (`docs/guides/firm-admin-guide.md`): the third in-app guide, the

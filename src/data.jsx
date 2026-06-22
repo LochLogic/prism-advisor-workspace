@@ -536,11 +536,36 @@ const advisorPlaybook = {
   },
 };
 
+// ── Firm playbook override contract (advisor playbook phase 2, migration 045) ─
+// `advisorPlaybook` above is the DEFAULT script. A firm can author its own per-phase
+// override (firm_playbooks table, firm-admin "CX playbook" section → db.saveFirmPlaybook);
+// mergePlaybook deep-merges that override over the default for the rendered card.
+// Semantics: a field is overridden only when the firm actually set it - an absent or
+// empty array / blank string inherits the default. Arrays REPLACE wholesale (a firm
+// rewrites the questions list, it doesn't append to ours). Always returns a fully shaped
+// { questions, expectations, gather, cadence } so the consumer never branches on missing
+// fields. base = advisorPlaybook[phase]; override = firmPlaybooks[phase] (or undefined).
+function mergePlaybook(base, override) {
+  const b = base || {};
+  const dArr = (v) => Array.isArray(v) ? v : [];
+  const dStr = (v) => typeof v === 'string' ? v : '';
+  const filled = (v) => Array.isArray(v) ? v.length > 0 : (typeof v === 'string' ? v.trim() !== '' : v != null);
+  const pick = (o, d) => filled(o) ? o : d;
+  if (!override) return { questions: dArr(b.questions), expectations: dStr(b.expectations), gather: dArr(b.gather), cadence: dStr(b.cadence) };
+  return {
+    questions:    pick(override.questions, dArr(b.questions)),
+    expectations: pick(override.expectations, dStr(b.expectations)),
+    gather:       pick(override.gather, dArr(b.gather)),
+    cadence:      pick(override.cadence, dStr(b.cadence)),
+  };
+}
+
 /* ─── "Current user" - Robert & Eileen Marsh, viewed in Client Portal ─ */
 const currentClientId = 'c001';
 
 window.phasesData = phasesData;
 window.advisorPlaybook = advisorPlaybook;
+window.mergePlaybook = mergePlaybook;
 window.advisor = advisor;
 window.clientsData = clientsData;
 window.alertsData = alertsData;
