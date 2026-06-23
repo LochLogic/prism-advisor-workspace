@@ -206,12 +206,13 @@ SSO is its enterprise sibling on the same auth path.)
   is industry-normal and expected. The point of this doc is that the design is already
   decided, so it is a fast yes when asked.
 
-## SSO decisions to make now
+## SSO decisions (decided 2026-06-22)
 
-1. Confirm the default approach: Supabase-native SAML first, WorkOS when breadth or SCIM is
-   needed.
-2. Confirm the policy: SSO is an Enterprise-tier paid add-on, built on a committed deal, not
-   ahead of one.
+1. **Decided:** default approach is **Supabase-native SAML first, WorkOS when breadth or
+   SCIM is needed.** This lets us truthfully answer "yes, we support SSO" with minimal effort
+   until a deal actually exercises it.
+2. **Decided:** SSO is an **Enterprise-tier paid add-on, built on a committed deal, not ahead
+   of one.** Design is settled (above) so the build is a fast yes, not a research project.
 
 ---
 
@@ -237,3 +238,5 @@ SSO is its enterprise sibling on the same auth path.)
 
 - **2026-06-22** - Doc created. Plain-language SOC 2 path (foundation, gaps, five phases,
   cost, solo-founder reality) + SSO options/sequencing + combined plan.
+- **2026-06-22** - SSO approach decided: Supabase-native SAML first, WorkOS when breadth or
+  SCIM is needed; SSO is a paid Enterprise add-on built on a committed deal.
