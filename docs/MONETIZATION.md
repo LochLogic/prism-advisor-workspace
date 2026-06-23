@@ -69,6 +69,9 @@ isolation, and a compliance-grade posture (append-only audit, 17a-3/4-aligned re
 That means we can sell the **rails to someone who already owns distribution**, instead of
 retailing $49 seats one firm at a time.
 
+*A reusable pitch outline (XYPN primary, Altruist variant) lives in
+[`marketing/white-label-pitch.md`](marketing/white-label-pitch.md).*
+
 ### Why the leverage is real
 
 At founder-led retail, ~1,500 paying seats is close to a decade of selling into slow,
@@ -224,7 +227,8 @@ the diligence bar above what retail RIAs ask. Current state:
 
 **Sequencing note:** none of these block a *membership-org* or *pilot* deal, but SOC 2 and
 SSO will surface fast in any custodian or large-aggregator conversation. Start the SOC 2
-clock early - it is the longest pole.
+clock early - it is the longest pole. The full plain-language plan for both lives in
+[`SOC2-SSO-READINESS.md`](SOC2-SSO-READINESS.md).
 
 ---
 
