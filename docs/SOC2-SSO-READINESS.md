@@ -143,6 +143,25 @@ completed readiness assessment, a started Type II, and a signed "bridge letter" 
 the in-progress report is often enough for a buyer to proceed. The requirement is that we
 have credibly **started**, well before the conversation.
 
+## Where the documents live - public vs private (decided 2026-06-22)
+
+This repo and the deployed site are public, so the actual policy documents do **not** live
+here. Decided split:
+
+- **Private:** the full policy set + evidence registers live in a separate **private** repo,
+  `LochLogic/prism-compliance` (created 2026-06-22, all DRAFT, pre-engagement). Shared with a
+  buyer only one-to-one under NDA. Its `CONTROL-MATRIX.md` doubles as the live gap analysis.
+- **Public:** a "Trust" / "Security" page (planned, linked from the footer) only *describes*
+  the posture and states "SOC 2 readiness in progress." It never hosts the documents.
+
+Why not publish them: internal policies describe our controls, infrastructure, and gaps, which
+is reconnaissance material; and a public folder labeled "SOC 2" full of un-audited drafts reads
+to a sophisticated buyer as either overclaiming a status we lack or misunderstanding how SOC 2
+works (real reports are confidential and shared under NDA). A later Trust Center tool (Vanta
+Trust Center, SafeBase) can automate the NDA-gated sharing. The drafts were written against the
+standard Trust Services Criteria structure, so adopting a compliance platform later is not
+rework.
+
 ## SOC 2 decisions to make now
 
 1. Do we commit to starting the readiness rails (pick a platform) *before* the first
@@ -240,3 +259,6 @@ SSO is its enterprise sibling on the same auth path.)
   cost, solo-founder reality) + SSO options/sequencing + combined plan.
 - **2026-06-22** - SSO approach decided: Supabase-native SAML first, WorkOS when breadth or
   SCIM is needed; SSO is a paid Enterprise add-on built on a committed deal.
+- **2026-06-22** - SOC 2 document cache started (DRAFT) in a private repo
+  `LochLogic/prism-compliance` while the auditor/platform engagement is deferred; decided the
+  public site only describes posture (a Trust page), never hosts the documents.
