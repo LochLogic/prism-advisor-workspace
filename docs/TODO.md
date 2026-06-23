@@ -90,8 +90,9 @@ options deferred to a partner ask (see ROADMAP). Migrations 040-043 verified liv
 (px_events/px_track/push_subscriptions/RLS indexes all present); the full migration +
 go-live human queue was reconciled against prod in the 2026-06-22 audit (see below).*
 
-*Partner-gated depth (holdings aggregation, object-lock WORM, module refactor) lives in
-ROADMAP and is built only when a partner asks - not queued here.*
+*Partner-gated depth (holdings aggregation, module refactor) lives in ROADMAP and is built
+only when a partner asks - not queued here. Object-lock WORM is now partially built: the
+`worm-export` dual-write ships dormant; provisioning is in your queue below.*
 
 ---
 
@@ -140,6 +141,18 @@ Project ref: `phabxcijbbphfxvjedfj` · Domain: `prismaw.com`.
   Actions secrets.
 - [ ] **Decide live vs test keys** for Stripe and Plaid (whether real money/aggregation
   flows for design partners). Say the word and I'll flip the env config.
+
+### Object-lock WORM archive (17a-4 hardening) - code shipped, provisioning left
+- [ ] **Provision an object-lock storage bucket** so the daily compliance archive is truly
+  immutable (full 17a-4 WORM). The `worm-export` dual-write is built and deployed (dormant
+  until configured; it never blocks the existing private archive). Steps: create an
+  S3-compatible bucket with **Object Lock enabled** in **COMPLIANCE** mode + a default
+  retention (~6 years) - AWS S3, Backblaze B2, or Wasabi - create scoped write-only
+  credentials, then set these Supabase Edge Function secrets: `WORM_S3_BUCKET`,
+  `WORM_S3_KEY_ID`, `WORM_S3_SECRET`, `WORM_S3_REGION` (default us-east-1), `WORM_S3_ENDPOINT`
+  (non-AWS providers only), `WORM_S3_RETAIN_DAYS` (default 2192 ~= 6y), `WORM_S3_RETAIN_MODE`
+  (default COMPLIANCE). The next nightly run then writes locked copies - no redeploy. *(Until
+  then the security page shows object-lock as "In progress", honestly.)*
 
 ### Stripe go-live - when a partner is ready to pay
 - [ ] Switch Stripe to live mode; create the live **Growth** price → `STRIPE_PRICE_GROWTH`.

@@ -428,6 +428,10 @@ mentions) plus seven design items. **All seven were green-lit and built in round
 ### Depth on demand (partner-gated - build only when a partner asks)
 - **Holdings-level aggregation** (Plaid Investments) → real performance attribution.
 - **Object-lock WORM archive** (S3 Object Lock) → makes the 17a-4 claim literally true.
+  *In progress:* the `worm-export` dual-write to an object-lock (retention-locked) bucket is
+  IMPLEMENTED and ships via the gated edge deploy, dormant until the `WORM_S3_*` secrets + a
+  provisioned object-lock bucket land (your queue); it never blocks the primary private
+  archive. Provisioning is the only remaining step.
 - **Module refactor** - split `advisor-modal.jsx` (~2,100 lines) and `store.jsx`
   (~1,300, esp. the print-report renderers) into load-ordered modules.
 
