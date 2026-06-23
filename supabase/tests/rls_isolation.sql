@@ -2,8 +2,8 @@
 -- PRISM · Row-Level Security isolation test
 --
 -- Proves the firm → advisor → client tenant boundary actually holds in the
--- database, not just the UI. Seeds two independent firms, then — acting as each
--- user via a simulated JWT — asserts that no one can read or write across the
+-- database, not just the UI. Seeds two independent firms, then - acting as each
+-- user via a simulated JWT - asserts that no one can read or write across the
 -- boundary. EVERYTHING RUNS IN A TRANSACTION THAT ROLLS BACK, so it leaves no
 -- rows behind and is safe to run against any Prism (Supabase) database.
 --
@@ -22,14 +22,14 @@ begin;
 do $$
 begin
   if to_regprocedure('auth.uid()') is null then
-    raise exception 'auth.uid() not found — run this against a Supabase database';
+    raise exception 'auth.uid() not found - run this against a Supabase database';
   end if;
   if not exists (select 1 from pg_roles where rolname = 'authenticated') then
-    raise exception 'role "authenticated" not found — run this against a Supabase database';
+    raise exception 'role "authenticated" not found - run this against a Supabase database';
   end if;
 end $$;
 
--- ── Seed (as the connecting/superuser role — RLS is bypassed for seeding) ────
+-- ── Seed (as the connecting/superuser role - RLS is bypassed for seeding) ────
 --   Firm A and Firm B are two unrelated tenants. UUIDs are namespaced so they
 --   will not collide with real data; the whole transaction rolls back anyway.
 insert into auth.users (id, email) values
@@ -79,6 +79,14 @@ do $$ begin
     insert into firm_playbooks (firm_id, phase, questions, cadence) values
       ('aaaa0000-0000-4000-8000-000000000001', 0, array['rls-test question'], 'rls-test cadence')
     on conflict (firm_id, phase) do nothing;
+  end if;
+  -- Seed an API key for Firm A (used by check 10; migration 046). Service-role-only
+  -- table: no authenticated/anon caller should ever read it.
+  if to_regclass('public.api_keys') is not null then
+    insert into api_keys (id, firm_id, name, prefix, key_hash, scopes) values
+      ('aaaa7777-0000-4000-8000-000000000001', 'aaaa0000-0000-4000-8000-000000000001',
+       'rls-test key', 'prism_sk_TEST', 'deadbeef', array['read','write'])
+    on conflict (id) do nothing;
   end if;
 end $$;
 
@@ -247,6 +255,33 @@ begin
       when insufficient_privilege then null;  -- RLS rejection is the pass path
     end;
     raise notice 'PASS 9 · firm playbook: firm-scoped read, admin-gated write';
+  end if;
+end $$;
+
+-- ── 10 · API keys are service-role-only: no authenticated caller can read them ─
+--   api_keys (migration 046) has RLS on and ZERO policies, so it is reachable only
+--   by the edge functions' service role. Even a firm admin in the owning firm must
+--   see nothing from the browser - the key hash must never leave the server.
+do $$
+declare n int; affected int;
+begin
+  if to_regclass('public.api_keys') is null then
+    raise notice 'SKIP 10 · api_keys not present (run migration 046)';
+  else
+    -- 10a · Advisor A (whose firm owns the seeded key) still reads zero rows.
+    perform pg_temp.act_as('aaaa2222-0000-4000-8000-000000000001');  -- Advisor A (Firm A)
+    select count(*) into n from api_keys;
+    if n <> 0 then raise exception 'FAIL 10a: an authenticated advisor read % api_keys row(s) (must be service-role-only)', n; end if;
+    -- 10b · And cannot forge one for their own firm (no insert policy).
+    begin
+      insert into api_keys (firm_id, name, prefix, key_hash)
+        values ('aaaa0000-0000-4000-8000-000000000001', 'forged', 'prism_sk_X', 'cafe');
+      get diagnostics affected = row_count;
+      if affected <> 0 then raise exception 'FAIL 10b: an authenticated advisor minted an api_keys row (must be service-role-only)'; end if;
+    exception
+      when insufficient_privilege then null;  -- RLS rejection is the pass path
+    end;
+    raise notice 'PASS 10 · api_keys: service-role-only (no authenticated read or write)';
   end if;
 end $$;
 

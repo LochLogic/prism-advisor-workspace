@@ -2,7 +2,11 @@
 
 > **Purpose:** condensed router for AI/dev work. Tells you *which* file owns a
 > concern and what it exports - not every line. Read the named file for deep logic.
-> **Last synced:** 2026-06-22 (round 26d + prod audit). Since 25b, no structural change
+> **Last synced:** 2026-06-23 (sprint 28). Sprint 28 added migration `046` (`api_keys`),
+> two edge functions (`api-keys`, `public-api`) + `_shared/apikey.ts`, three `window.db`
+> methods (`getApiKeys`/`createApiKey`/`revokeApiKey`), a firm-admin "API & integrations"
+> section, and two Help guides (integrations-and-api, compliance-and-exams). No `src/*` file
+> added and no load-order change. Earlier: since 25b, no structural change
 > (no new `src/*` file, no load-order change, no new `window.db`/`PrismCalc` method) -
 > only copy + behavior: rounds 26-26c (GTM surface fixes, client-voice phase descriptions,
 > non-linear "Ahead" roadmap, `portal_opened` analytics) and 26d (client-voice `tasks[].label`
@@ -110,7 +114,8 @@ src/
   advisor-dashboard.jsx window.AdvisorDashboard - View A: KPIs, roster, alerts, flagged-Q inbox
   firm-admin.jsx       window.FirmAdminDashboard - advisor mgmt, firm clients, fee schedules, audit log, ledger-gate toggle,
                        CX playbook authoring (phase 2) + CX quality section (phase 3, sprint 27c: on-script %
-                       per advisor from clients.last_meeting_at cadence + a playbook-coverage-by-phase strip)
+                       per advisor from clients.last_meeting_at cadence + a playbook-coverage-by-phase strip);
+                       API & integrations section (sprint 28: mint/list/revoke public API keys, one-time reveal)
   platform-admin.jsx   window.PlatformOwnerDashboard - founder tier (#/platform): firm overview, provision/suspend, plan overrides
   app.jsx              window.App - advisor entry: auth gate, topbar, view switch, Help drawer
                        (searchable window.__pxGuides + /guides/<slug>/ printable link)
@@ -120,12 +125,13 @@ src/
 portal-manifest.webmanifest   PWA manifest (copied to /portal/manifest.webmanifest); icons/ = portal PNG icons
 
 supabase/
-  migrations/001-045   schema evolution (names are self-describing; 001 = base schema;
+  migrations/001-046   schema evolution (names are self-describing; 001 = base schema;
                        044 = client_identifiers, service-role-only encrypted SSN store;
                        045 = firm_playbooks, firm-authored CX playbook overrides [sprint 27b,
-                       applied to prod 2026-06-22])
+                       applied to prod 2026-06-22];
+                       046 = api_keys, service-role-only public-API key store [sprint 28])
   functions/           Edge Functions (Deno) - see §6
-  functions/_shared/   auth.ts, cors.ts, docusign.ts, calendar.ts (provider plumbing), fees.ts (canonical BACKEND fee math)
+  functions/_shared/   auth.ts, cors.ts, docusign.ts, calendar.ts (provider plumbing), fees.ts (canonical BACKEND fee math), apikey.ts (public-API key gen/hash, sprint 28)
   tests/               integration.sql, rls_isolation.sql (tenant-isolation proofs)
   config.toml
 
@@ -199,6 +205,10 @@ e2e/demo.spec.ts       Playwright smoke
   the `client-identifiers` edge fn (AES-GCM, IDENTIFIER_ENC_KEY; table is service-role-only,
   no RLS grants). The full value NEVER enters profile JSON / prints / exports / AI contexts.
   Demo no-ops; `{error:'not_configured'}` until migration + secret + fn deploy land.
+- Public API keys (sprint 28, migration 046): `getApiKeys()` → `[{id, name, prefix, scopes,
+  last_used_at, revoked_at, created_at}]`, `createApiKey(name, scopes)` → `{key (plaintext,
+  shown once), row}`, `revokeApiKey(id)` - all via the admin-gated `api-keys` edge fn; null/
+  no-op in demo + pre-migration. The keys drive the separate `public-api` REST surface.
 
 **`window.PrismCalc`** (`src/calc-core.cjs`) - pure financial math (frontend copy; backend
 copy is `functions/_shared/fees.ts`): `monthlyExpenseTotal, buildValueSeries, modifiedDietz,
@@ -309,6 +319,8 @@ mirrored in `src/brand-boot.js` for the pre-auth pages).
 | `calendar-events` | Advisor JWT → upcoming / freebusy / create across connected calendars; auto token refresh. Callback pages: `/oauth/{google,microsoft}/callback` (one `oauth-callback.html`, written twice by build.mjs) |
 | `send-push` | Advisor JWT → web-push to a client's installed portal (PWA); tenant-checked, VAPID server-side, prunes dead endpoints |
 | `client-identifiers` | Advisor-or-self JWT → encrypted SSN/ITIN/EIN store (round 23): list / set / reveal (advisor-only) / clear; AES-256-GCM with `IDENTIFIER_ENC_KEY`, tenancy enforced in code, set/reveal/clear audit-logged; `not_configured` until migration 044 + secret land |
+| `api-keys` | Firm-admin JWT (admin-role-gated) → manage the firm's public API keys (sprint 28, migration 046): list / create / revoke; `api_keys` is service-role-only, only a SHA-256 hash + non-secret prefix stored, plaintext returned once, create/revoke audit-logged. Shared key helpers in `_shared/apikey.ts` |
+| `public-api` | API-key auth (verify_jwt=false; self-authenticates the key, scopes every query to its firm). Path-routed `/public-api`: `GET /ping`, `GET /clients\|meetings\|tasks` (read scope), `POST /clients\|tasks` (write scope); meetings scoped via firm client ids; writes audit-logged `api.*`. The Zapier/Make/n8n surface |
 | `log-error` | Public sink for client error reporter |
 | `error-digest` | Cluster new client_errors → Slack alert |
 | `health` | Pipeline liveness probe |

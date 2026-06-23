@@ -55,9 +55,9 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
-          for fn in ai-assist calendar-events calendar-oauth client-identifiers create-checkout-session docusign-connect docusign-envelope \
+          for fn in ai-assist api-keys calendar-events calendar-oauth client-identifiers create-checkout-session docusign-connect docusign-envelope \
                     error-digest generate-invoices health \
-                    log-error plaid-create-link-token plaid-exchange-token platform-admin \
+                    log-error plaid-create-link-token plaid-exchange-token platform-admin public-api \
                     send-push stripe-webhook worm-export; do
             echo "::group::deploy $fn"
             supabase functions deploy "$fn"
