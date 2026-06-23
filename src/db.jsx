@@ -1715,6 +1715,33 @@ async function dbClearIdentifier(clientId, memberId, kind = 'ssn') {
   return await _idInvoke('clear', { client_id: clientId, member_id: memberId, kind });
 }
 
+/* ─── Public API keys (Zapier / integrations, migration 046) ──────────
+   Firm-admin mints/lists/revokes the firm's keys via the `api-keys` edge fn
+   (admin-gated, service role). The plaintext key comes back ONCE from create
+   and is never retrievable again - only a hash is stored. The keys themselves
+   drive the separate `public-api` REST surface. No-ops in demo. */
+async function _apiKeysInvoke(action, payload = {}) {
+  if (!_sb()) return { error: 'demo' };
+  try {
+    const { data, error } = await _sb().functions.invoke('api-keys', { body: { action, ...payload } });
+    if (error) throw error;
+    if (data?.error) return { error: data.error };
+    return data;
+  } catch (e) { console.warn('[db] apiKeys:', e.message); return { error: e.message }; }
+}
+// → [{ id, name, prefix, scopes, last_used_at, revoked_at, created_at }] | null
+async function dbGetApiKeys() {
+  const r = await _apiKeysInvoke('list');
+  return r && !r.error ? (r.keys || []) : null;
+}
+// → { key (plaintext, shown once), row } | { error }
+async function dbCreateApiKey(name, scopes = ['read', 'write']) {
+  return await _apiKeysInvoke('create', { name, scopes });
+}
+async function dbRevokeApiKey(id) {
+  return await _apiKeysInvoke('revoke', { id });
+}
+
 window.db = {
   getClients:          dbGetClients,
   getBookTotals:       dbGetBookTotals,
@@ -1792,6 +1819,9 @@ window.db = {
   setIdentifier:       dbSetIdentifier,
   revealIdentifier:    dbRevealIdentifier,
   clearIdentifier:     dbClearIdentifier,
+  getApiKeys:          dbGetApiKeys,
+  createApiKey:        dbCreateApiKey,
+  revokeApiKey:        dbRevokeApiKey,
   getCalendarStatus:   dbGetCalendarStatus,
   connectCalendar:     dbConnectCalendar,
   disconnectCalendar:  dbDisconnectCalendar,

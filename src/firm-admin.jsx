@@ -28,6 +28,13 @@ const FirmAdminDashboard = () => {
   const [pbPhase,      setPbPhase]      = useStateAdv(0);
   const [pbForm,       setPbForm]       = useStateAdv(null);
   const [pbSaving,     setPbSaving]     = useStateAdv(false);
+  // Public API keys (migration 046). null = loading / unavailable → section hidden
+  // (demo, or before the migration + edge fns land). freshKey = the one-time plaintext.
+  const [apiKeys,      setApiKeys]      = useStateAdv(null);
+  const [newKeyName,   setNewKeyName]   = useStateAdv('');
+  const [newKeyWrite,  setNewKeyWrite]  = useStateAdv(true);
+  const [keyBusy,      setKeyBusy]      = useStateAdv(false);
+  const [freshKey,     setFreshKey]     = useStateAdv(null);
 
   React.useEffect(() => {
     if (!authUser?.id || !window.db) return;
@@ -42,6 +49,7 @@ const FirmAdminDashboard = () => {
       if (r && typeof r.ledger_approval_required === 'boolean') setLedgerGate(r.ledger_approval_required);
     });
     window.db.getFirmPlaybooks?.().then(p => setFirmPlaybooks(p || {}));
+    window.db.getApiKeys?.().then(setApiKeys); // null (demo / pre-migration) keeps the section hidden
   }, [authUser?.id]);
 
   // ── Firm CX playbook authoring (advisor playbook phase 2) ──
@@ -85,6 +93,32 @@ const FirmAdminDashboard = () => {
     if (!row) { setLedgerGate(!next); showToast('Could not update the approval setting'); }
     else showToast(next ? 'Client ledger edits now route to the advisor for approval'
                         : 'Clients save ledger edits directly again');
+  };
+
+  // ── Public API keys (Zapier / integrations) ──
+  const copyText = (t) => {
+    try { navigator.clipboard.writeText(t); showToast('Copied to clipboard'); }
+    catch { showToast('Copy failed - select the text and copy manually'); }
+  };
+  const createApiKey = async () => {
+    const name = (newKeyName || '').trim();
+    if (!name) { showToast('Name the key first (e.g. "Zapier")'); return; }
+    setKeyBusy(true);
+    const r = await window.db.createApiKey(name, newKeyWrite ? ['read', 'write'] : ['read']);
+    setKeyBusy(false);
+    if (r && r.key) {
+      setFreshKey(r.key);
+      setApiKeys(ks => [r.row, ...(ks || [])]);
+      setNewKeyName('');
+      showToast('API key created. Copy it now; it is not shown again.');
+    } else showToast(r?.error || 'Could not create the key');
+  };
+  const revokeApiKey = async (id, name) => {
+    const r = await window.db.revokeApiKey(id);
+    if (r && r.ok) {
+      setApiKeys(ks => (ks || []).map(k => k.id === id ? { ...k, revoked_at: new Date().toISOString() } : k));
+      showToast(`Revoked "${name}"`);
+    } else showToast(r?.error || 'Could not revoke the key');
   };
 
   // ── White-label branding ──
@@ -494,6 +528,91 @@ const FirmAdminDashboard = () => {
             </div>
           </>
         )}
+
+        {/* ── API & integrations (public API keys, migration 046) ── */}
+        {apiKeys !== null && (() => {
+          const PUBLIC_API_BASE = 'https://phabxcijbbphfxvjedfj.supabase.co/functions/v1/public-api';
+          const live = (apiKeys || []).filter(k => !k.revoked_at);
+          return (
+            <>
+              <div className="px-section-head" style={{ marginTop: 8 }}>
+                <h2>API &amp; integrations <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--ink-mute)', marginLeft: 6 }}>Zapier · Make · custom · {live.length} active key{live.length === 1 ? '' : 's'}</span></h2>
+              </div>
+              <div style={{ padding: 14, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, marginBottom: 24 }}>
+                <div style={{ fontSize: 12, color: 'var(--ink-mute)', lineHeight: 1.5, marginBottom: 12 }}>
+                  Mint a key to connect Prism to the rest of your stack: read new clients, meetings, and tasks
+                  into another tool, or create clients and tasks from one. A key carries this firm's identity and
+                  only ever touches this firm's data. The full guide is in <strong>Help → Integrations and API</strong>.
+                </div>
+
+                {/* Base URL */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-mute)', textTransform: 'uppercase', letterSpacing: '.05em' }}>Base URL</span>
+                  <code style={{ fontSize: 12, background: 'var(--surface-2, var(--bg))', padding: '3px 8px', borderRadius: 5, border: '1px solid var(--border)', color: 'var(--ink)' }}>{PUBLIC_API_BASE}</code>
+                  <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => copyText(PUBLIC_API_BASE)}>Copy</button>
+                </div>
+
+                {/* One-time fresh-key reveal */}
+                {freshKey && (
+                  <div style={{ padding: 12, marginBottom: 14, background: 'var(--accent-soft, rgba(0,0,0,.04))', border: '1px solid var(--accent-line, var(--border))', borderRadius: 8 }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>
+                      Your new key - copy it now. For your security it is not shown again.
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <code style={{ fontSize: 12.5, wordBreak: 'break-all', flex: 1, minWidth: 220, background: 'var(--bg)', padding: '6px 9px', borderRadius: 5, border: '1px solid var(--border)', color: 'var(--ink)' }}>{freshKey}</code>
+                      <button className="px-btn px-btn-sm px-btn-primary" onClick={() => copyText(freshKey)}>Copy key</button>
+                      <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => setFreshKey(null)}>Done</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Create */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+                  <input className="px-input" style={{ width: 'auto', flex: 1, minWidth: 160 }} placeholder='Key name, e.g. "Zapier"'
+                    value={newKeyName} maxLength={80} onChange={e => setNewKeyName(e.target.value)} />
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--ink)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    <input type="checkbox" checked={newKeyWrite} onChange={e => setNewKeyWrite(e.target.checked)} />
+                    Allow write
+                  </label>
+                  <button className="px-btn px-btn-sm px-btn-primary" onClick={createApiKey} disabled={keyBusy}>
+                    {keyBusy ? 'Creating…' : 'Create key'}
+                  </button>
+                </div>
+
+                {/* Existing keys */}
+                {live.length === 0 && (apiKeys || []).length === 0 ? (
+                  <div style={{ fontSize: 12.5, color: 'var(--ink-faint)' }}>No keys yet. Create one above to get started.</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {(apiKeys || []).map(k => {
+                      const revoked = !!k.revoked_at;
+                      const canWrite = (k.scopes || []).includes('write');
+                      return (
+                        <div key={k.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px',
+                          background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 7, opacity: revoked ? 0.55 : 1 }}>
+                          <div style={{ flex: 1, minWidth: 140 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
+                              {k.name}
+                              <code style={{ fontSize: 11, fontWeight: 400, color: 'var(--ink-faint)', marginLeft: 8 }}>{k.prefix}…</code>
+                            </div>
+                            <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 2 }}>
+                              {canWrite ? 'Read + write' : 'Read only'} · created {new Date(k.created_at).toLocaleDateString()} ·{' '}
+                              {revoked ? 'revoked' : (k.last_used_at ? `last used ${window.db.timeAgo(k.last_used_at)}` : 'never used')}
+                            </div>
+                          </div>
+                          {!revoked && (
+                            <button className="px-btn px-btn-sm px-btn-ghost" style={{ color: 'var(--brick)' }}
+                              onClick={() => revokeApiKey(k.id, k.name)}>Revoke</button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </>
+          );
+        })()}
 
         {/* ── CX playbook authoring (advisor playbook phase 2, migration 045) ── */}
         {firmPlaybooks !== null && pbForm && (() => {

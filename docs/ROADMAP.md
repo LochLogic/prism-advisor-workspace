@@ -137,7 +137,16 @@ a demo into a "yes," then depth and reach.
   registration remains (human queue). *Open refinements: a
   free/busy picker inside the meeting scheduler; inbound sync of externally
   created events into Prism meetings.*
-- **Zapier / public API** - connect Prism to the rest of a firm's stack.
+- **Zapier / public API - SHIPPED 2026-06-23 (sprint 28).** A firm-scoped public REST
+  API (the `public-api` edge fn, API-key auth, `verify_jwt = false`, every query scoped to
+  the key's firm) plus firm-admin key management (`api-keys` edge fn, admin-gated mint /
+  list / revoke; migration 046 `api_keys`, service-role-only, only a SHA-256 hash stored).
+  v1 surface: GET clients / meetings / tasks (read scope) + POST clients / tasks (write
+  scope) + a `/ping` connection test; writes are audit-logged with the key as source. The
+  firm-admin "API & integrations" section mints keys (shown once); the "Integrations and
+  API" Help guide documents the Zapier/Make/n8n wiring. *Next when wanted:* more triggers
+  (acknowledgement signed, invoice approved), an outbound webhook so events push instead of
+  poll, and a published Zapier app.
 
 ### Tier B - Wedge deepeners (retire a paid tool)
 - **Deeper planning intelligence - the priority track.** The advisor wants planning
@@ -352,7 +361,9 @@ mentions) plus seven design items. **All seven were green-lit and built in round
 7. **Training & onboarding content - PHASE 1 SHIPPED round 23** (the
    recommendation below, built: `docs/guides/advisor-onboarding.md` "first 30
    days" guide → searchable in-app Help drawer + printable `/guides/<slug>/`
-   page; next: more guides, per-surface walkthrough clips). The shape:
+   page. Five guides now ship through the pipeline: advisor onboarding, client
+   portal, firm-admin, integrations & API, and compliance & exams [last two
+   sprint 28]. Next: per-surface walkthrough clips). The shape:
    author once in markdown (`docs/guides/`), render twice - (a) a
    searchable in-app Help drawer, (b) downloadable searchable PDFs via the
    `build-whitepaper.mjs` pipeline pattern - so the PDF is always an artifact, never

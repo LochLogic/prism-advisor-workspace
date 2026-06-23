@@ -19,6 +19,61 @@
 
 ---
 
+## 2026-06-23 (sprint 28) - Public API + Zapier · two new Help guides
+
+PR (pending). Build · smoke (57) · calc (244) · lint all green; RLS-isolation check 10
+added. **Carries migration 046 (`api_keys`) - apply to prod after merge (confirm-gated) -
+plus two new edge functions (`api-keys`, `public-api`) via the gated deploy.** No secrets
+(the functions use the auto-present SUPABASE_URL / SERVICE_ROLE_KEY / ANON_KEY), no money.
+
+**What shipped** - the two "ready to build" Claude-queue items.
+
+- **Public REST API for firm integrations** (Zapier / Make / n8n / custom). A firm admin
+  mints an API key; the key carries that firm's identity and only ever touches that firm's
+  data.
+  - **Migration 046 `api_keys`** - service-role-only (RLS on, ZERO policies), mirroring
+    `client_identifiers` (044). The full key is NEVER stored: only a SHA-256 hash (for
+    lookup) + a short non-secret `prefix` (for display). `scopes` (`read`/`write`) gate
+    capability. RLS-isolation **check 10** proves no authenticated/anon caller can read or
+    forge a row.
+  - **`api-keys` edge fn** (advisor JWT, `verify_jwt = true`, **admin-role-gated**):
+    list / create / revoke, all firm-scoped, create + revoke audit-logged. The plaintext
+    key is returned exactly once by `create`.
+  - **`public-api` edge fn** (`verify_jwt = false`; authenticates the key itself, the
+    stripe-webhook/worm-export self-auth pattern). Path-routed under `/public-api`:
+    `GET /ping` (connection test), `GET /clients|meetings|tasks` (read scope, newest-first,
+    `?since=&limit=`), `POST /clients|tasks` (write scope). Every query scoped to the key's
+    `firm_id`; meetings (no `firm_id` column) scoped through the firm's client ids; a POSTed
+    `client_id` is validated to be in-firm. API writes are audit-logged (`api.client.create`
+    / `api.task.create`) with the key noted as source. Permissive CORS (bearer/key auth, no
+    cookies), distinct from the browser-locked `_shared/cors.ts`. Shared key helpers in
+    `_shared/apikey.ts` (generate / SHA-256 hex / read presented key) keep the two functions
+    in lockstep.
+  - **Frontend:** `db.getApiKeys / createApiKey / revokeApiKey` (via the `api-keys` fn;
+    no-op/null in demo + pre-migration, so the UI degrades quietly). New firm-admin
+    **"API & integrations"** section (advisor bundle only, admin-gated): base URL + copy,
+    create (name + read/write toggle), the one-time fresh-key reveal ("not shown again"),
+    and the live-key list with prefix / scope / created / last-used + Revoke. Hidden in demo
+    (getApiKeys returns null), like the other firm-admin data sections.
+- **Two new Help guides** through the existing pipeline (markdown → searchable Help drawer +
+  printable `/guides/<slug>/`): **`integrations-and-api.md`** (mint a key, the endpoints,
+  Zapier/Make/n8n wiring, key safety) and **`compliance-and-exams.md`** (the audit trail,
+  the books-and-records packet, the CSV exports, retention, exam rhythm). Five guides total;
+  both advisor-audience, embedded in `bundle.js`, absent from `portal.js`.
+
+**Verification:** build/lint/57 smoke/244 calc green. In the demo preview: app boots clean
+(zero console errors), the Help drawer lists all five guides, and the Integrations guide
+opens with its full body (mint steps, endpoints, Zapier, auth headers). The firm-admin API
+section is admin-role-gated, so it can't mount in the advisor-only demo (it stays correctly
+hidden until a real admin + the deployed backend); verified structurally (esbuild compile +
+lint + the identical section pattern as the adjacent Workflow/CX blocks). The edge functions
++ migration land at deploy.
+
+**Deploy hand-off:** apply migration 046 to prod (Claude-applied via the Management API
+after merge); run the gated edge deploy (`api-keys` + `public-api` now in `deploy.yml`).
+Both degrade to `not_configured` until they land, so order is safe. No secrets, no
+human-queue items.
+
 ## 2026-06-22 (sprint 27c) - CX playbook phase 3: firm-admin quality view (on-script %)
 
 PR (pending). Build · smoke (57) · calc (244) · lint all green. **No migration, no secrets,
