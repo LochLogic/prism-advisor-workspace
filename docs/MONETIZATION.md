@@ -239,6 +239,9 @@ clock early - it is the longest pole. The full plain-language plan for both live
 - **2026-06-22** - Strategy stance affirmed: A (bootstrap) is the spine and proof engine; C
   (white-label) is the highest-leverage parallel track to probe now; raise only to fund C/D,
   not to sell more subscriptions. No commitment yet to any specific partner or raise.
+- **2026-06-22** - SSO approach decided (Supabase-native SAML first, WorkOS when breadth or
+  SCIM is needed; paid Enterprise add-on, built on a committed deal). See
+  [`SOC2-SSO-READINESS.md`](SOC2-SSO-READINESS.md).
 
 ## Open questions
 
