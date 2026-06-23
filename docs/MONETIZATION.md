@@ -242,6 +242,9 @@ clock early - it is the longest pole. The full plain-language plan for both live
 - **2026-06-22** - SSO approach decided (Supabase-native SAML first, WorkOS when breadth or
   SCIM is needed; paid Enterprise add-on, built on a committed deal). See
   [`SOC2-SSO-READINESS.md`](SOC2-SSO-READINESS.md).
+- **2026-06-22** - SOC 2 document cache started in a private repo
+  (`LochLogic/prism-compliance`, DRAFT) while the auditor/platform engagement is deferred;
+  public site will only describe the posture (a Trust page), never host the documents.
 
 ## Open questions
 
