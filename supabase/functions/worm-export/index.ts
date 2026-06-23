@@ -1,11 +1,21 @@
 // Prism Edge Function: worm-export  (SEC 17a-4 retention pipeline)
 // Exports the last 24h of the append-only audit_log plus any records archived
 // in that window to a PRIVATE Storage bucket as a timestamped JSON file.
-// Files are written with upsert:false (never overwritten) → append-only.
+// Files are written with upsert:false (never overwritten) -> append-only.
 //
-// NOTE on "storage-grade WORM": Supabase Storage is private + never-overwritten
-// here, but does not enforce object-lock immutability. For full 17a-4 WORM,
-// point/replicate this bucket to object-lock storage (e.g. S3 Object Lock).
+// 17a-4-grade WORM: when the WORM_S3_* secrets are configured, the SAME archive
+// is ALSO written to an object-lock (retention-locked) S3 bucket in COMPLIANCE
+// mode, so the record cannot be altered or deleted by anyone - including the
+// account owner - until retention expires. Dormant (Supabase-only, exactly as
+// before) until those secrets are provisioned; the object-lock write is wrapped
+// so it can never fail the primary private archive.
+//
+// To enable object-lock (provisioning is a human step): create an S3-compatible
+// bucket with Object Lock enabled in COMPLIANCE mode + a default retention
+// (~6 years), create scoped write-only credentials, then set the secrets:
+//   WORM_S3_BUCKET, WORM_S3_KEY_ID, WORM_S3_SECRET
+//   WORM_S3_REGION (default us-east-1), WORM_S3_ENDPOINT (non-AWS providers only),
+//   WORM_S3_RETAIN_DAYS (default 2192 ~= 6 years), WORM_S3_RETAIN_MODE (default COMPLIANCE)
 //
 // Auth: x-cron-secret (CRON_SECRET) for the scheduled run, OR a firm-admin JWT
 // for a manual trigger. Deploy: supabase functions deploy worm-export --no-verify-jwt
@@ -16,6 +26,39 @@ import { safeEqual } from "../_shared/auth.ts";
 
 function json(o: unknown, s = 200) {
   return new Response(JSON.stringify(o), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
+// Optional 17a-4 object-lock replication. Returns a short status string and
+// NEVER throws - the primary private archive must not depend on it.
+async function replicateToObjectLock(path: string, body: string): Promise<string> {
+  const bucket = Deno.env.get("WORM_S3_BUCKET");
+  const keyId = Deno.env.get("WORM_S3_KEY_ID");
+  const secret = Deno.env.get("WORM_S3_SECRET");
+  if (!bucket || !keyId || !secret) return "not_configured";
+  try {
+    const { S3Client, PutObjectCommand } = await import("npm:@aws-sdk/client-s3@3");
+    const endpoint = Deno.env.get("WORM_S3_ENDPOINT") || undefined;
+    const region = Deno.env.get("WORM_S3_REGION") || "us-east-1";
+    const retainDays = parseInt(Deno.env.get("WORM_S3_RETAIN_DAYS") || "2192", 10);
+    const mode = (Deno.env.get("WORM_S3_RETAIN_MODE") || "COMPLIANCE").toUpperCase();
+    const s3 = new S3Client({
+      region,
+      endpoint,
+      forcePathStyle: !!endpoint, // path-style for S3-compatible (non-AWS) providers
+      credentials: { accessKeyId: keyId, secretAccessKey: secret },
+    });
+    await s3.send(new PutObjectCommand({
+      Bucket: bucket,
+      Key: path,
+      Body: body,
+      ContentType: "application/json",
+      ObjectLockMode: mode as "COMPLIANCE" | "GOVERNANCE",
+      ObjectLockRetainUntilDate: new Date(Date.now() + retainDays * 86400 * 1000),
+    }));
+    return "written";
+  } catch (e) {
+    return `error:${(e as Error).message}`;
+  }
 }
 
 Deno.serve(async (req) => {
@@ -57,18 +100,23 @@ Deno.serve(async (req) => {
       archived_meetings: meetings.data || [],
     };
 
+    const body = JSON.stringify(payload, null, 2);
     const now = new Date();
     const path = `audit/${now.toISOString().slice(0, 10)}/${now.toISOString().replace(/[:.]/g, "-")}.json`;
     const { error } = await admin.storage.from("compliance-archive")
-      .upload(path, JSON.stringify(payload, null, 2), { contentType: "application/json", upsert: false });
+      .upload(path, body, { contentType: "application/json", upsert: false });
     if (error) return json({ error: `Upload failed: ${error.message}` }, 400);
+
+    // Also write to an object-lock (retention-locked) bucket for full 17a-4 WORM.
+    // Dormant until WORM_S3_* secrets are set; never fails this run.
+    const objectLock = await replicateToObjectLock(path, body);
 
     await admin.from("audit_log").insert({
       actor_role: "system", action: "worm.export", entity_type: "archive", entity_id: path,
-      summary: `Archived ${payload.counts.audit} audit row(s) to ${path}`,
+      summary: `Archived ${payload.counts.audit} audit row(s) to ${path}` + (objectLock === "written" ? " (+object-lock)" : ""),
     });
 
-    return json({ ok: true, path, counts: payload.counts });
+    return json({ ok: true, path, counts: payload.counts, objectLock });
   } catch (e) {
     return json({ error: (e as Error).message }, 400);
   }

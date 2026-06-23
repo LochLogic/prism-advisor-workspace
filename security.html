@@ -106,10 +106,10 @@
     <tr><td>TLS in transit; encryption at rest</td><td><span class="pill now">In place</span></td></tr>
     <tr><td>Enforced CSP + HSTS + hardened headers</td><td><span class="pill now">In place</span></td></tr>
     <tr><td>Append-only audit trail + immutable versioning</td><td><span class="pill now">In place</span></td></tr>
-    <tr><td>Daily WORM-style archive to private storage</td><td><span class="pill now">In place</span></td></tr>
+    <tr><td>Daily append-only (write-once) archive to private storage</td><td><span class="pill now">In place</span></td></tr>
     <tr><td>Automated tenant-isolation (RLS) test suite</td><td><span class="pill now">In place</span></td></tr>
     <tr><td>Production database tier with point-in-time backups</td><td><span class="pill next">Provisioned before live-client onboarding</span></td></tr>
-    <tr><td>Object-lock immutable storage for the archive (full 17a-4-grade WORM)</td><td><span class="pill next">On the roadmap</span></td></tr>
+    <tr><td>Object-lock immutable (retention-locked) archive tier, full 17a-4-grade WORM</td><td><span class="pill next">In progress</span></td></tr>
     <tr><td>Documented information-security policies + control mapping (Trust Services Criteria)</td><td><span class="pill next">Drafted, in review</span></td></tr>
     <tr><td>SOC 2 (Security) examination</td><td><span class="pill next">Readiness underway</span></td></tr>
   </table>
@@ -118,7 +118,7 @@
   <p>We are actively pursuing a <strong>SOC 2</strong> examination, scoped to the <strong>Security</strong> Trust Services Criteria first, with a Type II report as the goal. Our information-security policies, sub-processor register, and a mapping of our controls to the Trust Services Criteria are documented and being formalized ahead of engaging an independent auditor. This reflects substantial work already done; it is not a certification we hold today.</p>
   <p>Detailed security documentation - our policy set, sub-processor register, and control mapping - is available to prospective firms and partners <strong>under NDA on request</strong>. Email <a href="mailto:security@prismaw.com">security@prismaw.com</a> to request access.</p>
 
-  <p class="callout fs135"><strong>Forward-looking statements.</strong> Items marked "On the roadmap," "Readiness underway," or "Drafted, in review" reflect our current development plans and security goals. These items are for informational purposes only, are subject to change without notice, and do not constitute a binding commitment or warranty to deliver specific features or certifications on any particular timeline.</p>
+  <p class="callout fs135"><strong>Forward-looking statements.</strong> Items not marked "In place" reflect our current development plans and security goals. These items are for informational purposes only, are subject to change without notice, and do not constitute a binding commitment or warranty to deliver specific features or certifications on any particular timeline.</p>
 
   <div class="callout">
     <strong>Vulnerability disclosure &amp; safe harbor.</strong> If you believe you have found a security issue, we want to hear from you. Email
