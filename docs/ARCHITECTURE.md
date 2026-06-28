@@ -13,8 +13,8 @@
 > `printClientCompliancePacket` (per-household books-&-records). New in-file components:
 > `MeetingAvailability` (advisor-modal, scheduler free/busy) + `FunnelPanel` (platform-admin).
 > A sixth Help guide (`planning-tools`). No `src/*` file added and no load-order change.
-> **Advisor MFA is fully built** (enroll/enforce/challenge across shell.jsx/auth.jsx/login.html;
-> recovery via platform `reset_mfa`) - only the Supabase TOTP toggle is left.
+> **Advisor MFA is fully LIVE** (enroll/enforce/challenge across shell.jsx/auth.jsx/login.html;
+> recovery via platform `reset_mfa`) - TOTP confirmed enabled in Supabase Auth 2026-06-27.
 > Sprint 28 added migration `046` (`api_keys`),
 > two edge functions (`api-keys`, `public-api`) + `_shared/apikey.ts`, three `window.db`
 > methods (`getApiKeys`/`createApiKey`/`revokeApiKey`), a firm-admin "API & integrations"

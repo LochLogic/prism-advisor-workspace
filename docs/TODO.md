@@ -141,11 +141,6 @@ dashboards I can't reach. **🔴 = a hard blocker for the first live client.**
   `DOCUSIGN_OAUTH_BASE` → `account.docusign.com`, update `DOCUSIGN_REST_BASE`, recreate the
   Connect webhook + HMAC. Sequence with the live-keys decision. Runbook:
   [`docusign-setup.md`](docusign-setup.md).
-- [ ] **Toggle TOTP factor support** in Supabase → Authentication → Providers. Advisor MFA
-  is fully built (enrollment in the account menu, aal2 enforcement in `auth.jsx`, the
-  sign-in challenge card in `login.html`, and recovery via the Platform tab's "Reset 2FA").
-  This toggle is the only step left to make it live. It is also the on-ramp for enterprise
-  SSO later (same auth path, see [`SOC2-SSO-READINESS.md`](SOC2-SSO-READINESS.md)).
 
 ## 4. Trust track for institutional deals (long lead, start early)
 
