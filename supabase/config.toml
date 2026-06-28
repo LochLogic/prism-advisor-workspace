@@ -53,6 +53,12 @@ verify_jwt = true
 [functions.api-keys]
 verify_jwt = true
 
+# Firm management of outbound webhook endpoints + the browser-triggered `emit`
+# (migration 048). Browser-called by a signed-in advisor (admin-gated for CRUD);
+# keep the platform JWT gate on, the role check is the real authorization.
+[functions.webhooks]
+verify_jwt = true
+
 # Public/system/cron functions. NOTE: generate-invoices and worm-export accept
 # BOTH a pg_cron call (x-cron-secret, no JWT) and an admin call (validated in
 # code via supa.auth.getUser), so the platform gate must be OFF or the cron path

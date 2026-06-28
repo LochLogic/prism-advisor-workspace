@@ -58,7 +58,7 @@ jobs:
           for fn in ai-assist api-keys calendar-events calendar-oauth client-identifiers create-checkout-session docusign-connect docusign-envelope \
                     error-digest generate-invoices health \
                     log-error plaid-create-link-token plaid-exchange-token platform-admin public-api \
-                    send-push stripe-webhook worm-export; do
+                    send-push stripe-webhook webhooks worm-export; do
             echo "::group::deploy $fn"
             supabase functions deploy "$fn"
             echo "::endgroup::"

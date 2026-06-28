@@ -13,15 +13,21 @@
 //     (high-volume polling; the data is masked-free but firm-scoped).
 //
 // Routes (under /functions/v1/public-api):
-//   GET  /ping                      → connection test (Zapier "Test")
-//   GET  /clients   ?since=&limit=  → households, newest first
-//   GET  /meetings  ?since=&limit=  → logged/scheduled meetings, newest first
-//   GET  /tasks     ?since=&limit=  → CRM tasks, newest first
+//   GET  /ping                       → connection test (Zapier "Test")
+//   GET  /clients          ?since=&limit=  → households, newest first
+//   GET  /meetings         ?since=&limit=  → logged/scheduled meetings, newest first
+//   GET  /tasks            ?since=&limit=  → CRM tasks, newest first
+//   GET  /invoices         ?since=&limit=  → advisory-fee invoices, newest first
+//   GET  /acknowledgements ?since=&limit=  → disclosures + e-sign state, newest first
 //   POST /clients   { household_name, short_name?, household_tag?, current_phase? }
 //   POST /tasks     { title, detail?, priority?, due_at?, client_id? }
+//
+// On a write, an outbound webhook (migration 048) fires client.created /
+// task.created to any endpoints the firm registered.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { sha256Hex, readPresentedKey } from "../_shared/apikey.ts";
+import { dispatchWebhooks } from "../_shared/webhooks.ts";
 
 // Public API → permissive CORS (bearer/key auth, no cookies). Distinct from the
 // browser-locked _shared/cors.ts on purpose: callers are external servers, not prismaw.com.
@@ -59,6 +65,15 @@ const taskOut = (t: Record<string, unknown>) => ({
   id: t.id, client_id: t.client_id || null, title: t.title, detail: t.detail || null,
   priority: t.priority || "normal", status: t.status || "open", due_at: t.due_at || null,
   created_at: t.created_at,
+});
+const invoiceOut = (i: Record<string, unknown>) => ({
+  id: i.id, client_id: i.client_id, period_start: i.period_start, period_end: i.period_end,
+  basis_amount: Number(i.basis_amount) || 0, fee_amount: Number(i.fee_amount) || 0,
+  status: i.status || "draft", created_at: i.created_at,
+});
+const ackOut = (a: Record<string, unknown>) => ({
+  id: a.id, client_id: a.client_id, title: a.title, status: a.status || "pending",
+  acknowledged_at: a.acknowledged_at || null, created_at: a.created_at,
 });
 
 Deno.serve(async (req) => {
@@ -148,6 +163,28 @@ Deno.serve(async (req) => {
         return json({ tasks: (data || []).map(taskOut) });
       }
 
+      if (resource === "invoices") {
+        let q = db.from("invoices")
+          .select("id, client_id, period_start, period_end, basis_amount, fee_amount, status, created_at")
+          .eq("firm_id", firmId)
+          .order("created_at", { ascending: false }).limit(limit);
+        if (since) q = q.gte("created_at", since);
+        const { data, error } = await q;
+        if (error) throw error;
+        return json({ invoices: (data || []).map(invoiceOut) });
+      }
+
+      if (resource === "acknowledgements") {
+        let q = db.from("acknowledgements")
+          .select("id, client_id, title, status, acknowledged_at, created_at")
+          .eq("firm_id", firmId)
+          .order("created_at", { ascending: false }).limit(limit);
+        if (since) q = q.gte("created_at", since);
+        const { data, error } = await q;
+        if (error) throw error;
+        return json({ acknowledgements: (data || []).map(ackOut) });
+      }
+
       if (resource === "meetings") {
         // meetings has no firm_id - scope through the firm's clients.
         const { data: cids } = await db.from("clients").select("id").eq("firm_id", firmId);
@@ -186,6 +223,7 @@ Deno.serve(async (req) => {
         }).select("id, household_name, short_name, household_tag, current_phase, aum, created_at, updated_at").single();
         if (error) throw error;
         await audit("api.client.create", `API created client ${data.household_name}`, data.id);
+        dispatchWebhooks(db, firmId, "client.created", clientOut(data));
         return json({ client: clientOut(data) }, 201);
       }
 
@@ -210,6 +248,7 @@ Deno.serve(async (req) => {
         }).select("id, client_id, title, detail, priority, status, due_at, created_at").single();
         if (error) throw error;
         await audit("api.task.create", `API created task: ${data.title}`, clientId);
+        dispatchWebhooks(db, firmId, "task.created", taskOut(data));
         return json({ task: taskOut(data) }, 201);
       }
 

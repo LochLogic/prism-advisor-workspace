@@ -16,8 +16,11 @@
 
 **Project facts:** ref `phabxcijbbphfxvjedfj` · domain `prismaw.com` · prod audited
 2026-06-22 (repo migrations `001-045` applied, 17 repo edge functions ACTIVE). Sprint 28
-(2026-06-23) adds migration `046` (`api_keys`) + two edge functions (`api-keys`,
-`public-api`); applied/deployed to prod on merge, so repo = live again.
+(2026-06-23) added migration `046` (`api_keys`) + two edge functions (`api-keys`,
+`public-api`). Sprint 29 (2026-06-27) adds migrations `047` (`px_ledger_draft_alert`
+trigger) + `048` (`webhooks`) and one new edge function (`webhooks`), with edits to
+`platform-admin` / `ai-assist` / `public-api` / `docusign-connect`; Claude-applied +
+gated-deployed on merge, so repo = live again (18 repo edge functions).
 
 ---
 
@@ -26,17 +29,10 @@
 ## Ready to build now
 These need nothing from you. Say the word on any one and I ship it.
 
-- [ ] **Advisor MFA (TOTP).** Enforce a TOTP second factor in the advisor auth path
-  (Supabase Auth supports it natively). Steps: add enrollment + challenge UI to
-  `auth.jsx`, gate the advisor session on an `aal2` check, add a recovery path.
-  *↔ Depends on you flipping the TOTP factor toggle in Supabase Auth (your queue).*
-  This is also the on-ramp for enterprise SSO later (same auth path, see
-  [`SOC2-SSO-READINESS.md`](SOC2-SSO-READINESS.md)).
-- [ ] **More in-app guides** *(2 shipped in sprint 28; pipeline is one markdown file per
-  guide → searchable Help drawer + printable `/guides/<slug>/`).* Live now: advisor
-  onboarding, client portal, firm-admin, **integrations & API**, **compliance & exams**.
-  Next candidates: per-surface walkthrough clips, or a planning-tools deep-dive. Pick one
-  and I write it.
+- [ ] **More in-app guides** *(pipeline is one markdown file per guide → searchable Help
+  drawer + printable `/guides/<slug>/`).* Live now (6): advisor onboarding, client portal,
+  firm-admin, integrations & API, compliance & exams, **planning tools** (sprint 29).
+  Next candidates: per-surface walkthrough clips. Pick one and I write it.
 
 ## Build when unblocked
 The code is understood; each waits on one external thing.
@@ -145,8 +141,11 @@ dashboards I can't reach. **🔴 = a hard blocker for the first live client.**
   `DOCUSIGN_OAUTH_BASE` → `account.docusign.com`, update `DOCUSIGN_REST_BASE`, recreate the
   Connect webhook + HMAC. Sequence with the live-keys decision. Runbook:
   [`docusign-setup.md`](docusign-setup.md).
-- [ ] **Toggle TOTP factor support** in Supabase → Authentication → Providers, once I've
-  built Advisor MFA (Claude's queue).
+- [ ] **Toggle TOTP factor support** in Supabase → Authentication → Providers. Advisor MFA
+  is fully built (enrollment in the account menu, aal2 enforcement in `auth.jsx`, the
+  sign-in challenge card in `login.html`, and recovery via the Platform tab's "Reset 2FA").
+  This toggle is the only step left to make it live. It is also the on-ramp for enterprise
+  SSO later (same auth path, see [`SOC2-SSO-READINESS.md`](SOC2-SSO-READINESS.md)).
 
 ## 4. Trust track for institutional deals (long lead, start early)
 
