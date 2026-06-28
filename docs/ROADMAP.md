@@ -410,10 +410,11 @@ mentions) plus seven design items. **All seven were green-lit and built in round
   track (a losing comparison vs. custodian apps the client already has).
 
 ### Trust & control
-- **Advisor MFA (TOTP) - SHIPPED** (enrollment `SecurityModal`, aal2 enforcement in
+- **Advisor MFA (TOTP) - SHIPPED & LIVE** (enrollment `SecurityModal`, aal2 enforcement in
   `auth.jsx`, the sign-in challenge card in `login.html`; **recovery added sprint 29** via
-  the Platform tab's `reset_mfa`). The only step left is flipping the TOTP factor toggle in
-  Supabase Auth (human queue). On-ramp for enterprise SSO (same auth path).
+  the Platform tab's `reset_mfa`). TOTP confirmed enabled in Supabase Auth 2026-06-27 -
+  nothing left to flip; advisors can enroll a second factor today. On-ramp for enterprise
+  SSO (same auth path).
 - **Advisor-approval commit gate for client ledger edits - SHIPPED 2026-06-10
   (round 12).** Opt-in per-firm toggle (firm-admin "Workflow" section, default OFF).
   When on, a client's Numbers-drawer saves route into ONE open draft row
