@@ -14,11 +14,11 @@
     "test:e2e": "playwright test"
   },
   "devDependencies": {
-    "@playwright/test": "^1.49.0",
-    "esbuild": "^0.28.0",
-    "eslint": "^10.4.1",
-    "globals": "^17.6.0",
-    "supabase": "^2.106.0",
-    "wrangler": "^4.100.0"
+    "@playwright/test": "^1.61.1",
+    "esbuild": "^0.28.1",
+    "eslint": "^10.6.0",
+    "globals": "^17.7.0",
+    "supabase": "^2.108.0",
+    "wrangler": "^4.105.0"
   }
 }
