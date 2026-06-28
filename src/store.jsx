@@ -1785,6 +1785,74 @@ function printExamPacket(opts) {
   `);
 }
 
+// Per-client books-&-records packet - the exam packet's single-household analog
+// (ROADMAP "per-client packets"). Richer than printComplianceReport: it adds the
+// acknowledgement e-sign record and the advisory-fee invoices alongside the audit
+// trail, meeting record, and profile-version count. A pure renderer; the quick
+// view gathers the pieces.
+//   opts: { client, acknowledgements, invoices, auditEntries, meetings,
+//           versionCount, feeScheduleName, generatedBy }
+function printClientCompliancePacket(opts) {
+  window.db?.track?.('report_printed', { meta: { kind: 'client-compliance-packet' } });
+  const o = opts || {};
+  const client = o.client || {};
+  const date = new Date().toLocaleString('en-US', { dateStyle: 'long', timeStyle: 'short' });
+  const d = (iso, t) => iso ? new Date(iso).toLocaleString('en-US', t ? { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' } : { month: 'short', day: 'numeric', year: 'numeric' }) : '-';
+
+  const acksHtml = (o.acknowledgements || []).length
+    ? (o.acknowledgements || []).map(a => `
+        <div class="task"><span class="f140">${escapeHtml(a.title || 'Acknowledgement')}</span>
+          <span class="mut fs11 nw">req ${d(a.requested_at || a.created_at)}</span>
+          <span class="mut">${a.status === 'signed' || a.acknowledged_at
+            ? `signed ${d(a.acknowledged_at)}${a.signer_name ? ' · ' + escapeHtml(a.signer_name) : ''}${a.provider === 'docusign' ? ' · DocuSign' : ''}`
+            : escapeHtml(a.envelope_status || a.status || 'pending')}</span></div>`).join('')
+    : '<div class="task mut2">No acknowledgements requested for this household.</div>';
+
+  const invoicesHtml = (o.invoices || []).length
+    ? (o.invoices || []).map(i => `
+        <div class="task"><span class="mut fs11 nw">${d(i.period_start)} – ${d(i.period_end)}</span>
+          <span class="f140">${fmt$(i.fee_amount)}</span>
+          <span class="mut">${i.basis_amount ? `on ${fmt$(Number(i.basis_amount), { short: true })}` : ''}</span>
+          <span>${escapeHtml(i.status || '')}</span></div>`).join('')
+    : '<div class="task mut2">No advisory-fee invoices on record.</div>';
+
+  const meetingsHtml = (o.meetings || []).length
+    ? `<div class="section-lbl">4 · Meeting record</div>${(o.meetings || []).map(m => `
+        <div class="mtg"><div class="mtg-date">${d(m.met_at)}${m.duration_min ? ` &middot; ${Number(m.duration_min)} min` : ''}</div>${m.notes ? `<div class="mtg-notes">${escapeHtml(m.notes)}</div>` : ''}</div>`).join('')}`
+    : '';
+
+  const auditHtml = (o.auditEntries || []).length
+    ? (o.auditEntries || []).map(e => `
+        <div class="task"><span class="mut fs11 nw">${d(e.occurred_at, true)}</span>
+          <span class="f140">${escapeHtml(AUDIT_ACTION_LABELS[e.action] || e.action)}</span>
+          <span class="mut">${escapeHtml(e.actor_email || '')}</span>
+          <span>${escapeHtml(e.summary || '')}</span></div>`).join('')
+    : '<div class="task mut2">No recorded actions for this household.</div>';
+
+  _openPrint(`Compliance Packet - ${escapeHtml(client.name)}`, `
+    <div class="rpt-head">
+      <div><h1>${escapeHtml(client.name)}</h1>
+        <div class="sub">Household books &amp; records packet &middot; Generated ${date}${o.generatedBy ? ` by ${escapeHtml(o.generatedBy)}` : ''}</div></div>
+      <div class="rpt-meta">Prism Advisor Workspace<br/>Confidential &middot; SEC 17a-3 / 17a-4</div>
+    </div>
+    <div class="grid">
+      <div class="stat"><div class="stat-lbl">Fee schedule</div><div class="stat-val sv13">${escapeHtml(o.feeScheduleName || 'Not assigned')}</div></div>
+      <div class="stat"><div class="stat-lbl">Acknowledgements</div><div class="stat-val">${(o.acknowledgements || []).length}</div></div>
+      <div class="stat"><div class="stat-lbl">Invoices</div><div class="stat-val">${(o.invoices || []).length}</div></div>
+      <div class="stat"><div class="stat-lbl">Profile versions</div><div class="stat-val">${Number(o.versionCount) || 0}</div></div>
+    </div>
+    <div class="section-lbl">1 · Disclosures &amp; acknowledgements (e-sign record)</div>${acksHtml}
+    <div class="section-lbl">2 · Advisory-fee invoices</div>${invoicesHtml}
+    <div class="section-lbl">3 · Audit trail (append-only)</div>${auditHtml}
+    ${meetingsHtml}
+    <div class="section-lbl">5 · Retention statement</div>
+    <div class="rpt-p">This household's audit trail is part of the firm's append-only ledger (no update or delete
+      policy exists on the table); a scheduled export copies entries to a private write-once bucket per SEC Rule
+      17a-4. Profile changes are versioned. Records are archived, never erased.</div>
+    <div class="footer">This packet reflects this household's books and records as of generation time. Prism Advisor Workspace.</div>
+  `);
+}
+
 // Client-facing performance report - branded, printable PDF (Theme D, 18b).
 // Takes pre-computed data so it has no dependency on where the math lives.
 //   opts: { client, series:[{date,value}], periods:[{label,pct}], flows:[{flow_date,amount,kind}], advisorName, advisorFirm }
@@ -1964,6 +2032,13 @@ function printQBRReport(opts) {
        <div class="rpt-p">Equity ${o.risk.allocation.equity}% &middot; Fixed income ${o.risk.allocation.fixedIncome}% &middot; Cash ${o.risk.allocation.cash}%</div>`
     : '';
 
+  // Optional AI-drafted opening narrative (4b). Plain prose → paragraphs; the
+  // advisor reviews and owns it (it prints as part of the packet, not a chat).
+  const narrativeHtml = o.narrative
+    ? `<div class="section-lbl">This quarter</div>${String(o.narrative).split(/\n\n+/).filter(Boolean)
+        .map(p => `<div class="rpt-p">${escapeHtml(p.trim())}</div>`).join('')}`
+    : '';
+
   _openPrint(`Quarterly Review - ${escapeHtml(client.name)}`, `
     <div class="rpt-head">
       <div><h1>Quarterly Business Review</h1><div class="sub">${escapeHtml(client.name)} &middot; ${date}</div></div>
@@ -1974,6 +2049,7 @@ function printQBRReport(opts) {
       <div class="stat"><div class="stat-lbl">Managed assets</div><div class="stat-val">${fmt$(o.aum, { short: true })}</div></div>
       <div class="stat"><div class="stat-lbl">Current horizon</div><div class="stat-val sv13">Phase ${escapeHtml(o.phase?.num || '-')} · ${escapeHtml(o.phase?.title || '')}</div></div>
     </div>
+    ${narrativeHtml}
     <div class="section-lbl">Plan progress</div>
     ${phaseRows}
     ${readinessHtml}
@@ -2184,6 +2260,7 @@ Object.assign(window, {
   printMilestoneReport,
   printComplianceReport,
   printExamPacket,
+  printClientCompliancePacket,
   printPerformanceReport,
   printInvoiceReport,
   printQBRReport,

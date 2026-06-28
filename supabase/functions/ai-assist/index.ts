@@ -4,9 +4,11 @@
 // compact context payload of data they already hold under RLS; the function
 // builds the prompt, calls Gemini, and returns plain text.
 //
-// Body: { action: 'draft_reply'|'household_summary'|'talking_points'|'attention'|'w2_extract',
+// Body: { action: 'draft_reply'|'draft_flag_reply'|'household_summary'|'talking_points'
+//                 |'attention'|'qbr_narrative'|'w2_extract',
 //         context: object (≤ 24 KB serialized),
 //         file?: { data: base64, mimeType } — w2_extract only (≤ ~5.6 MB base64) }
+// Returns { text, telemetry: { model, latency_ms, prompt_tokens, output_tokens, total_tokens } }.
 // Deploy: supabase functions deploy ai-assist --project-ref phabxcijbbphfxvjedfj
 // (verify_jwt = true in config.toml — the platform JWT gate stays on.)
 
@@ -43,6 +45,25 @@ Match a caring, professional fiduciary tone. 2–6 sentences. Reference the thre
 Output ONLY the message body (no greeting line if the thread is mid-conversation, no signature).
 
 Data (client + recent thread, most recent last):
+${ctx}`,
+  draft_flag_reply: (ctx) => `${BASE}
+
+Task: the client flagged a specific question or item in their plan for discussion. Draft the
+advisor's reply that acknowledges it and gives a thoughtful, plain-language response grounded in
+the data. 2–5 sentences. Do not give a directive or a specific recommendation; frame it as how
+you'll weigh it together and what you'll look at. Output ONLY the message body.
+
+Data (the flagged question, its plan context, and any recent thread):
+${ctx}`,
+  qbr_narrative: (ctx) => `${BASE}
+
+Task: write the opening narrative for a Quarterly Business Review (QBR) packet the advisor will
+print and bring to the meeting. 2–3 short paragraphs in the advisor's voice to the household:
+where they stand this quarter, what progressed, and what to focus on next. Warm and specific,
+grounded only in the data; no recommendations of specific securities, no performance promises.
+Output plain prose (no headers, no bullets, no signature).
+
+Household data (snapshot, plan flags, recent activity):
 ${ctx}`,
   household_summary: (ctx) => `${BASE}
 
@@ -114,6 +135,7 @@ Deno.serve(async (req) => {
       parts.push({ inlineData: { mimeType: mime, data: file.data } });
     }
 
+    const startedAt = Date.now();
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
       {
@@ -127,6 +149,7 @@ Deno.serve(async (req) => {
         }),
       },
     );
+    const latencyMs = Date.now() - startedAt;
     if (!res.ok) {
       const detail = await res.text().catch(() => "");
       console.error("gemini error", res.status, detail.slice(0, 500));
@@ -137,6 +160,18 @@ Deno.serve(async (req) => {
       .map((p: { text?: string }) => p.text ?? "").join("").trim();
     if (!text) return json({ error: "Empty AI response" }, 502);
 
+    // Cost/latency telemetry: Gemini returns usageMetadata token counts; pair
+    // them with the round-trip latency so spend + responsiveness are auditable
+    // per call once a design partner uses the assistant in anger.
+    const usage = out?.usageMetadata || {};
+    const telemetry = {
+      model: GEMINI_MODEL,
+      latency_ms: latencyMs,
+      prompt_tokens: usage.promptTokenCount ?? null,
+      output_tokens: usage.candidatesTokenCount ?? null,
+      total_tokens: usage.totalTokenCount ?? null,
+    };
+
     // Audit (append-only, service role — same trail as every other material action)
     try {
       const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -144,11 +179,12 @@ Deno.serve(async (req) => {
         actor_id: user.id, actor_role: adv.role === "admin" ? "admin" : "advisor",
         actor_email: user.email ?? null, firm_id: adv.firm_id,
         action: "ai.assist", entity_type: "ai",
-        summary: `AI assist: ${action}`,
+        summary: `AI assist: ${action} (${latencyMs}ms, ${telemetry.total_tokens ?? "?"} tok)`,
+        metadata: { action, ...telemetry },
       });
     } catch (e) { console.warn("ai-assist audit failed:", (e as Error).message); }
 
-    return json({ text });
+    return json({ text, telemetry });
   } catch (e) {
     return json({ error: (e as Error).message }, 400);
   }

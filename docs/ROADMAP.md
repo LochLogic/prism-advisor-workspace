@@ -134,9 +134,11 @@ a demo into a "yes," then depth and reach.
   agenda card on the advisor dashboard, scheduled meetings auto-pushed to the
   connected calendar(s); `freebusy` action available server-side. Migration 033
   applied + both providers' creds synced 2026-06-10 - only the Azure redirect-URI
-  registration remains (human queue). *Open refinements: a
-  free/busy picker inside the meeting scheduler; inbound sync of externally
-  created events into Prism meetings.*
+  registration remains (human queue). **Free/busy in the scheduler - SHIPPED 2026-06-27
+  (sprint 29):** the meeting scheduler flags a conflict and lists the day's busy blocks for a
+  future slot (`MeetingAvailability`, reusing the `freebusy` action). *Open refinement: inbound
+  sync of externally created events into Prism meeting records (the week-ahead agenda already
+  surfaces them read-only).*
 - **Zapier / public API - SHIPPED 2026-06-23 (sprint 28).** A firm-scoped public REST
   API (the `public-api` edge fn, API-key auth, `verify_jwt = false`, every query scoped to
   the key's firm) plus firm-admin key management (`api-keys` edge fn, admin-gated mint /
@@ -144,9 +146,13 @@ a demo into a "yes," then depth and reach.
   v1 surface: GET clients / meetings / tasks (read scope) + POST clients / tasks (write
   scope) + a `/ping` connection test; writes are audit-logged with the key as source. The
   firm-admin "API & integrations" section mints keys (shown once); the "Integrations and
-  API" Help guide documents the Zapier/Make/n8n wiring. *Next when wanted:* more triggers
-  (acknowledgement signed, invoice approved), an outbound webhook so events push instead of
-  poll, and a published Zapier app.
+  API" Help guide documents the Zapier/Make/n8n wiring.
+  **Outbound webhooks - SHIPPED 2026-06-27 (sprint 29)** (migration 048 `webhooks` + the
+  `webhooks` edge fn + `_shared/webhooks.ts`): firm-admin registers HMAC-signed endpoints
+  (`X-Prism-Signature: sha256=…`), so events push instead of poll. Wired:
+  `acknowledgement.signed`, `invoice.approved`, `client.created`, `task.created`. Also added
+  read resources `GET /invoices` + `GET /acknowledgements`. *Next when wanted:* a published
+  Zapier app, more event types, delivery retries/logs.
 
 ### Tier B - Wedge deepeners (retire a paid tool)
 - **Deeper planning intelligence - the priority track.** The advisor wants planning
@@ -218,9 +224,11 @@ a demo into a "yes," then depth and reach.
   draft in the advisor's message compose, household summary + review talking points
   in the client quick-view, and "who needs attention?" book triage on the dashboard.
   Guardrailed prompts (fiduciary back-office tone; no security recommendations or
-  return promises; output is a draft the advisor owns). *Next when wanted:* draft
-  replies on flagged questions, a QBR-narrative generator for the print packet, and
-  cost/latency telemetry once a design partner uses it in anger.
+  return promises; output is a draft the advisor owns). **Depth - SHIPPED 2026-06-27
+  (sprint 29):** `draft_flag_reply` (an "AI draft" button on the dashboard flagged-question
+  thread), `qbr_narrative` (a "QBR + AI intro" button embeds an opening narrative in the
+  printed QBR packet), and **cost/latency telemetry** (Gemini `usageMetadata` token counts +
+  round-trip latency recorded in the `ai.assist` audit metadata, returned as `telemetry`).
 
 ### Advisor-workflow review (2026-06-09) - the "so what" gap - ALL FIVE RESOLVED
 A seat-of-the-advisor walkthrough (prospect → onboard → plan → meet → bill → comply)
@@ -375,7 +383,10 @@ mentions) plus seven design items. **All seven were green-lit and built in round
   (`portal-manifest.webmanifest`, `portal-sw.js`) with web-push on new message / document
   request / acknowledgement (VAPID server-side, `push_subscriptions` migration 042, the
   `send-push` edge fn fan-out, `PushSetupButton` in portal-app). VAPID keypair set round
-  12b. *Next when wanted:* push on task/plan changes, richer notification deep-links.
+  12b. **Push on task/plan changes - SHIPPED 2026-06-27 (sprint 29):** a push fires when a
+  meeting is scheduled and when the advisor completes a client's roadmap milestone
+  (role-guarded so a client's own toggle never pushes), and the message/ack pushes now carry
+  a deep-link `url`. *Next when wanted:* richer per-event deep-link targets.
 - **Exam-ready compliance export - SHIPPED 2026-06-09 (round 7).** One-click
   books-&-records packet from the firm-admin compliance section, with a 90-day /
   12-month / full-history audit window: advisor roster, fee schedules, client
@@ -385,8 +396,10 @@ mentions) plus seven design items. **All seven were green-lit and built in round
   statement. **CSV companions SHIPPED 2026-06-10 (round 14):** Clients (+fee
   assignment), Invoices, and windowed Audit CSVs from the firm-admin view, plus an
   audit-trail filter + load-more (100 → 500 on screen). Formula-injection
-  neutralization centralized as `downloadCSV` (store.jsx). *Next when wanted:*
-  per-client packets.
+  neutralization centralized as `downloadCSV` (store.jsx). **Per-client packets -
+  SHIPPED 2026-06-27 (sprint 29):** `printClientCompliancePacket` - the single-household
+  analog (acknowledgements + e-sign state, advisory-fee invoices, audit trail, meetings,
+  profile versions, retention), produced by the quick-view compliance export.
 - **Client portal accounts view (custodian-grouped) - SHIPPED 2026-06-11 (round 15,
   PR #60).** A read-only "Your accounts" card in the client portal, grouped by custodian
   with balances, a single total, and an as-of stamp, plus a "Something look different?
@@ -397,8 +410,10 @@ mentions) plus seven design items. **All seven were green-lit and built in round
   track (a losing comparison vs. custodian apps the client already has).
 
 ### Trust & control
-- **Advisor MFA (TOTP)** - enforce in the advisor auth path (Supabase Auth supports
-  it). *May need a Supabase Auth toggle.*
+- **Advisor MFA (TOTP) - SHIPPED** (enrollment `SecurityModal`, aal2 enforcement in
+  `auth.jsx`, the sign-in challenge card in `login.html`; **recovery added sprint 29** via
+  the Platform tab's `reset_mfa`). The only step left is flipping the TOTP factor toggle in
+  Supabase Auth (human queue). On-ramp for enterprise SSO (same auth path).
 - **Advisor-approval commit gate for client ledger edits - SHIPPED 2026-06-10
   (round 12).** Opt-in per-firm toggle (firm-admin "Workflow" section, default OFF).
   When on, a client's Numbers-drawer saves route into ONE open draft row
@@ -408,8 +423,10 @@ mentions) plus seven design items. **All seven were green-lit and built in round
   section-level diff, and **Approve & save** writes the profile through the
   advisor's own RLS path (profile_versions + audit intact) while **Return with
   note** sends it back with a message the client sees in the drawer. Advisor edits
-  are never gated. *Next when wanted:* per-field approval, realtime nudge on new
-  drafts.
+  are never gated. **Realtime nudge - SHIPPED 2026-06-27 (sprint 29):** migration 047's
+  `px_ledger_draft_alert` trigger writes an advisor alert on a new draft, reusing the existing
+  alerts realtime + notification pipeline. *Next when wanted (deferred, money-adjacent):*
+  per-field / per-section selective approval.
 - **Platform-owner dashboard - SHIPPED 2026-06-10 (round 12).** Founder tier above
   firm admin (founder ask 2026-06-10), built to the safe shape: no RLS policy was
   touched - a `px_platform_owners` allowlist (migration 035, service-role-only) gates
@@ -422,15 +439,19 @@ mentions) plus seven design items. **All seven were green-lit and built in round
   audit-logged as `platform.*`. **Platform usage stats SHIPPED 2026-06-10 (round
   14):** the firms table carries a 30-day activity column (event count + last-event
   recency) aggregated from `px_events` in the `platform-admin` overview action  - 
-  tolerant of migration 041 not yet being applied. *Next when wanted:* read-only
-  client drill-in, Stripe subscription override.
+  tolerant of migration 041 not yet being applied. **Client drill-in + subscription override -
+  SHIPPED 2026-06-27 (sprint 29):** `firm_clients` (read-only roster - household name, phase,
+  advisor, last meeting; NO financial data) and `set_subscription` (comp / correct a stuck
+  Stripe status). *Next when wanted:* per-client read-only plan view.
 
 ### Observability & scale
 - **Product analytics - SHIPPED 2026-06-10 (round 13).** First-party activation events
   (login, invite created/claimed, message, plan-update, report, push_subscribed, and
   `portal_opened` added round 26b) into `px_events` via the `px_track` RPC (migration 041);
   `db.track` is fire-and-forget and no-ops in demo. Surfaced as the platform-admin 30-day
-  activity column (round 14). *Next when wanted:* a funnel/retention view.
+  activity column (round 14). **Funnel/retention view - SHIPPED 2026-06-27 (sprint 29):** the
+  `funnel` action + `FunnelPanel` on the Platform tab - per-stage event counts over 30d plus
+  distinct active client households in 7d/30d.
 - **RLS-predicate index coverage audit - DONE 2026-06-10 (round 13, migration 043).**
   `advisor_id`/`firm_id`/`client_id` predicate indexes added (esp. the firm-admin
   cross-firm read) so RLS doesn't force seq scans as tables grow.

@@ -7,6 +7,50 @@
 // module-level constant would show stale labels.
 const phaseOptions = () => phasesData.map(p => ({ value: p.id, label: `Phase ${p.num} - ${p.title}` }));
 
+/* ─── Meeting free/busy availability ──
+   When scheduling a FUTURE meeting, query the advisor's connected calendars for
+   that day's busy blocks and flag a conflict with the proposed slot, reusing the
+   calendar-events `freebusy` action. No calendar connected, or a past date, →
+   renders nothing. Debounced so it doesn't fire on every keystroke. */
+const MeetingAvailability = ({ metAt, durationMin }) => {
+  const [state, setState] = React.useState(null); // { busy:[...] } | null
+  const isFuture = metAt && new Date(metAt).getTime() > Date.now();
+  React.useEffect(() => {
+    if (!isFuture || !window.db?.getCalendarFreeBusy) { setState(null); return; }
+    let cancelled = false;
+    const d = new Date(metAt);
+    const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0);
+    const dayEnd   = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 0, 0, 0);
+    const t = setTimeout(() => {
+      window.db.getCalendarFreeBusy(dayStart.toISOString(), dayEnd.toISOString())
+        .then(r => { if (!cancelled) setState(r && Array.isArray(r.busy) ? r : null); });
+    }, 350);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [metAt, isFuture]);
+  if (!isFuture || !state || !Array.isArray(state.busy)) return null;
+  const start = new Date(metAt).getTime();
+  const end = start + (Number(durationMin) || 60) * 60000;
+  const conflicts = state.busy.filter(b => {
+    const bs = new Date(b.start).getTime(), be = new Date(b.end).getTime();
+    return bs < end && be > start;
+  });
+  const fmtT = (iso) => new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return (
+    <div style={{ fontSize: 11.5, marginBottom: 8, padding: '6px 9px', borderRadius: 6,
+      background: conflicts.length ? 'var(--brick-soft, #f0dede)' : 'var(--forest-soft, #e0e8e1)',
+      color: conflicts.length ? 'var(--brick)' : 'var(--forest)' }}>
+      {conflicts.length
+        ? <>Conflicts with {conflicts.length} event{conflicts.length === 1 ? '' : 's'} on your calendar ({conflicts.map(c => `${fmtT(c.start)}-${fmtT(c.end)}`).join(', ')}).</>
+        : <>Your calendar is free at this time.</>}
+      {state.busy.length > 0 && (
+        <div style={{ marginTop: 3, opacity: .85 }}>
+          Busy that day: {state.busy.map(b => `${fmtT(b.start)}-${fmtT(b.end)}`).join(' · ')}
+        </div>
+      )}
+    </div>
+  );
+};
+
 /* ─── AI assistant card (advisor bundle only - Gemini via ai-assist edge fn) ──
    Generic action-buttons → plain-text output card. Used by the client preview
    modal (household summary / talking points) and the dashboard sidebar (book
@@ -704,6 +748,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
   const [meetings,      setMeetings]      = useStateAdv(undefined);
   const [meetingForm,   setMeetingForm]   = useStateAdv(null);
   const [savingMeeting, setSavingMeeting] = useStateAdv(false);
+  const [qbrAiBusy,     setQbrAiBusy]     = useStateAdv(false); // QBR + AI intro (4b)
 
   // Edit client state
   const [editForm, setEditForm] = useStateAdv({});
@@ -1148,14 +1193,30 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     setPerfFlows(prev => (prev || []).filter(f => f.id !== id));
   };
 
-  /* compliance export */
+  /* compliance export - the per-household books-&-records packet (acks + e-sign,
+     invoices, audit, meetings, versions, retention). Falls back to the lighter
+     record for demo/mock clients with no DB id. */
   const exportCompliance = async () => {
-    showToast('Compiling compliance record…');
-    const [audit, versions] = await Promise.all([
+    showToast('Compiling compliance packet…');
+    if (!isLiveClient) {
+      window.printComplianceReport?.(client, [], meetings || [], 0);
+      return;
+    }
+    const [audit, versions, invoices] = await Promise.all([
       window.db.getAuditLog({ clientId: client.id, limit: 500 }),
       window.db.getProfileVersions(client.id),
+      window.db.getInvoices({ clientId: client.id }),
     ]);
-    window.printComplianceReport?.(client, audit || [], meetings || [], (versions || []).length);
+    window.printClientCompliancePacket?.({
+      client,
+      acknowledgements: acks || [],
+      invoices: invoices || [],
+      auditEntries: audit || [],
+      meetings: meetings || [],
+      versionCount: (versions || []).length,
+      feeScheduleName: client.feeScheduleName || client.fee_schedule_name || null,
+      generatedBy: authUser?.full_name,
+    });
   };
 
   /* Plan flags shared by the QBR + IPS printers: the largest concentrated
@@ -1183,8 +1244,10 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
     return { equityConcentration, equityTicker: largest?.ticker || '', rmd, tax1040 };
   };
 
-  /* QBR packet (C4) - assemble a client-ready review from data already on file */
-  const generateQBR = async () => {
+  /* QBR packet (C4) - assemble a client-ready review from data already on file.
+     withAi → prepend a Gemini-drafted opening narrative the advisor can read/edit
+     in the printed packet (server-side key; demo or no-key prints without it). */
+  const generateQBR = async (withAi = false) => {
     showToast('Assembling review packet…');
     const C = window.PrismCalc || {};
     const pd = profileData || {};
@@ -1253,6 +1316,21 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
       return { num: p.num, title: p.title, completed, total: p.tasks.length };
     });
 
+    // Optional AI opening narrative (4b). Generated before the print window so it
+    // can be embedded; a null result (demo / no key / error) just prints without it.
+    let narrative = null;
+    if (withAi && window.db?.aiAssist) {
+      setQbrAiBusy(true);
+      showToast('Drafting the QBR narrative…');
+      narrative = await window.db.aiAssist('qbr_narrative', {
+        ...aiHouseholdContext(),
+        snapshot: { netWorth, invested, readiness: readiness?.label || readiness?.verdict || null, successBand },
+        planFlags: advPlanFlags(pd, age, invested),
+      });
+      setQbrAiBusy(false);
+      if (!narrative) showToast('AI narrative unavailable - printing the packet without it.');
+    }
+
     window.printQBRReport?.({
       client, phase, netWorth, aum: client.aum, invested, uninvestedCash: client.uninvestedCash,
       phases: phasesProgress, readiness, successBand, goals,
@@ -1262,6 +1340,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
         estateComplete, estateTotal: estateKeys.length, estateItems },
       risk, series, periods, flows,
       planFlags: advPlanFlags(pd, age, invested),
+      narrative,
       advisorName: authUser?.full_name, advisorFirm: authUser?.firms?.name,
     });
   };
@@ -1385,8 +1464,14 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             <button className="px-btn px-btn-sm px-btn-ghost"
               aria-label="Generate quarterly review packet"
-              onClick={generateQBR}>
+              onClick={() => generateQBR(false)}>
               <Icons.FileText size={12} /> QBR packet
+            </button>
+            <button className="px-btn px-btn-sm px-btn-ghost"
+              aria-label="Generate QBR packet with an AI-drafted opening narrative"
+              title="QBR packet with an AI-drafted opening narrative"
+              disabled={qbrAiBusy} onClick={() => generateQBR(true)}>
+              <Icons.Sparkles size={12} /> {qbrAiBusy ? 'Drafting…' : 'QBR + AI intro'}
             </button>
             {isLiveClient && (
               <button className="px-btn px-btn-sm px-btn-ghost"
@@ -1888,6 +1973,7 @@ const ClientPreviewModal = ({ client, onClose, onNotesChange, onUpdated, onArchi
                           onChange={e => setMeetingForm(f => ({ ...f, duration_min: e.target.value }))} />
                       </label>
                     </div>
+                    <MeetingAvailability metAt={meetingForm.met_at} durationMin={meetingForm.duration_min} />
                     <label style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 8 }}>
                       <span style={{ fontSize: 11, color: 'var(--ink-mute)' }}>Notes</span>
                       <textarea className="px-input" rows={2}

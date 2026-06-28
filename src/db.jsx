@@ -260,6 +260,11 @@ async function dbUpdateInvoiceStatus(id, status, clientId) {
     if (error) throw error;
     dbAudit(`invoice.${status}`, { entityType: 'invoice', entityId: id, clientId,
       summary: `Invoice ${status} (${fmtMoney(data.fee_amount)})` });
+    // Outbound webhook on approval (migration 048; no-op until an endpoint exists).
+    if (status === 'approved') dbEmitWebhook('invoice.approved', {
+      id: data.id, client_id: data.client_id, fee_amount: Number(data.fee_amount) || 0,
+      period_start: data.period_start, period_end: data.period_end, status: data.status,
+    });
     return data;
   } catch (e) { console.warn('[db] updateInvoiceStatus:', e.message); return null; }
 }
@@ -308,7 +313,7 @@ async function dbCreateAcknowledgement(clientId, firmId, advisorId, { title, bod
     dbAudit('ack.request', { entityType: 'acknowledgement', entityId: data.id, clientId,
       summary: `Requested acknowledgement: ${title}` });
     _pushToClient(clientId, { title: 'Action needed',
-      body: `Please review and sign: ${title}`.slice(0, 140), tag: 'ack' });
+      body: `Please review and sign: ${title}`.slice(0, 140), tag: 'ack', url: '/portal' });
     return data;
   } catch (e) { console.warn('[db] createAcknowledgement:', e.message); return null; }
 }
@@ -635,6 +640,16 @@ async function dbUpsertTask(clientId, phaseId, taskId, done) {
         { onConflict: 'client_id,phase_id,task_id' }
       );
     if (error) throw error;
+    // Plan-change push: when the ADVISOR checks off a client's roadmap milestone,
+    // nudge the client's portal. A client toggling their own task does not push.
+    const actorRole = window.__pxAuthActor?.role;
+    if (done && (actorRole === 'advisor' || actorRole === 'admin')) {
+      _pushToClient(clientId, {
+        title: 'Your plan was updated',
+        body: 'Your advisor marked a step on your roadmap complete.',
+        tag: 'plan', url: '/portal',
+      });
+    }
   } catch (e) { console.warn('[db] upsertTask:', e.message); }
 }
 
@@ -756,10 +771,12 @@ async function dbAddFlagMessage(questionId, authorId, authorRole, body) {
 const ALERT_ICON = {
   cash_drag: 'Dollar', roth_window: 'Calendar', tlh: 'TrendDown',
   drift: 'AlertCircle', schedule_call: 'Phone', fx_exposure: 'Building',
+  ledger: 'Edit',
 };
 const ALERT_CTA = {
   cash_drag: 'Deploy cash', roth_window: 'Open Roth modeler', tlh: 'Add to agenda',
   drift: 'Review plan', schedule_call: 'Add to agenda', fx_exposure: 'Add to agenda',
+  ledger: 'Review their updates',
 };
 
 async function dbGetAlerts(advisorId) {
@@ -844,6 +861,15 @@ async function dbLogMeeting(clientId, advisorId, fields) {
       { entityType: 'meeting', entityId: data.id, clientId,
         summary: status === 'confirmed' ? `Scheduled meeting for ${new Date(data.met_at).toLocaleString()}`
           : `Logged meeting${data.duration_min ? ` (${data.duration_min} min)` : ''}` });
+    // A newly SCHEDULED (future) meeting is worth a portal push; a logged past
+    // meeting is not (the client was there).
+    if (status === 'confirmed') {
+      _pushToClient(clientId, {
+        title: 'Meeting scheduled',
+        body: `Your advisor scheduled time on ${new Date(data.met_at).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}.`,
+        tag: 'meeting', url: '/portal',
+      });
+    }
     return data;
   } catch (e) { console.warn('[db] logMeeting:', e.message); return null; }
 }
@@ -1128,6 +1154,7 @@ async function dbSendMessage(clientId, { body, authorRole, authorId, context, fi
         title: isDocReq ? 'Document requested' : 'New message from your advisor',
         body:  data.body.slice(0, 140),
         tag:   isDocReq ? 'doc-request' : 'message',
+        url:   '/portal',
       });
     }
     return data;
@@ -1459,6 +1486,12 @@ async function dbCreateCalendarEvent({ title, start, end, description, location,
   return await _calInvoke('calendar-events', { action: 'create', title, start, end, description, location, provider });
 }
 
+// Busy blocks across the advisor's connected calendars in [start, end] - powers
+// the conflict check in the meeting scheduler. → { busy: [{start,end,provider}] } | { error }
+async function dbGetCalendarFreeBusy(start, end) {
+  return await _calInvoke('calendar-events', { action: 'freebusy', start, end });
+}
+
 /* ─── Platform owner (founder tier, migration 035) ───────────────────
    All authorization lives server-side: the platform-admin edge function checks
    the caller's auth uid against px_platform_owners and runs on the service
@@ -1742,6 +1775,39 @@ async function dbRevokeApiKey(id) {
   return await _apiKeysInvoke('revoke', { id });
 }
 
+/* ─── Outbound webhooks (events push, migration 048) ──────────────────
+   Firm-admin registers/lists/removes endpoints via the `webhooks` edge fn;
+   the signing secret comes back ONCE from create. `emitWebhook` is the
+   browser-side fire-and-forget for client-originated events (e.g. invoice
+   approval); server events (ack signed, API writes) emit server-side. No-ops
+   in demo / pre-migration. */
+async function _webhooksInvoke(action, payload = {}) {
+  if (!_sb()) return { error: 'demo' };
+  try {
+    const { data, error } = await _sb().functions.invoke('webhooks', { body: { action, ...payload } });
+    if (error) throw error;
+    if (data?.error) return { error: data.error };
+    return data;
+  } catch (e) { console.warn('[db] webhooks:', e.message); return { error: e.message }; }
+}
+// → { webhooks: [...], events: [...] } | null (demo / not-admin / pre-migration)
+async function dbGetWebhooks() {
+  const r = await _webhooksInvoke('list');
+  return r && !r.error ? r : null;
+}
+// → { secret (shown once), row } | { error }
+async function dbCreateWebhook(url, events) {
+  return await _webhooksInvoke('create', { url, events });
+}
+async function dbDeleteWebhook(id) {
+  return await _webhooksInvoke('delete', { id });
+}
+// Fire-and-forget a client-originated event; never blocks the caller.
+function dbEmitWebhook(event, data) {
+  if (!_sb()) return;
+  _webhooksInvoke('emit', { event, data }).catch(() => {});
+}
+
 window.db = {
   getClients:          dbGetClients,
   getBookTotals:       dbGetBookTotals,
@@ -1822,11 +1888,16 @@ window.db = {
   getApiKeys:          dbGetApiKeys,
   createApiKey:        dbCreateApiKey,
   revokeApiKey:        dbRevokeApiKey,
+  getWebhooks:         dbGetWebhooks,
+  createWebhook:       dbCreateWebhook,
+  deleteWebhook:       dbDeleteWebhook,
+  emitWebhook:         dbEmitWebhook,
   getCalendarStatus:   dbGetCalendarStatus,
   connectCalendar:     dbConnectCalendar,
   disconnectCalendar:  dbDisconnectCalendar,
   getCalendarEvents:   dbGetCalendarEvents,
   createCalendarEvent: dbCreateCalendarEvent,
+  getCalendarFreeBusy: dbGetCalendarFreeBusy,
   bulkCreateClients:   dbBulkCreateClients,
   platformAdmin:       dbPlatformAdmin,
   getLedgerGate:       dbGetLedgerGate,

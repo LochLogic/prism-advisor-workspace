@@ -4,8 +4,10 @@
 // data action then runs on the SERVICE ROLE so no user-scoped RLS policy had
 // to change. Safe shape per the 2026-06-10 founder ask.
 //
-// Body: { action: 'whoami' | 'overview' | 'firm_detail' | 'provision_firm'
-//                | 'suspend_firm' | 'reactivate_firm' | 'set_plan', ...payload }
+// Body: { action: 'whoami' | 'overview' | 'funnel' | 'firm_detail' | 'firm_clients'
+//                | 'provision_firm' | 'suspend_firm' | 'reactivate_firm'
+//                | 'set_advisor_role' | 'reset_mfa' | 'set_plan'
+//                | 'set_subscription', ...payload }
 // verify_jwt = true in config.toml — the platform JWT gate stays on, and the
 // allowlist check is the real authorization.
 
@@ -122,6 +124,34 @@ Deno.serve(async (req) => {
       return json({ firms: rows });
     }
 
+    // Cross-firm activation funnel + retention over 30 days, from px_events
+    // (migration 041). Tolerant of the table not existing → funnel: null.
+    if (action === "funnel") {
+      const now = Date.now();
+      const since30 = new Date(now - 30 * 86400000).toISOString();
+      const since7 = now - 7 * 86400000;
+      let ev: Array<{ name: string; occurred_at: string; client_id: string | null }> = [];
+      try {
+        const { data, error } = await svc.from("px_events")
+          .select("name, occurred_at, client_id").gte("occurred_at", since30).limit(100000);
+        if (error) throw error;
+        ev = data || [];
+      } catch { return json({ funnel: null }); }
+      const counts: Record<string, number> = {};
+      const portal7 = new Set<string>(), portal30 = new Set<string>();
+      for (const e of ev) {
+        counts[e.name] = (counts[e.name] || 0) + 1;
+        if (e.name === "portal_opened" && e.client_id) {
+          portal30.add(e.client_id);
+          if (new Date(e.occurred_at).getTime() >= since7) portal7.add(e.client_id);
+        }
+      }
+      return json({ funnel: {
+        window_days: 30, total: ev.length, counts,
+        portal_clients_7d: portal7.size, portal_clients_30d: portal30.size,
+      } });
+    }
+
     if (action === "firm_detail") {
       const firmId = String(body.firm_id || "");
       const { data: advisors, error } = await svc.from("advisors")
@@ -129,6 +159,59 @@ Deno.serve(async (req) => {
         .eq("firm_id", firmId).order("created_at");
       if (error) throw error;
       return json({ advisors: advisors || [] });
+    }
+
+    // Read-only client roster for one firm — household name, phase, advisor,
+    // activity. Deliberately NO financial data (no balances, no profile): the
+    // founder can see WHO a firm serves and HOW recently, not their numbers.
+    if (action === "firm_clients") {
+      const firmId = String(body.firm_id || "");
+      const { data: clients, error } = await svc.from("clients")
+        .select("id, household_name, short_name, current_phase, active, advisor_id, created_at, last_meeting_at")
+        .eq("firm_id", firmId).order("created_at");
+      if (error) throw error;
+      const { data: advs } = await svc.from("advisors").select("id, full_name").eq("firm_id", firmId);
+      const nameById = Object.fromEntries((advs || []).map((a) => [a.id, a.full_name]));
+      const rows = (clients || []).map((c) => ({
+        id: c.id,
+        name: c.short_name || c.household_name || "Client",
+        phase: c.current_phase ?? null,
+        active: c.active !== false,
+        advisor: nameById[c.advisor_id] || null,
+        created_at: c.created_at,
+        last_meeting_at: c.last_meeting_at || null,
+      }));
+      return json({ clients: rows });
+    }
+
+    // Recovery path for a locked-out advisor: a verified TOTP factor forces the
+    // account to aal2, so losing the authenticator is a hard lockout. Deleting
+    // the factor on the service role lets them sign in with their password again
+    // and re-enroll. The genuine "recovery" half of advisor MFA.
+    if (action === "reset_mfa") {
+      const advisorId = String(body.advisor_id || "");
+      const { data: adv, error } = await svc.from("advisors")
+        .select("id, full_name, email, auth_user_id, firm_id").eq("id", advisorId).maybeSingle();
+      if (error) throw error;
+      if (!adv?.auth_user_id) return json({ error: "That advisor has no linked login" }, 404);
+      let removed = 0;
+      try {
+        // getUserById returns the user with its `factors` array (more portable
+        // across SDK versions than admin.mfa.listFactors); delete each.
+        const { data: u, error: ue } = await svc.auth.admin.getUserById(adv.auth_user_id);
+        if (ue) throw ue;
+        const factors = (u?.user as { factors?: Array<{ id: string }> })?.factors || [];
+        for (const fac of factors) {
+          await svc.auth.admin.mfa.deleteFactor({ id: fac.id, userId: adv.auth_user_id });
+          removed++;
+        }
+      } catch (e) {
+        return json({ error: `Could not reset two-factor: ${(e as Error).message}` }, 502);
+      }
+      await audit("platform.reset_mfa",
+        `Reset two-factor for ${adv.email} (${removed} factor${removed === 1 ? "" : "s"} removed)`,
+        { advisor_id: advisorId, firm_id: adv.firm_id });
+      return json({ removed, advisor: { id: adv.id, full_name: adv.full_name, email: adv.email } });
     }
 
     if (action === "provision_firm") {
@@ -205,6 +288,29 @@ Deno.serve(async (req) => {
       if (error) throw error;
       await audit("platform.set_plan", `Billing override: "${data.name}" → ${plan} · ${seats} seat${seats === 1 ? "" : "s"}`, { firm_id: firmId });
       return json({ firm: data });
+    }
+
+    // Manual subscription override — comp a design partner to "active" without a
+    // Stripe round trip, or correct a stuck status. Writes the same
+    // subscriptions row the stripe-webhook owns, so a later live Stripe event
+    // can supersede this; that's intended for a manual/comp override.
+    if (action === "set_subscription") {
+      const firmId = String(body.firm_id || "");
+      const status = String(body.status || "");
+      const SUB_STATUS = ["active", "trialing", "past_due", "canceled", "incomplete"];
+      if (!SUB_STATUS.includes(status)) return json({ error: "Unknown subscription status" }, 400);
+      const plan = PLANS.includes(body.plan) ? body.plan : null;
+      const periodEnd = body.period_end ? new Date(body.period_end) : null;
+      const patch: Record<string, unknown> = { firm_id: firmId, status, updated_at: new Date().toISOString() };
+      if (plan) patch.plan = plan;
+      if (periodEnd && !isNaN(periodEnd.getTime())) patch.current_period_end = periodEnd.toISOString();
+      const { data, error } = await svc.from("subscriptions")
+        .upsert(patch, { onConflict: "firm_id" })
+        .select("firm_id, plan, status, current_period_end").single();
+      if (error) throw error;
+      await audit("platform.set_subscription",
+        `Subscription override: firm ${firmId} → ${plan || "(plan unchanged)"} · ${status}`, { firm_id: firmId });
+      return json({ subscription: data });
     }
 
     return json({ error: "Unknown action" }, 400);

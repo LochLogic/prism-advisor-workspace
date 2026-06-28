@@ -35,6 +35,12 @@ const FirmAdminDashboard = () => {
   const [newKeyWrite,  setNewKeyWrite]  = useStateAdv(true);
   const [keyBusy,      setKeyBusy]      = useStateAdv(false);
   const [freshKey,     setFreshKey]     = useStateAdv(null);
+  // Outbound webhooks (migration 048). null = loading / unavailable → hidden.
+  const [webhooks,     setWebhooks]     = useStateAdv(null); // { webhooks:[...], events:[...] } | null
+  const [newHookUrl,   setNewHookUrl]   = useStateAdv('');
+  const [newHookEvents, setNewHookEvents] = useStateAdv([]);
+  const [hookBusy,     setHookBusy]     = useStateAdv(false);
+  const [freshSecret,  setFreshSecret]  = useStateAdv(null);
 
   React.useEffect(() => {
     if (!authUser?.id || !window.db) return;
@@ -50,6 +56,7 @@ const FirmAdminDashboard = () => {
     });
     window.db.getFirmPlaybooks?.().then(p => setFirmPlaybooks(p || {}));
     window.db.getApiKeys?.().then(setApiKeys); // null (demo / pre-migration) keeps the section hidden
+    window.db.getWebhooks?.().then(setWebhooks); // null keeps the webhooks block hidden
   }, [authUser?.id]);
 
   // ── Firm CX playbook authoring (advisor playbook phase 2) ──
@@ -119,6 +126,35 @@ const FirmAdminDashboard = () => {
       setApiKeys(ks => (ks || []).map(k => k.id === id ? { ...k, revoked_at: new Date().toISOString() } : k));
       showToast(`Revoked "${name}"`);
     } else showToast(r?.error || 'Could not revoke the key');
+  };
+
+  // ── Outbound webhooks (events push to the firm's endpoint) ──
+  const HOOK_EVENT_LABELS = {
+    'client.created': 'Client created', 'task.created': 'Task created',
+    'acknowledgement.signed': 'Acknowledgement signed', 'invoice.approved': 'Invoice approved',
+  };
+  const toggleHookEvent = (ev) => setNewHookEvents(es =>
+    es.includes(ev) ? es.filter(x => x !== ev) : [...es, ev]);
+  const createWebhook = async () => {
+    const url = (newHookUrl || '').trim();
+    if (!/^https?:\/\/.+/i.test(url)) { showToast('Enter the endpoint URL (https://…)'); return; }
+    if (!newHookEvents.length) { showToast('Pick at least one event to send'); return; }
+    setHookBusy(true);
+    const r = await window.db.createWebhook(url, newHookEvents);
+    setHookBusy(false);
+    if (r && r.secret) {
+      setFreshSecret(r.secret);
+      setWebhooks(w => ({ ...(w || { events: [] }), webhooks: [r.row, ...((w && w.webhooks) || [])] }));
+      setNewHookUrl(''); setNewHookEvents([]);
+      showToast('Endpoint added. Copy the signing secret now; it is not shown again.');
+    } else showToast(r?.error || 'Could not add the endpoint');
+  };
+  const deleteWebhook = async (id, url) => {
+    const r = await window.db.deleteWebhook(id);
+    if (r && r.ok) {
+      setWebhooks(w => ({ ...(w || {}), webhooks: ((w && w.webhooks) || []).filter(h => h.id !== id) }));
+      showToast(`Removed ${url}`);
+    } else showToast(r?.error || 'Could not remove the endpoint');
   };
 
   // ── White-label branding ──
@@ -607,6 +643,80 @@ const FirmAdminDashboard = () => {
                         </div>
                       );
                     })}
+                  </div>
+                )}
+              </div>
+            </>
+          );
+        })()}
+
+        {/* ── Outbound webhooks (events push, migration 048) ── */}
+        {webhooks !== null && (() => {
+          const hooks = webhooks.webhooks || [];
+          const events = webhooks.events || Object.keys(HOOK_EVENT_LABELS);
+          return (
+            <>
+              <div className="px-section-head" style={{ marginTop: 8 }}>
+                <h2>Webhooks <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--ink-mute)', marginLeft: 6 }}>events push to your endpoint · {hooks.length} endpoint{hooks.length === 1 ? '' : 's'}</span></h2>
+              </div>
+              <div style={{ padding: 14, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, marginBottom: 24 }}>
+                <div style={{ fontSize: 12, color: 'var(--ink-mute)', lineHeight: 1.5, marginBottom: 12 }}>
+                  Instead of polling the API on a timer, register an endpoint and Prism POSTs to it the moment
+                  something happens. Each delivery is signed with the endpoint's secret in the
+                  <code style={{ fontSize: 11, margin: '0 3px' }}>X-Prism-Signature</code> header (HMAC-SHA256 of
+                  the body) so you can verify it. Details in <strong>Help → Integrations and API</strong>.
+                </div>
+
+                {/* One-time signing-secret reveal */}
+                {freshSecret && (
+                  <div style={{ padding: 12, marginBottom: 14, background: 'var(--accent-soft, rgba(0,0,0,.04))', border: '1px solid var(--accent-line, var(--border))', borderRadius: 8 }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>
+                      Signing secret - copy it now. For your security it is not shown again.
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <code style={{ fontSize: 12.5, wordBreak: 'break-all', flex: 1, minWidth: 220, background: 'var(--bg)', padding: '6px 9px', borderRadius: 5, border: '1px solid var(--border)', color: 'var(--ink)' }}>{freshSecret}</code>
+                      <button className="px-btn px-btn-sm px-btn-primary" onClick={() => copyText(freshSecret)}>Copy secret</button>
+                      <button className="px-btn px-btn-sm px-btn-ghost" onClick={() => setFreshSecret(null)}>Done</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Create */}
+                <div style={{ marginBottom: 16 }}>
+                  <input className="px-input" style={{ width: '100%', marginBottom: 8 }} placeholder="Endpoint URL, e.g. https://hooks.zapier.com/…"
+                    value={newHookUrl} maxLength={500} onChange={e => setNewHookUrl(e.target.value)} />
+                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
+                    {events.map(ev => (
+                      <label key={ev} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--ink)', cursor: 'pointer' }}>
+                        <input type="checkbox" checked={newHookEvents.includes(ev)} onChange={() => toggleHookEvent(ev)} />
+                        {HOOK_EVENT_LABELS[ev] || ev}
+                      </label>
+                    ))}
+                  </div>
+                  <button className="px-btn px-btn-sm px-btn-primary" onClick={createWebhook} disabled={hookBusy}>
+                    {hookBusy ? 'Adding…' : 'Add endpoint'}
+                  </button>
+                </div>
+
+                {/* Existing endpoints */}
+                {hooks.length === 0 ? (
+                  <div style={{ fontSize: 12.5, color: 'var(--ink-faint)' }}>No endpoints yet. Add one above to start receiving events.</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {hooks.map(h => (
+                      <div key={h.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px',
+                        background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 7 }}>
+                        <div style={{ flex: 1, minWidth: 140 }}>
+                          <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', wordBreak: 'break-all' }}>{h.url}</div>
+                          <div style={{ fontSize: 11, color: 'var(--ink-mute)', marginTop: 2 }}>
+                            {(h.events || []).map(e => HOOK_EVENT_LABELS[e] || e).join(', ') || 'no events'}
+                            {h.last_event_at && <> · last {h.last_status === 0 ? 'failed' : `→ ${h.last_status}`} {window.db.timeAgo(h.last_event_at)}</>}
+                          </div>
+                        </div>
+                        <button className="px-btn px-btn-sm px-btn-ghost" style={{ color: 'var(--brick)' }}
+                          onClick={() => deleteWebhook(h.id, h.url)}>Remove</button>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

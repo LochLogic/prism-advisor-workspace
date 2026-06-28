@@ -19,6 +19,81 @@
 
 ---
 
+## 2026-06-27 (sprint 29) - Expansion across five tracks: guides, trust, integrations, AI depth, engagement
+
+PR (pending). Build · smoke (57) · calc (244) · lint all green. **Carries migrations 047
+(`px_ledger_draft_alert` trigger) + 048 (`webhooks` table) - Claude-apply after merge - plus
+one new edge function (`webhooks`) and edits to four existing ones (`platform-admin`,
+`ai-assist`, `public-api`, `docusign-connect`) via the gated deploy.** No new secrets, no money.
+Five collections shipped as one (the user asked to expand while pre-first-paying-client).
+
+**1 · Planning-tools deep-dive guide.** A sixth in-app guide (`docs/guides/planning-tools.md`),
+advisor-audience, through the existing markdown → Help-drawer + printable `/guides/<slug>/`
+pipeline. Maps every planning tool to its horizon, the InsightAction "Add to agenda" hook, and
+the net-of-fees / inform-not-discourage rules. Verified embedded in `bundle.js`, absent from
+`portal.js`.
+
+**2 · Trust & access hardening.**
+- **MFA was already shipped end-to-end** (enrollment `SecurityModal`, aal2 enforcement in
+  `auth.jsx`, the challenge card in `login.html`) - the TODO mislabeled it. The one genuine gap,
+  **recovery**, is now closed: `platform-admin` gains `reset_mfa` (service-role delete of a
+  locked-out advisor's TOTP factors via `getUserById` + `deleteFactor`), surfaced as a confirm-armed
+  "Reset 2FA" button in the Platform advisor roster.
+- **Ledger-gate realtime nudge** (migration 047): an AFTER INSERT trigger on
+  `pending_ledger_changes` writes an alert for the household's advisor, reusing the EXISTING alerts
+  realtime pipeline (no new publication/wiring). Fires once per draft cycle (insert, not autosave
+  update). `ledger` added to `ALERT_ICON`/`ALERT_CTA`. *Per-field/section approval deferred -
+  money-adjacent, pre-partner; kept in ROADMAP.*
+- **Platform-owner**: read-only **client drill-in** (`firm_clients` action - household name, phase,
+  advisor, last meeting; NO financial data) and **subscription override** (`set_subscription` -
+  comp/correct a Stripe status; upserts the `subscriptions` row).
+
+**3 · Integrations & API expansion.**
+- **Outbound webhooks** (migration 048 + new `webhooks` edge fn + `_shared/webhooks.ts`):
+  firm-admin registers HMAC-signed endpoints (`X-Prism-Signature: sha256=…`); events push instead
+  of poll. Service-role-only table (api_keys posture); secret shown once. Events wired:
+  `acknowledgement.signed` (docusign-connect), `invoice.approved` (browser emit on approval),
+  `client.created`/`task.created` (public-api writes). `dispatchWebhooks` uses `EdgeRuntime.waitUntil`
+  for fire-and-forget delivery. Firm-admin "Webhooks" subsection under API & integrations;
+  `db.getWebhooks/createWebhook/deleteWebhook/emitWebhook`.
+- **More public-api resources** (read scope): `GET /invoices`, `GET /acknowledgements`.
+- **Calendar free/busy** in the meeting scheduler: `db.getCalendarFreeBusy` + a `MeetingAvailability`
+  component that flags a conflict (and lists the day's busy blocks) for a future slot, reusing the
+  existing `calendar-events` freebusy action. *Inbound-sync-as-Prism-meetings deferred - the
+  `upcoming` agenda already surfaces external events read-only.*
+
+**4 · AI relationship-assistant depth** (`ai-assist`):
+- **`draft_flag_reply`** - an "AI draft" button on the dashboard flagged-question thread drafts a
+  reply grounded in the question + thread (demo shows a canned draft).
+- **`qbr_narrative`** - a "QBR + AI intro" button generates an opening narrative embedded in the
+  printed QBR packet (`printQBRReport` renders a "This quarter" section; demo/no-key prints without it).
+- **Cost/latency telemetry** - Gemini `usageMetadata` token counts + round-trip latency recorded in
+  the `ai.assist` audit metadata and returned as `telemetry`.
+
+**5 · Client engagement & retention.**
+- **Push on meeting scheduled** (logMeeting confirmed) and **advisor completing a client roadmap
+  milestone** (upsertTask, role-guarded so a client's own toggle never pushes); deep-link `url`
+  added to the existing message/ack pushes too.
+- **Per-client compliance packet** (`printClientCompliancePacket`): the exam packet's single-household
+  analog - acknowledgements + e-sign state, advisory-fee invoices, audit trail, meetings, profile
+  versions, retention statement. The quick-view "compliance" export now produces it (lighter
+  `printComplianceReport` kept for demo/mock clients).
+- **Activation funnel + retention** (`platform-admin` `funnel` action + `FunnelPanel`): per-stage
+  px_events counts over 30d + distinct active client households in 7d/30d.
+
+**Verification:** build/lint/57 smoke/244 calc green. Browser preview (demo): app boots zero console
+errors; Help drawer lists all six guides; client quick-view opens clean with QBR packet + QBR + AI
+intro; flagged-question thread shows AI draft. A hook-order bug (a mid-body `useState` in
+`ClientPreviewModal`, React #310) was caught in-browser and fixed (moved to the top hook block) -
+build/lint/tests had passed it. Gated surfaces (firm-admin Webhooks, Platform drill-in/funnel/reset)
+hide in demo, verified structurally + by the identical section patterns.
+
+**Deploy hand-off:** Claude-apply migrations 047 + 048 to prod after merge (Management API); run the
+gated edge deploy (`webhooks` added to `deploy.yml` + `config.toml`; `platform-admin`/`ai-assist`/
+`public-api`/`docusign-connect` redeploy with their edits). Everything degrades quietly until the
+migrations + functions land (webhook/funnel/reset_mfa return not_configured / null). No human-queue
+items, no secrets.
+
 ## 2026-06-23 (sprint 28) - Public API + Zapier · two new Help guides
 
 PR (pending). Build · smoke (57) · calc (244) · lint all green; RLS-isolation check 10

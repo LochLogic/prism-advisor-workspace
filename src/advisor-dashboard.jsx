@@ -241,7 +241,29 @@ const FlaggedQuestion = ({ q, onDismiss, clients, authUser, onOpenClient }) => {
   const [messages,  setMessages]  = React.useState(null); // null = not yet loaded
   const [replyText, setReplyText] = React.useState('');
   const [sending,   setSending]   = React.useState(false);
+  const [aiBusy,    setAiBusy]    = React.useState(false);
   const replyRef = React.useRef(null);
+
+  // AI draft for a flagged question (advisor side). Sends the question + recent
+  // thread to the server-side Gemini fn and drops the reply into the box for the
+  // advisor to edit. Demo (no DB row) shows a canned draft so the demo stays live.
+  const aiDraft = async () => {
+    if (aiBusy) return;
+    setAiBusy(true);
+    let text = null;
+    if (q._dbId && window.db?.aiAssist) {
+      text = await window.db.aiAssist('draft_flag_reply', {
+        client: client?.shortName || client?.name || 'the household',
+        question: q.quote || '', topic: q.context || '',
+        thread: (messages || []).slice(-10).map(m => ({ from: m.author_role, body: m.body })),
+      });
+    } else {
+      text = `Great question - this is exactly what the plan is built to weigh. Based on where the household stands today, there's room to consider this without disturbing the longer-term targets we set together. Let's look at the numbers side by side at our next review so the trade-off is clear, and I'll flag anything to decide before then.`;
+    }
+    setAiBusy(false);
+    if (text) setReplyText(text);
+    else showToast('AI draft unavailable - try again, or write your reply directly.');
+  };
 
   const loadMessages = React.useCallback(async () => {
     // Demo/mock question (no DB row) → an empty local thread, not a perpetual spinner.
@@ -337,6 +359,10 @@ const FlaggedQuestion = ({ q, onDismiss, clients, authUser, onOpenClient }) => {
                 fontFamily: 'var(--sans)', background: 'var(--bg)', color: 'var(--ink)',
               }}
             />
+            <button className="px-btn px-btn-sm px-btn-ghost" onClick={aiDraft} disabled={aiBusy}
+              title="Draft a reply with AI">
+              {aiBusy ? '…' : <><Icons.Sparkles size={12} /> AI draft</>}
+            </button>
             <button className="px-btn px-btn-sm px-btn-primary"
               onClick={sendReply} disabled={sending || !replyText.trim()}>
               {sending ? '…' : 'Send'}

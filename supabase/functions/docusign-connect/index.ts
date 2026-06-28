@@ -12,6 +12,7 @@
 //   supabase functions deploy docusign-connect --project-ref phabxcijbbphfxvjedfj
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { dispatchWebhooks } from "../_shared/webhooks.ts";
 
 function json(obj: unknown, status = 200) {
   return new Response(JSON.stringify(obj), {
@@ -112,6 +113,17 @@ Deno.serve(async (req) => {
       client_id: ack.client_id,
       summary: `DocuSign envelope ${envelope_status}: ${ack.title}`,
     }).then(() => {}, () => {});
+
+    // Outbound webhook: fire acknowledgement.signed on the terminal transition
+    // only (migration 048; no-op until a firm registers an endpoint).
+    if (signed && ack.status !== "acknowledged" && ack.client_id) {
+      const { data: cli } = await admin.from("clients").select("firm_id").eq("id", ack.client_id).maybeSingle();
+      if (cli?.firm_id) {
+        dispatchWebhooks(admin, cli.firm_id, "acknowledgement.signed", {
+          id: ack.id, client_id: ack.client_id, title: ack.title, signer_name: signerName,
+        });
+      }
+    }
 
     return json({ ok: true });
   } catch (e) {
