@@ -45,3 +45,6 @@ src/_entry.jsx
 test-results/
 playwright-report/
 blob-report/
+
+# Marketing assets (local-only by request - sales/acquisition materials kept out of the repo)
+docs/marketing/
