@@ -6,8 +6,8 @@
 > done, it should *leave* this file.
 
 **How to read this board**
-- Two queues. **🤖 Claude's queue** is work I can take end-to-end inside the repo.
-  **🧑 Your queue** is everything I can't reach: money, credentials, external accounts,
+- Two queues. **🤖 Build queue** is work that can be handled end-to-end inside the repo.
+  **🧑 Your queue** is everything that needs you: money, credentials, external accounts,
   legal, dashboard toggles.
 - Each queue is grouped by goal, newest priority first, and every item is independently
   shippable. Deep background for any item lives in [`ROADMAP.md`](ROADMAP.md).
@@ -19,12 +19,12 @@
 (2026-06-23) added migration `046` (`api_keys`) + two edge functions (`api-keys`,
 `public-api`). Sprint 29 (2026-06-27) adds migrations `047` (`px_ledger_draft_alert`
 trigger) + `048` (`webhooks`) and one new edge function (`webhooks`), with edits to
-`platform-admin` / `ai-assist` / `public-api` / `docusign-connect`; Claude-applied +
+`platform-admin` / `ai-assist` / `public-api` / `docusign-connect`; applied +
 gated-deployed on merge, so repo = live again (18 repo edge functions).
 
 ---
 
-# 🤖 Claude's queue
+# 🤖 Build queue
 
 ## Ready to build now
 These need nothing from you. Say the word on any one and I ship it.
@@ -168,7 +168,7 @@ or larger-firm conversation, and **SOC 2 is the longest pole in the whole plan**
 
 ## 5. Unblock the paperwork adapter (Quik! / custodian)
 
-These business blanks unlock the Tier-1 Quik! adapter in Claude's queue. The in-product POC
+These business blanks unlock the Tier-1 Quik! adapter in the build queue. The in-product POC
 already runs (quick view → Paperwork); these make it file for real.
 
 - [ ] **Open a Quik! Forms API relationship.** Contact sales@quikforms.com / quikforms.com.

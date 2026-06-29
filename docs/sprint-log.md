@@ -22,7 +22,7 @@
 ## 2026-06-27 (sprint 29) - Expansion across five tracks: guides, trust, integrations, AI depth, engagement
 
 PR (pending). Build · smoke (57) · calc (244) · lint all green. **Carries migrations 047
-(`px_ledger_draft_alert` trigger) + 048 (`webhooks` table) - Claude-apply after merge - plus
+(`px_ledger_draft_alert` trigger) + 048 (`webhooks` table) - apply after merge - plus
 one new edge function (`webhooks`) and edits to four existing ones (`platform-admin`,
 `ai-assist`, `public-api`, `docusign-connect`) via the gated deploy.** No new secrets, no money.
 Five collections shipped as one (the user asked to expand while pre-first-paying-client).
@@ -88,7 +88,7 @@ intro; flagged-question thread shows AI draft. A hook-order bug (a mid-body `use
 build/lint/tests had passed it. Gated surfaces (firm-admin Webhooks, Platform drill-in/funnel/reset)
 hide in demo, verified structurally + by the identical section patterns.
 
-**Deploy hand-off:** Claude-apply migrations 047 + 048 to prod after merge (Management API); run the
+**Deploy hand-off:** apply migrations 047 + 048 to prod after merge (Management API); run the
 gated edge deploy (`webhooks` added to `deploy.yml` + `config.toml`; `platform-admin`/`ai-assist`/
 `public-api`/`docusign-connect` redeploy with their edits). Everything degrades quietly until the
 migrations + functions land (webhook/funnel/reset_mfa return not_configured / null). No human-queue
@@ -101,7 +101,7 @@ added. **Carries migration 046 (`api_keys`) - apply to prod after merge (confirm
 plus two new edge functions (`api-keys`, `public-api`) via the gated deploy.** No secrets
 (the functions use the auto-present SUPABASE_URL / SERVICE_ROLE_KEY / ANON_KEY), no money.
 
-**What shipped** - the two "ready to build" Claude-queue items.
+**What shipped** - the two "ready to build" build-queue items.
 
 - **Public REST API for firm integrations** (Zapier / Make / n8n / custom). A firm admin
   mints an API key; the key carries that firm's identity and only ever touches that firm's
@@ -144,7 +144,7 @@ hidden until a real admin + the deployed backend); verified structurally (esbuil
 lint + the identical section pattern as the adjacent Workflow/CX blocks). The edge functions
 + migration land at deploy.
 
-**Deploy hand-off:** apply migration 046 to prod (Claude-applied via the Management API
+**Deploy hand-off:** apply migration 046 to prod (applied via the Management API
 after merge); run the gated edge deploy (`api-keys` + `public-api` now in `deploy.yml`).
 Both degrade to `not_configured` until they land, so order is safe. No secrets, no
 human-queue items.
@@ -232,7 +232,7 @@ unblocked items off the board, all docs/calc only.
   wired by the existing guides pipeline - one markdown file → searchable Help-drawer entry
   (advisor bundle) + printable `/guides/firm-admin-guide/` page. Verified: 3 guides render,
   embedded in `bundle.js`, correctly absent from `portal.js`. Clears the "more guides -
-  firm-admin guide" Claude-queue item.
+  firm-admin guide" build-queue item.
 - **Dated tax constants → one `TAX_FACTS` module + CI year-roll guard** (`calc-core.cjs`,
   `calc.test.mjs`): the federal tax figures that were scattered through calc-core
   (estate exemption, ordinary brackets, 0% LTCG top, IRMAA tier 1, the §415(c)/§402(g)
@@ -319,7 +319,7 @@ One edge function changed (`platform-admin`) → gated `deploy.yml` run after me
   turns on, clarify the household cap is per *firm*.
 - **Client account-management decision** (Schwab/Vanguard granularity): **yes at
   account/custodian level, no at holdings level.** Queued as "Client portal accounts
-  view (custodian-grouped)" - ROADMAP Tier C + TODO Claude queue. No build this
+  view (custodian-grouped)" - ROADMAP Tier C + TODO build queue. No build this
   round by design.
 
 **Files:** `src/store.jsx`, `src/firm-admin.jsx`, `src/advisor-dashboard.jsx`,
@@ -453,7 +453,7 @@ counts only (~2 lines instead of ~280 per run; default stays verbose for
 humans/CI). (2) New **`scripts/outline.mjs <file…|--all>`**: top-level
 declarations, `window.*` exports, and line numbers for any source file, so big
 files are navigated from a ~40-line outline + ranged reads instead of full
-reads. Both recorded in CLAUDE.md ("Token savers") so future sessions reach for
+reads. Both recorded in the project instructions ("Token savers") so future sessions reach for
 them by default.
 
 **Web-push VAPID keypair (human-queue item taken over)** - P-256 pair generated
@@ -474,7 +474,7 @@ founder email + provision its workspace first).
 
 ## 2026-06-10 (round 12) - Platform-owner tier + ledger-edit approval gate
 
-Two Claude-queue items shipped as one bundle. **Two hand-apply migrations (035, 036)
+Two build-queue items shipped as one bundle. **Two hand-apply migrations (035, 036)
 and one new edge function (`platform-admin`, deployed via the gated workflow)**  - 
 the human hand-off is in TODO ("Round-12 go-live"). Everything degrades quietly
 until the migrations land: no Platform tab, no Workflow toggle, client edits keep
@@ -760,7 +760,7 @@ fee transparency. Full framing in ROADMAP ("Advisor-workflow review").
 
 ## 2026-06-09 (round 6) - W-2 import → parsed marginal rate (front-phase data play)
 
-Closes the last open **front-phase data play** in the Claude queue: replaces the
+Closes the last open **front-phase data play** in the build queue: replaces the
 hand-entered marginal rate with a figure parsed off the household's actual W-2.
 Build · lint · calc · check green; new calc engine unit-tested. **No migration, no
 secrets, no money** - profile is a JSON blob, so the new field rides existing storage.
@@ -854,7 +854,7 @@ your queue. The `generate-invoices` redeploy rides the gated workflow with this 
 
 ## 2026-06-09 (round 4) - White-label branding + AI relationship assistant (Gemini)
 
-Closes the top two items in Claude's TODO queue. Build · lint · calc · check green.
+Closes the top two items in the TODO build queue. Build · lint · calc · check green.
 **Carries migration `032_firm_branding.sql`** (applied with the ship) and a **new edge
 function `ai-assist`** (deployed, `verify_jwt = true`, uses the `GEMINI_API_KEY` secret).
 
@@ -1038,7 +1038,7 @@ bracket picker). Verified in browser preview against the demo household; full `n
 (build + smoke + 40+ calc assertions) green.
 
 Also folded in two previously-staged repo aids: **`docs/ARCHITECTURE.md`** (condensed repo
-map to cut re-exploration cost across chat clears) and **`CLAUDE.md`** (session-start
+map to cut re-exploration cost across chat clears) and **the project instructions file** (session-start
 directive to read the map first). No schema, secrets, or money touched - purely client-side.
 
 **PR:** _(this sprint)_ · **Deploy:** auto-merge → Cloudflare live; no human hand-off required.
@@ -1209,7 +1209,7 @@ documents ride the existing acknowledgements flow (migration 017) and the
 
 **PRs:** #65 (pages + content), #66 (deploy retrigger), #67 (src sweep). All merged, all checks green, LIVE.
 
-- **New foundational style rule (CLAUDE.md):** never use em-dashes anywhere
+- **New foundational style rule (project instructions):** never use em-dashes anywhere
   (copy, titles, UI strings, docs, commit messages). Titles use
   "Prism | X"; prose uses comma, colon, period, or spaced hyphen " - ".
   Triggered by founder preference plus a real bug: HTML pages on disk held
@@ -1228,7 +1228,7 @@ documents ride the existing acknowledgements flow (migration 017) and the
 bust the share-preview cache (also picks up the round-16 OG image). The
 existing launch post keeps its old snapshot unless deleted and re-shared.
 
-**Files:** `CLAUDE.md`, 11 root HTML pages, `content/pages.mjs`, `src/*`.
+**Files:** the project instructions file, 11 root HTML pages, `content/pages.mjs`, `src/*`.
 
 ## 2026-06-11 - Round 18: phase-copy polish, two new planning samples, platform last-login
 
@@ -1452,11 +1452,11 @@ The user approved all seven round-22 design tracks (SSN default-no overridden:
 `.github/workflows/deploy.yml`, `docs/{guides/advisor-onboarding.md,TODO,ROADMAP,ARCHITECTURE,sprint-log}.md`.
 
 **Setup addendum (2026-06-12):** all three activation steps completed same-day,
-Claude-run with explicit user authorization - migration 044 applied via the
+run with explicit user authorization - migration 044 applied via the
 Management API (verified: RLS on, zero policies/grants), `IDENTIFIER_ENC_KEY`
 generated + set (user holds the copy from chat), gated deploy run 27424899440
 green with `client-identifiers` ACTIVE. The encrypted SSN store is fully live.
-**Operating-model change:** repo migrations are now Claude-applied to prod via
+**Operating-model change:** repo migrations are now applied to prod via
 the Management API after PR merge (the PR is the approval gate; `db push`
 remains forbidden - the migration ledger stays unmanaged).
 
