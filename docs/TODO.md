@@ -30,8 +30,8 @@ gated-deployed on merge, so repo = live again (18 repo edge functions).
 These need nothing from you. Say the word on any one and I ship it.
 
 - [ ] **More in-app guides** *(pipeline is one markdown file per guide → searchable Help
-  drawer + printable `/guides/<slug>/`).* Live now (6): advisor onboarding, client portal,
-  firm-admin, integrations & API, compliance & exams, **planning tools** (sprint 29).
+  drawer + printable `/guides/<slug>/`).* Live now (7): advisor onboarding, client portal,
+  firm-admin, integrations & API, compliance & exams, planning tools, **AI assistant**.
   Next candidates: per-surface walkthrough clips. Pick one and I write it.
 
 ## Build when unblocked
