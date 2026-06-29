@@ -1,11 +1,11 @@
-# Prism marketing automation — drip-published content
+# Prism marketing automation | drip-published content
 
 A dozen B2B pages are **pre-written** in `content/pages.mjs` and go live automatically on a
-staggered schedule. No runtime generation, no claude.ai dependency, no local machine, no secrets.
+staggered schedule. No runtime generation, no local machine, no secrets.
 
 ## How it works
 1. **Each page has a `publishAt` date.** `build.mjs` only renders (and sitemaps) pages whose
-   date has arrived — future ones are invisible: not in the HTML, not in the sitemap.
+   date has arrived; future ones are invisible: not in the HTML, not in the sitemap.
 2. **`.github/workflows/scheduled-publish.yml`** runs daily (09:00 UTC). It calls
    `scripts/publish-due.mjs`, which compares `publishAt` dates to today against
    `content/published.json`.

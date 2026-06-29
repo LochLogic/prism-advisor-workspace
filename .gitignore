@@ -20,7 +20,7 @@ desktop.ini
 *.suo
 *.user
 
-# Claude Code (local agent settings / launch config)
+# Local agent / editor settings
 .claude/
 
 # Logs
