@@ -143,9 +143,11 @@ Deno.serve(async (req) => {
         headers: { "Content-Type": "application/json", "x-goog-api-key": key },
         body: JSON.stringify({
           contents: [{ role: "user", parts }],
+          // No temperature/top_p/top_k: Google deprecated them (Oct 2026) and
+          // upcoming models reject requests that carry them with a 400.
           generationConfig: action === "w2_extract"
-            ? { temperature: 0, maxOutputTokens: 256, responseMimeType: "application/json" }
-            : { temperature: 0.6, maxOutputTokens: 1024 },
+            ? { maxOutputTokens: 256, responseMimeType: "application/json" }
+            : { maxOutputTokens: 1024 },
         }),
       },
     );
